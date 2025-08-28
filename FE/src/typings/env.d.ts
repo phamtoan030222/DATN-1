@@ -22,3 +22,4 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+console.log(import.meta.env.VITE_BASE_URL);
