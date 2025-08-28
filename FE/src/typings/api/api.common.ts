@@ -1,27 +1,27 @@
 export interface PaginationParams {
-  page?: number
-  size?: number
-  orderBy?: string
-  sortBy?: string
-  q?: string
+  page?: number;
+  size?: number;
+  orderBy?: string;
+  sortBy?: string;
+  q?: string;
 }
 
 export interface DefaultResponse<T> {
-  data: T
-  message: string
-  status: string
-  success: boolean
+  data: T;
+  message: string;
+  status: string;
+  success: boolean;
 }
 
 export interface PaginationResponse<T> {
-  data: T
-  content: T
-  totalPages: number
-  totalElements: number
-  currentPage: number
+  data: T;
+  content: T;
+  totalPages: number;
+  totalElements: number;
+  currentPage: number;
 }
 
 export type ResponseList = {
-  id?: string
-  orderNumber?: number
-}
+  id?: string;
+  orderNumber?: number;
+};
