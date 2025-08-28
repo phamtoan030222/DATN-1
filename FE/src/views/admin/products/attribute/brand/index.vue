@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, h, reactive } from "vue";
+import { ref, h, reactive, computed } from "vue";
 import {
   NCard,
   NSpace,
@@ -18,26 +18,23 @@ import {
 import { Icon } from "@iconify/vue";
 import { createIcon } from "@/utils";
 
-// --- message ---
 const message = useMessage();
 
-// --- dữ liệu cứng ---
 interface Brand {
   id: number;
   code: string;
   name: string;
   status: "active" | "inactive";
 }
+
 const tableData = ref<Brand[]>([
   { id: 1, code: "BR001", name: "Apple", status: "active" },
   { id: 2, code: "BR002", name: "Samsung", status: "inactive" },
   { id: 3, code: "BR003", name: "Xiaomi", status: "active" },
 ]);
 
-// --- checked rows ---
 const checkedRowKeys = ref<number[]>([]);
 
-// --- modal state ---
 const modalVisible = ref(false);
 const modalMode = ref<"add" | "edit">("add");
 const modalRow = ref<Brand | null>(null);
@@ -47,16 +44,18 @@ const formData = reactive({
   status: true,
 });
 
-// --- phân trang ---
 const currentPage = ref(1);
 const pageSize = ref(5);
 const total = ref(tableData.value.length);
 
-// --- modal methods ---
-function openModal(mode: "add" | "edit", row?: Brand) {
-  modalMode.value = mode;
-  modalVisible.value = true;
-  if (mode === "edit" && row) {
+const paginatedData = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return tableData.value.slice(start, start + pageSize.value);
+});
+
+function openModal(type: "add" | "edit", row?: Brand) {
+  modalMode.value = type;
+  if (type === "edit" && row) {
     modalRow.value = row;
     formData.code = row.code;
     formData.name = row.name;
@@ -67,6 +66,7 @@ function openModal(mode: "add" | "edit", row?: Brand) {
     formData.name = "";
     formData.status = true;
   }
+  modalVisible.value = true;
 }
 
 function closeModal() {
@@ -78,6 +78,7 @@ function saveBrand() {
     message.warning("Vui lòng nhập đầy đủ Mã và Tên thương hiệu");
     return;
   }
+
   if (modalMode.value === "add") {
     const newBrand: Brand = {
       id: tableData.value.length
@@ -96,10 +97,10 @@ function saveBrand() {
     modalRow.value.status = formData.status ? "active" : "inactive";
     message.success(`Cập nhật thương hiệu ${modalRow.value.name} thành công`);
   }
+
   closeModal();
 }
 
-// --- table actions ---
 function deleteBrand(id: number) {
   tableData.value = tableData.value.filter((b) => b.id !== id);
   total.value = tableData.value.length;
@@ -110,11 +111,11 @@ function handleDeleteSelected() {
   tableData.value = tableData.value.filter(
     (b) => !checkedRowKeys.value.includes(b.id)
   );
-  total.value = tableData.value.length;
   message.success(
     `Xóa hàng loạt thương hiệu id: ${checkedRowKeys.value.join(", ")}`
   );
   checkedRowKeys.value = [];
+  total.value = tableData.value.length;
 }
 
 function handleStatusChange(row: Brand, value: boolean) {
@@ -126,8 +127,13 @@ function handlePageChange(page: number) {
   currentPage.value = page;
 }
 
-// --- table columns ---
+function refreshTable() {
+  message.info("Đã làm mới bảng dữ liệu");
+}
+
+// --- columns có thêm selection ---
 const columns = [
+  { type: "selection", width: 50, align: "center" },
   { title: "Mã", key: "code", width: 120 },
   { title: "Tên thương hiệu", key: "name", ellipsis: { tooltip: true } },
   {
@@ -138,7 +144,7 @@ const columns = [
     render: (row: Brand) =>
       h(NSwitch, {
         value: row.status === "active",
-        "onUpdate:value": (val: boolean) => handleStatusChange(row, val),
+        onUpdateValue: (val: boolean) => handleStatusChange(row, val),
         size: "small",
       }),
   },
@@ -148,65 +154,37 @@ const columns = [
     align: "center",
     width: 150,
     render: (row: Brand) =>
-      h(
-        NSpace,
-        { justify: "center" },
-        {
-          default: () => [
-            h(
-              NButton,
-              {
-                circle: true,
-                size: "small",
-                type: "primary",
-                title: "Xem",
-                onClick: () => openModal("edit", row),
-              },
-              {
-                default: () =>
-                  createIcon("icon-park-outline-view", { size: 18 }),
-              }
-            ),
-            h(
-              NButton,
-              {
-                circle: true,
-                size: "small",
-                type: "primary",
-                title: "Chỉnh sửa",
-                onClick: () => openModal("edit", row),
-              },
-              {
-                default: () =>
-                  createIcon("icon-park-outline-edit", { size: 18 }),
-              }
-            ),
-            h(
-              NPopconfirm,
-              { onPositiveClick: () => deleteBrand(row.id) },
-              {
-                trigger: () =>
-                  h(
-                    NButton,
-                    {
-                      circle: true,
-                      size: "small",
-                      type: "error",
-                      title: "Xóa",
-                    },
-                    {
-                      default: () =>
-                        createIcon("icon-park-outline-delete-five", {
-                          size: 18,
-                        }),
-                    }
-                  ),
-                default: () => "Xác nhận xóa thương hiệu này?",
-              }
-            ),
-          ],
-        }
-      ),
+      h(NSpace, { justify: "center" }, () => [
+        h(
+          NButton,
+          {
+            circle: true,
+            size: "small",
+            type: "primary",
+            title: "Chỉnh sửa",
+            onClick: () => openModal("edit", row),
+          },
+          () => createIcon("icon-park-outline:write", { size: 18 })
+        ),
+        h(
+          NPopconfirm,
+          { onPositiveClick: () => deleteBrand(row.id) },
+          {
+            trigger: () =>
+              h(
+                NButton,
+                {
+                  circle: true,
+                  size: "small",
+                  type: "error",
+                  title: "Xóa",
+                },
+                () => createIcon("icon-park-outline:delete-five", { size: 18 })
+              ),
+            default: () => "Xác nhận xóa thương hiệu này?",
+          }
+        ),
+      ]),
   },
 ];
 </script>
@@ -219,9 +197,9 @@ const columns = [
         <NIcon size="24">
           <Icon :icon="'carbon:carbon-ui-builder'" />
         </NIcon>
-        <span style="font-weight: 600; font-size: 24px"
-          >Quản lý Thương hiệu</span
-        >
+        <span style="font-weight: 600; font-size: 24px">
+          Quản lý Thương hiệu
+        </span>
       </NSpace>
       <span>Quản lý danh sách thương hiệu có mặt tại cửa hàng</span>
     </NSpace>
@@ -229,28 +207,65 @@ const columns = [
 
   <!-- Bảng + Nút -->
   <n-card style="margin-top: 16px">
+    <!-- Header card -->
     <template #header>
-      <NSpace>
-        <NButton
-          type="primary"
-          circle
-          title="Thêm mới"
-          @click="openModal('add')"
-        >
-          {{ createIcon("icon-park-outline-add-one", { size: 20 }) }}
-        </NButton>
-        <NButton type="primary" secondary circle title="Làm mới">
-          {{ createIcon("icon-park-outline-refresh", { size: 20 }) }}
-        </NButton>
-        <NPopconfirm @positive-click="handleDeleteSelected">
-          <template #trigger>
-            <NButton type="error" secondary circle title="Xóa hàng loạt">
-              {{ createIcon("icon-park-outline-delete-five", { size: 20 }) }}
-            </NButton>
-          </template>
-          Xác nhận xóa tất cả thương hiệu đã chọn?
-        </NPopconfirm>
-      </NSpace>
+      <div
+        style="
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        "
+      >
+        <span style="font-weight: 600; font-size: 24px">
+          Danh sách thương hiệu
+        </span>
+        <NSpace>
+          <NInput
+            v-model:value="searchKeyword"
+            placeholder="Tìm kiếm thương hiệu..."
+            clearable
+            style="width: 220px"
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <NIcon size="18">
+                <Icon :icon="'carbon:search'" />
+              </NIcon>
+            </template>
+          </NInput>
+          <NButton
+            type="primary"
+            circle
+            title="Thêm mới"
+            @click="openModal('add')"
+          >
+            <NIcon size="24">
+              <Icon :icon="'carbon:add'" />
+            </NIcon>
+          </NButton>
+          <NButton
+            type="primary"
+            secondary
+            circle
+            title="Làm mới"
+            @click="refreshTable"
+          >
+            <NIcon size="24">
+              <Icon :icon="'carbon:rotate'" />
+            </NIcon>
+          </NButton>
+          <NPopconfirm @positive-click="handleDeleteSelected">
+            <template #trigger>
+              <NButton type="error" secondary circle title="Xóa hàng loạt">
+                <NIcon size="24">
+                  <Icon :icon="'icon-park-outline:delete'" />
+                </NIcon>
+              </NButton>
+            </template>
+            Xác nhận xóa tất cả thương hiệu đã chọn?
+          </NPopconfirm>
+        </NSpace>
+      </div>
     </template>
 
     <!-- Bảng dữ liệu -->
@@ -258,7 +273,7 @@ const columns = [
       v-model:checked-row-keys="checkedRowKeys"
       :row-key="(row) => row.id"
       :columns="columns"
-      :data="tableData"
+      :data="paginatedData"
       size="small"
     />
 
@@ -271,14 +286,14 @@ const columns = [
       style="margin-top: 16px"
       :show-size-picker="false"
     />
-
-    <!-- Modal -->
-    <NModal
-      v-model:show="modalVisible"
+  </n-card>
+  <!-- Modal -->
+  <NModal v-model:show="modalVisible" mask-closable>
+    <NCard
       :title="
         modalMode === 'add' ? 'Thêm mới thương hiệu' : 'Chỉnh sửa thương hiệu'
       "
-      mask-closable
+      style="max-width: 600px; background: #f9fafb; border-radius: 12px"
     >
       <NForm labelPlacement="left" labelWidth="120px">
         <NFormItem label="Mã">
@@ -297,12 +312,13 @@ const columns = [
           <NSwitch v-model:value="formData.status" />
         </NFormItem>
       </NForm>
+
       <NSpace justify="end" style="margin-top: 16px">
         <NButton @click="closeModal">Hủy</NButton>
         <NButton type="primary" @click="saveBrand">
           {{ modalMode === "add" ? "Thêm mới" : "Cập nhật" }}
         </NButton>
       </NSpace>
-    </NModal>
-  </n-card>
+    </NCard>
+  </NModal>
 </template>
