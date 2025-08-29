@@ -1,21 +1,20 @@
 <script setup lang="ts">
-import { useAppStore } from '@/store'
+import { useAppStore } from "@/store";
 
-const appStore = useAppStore()
+const appStore = useAppStore();
 
-let previousLayoutMode = appStore.layoutMode
+let previousLayoutMode = appStore.layoutMode;
 
 function enterFullContent() {
-  previousLayoutMode = appStore.layoutMode
-  appStore.layoutMode = 'full-content'
+  previousLayoutMode = appStore.layoutMode;
+  appStore.layoutMode = "full-content";
 }
 
 function exitFullContent() {
-  // 如果是全屏或者数据不存在，则恢复为默认的vertical
-  if (previousLayoutMode === 'full-content' || !previousLayoutMode) {
-    previousLayoutMode = 'vertical'
+  if (previousLayoutMode === "full-content" || !previousLayoutMode) {
+    previousLayoutMode = "vertical";
   }
-  appStore.layoutMode = previousLayoutMode
+  appStore.layoutMode = previousLayoutMode;
 }
 </script>
 
@@ -26,7 +25,7 @@ function exitFullContent() {
         <icon-park-outline-full-screen-one />
       </CommonWrapper>
     </template>
-    {{ $t('app.togglContentFullScreen') }}
+    {{ $t("app.togglContentFullScreen") }}
   </n-tooltip>
 
   <Teleport to="body">
@@ -43,7 +42,7 @@ function exitFullContent() {
             <icon-park-outline-off-screen-one />
           </n-el>
         </template>
-        {{ $t('app.togglContentFullScreen') }}
+        {{ $t("app.togglContentFullScreen") }}
       </n-tooltip>
     </div>
   </Teleport>
