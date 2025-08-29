@@ -132,7 +132,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     requiresAuth: true,
     icon: "icon-park-outline:cpu",
     menuType: "page",
-    componentPath: "/products/attribute/cpu/index.vue",
+    componentPath: "/admin/products/attribute/cpu/index.vue",
     id: 30303,
     pid: 303,
   },

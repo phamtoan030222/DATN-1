@@ -4,10 +4,10 @@ import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings
 import { AxiosResponse } from 'axios'
 
 export type ADProductCPURequest = PaginationParams & {
-  brand?: string,
-  releaseYear?: number | undefined,
-  generation?: string,
-  series?: string,
+  brand: string,
+  releaseYear: number | null,
+  generation: string,
+  series: string,
 }
 
 export type ADProductCPUCreateUpdateRequest = {
