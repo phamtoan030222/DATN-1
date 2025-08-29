@@ -1,0 +1,18 @@
+export default {
+  'menu.profile': 'Discount',
+  'menu.profile.basic': 'Voucher',
+  'menu.discount.coupon': 'Voucher',
+  'voucher.title': 'Voucher',
+  'voucher.column.code': 'Code',
+  'voucher.column.name': 'Name',
+  'voucher.column.type': 'Type',
+  'voucher.column.decreaseUnit': 'Decrease Unit',
+  'voucher.column.scope': 'Scope',
+  'voucher.column.customer': "Customer's Email",
+  'voucher.column.maxReduction': 'Maximum Reduction',
+  'voucher.column.start': 'Start ',
+  'voucher.column.end': 'End',
+  'voucher.column.condition': 'Condition',
+  'voucher.column.operation': 'Operation',
+  'voucher.cell.view': 'view',
+}

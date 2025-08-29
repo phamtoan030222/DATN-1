@@ -18,3 +18,4 @@ export const API_ADMIN_PRODUCT_DETAIL = `${API_ADMIN_PRODUCTS}/product-detail` a
 export const API_ADMIN_PRODUCT_BRAND = `${API_ADMIN_PRODUCTS}/brand` as string
 export const API_ADMIN_PRODUCT_OPERATING_SYSTEM = `${API_ADMIN_PRODUCTS}/operating` as string
 export const API_ADMIN_BATTERY = `${API_ADMIN_PRODUCTS}/battery` as string
+export const API_ADMIN_PRODUCT_VOUCHER = `${API_ADMIN_PRODUCTS}/voucher` as string
