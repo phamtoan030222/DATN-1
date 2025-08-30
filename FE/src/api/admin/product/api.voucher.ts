@@ -2,6 +2,7 @@ import type { DefaultResponse, PaginationParams } from '@/api/api.common'
 import request from '@/api/request'
 import { API_ADMIN_PRODUCT_VOUCHER } from '@/constants/url'
 import type { AxiosResponse } from 'axios'
+import axios from 'axios'
 
 export interface ADVoucherQuery {
   page: number
@@ -24,6 +25,7 @@ export interface ADVoucherResponse {
   conditions: number // Rename từ conditionOfUse
   note: string | null
   status: string | null
+  customers: [] | null
 }
 
 // Hàm getVouchers: Return {content: array, totalElements: number} để component dùng trực tiếp
@@ -79,13 +81,33 @@ export async function getVoucherById(id: string) {
 // Hàm update status (adjust theo backend)
 export async function updateVoucherStatus(id: string, newStatus: 'ACTIVE' | 'INACTIVE') {
   try {
-    const res = await request(`${API_ADMIN_PRODUCT_VOUCHER}/${id}/status`, {  // Adjust endpoint nếu khác, ví dụ: /voucher/{id}
-      method: 'PUT',  // Hoặc PATCH nếu backend dùng
+    const res = await request(`${API_ADMIN_PRODUCT_VOUCHER}/${id}/status`, { // Adjust endpoint nếu khác, ví dụ: /voucher/{id}
+      method: 'PUT', // Hoặc PATCH nếu backend dùng
       data: { status: newStatus },
-    });
-    return res.data;  // Return updated voucher nếu cần
-  } catch (error) {
-    console.error('Failed to update voucher status:', error);
-    throw error;  // Để component catch
+    })
+    return res.data // Return updated voucher nếu cần
   }
+  catch (error) {
+    console.error('Failed to update voucher status:', error)
+    throw error // Để component catch
+  }
+}
+
+export async function deleteVoucher(id: string) {
+  return axios.delete(`${API_ADMIN_PRODUCT_VOUCHER}/${id}`)
+}
+
+// Xoá nhiều
+export async function deleteVouchers(ids: string[]) {
+  return axios.delete(`${API_ADMIN_PRODUCT_VOUCHER}`, { data: ids })
+}
+
+// Thêm
+export function createVoucher(data: any) {
+  return request.post(`${API_ADMIN_PRODUCT_VOUCHER}`, data)
+}
+
+// Sửa
+export function updateVoucher(id: string, data: any) {
+  return request.put(`${API_ADMIN_PRODUCT_VOUCHER}/${id}`, data)
 }

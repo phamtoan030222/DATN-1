@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.admin.discount.voucher.motel.response;
+package com.sd20201.datn.core.admin.discount.voucher.model.response;
 
 import com.sd20201.datn.infrastructure.constant.TargetType;
 import com.sd20201.datn.infrastructure.constant.TypeVoucher;

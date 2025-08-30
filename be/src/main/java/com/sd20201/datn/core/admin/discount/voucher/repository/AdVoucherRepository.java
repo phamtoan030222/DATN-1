@@ -1,7 +1,7 @@
 package com.sd20201.datn.core.admin.discount.voucher.repository;
 
-import com.sd20201.datn.core.admin.discount.voucher.motel.request.AdVoucherRequest;
-import com.sd20201.datn.core.admin.discount.voucher.motel.response.AdVoucherResponse;
+import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherRequest;
+import com.sd20201.datn.core.admin.discount.voucher.model.response.AdVoucherResponse;
 import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.repository.VoucherRepository;
 import org.springframework.data.domain.Page;
@@ -54,4 +54,5 @@ public interface AdVoucherRepository extends VoucherRepository {
     Optional<AdVoucherResponse> getVoucherById(@Param("id") String id);
 
     Optional<Voucher> findVoucherByCode(String code);
+    Optional<Voucher> findVoucherByName(String name);
 }

@@ -1,15 +1,18 @@
 package com.sd20201.datn.core.admin.discount.voucher.service.impl;
 
-import com.sd20201.datn.core.admin.discount.voucher.motel.request.AdVoucherCreateUpdateRequest;
-import com.sd20201.datn.core.admin.discount.voucher.motel.request.AdVoucherRequest;
+import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherCreateUpdateRequest;
+import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.admin.discount.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.admin.discount.voucher.service.AdVoucherService;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.Voucher;
+import com.sd20201.datn.entity.VoucherDetail;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
+import com.sd20201.datn.repository.CustomerRepository;
+import com.sd20201.datn.repository.VoucherDetailRepository;
 import com.sd20201.datn.utils.Helper;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -29,7 +32,9 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class AdVoucherServiceImpl implements AdVoucherService {
     private final AdVoucherRepository voucherRepository;
-//    private final JavaMailSender mailSender;
+    private final CustomerRepository customerRepository;
+    private final VoucherDetailRepository voucherDetailRepository;
+    //    private final JavaMailSender mailSender;
     private static final Logger logger = LoggerFactory.getLogger(AdVoucherServiceImpl.class);
 
 
@@ -62,7 +67,13 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             throw new DuplicateKeyException("Mã voucher đã tồn tại: " + request.getCode());
         }
 
+        if (voucherRepository.findVoucherByName(request.getName()).isPresent()) {
+            logger.warn("Duplicate voucher code attempted: {}", request.getName());
+            throw new DuplicateKeyException("Tên voucher đã tồn tại: " + request.getName());
+        }
+
         Voucher voucher = new Voucher();
+        voucher.setCode(Helper.generateCodeVoucher());
         mapRequestToVoucher(request, voucher);
         voucher = voucherRepository.save(voucher);
 
@@ -96,12 +107,41 @@ public class AdVoucherServiceImpl implements AdVoucherService {
     }
 
     @Override
-    public void distributeToCustomers(String voucherId, List<String> userIds) {
+    public ResponseObject<?> deleteById(String id) {
+        voucherRepository.deleteById(id);
+        return ResponseObject.successForward(null, "xoá thành công");
+    }
 
+    @Override
+    public ResponseObject<?> deleteAllByIds(List<String> ids) {
+        voucherRepository.deleteAllById(ids);
+        return ResponseObject.successForward(null, "xoá thành công");
+    }
+
+    @Override
+    public void distributeToCustomers(String voucherId, List<String> customerIds) {
+        Voucher voucher = voucherRepository.findById(voucherId).orElseThrow();
+        if (voucher.getTargetType() != TargetType.INDIVIDUAL) {
+            throw new IllegalArgumentException("Chỉ áp dụng cho INDIVIDUAL");
+        }
+        for (String customerId : customerIds) {
+            Customer customer = customerRepository.findById(customerId).orElseThrow();
+            VoucherDetail vd = new VoucherDetail();
+            vd.setVoucher(voucher);
+            vd.setCustomer(customer);
+            voucherDetailRepository.save(vd);
+            // Giảm remainingQuantity nếu cần
+            voucher.setRemainingQuantity(voucher.getRemainingQuantity() - 1);
+        }
+        voucherRepository.save(voucher);
+    }
+
+    private List<String> customerIds() {
+        return null;
     }
 
     private void mapRequestToVoucher(AdVoucherCreateUpdateRequest request, Voucher voucher) {
-        voucher.setCode(request.getCode());
+
         voucher.setName(request.getName());
         voucher.setTargetType(request.getTargetType());
         voucher.setTypeVoucher(request.getTypeVoucher());
@@ -112,10 +152,11 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         voucher.setStartDate(request.getStartDate());
         voucher.setEndDate(request.getEndDate());
         voucher.setConditions(request.getConditions());
+        voucher.setNote(request.getNote());
 
     }
 
-//    public void distributeToCustomers(String voucherId, List<Long> customerIds) {
+//    public void distributeToCustomers(String voucherId, List<String> customerIds) {
 //        Voucher voucher = voucherRepository.findById(voucherId).orElseThrow();
 //        if (voucher.getTargetType() != TargetType.INDIVIDUAL) {
 //            throw new IllegalArgumentException("Chỉ áp dụng cho INDIVIDUAL");

@@ -1,7 +1,7 @@
 package com.sd20201.datn.core.admin.discount.voucher.service;
 
-import com.sd20201.datn.core.admin.discount.voucher.motel.request.AdVoucherCreateUpdateRequest;
-import com.sd20201.datn.core.admin.discount.voucher.motel.request.AdVoucherRequest;
+import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherCreateUpdateRequest;
+import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -21,6 +21,10 @@ public interface AdVoucherService {
 
     @Transactional
     ResponseObject<?> update(@PathVariable String id, @Valid AdVoucherCreateUpdateRequest request);
+
+    public ResponseObject<?> deleteById(String id) ;
+
+    public ResponseObject<?> deleteAllByIds(List<String> ids) ;
 
     public void distributeToCustomers(String voucherId, List<String> userIds);
 }
