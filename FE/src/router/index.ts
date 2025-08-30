@@ -8,6 +8,7 @@ import { setupRouterGuard } from "./guard";
 import { routes } from "./routes.inner";
 
 const { VITE_ROUTE_MODE = "hash", VITE_BASE_URL } = import.meta.env;
+
 export const router = createRouter({
   history:
     VITE_ROUTE_MODE === "hash"

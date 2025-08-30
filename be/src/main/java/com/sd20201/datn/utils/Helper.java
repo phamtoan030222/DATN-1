@@ -147,4 +147,8 @@ public class Helper {
         return "PD" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
 
+    public static String generateCodeVoucher() {
+        return "VC" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+    }
+
 }
