@@ -8,7 +8,7 @@ public interface ADProductDetailResponse extends IsIdentify {
 
     String getName();
 
-    String getBrand();
+    String getIdBrand();
 
     String getIdBattery();
 

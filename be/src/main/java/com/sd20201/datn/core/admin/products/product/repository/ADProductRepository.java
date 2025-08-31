@@ -19,6 +19,7 @@ public interface ADProductRepository extends ProductRepository {
         p.id as id
         , p.code as code
         , p.name as name
+        , p.status as status
         , p.screen.name as screen
         , p.battery.name as battery
         , p.brand.name as brand

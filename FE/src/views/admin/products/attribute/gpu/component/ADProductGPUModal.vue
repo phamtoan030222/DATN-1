@@ -1,6 +1,6 @@
 <template>
   <n-modal :show="isOpen">
-    <n-card style="width: 600px" :title="id ? (isDetail ? 'Chi tiết CPU' : 'Cập nhật CPU') : 'Thêm CPU'"
+    <n-card style="width: 600px" :title="id ? (isDetail ? 'Chi tiết GPU' : 'Cập nhật GPU') : 'Thêm GPU'"
       :bordered="false" size="huge" role="dialog" aria-modal="true">
       <template #header-extra>
         <n-button @click="handleClickCancel">
@@ -12,23 +12,23 @@
       <div :style="{ maxHeight: '400px', overflowY: 'auto' }">
         <n-form>
           <n-form-item label="Mã">
-            <n-input v-model:value="detailCPU.code" placeholder="Nhập mã"></n-input>
+            <n-input v-model:value="detailGPU.code" placeholder="Nhập mã"></n-input>
           </n-form-item>
           <n-form-item label="Tên">
-            <n-input v-model:value="detailCPU.name" placeholder="Nhập tên"></n-input>
+            <n-input v-model:value="detailGPU.name" placeholder="Nhập tên"></n-input>
           </n-form-item>
           <n-form-item label="Thế hệ">
-            <n-input v-model:value="detailCPU.generation" placeholder="Nhập thế hệ"></n-input>
+            <n-input v-model:value="detailGPU.generation" placeholder="Nhập thế hệ"></n-input>
           </n-form-item>
-          <n-form-item label="Dòng CPU">
-            <n-input v-model:value="detailCPU.series" placeholder="Nhập dòng CPU"></n-input>
+          <n-form-item label="Dòng GPU">
+            <n-input v-model:value="detailGPU.series" placeholder="Nhập dòng GPU"></n-input>
           </n-form-item>
           <n-form-item label="Hãng">
-            <n-select v-model:value="detailCPU.brand" :options="brandOptionsSelect"
+            <n-select v-model:value="detailGPU.brand" :options="brandOptionsSelect"
               :placeholder="'Chọn hãng'"></n-select>
           </n-form-item>
           <n-form-item label="Năm phát hành">
-            <n-date-picker v-model:value="detailCPU.releaseYear" type="year" clearable
+            <n-date-picker v-model:value="detailGPU.releaseYear" type="year" clearable
               placeholder="Chọn năm phát hành" />
           </n-form-item>
         </n-form>
@@ -52,12 +52,10 @@
 </template>
 
 <script setup lang="ts">
-import { ADProductCPUResponse, getCPUById, modifyCPU } from '@/service/api/admin/product/cpu.api';
-import { convertMsToYear, convertYearToMs } from '@/utils/helper';
-import { Icon } from '@iconify/vue';
+import { ADProductGPUResponse, getGPUById, modifyGPU } from '@/service/api/admin/product/gpu.api';
 import { Ref, ref, watch } from 'vue'
-
-const notification = useNotification();
+import { Icon } from '@iconify/vue';
+import { convertMsToYear, convertYearToMs } from '@/utils/helper';
 
 const props = defineProps<{
   isOpen: boolean
@@ -65,9 +63,11 @@ const props = defineProps<{
   isDetail: boolean
 }>()
 
+const notification = useNotification();
+
 const emit = defineEmits(['success', 'close'])
 
-const detailCPU: Ref<ADProductCPUResponse> = ref({
+const detailGPU: Ref<ADProductGPUResponse> = ref({
   code: '',
   name: '',
   description: '',
@@ -77,18 +77,18 @@ const detailCPU: Ref<ADProductCPUResponse> = ref({
   releaseYear: 0,
 })
 
-const fetchDetailCPU = async () => {
-  const res = await getCPUById(props.id as string)
+const fetchDetailGPU = async () => {
+  const res = await getGPUById(props.id as string)
 
   const data = res.data;
 
   data.releaseYear = convertYearToMs(data.releaseYear)
 
-  detailCPU.value = data
+  detailGPU.value = data
 }
 
 const resetField = () => {
-  detailCPU.value = {
+  detailGPU.value = {
     code: '',
     name: '',
     description: '',
@@ -102,7 +102,7 @@ const resetField = () => {
 watch(
   () => props.id,
   (newId) => {
-    if (newId) fetchDetailCPU()
+    if (newId) fetchDetailGPU()
     else resetField()
   }
 )
@@ -112,21 +112,26 @@ const handleClickCancel = () => {
 }
 
 const handleClickOK = async () => {
-  const data = detailCPU.value;
+  const data = detailGPU.value;
 
   data.releaseYear = convertMsToYear(data.releaseYear)
 
-  const res = await modifyCPU(data)
+  const res = await modifyGPU(data)
   console.log(res.success)
-  if (res.success) notification.success({ content: props.id ? 'Cập nhật cpu thành công' : 'Thêm CPU thành công', duration: 3000 })
-  else notification.error({ content: props.id ? 'Cập nhật CPU thất bại' : 'Thêm CPU thất bại', duration: 3000 })
+  if (res.success) notification.success({ content: props.id ? 'Cập nhật GPU thành công' : 'Thêm GPU thành công', duration: 3000 })
+  else notification.error({ content: props.id ? 'Cập nhật GPU thất bại' : 'Thêm GPU thất bại', duration: 3000 })
   emit('success')
 }
 
 const brandOptionsSelect = [
-  { label: 'Intel', value: 'Intel' },
-  { label: 'AMD', value: 'AMD' },
-  { label: 'Apple', value: 'Apple' },
+  {
+    value: 'AMD',
+    label: 'AMD'
+  },
+  {
+    value: 'NVIDIA',
+    label: 'NVIDIA'
+  },
 ]
 </script>
 

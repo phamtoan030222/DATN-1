@@ -4,16 +4,16 @@
             <NSpace vertical :size="8">
                 <NSpace align="center">
                     <NIcon size="24">
-                        <Icon icon="icon-park-outline:cpu" />
+                        <Icon icon="icon-park-outline:full-screen-play" />
                     </NIcon>
                     <span style="font-weight: 600; font-size: 24px">
-                        Quản lý CPU
+                        Quản lý GPU
                     </span>
                 </NSpace>
-                <span>Quản lý thuộc tính CPU của sản phẩm</span>
+                <span>Quản lý thuộc tính GPU của sản phẩm</span>
             </NSpace>
         </n-card>
-        <n-card title="Bộ lọc" class="mt-20px">
+        <n-card title="Bô lọc" class="mt-20px">
             <n-grid x-gap="12" :cols="11">
                 <n-grid-item span="2">
                     <span>Tìm kiếm</span>
@@ -56,7 +56,7 @@
                 </n-grid-item>
             </n-grid>
         </n-card>
-        <n-card title="Danh sách CPU" class="mt-20px">
+        <n-card title="Danh sách GPU" class="mt-20px">
             <template #header-extra>
                 <n-space justify="end">
                     <n-button circle type="primary" @click="clickOpenModal()">
@@ -64,7 +64,7 @@
                     </n-button>
                 </n-space>
             </template>
-            <n-data-table class="mt-20px" :columns="columns" :data="state.data.cpus" :bordered="false" />
+            <n-data-table :columns="columns" :data="state.data.GPUs" :bordered="false" />
 
             <n-space justify="center" class="mt-20px">
                 <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
@@ -72,17 +72,17 @@
             </n-space>
         </n-card>
 
-        <ADProductCPUModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
-            :id="cpuIDSelected" @close="closeModal" />
+        <ADProductGPUModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
+            :id="GPUIDSelected" @close="closeModal" />
     </div>
 </template>
 
 <script lang="ts" setup>
 import { onMounted, reactive, Ref, ref, watch } from 'vue'
 import { debounce } from 'lodash'
-import { ADProductCPUResponse, changeCPUStatus, getCPUs } from '@/service/api/admin/product/cpu.api'
-import { DataTableColumns, NButton, NIcon, NSpace, NSwitch } from 'naive-ui'
-import ADProductCPUModal from './component/ADProductCPUModal.vue'
+import ADProductGPUModal from './component/ADProductGPUModal.vue'
+import { ADProductGPUResponse, changeGPUStatus, getGPUs } from '@/service/api/admin/product/gpu.api'
+import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 
 const state = reactive({
@@ -91,10 +91,10 @@ const state = reactive({
         brand: '',
         generation: '',
         series: '',
-        releaseYear: null as number | null,
+        releaseYear: undefined as number | undefined,
     },
     data: {
-        cpus: [] as ADProductCPUResponse[],
+        GPUs: [] as ADProductGPUResponse[],
     },
     pagination: {
         page: 1,
@@ -103,8 +103,8 @@ const state = reactive({
     },
 })
 
-const fetchCPUs = async () => {
-    const res = await getCPUs({
+const fetchGPUs = async () => {
+    const res = await getGPUs({
         page: state.pagination.page,
         size: state.pagination.size,
         q: state.search.q,
@@ -116,7 +116,7 @@ const fetchCPUs = async () => {
 
     console.table(res.data.data)
 
-    state.data.cpus = res.data.data
+    state.data.GPUs = res.data.data
     state.pagination.totalPages = res.data.totalPages
 }
 
@@ -125,10 +125,10 @@ const refreshFilter = () => {
     state.search.brand = ''
     state.search.generation = ''
     state.search.series = ''
-    state.search.releaseYear = null
+    state.search.releaseYear = undefined
 }
 
-const columns: DataTableColumns<ADProductCPUResponse> = [
+const columns: DataTableColumns<ADProductGPUResponse> = [
     { type: 'selection', fixed: 'left' },
     {
         title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data, index) => {
@@ -136,28 +136,28 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
         }
     },
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
-    { title: 'Tên CPU', key: 'name', width: 150, fixed: 'left', },
+    { title: 'Tên GPU', key: 'name', width: 150, fixed: 'left', },
     {
         title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductCPUResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
+        render: (data: ADProductGPUResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
     },
     { title: 'Thế hệ', key: 'generation', width: 150, align: 'center', },
     { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
     { title: 'Năm phát hàng', key: 'releaseYear', width: 150, align: 'center', },
-    { title: 'Dòng CPU', key: 'series', width: 150, align: 'center', },
+    { title: 'Dòng GPU', key: 'series', width: 150, align: 'center', },
     {
         title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
-        render: (data: ADProductCPUResponse, index) => {
+        render: (data: ADProductGPUResponse) => {
             return h(NSpace,
                 [
                     h(NButton, {
-                        size: 'small', quaternary: true, circle: true,
+                        quaternary: true, size: 'small', circle: true,
                         onClick: () => clickOpenModal(data.id, true)
                     },
                         h(Icon, { icon: 'carbon:edit' })
                     ),
                     // h(NButton, {
-                    //     size: 'small', quaternary: true, circle: true, type: 'warning',
+                    //     strong: true, circle: true, type: 'warning',
                     //     onClick: () => clickOpenModal(data.id)
                     // },
                     //     h(Icon, { icon: 'carbon:edit' })
@@ -169,18 +169,18 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
 ]
 
 onMounted(() => {
-    fetchCPUs()
+    fetchGPUs()
 })
 
 const isOpenModal = ref<boolean>(false)
 
 const isDetailModal: Ref<boolean> = ref(true)
 
-const cpuIDSelected = ref<string>()
+const GPUIDSelected = ref<string>()
 
 const clickOpenModal = (id?: string, isDetail?: boolean) => {
     console.log(id)
-    cpuIDSelected.value = id
+    GPUIDSelected.value = id
     isOpenModal.value = true
     isDetailModal.value = isDetail ?? false
 }
@@ -190,38 +190,45 @@ const closeModal = () => {
 }
 
 const handleSuccessModifyModal = () => {
-    fetchCPUs()
+    fetchGPUs()
     closeModal()
 }
 
-const debounceFetchCPUs = debounce(fetchCPUs, 300)
+const debounceFetchGPUs = debounce(fetchGPUs, 300)
 
 watch(
-    () => [state.search.q, state.search.brand, state.search.releaseYear, state.search.generation, state.search.releaseYear, state.pagination.page, state.pagination.size],
+    () => [state.search.q, state.search.brand, state.search.releaseYear, state.search.generation, state.search.releaseYear, state.pagination.size, state.pagination.page],
     () => {
-        debounceFetchCPUs()
+        console.log('here')
+        debounceFetchGPUs()
     }
 )
-// configuration select
+
+// select options
 const brandOptionsSelect = [
-    { label: 'Intel', value: 'Intel' },
-    { label: 'AMD', value: 'AMD' },
-    { label: 'Apple', value: 'Apple' },
+    {
+        value: 'AMD',
+        label: 'AMD'
+    },
+    {
+        value: 'NVIDIA',
+        label: 'NVIDIA'
+    },
 ]
 
 const handlePageChange = (page: number) => {
-    state.pagination.page
+    state.pagination.page = page
 }
 
-const notification = useNotification();
+const notification = useNotification()
 
 const handleChangeStatus = async (id: string) => {
-    const res = await changeCPUStatus(id)
+    const res = await changeGPUStatus(id)
 
     if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
     else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
 
-    fetchCPUs();
+    fetchGPUs();
 }
 </script>
 
