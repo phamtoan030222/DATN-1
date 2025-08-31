@@ -7,6 +7,7 @@ import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -43,21 +45,20 @@ public class AdVoucherController {
         return Helper.createResponseEntity(voucherService.getVoucherById(id));
     }
 
-    @PutMapping("/{id}/status")
+    @PatchMapping("/{id}/status")
     ResponseEntity<?> changeStatus(@PathVariable String id) {
         return Helper.createResponseEntity(voucherService.changeStatusVoucher(id));
     }
 
     @PostMapping()
-    public ResponseEntity<?> createVoucher(@Valid @RequestBody AdVoucherCreateUpdateRequest request) {
+    public ResponseEntity<?> createVoucher(@Valid @RequestBody AdVoucherCreateUpdateRequest request) throws BadRequestException {
         return Helper.createResponseEntity(voucherService.create(request));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateVoucher(@PathVariable String id, @RequestBody AdVoucherCreateUpdateRequest request) {
+    public ResponseEntity<?> updateVoucher(@PathVariable String id, @RequestBody AdVoucherCreateUpdateRequest request) throws BadRequestException {
         return Helper.createResponseEntity(voucherService.update(id, request));
     }
-
 
     // Xoá 1 voucher
     @DeleteMapping("/{id}")

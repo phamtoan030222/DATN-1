@@ -76,20 +76,18 @@ export async function getVoucherById(id: string) {
   return res.data
 }
 
-// ... code hiện tại giữ nguyên
-
 // Hàm update status (adjust theo backend)
 export async function updateVoucherStatus(id: string, newStatus: 'ACTIVE' | 'INACTIVE') {
   try {
-    const res = await request(`${API_ADMIN_PRODUCT_VOUCHER}/${id}/status`, { // Adjust endpoint nếu khác, ví dụ: /voucher/{id}
-      method: 'PUT', // Hoặc PATCH nếu backend dùng
+    const res = await request(`${API_ADMIN_PRODUCT_VOUCHER}/${id}/status`, {
+      method: 'PATCH',
       data: { status: newStatus },
     })
-    return res.data // Return updated voucher nếu cần
+    return res.data
   }
   catch (error) {
     console.error('Failed to update voucher status:', error)
-    throw error // Để component catch
+    throw error
   }
 }
 

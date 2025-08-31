@@ -24,38 +24,28 @@ import {
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { createVoucher, deleteVoucher, deleteVouchers, getVouchers, updateVoucher, updateVoucherStatus } from '@/api/admin/product/api.voucher'
-import type { ADVoucherQuery, ADVoucherResponse } from '@/api/admin/product/api.voucher'
+import { createVoucher, deleteVoucher, deleteVouchers, getVouchers, updateVoucher, updateVoucherStatus } from '@/service/api/admin/product/api.voucher'
+import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/product/api.voucher'
 import formatDate from '@/utils/common.helper'
-import { getVoucherById } from '@/api/admin/product/api.voucher'
+import { getVoucherById } from '@/service/api/admin/product/api.voucher'
 
-const props = defineProps<{
-  isEdit?: boolean
-  editId?: string
-}>()
-
-const emit = defineEmits(['success', 'cancel'])
 /* ===================== State ===================== */
 const message = useMessage()
 const addFormRef = ref<FormInst | null>(null)
-
 const showAddModal = ref(false)
 const showCustomerModal = ref(false)
 const checkedRowKeys = ref<(string | number)[]>([])
 const loading = ref(false)
 const data = ref<ADVoucherResponse[]>([])
 const rowLoading = ref<Record<string, boolean>>({})
-
 const pagination = ref({
   page: 1,
   pageSize: 5,
   itemCount: 0,
   showSizePicker: true,
 })
-
 const isEdit = ref(false)
 const editingId = ref<string | null>(null)
-
 /* ===================== Voucher form ===================== */
 const newVoucher = ref({
   id: '',
@@ -71,22 +61,18 @@ const newVoucher = ref({
   quantity: null as number | null,
   customers: [] as string[],
 })
-
 const voucherTypes = [
   { label: 'Giảm %', value: 'PERCENTAGE' },
   { label: 'Giảm tiền', value: 'FIXED_AMOUNT' },
 ]
-
 const targetTypes = [
   { label: 'Giới hạn điều kiện', value: 'LIMITED_BY_CONDITION' },
   { label: 'Khách hàng riêng', value: 'INDIVIDUAL' },
   { label: 'Tất cả khách hàng', value: 'ALL_CUSTOMERS' },
 ]
-
 /* ===================== Computed ===================== */
 const showQuantity = computed(() => newVoucher.value.targetType === 'LIMITED_BY_CONDITION')
 const showCustomerPicker = computed(() => newVoucher.value.targetType === 'INDIVIDUAL')
-
 /* ===================== Validate Rules ===================== */
 const addVoucherRules: FormRules = {
   name: { required: true, message: 'Vui lòng nhập tên phiếu giảm giá', trigger: ['input', 'blur'] },
@@ -127,9 +113,7 @@ const addVoucherRules: FormRules = {
       trigger: ['blur', 'change'],
     },
   ],
-
 }
-
 /* ===================== Watchers ===================== */
 watch(
   () => newVoucher.value.typeVoucher,
@@ -142,7 +126,6 @@ watch(
     }
   },
 )
-
 watch(
   () => newVoucher.value.discountValue,
   (val) => {
@@ -151,7 +134,6 @@ watch(
     }
   },
 )
-
 /* ===================== Methods ===================== */
 function resetNewVoucher() {
   newVoucher.value = {
@@ -183,7 +165,6 @@ async function openEditModal(id: string) {
     isEdit.value = true
     editingId.value = id
     const res = await getVoucherById(id)
-
     if (res?.data) {
       const v = res.data
       newVoucher.value = {
@@ -201,7 +182,6 @@ async function openEditModal(id: string) {
         customers: v.customers || [],
       }
     }
-
     showAddModal.value = true
   }
   catch (err) {
@@ -212,22 +192,32 @@ async function openEditModal(id: string) {
 function handleAddVoucher() {
   addFormRef.value?.validate(async (errors) => {
     if (!errors) {
-      if (isEdit.value && editingId.value) {
-        // gọi API update ở đây
-        console.log('Cập nhật voucher:', editingId.value, newVoucher.value)
-        message.success('Đã cập nhật phiếu giảm giá!')
+      try {
+        let res
+        if (isEdit.value && editingId.value) {
+          res = await updateVoucher(editingId.value, newVoucher.value)
+          if (!res.data.success) {
+            throw new Error(res.data.message || 'Cập nhật thất bại')
+          }
+          message.success('Cập nhật voucher thành công')
+        }
+        else {
+          res = await createVoucher(newVoucher.value)
+          if (!res.data.success) {
+            throw new Error(res.data.message || 'Thêm thất bại')
+          }
+          message.success('Thêm voucher thành công')
+        }
+        resetNewVoucher()
+        showAddModal.value = false
+        isEdit.value = false
+        editingId.value = null
+        fetchData()
       }
-      else {
-        // gọi API create ở đây
-        console.log('Thêm voucher mới:', newVoucher.value)
-        message.success('Đã thêm phiếu giảm giá mới!')
+      catch (err) {
+        const errorMessage = err.response?.data?.message || err.message || 'Thao tác thất bại'
+        message.error(errorMessage)
       }
-
-      resetNewVoucher()
-      showAddModal.value = false
-      isEdit.value = false
-      editingId.value = null
-      fetchData()
     }
     else {
       message.error('Vui lòng nhập đầy đủ thông tin')
@@ -238,35 +228,38 @@ function handleAddVoucher() {
 function handleChooseCustomers() {
   showCustomerModal.value = true
 }
-
 /* ===================== Delete ===================== */
-const vouchers = ref<ADVoucherResponse[]>([])
 async function handleDeleteOne(id: string, name: string) {
-  const voucher = vouchers.value.find(v => v.id === id)
-  await deleteVoucher(id)
-  message.success(`Xoá thành công voucher: ${name}`)
-  await fetchData()
+  try {
+    await deleteVoucher(id)
+    message.success(`Xoá thành công voucher: ${name}`)
+    await fetchData()
+  }
+  catch (err) {
+    message.error('Lỗi xóa voucher')
+  }
 }
-
 async function handleDeleteMany(ids: string[]) {
-  await deleteVouchers(ids)
-  message.success(`Xoá thành công`)
-  await fetchData()
+  try {
+    await deleteVouchers(ids)
+    message.success(`Xoá thành công`)
+    await fetchData()
+  }
+  catch (err) {
+    message.error('Lỗi xóa voucher')
+  }
 }
-
 /* ===================== Filters ===================== */
 const filters = ref({
   name: '',
   dateRange: null as [number, number] | null,
   status: null as string | null,
 })
-
 const statusOptions = [
   { label: 'Tất cả', value: null },
   { label: 'Hoạt động', value: 'ACTIVE' },
   { label: 'Không hoạt động', value: 'INACTIVE' },
 ]
-
 function onSearch() {
   fetchData()
 }
@@ -282,6 +275,11 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     render(row) {
       return row.typeVoucher === 'PERCENTAGE' ? 'Giảm %' : 'Giảm tiền'
     },
+  },
+  {
+    title: 'Số lượng',
+    key: 'quantity',
+    width: '100',
   },
   { title: 'Giá trị', key: 'discountValue' },
   { title: 'Tối đa', key: 'maxValue' },
@@ -353,47 +351,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     },
   },
 ]
-
-/* ================= thêm + sửa =============== */
-const form = ref({
-  code: '',
-  name: '',
-  typeVoucher: 'PERCENTAGE',
-  voucherScope: 'PUBLIC',
-  customerEmail: '',
-  decreaseUnit: 0,
-  maximumReduction: 0,
-  startTime: '',
-  endTime: '',
-  conditionOfUse: '',
-})
-// Nếu là sửa thì load data
-onMounted(async () => {
-  if (props.isEdit && props.editId) {
-    const res = await getVoucherById(props.editId)
-    form.value = res.data
-  }
-})
-
-// Submit form
-async function handleSubmit() {
-  try {
-    if (props.isEdit && props.editId) {
-      await updateVoucher(props.editId, form.value)
-      message.success('Cập nhật voucher thành công')
-    }
-    else {
-      await createVoucher(form.value)
-      message.success('Thêm voucher thành công')
-    }
-    emit('success') // callback về cha reload data
-  }
-  catch (err) {
-    console.error(err)
-    message.error('Thao tác thất bại')
-  }
-}
-
 /* ===================== Fetch API ===================== */
 async function fetchData() {
   loading.value = true
@@ -428,11 +385,9 @@ onMounted(fetchData)
       <NFormItem label="Tên" path="name">
         <NInput v-model:value="newVoucher.name" placeholder="Nhập tên phiếu giảm giá" />
       </NFormItem>
-
       <NFormItem label="Loại Phiếu" path="typeVoucher">
         <NSelect v-model:value="newVoucher.typeVoucher" :options="voucherTypes" />
       </NFormItem>
-
       <div class="grid grid-cols-2 gap-4">
         <NFormItem label="Giá trị" path="discountValue">
           <NInputNumber v-model:value="newVoucher.discountValue" :min="0" :step="1000">
@@ -441,7 +396,6 @@ onMounted(fetchData)
             </template>
           </NInputNumber>
         </NFormItem>
-
         <NFormItem label="Tối đa" path="maxValue">
           <NInputNumber
             v-model:value="newVoucher.maxValue" :min="0" :step="1000"
@@ -453,7 +407,6 @@ onMounted(fetchData)
           </NInputNumber>
         </NFormItem>
       </div>
-
       <div class="grid grid-cols-2 gap-4">
         <NFormItem label="Ngày bắt đầu" path="startDate">
           <NDatePicker v-model:value="newVoucher.startDate" type="date" />
@@ -462,11 +415,9 @@ onMounted(fetchData)
           <NDatePicker v-model:value="newVoucher.endDate" type="date" />
         </NFormItem>
       </div>
-
       <NFormItem label="Ghi chú">
         <NInput v-model:value="newVoucher.note" type="textarea" placeholder="Ghi chú..." />
       </NFormItem>
-
       <NFormItem label="Đối tượng áp dụng" path="targetType">
         <NRadioGroup v-model:value="newVoucher.targetType">
           <NRadio v-for="opt in targetTypes" :key="opt.value" :value="opt.value">
@@ -474,17 +425,14 @@ onMounted(fetchData)
           </NRadio>
         </NRadioGroup>
       </NFormItem>
-
       <NFormItem v-if="showQuantity" label="Số lượng" path="quantity">
         <NInputNumber v-model:value="newVoucher.quantity" :min="1" />
       </NFormItem>
-
       <NFormItem v-if="showCustomerPicker">
         <NButton @click="handleChooseCustomers">
           Chọn khách hàng
         </NButton>
       </NFormItem>
-
       <div class="flex justify-end gap-2 mt-4">
         <NButton @click="() => { resetNewVoucher(); showAddModal = false }">
           Hủy
@@ -495,7 +443,6 @@ onMounted(fetchData)
       </div>
     </NForm>
   </NModal>
-
   <!-- Modal chọn khách hàng -->
   <NModal v-model:show="showCustomerModal" preset="card" style="width: 500px;" title="Chọn khách hàng">
     <div class="p-4">
@@ -507,7 +454,6 @@ onMounted(fetchData)
       </NButton>
     </div>
   </NModal>
-
   <!-- Header -->
   <NCard class="mb-3">
     <NSpace vertical :size="8">
@@ -520,14 +466,12 @@ onMounted(fetchData)
       <span>Quản lý danh sách Phiếu Giảm Giá có mặt tại cửa hàng</span>
     </NSpace>
   </NCard>
-
   <!-- Bộ lọc -->
   <NCard title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-      <NInput v-model:value="filters.name" placeholder="Tên..." />
+      <NInput v-model:value="filters.name" placeholder="Tên hoặc Mã..." />
       <NDatePicker v-model:value="filters.dateRange" type="daterange" clearable placeholder="Khoảng ngày" />
       <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Trạng thái" clearable />
-
       <NSpace>
         <!-- Thêm -->
         <NTooltip trigger="hover" placement="top">
@@ -540,7 +484,6 @@ onMounted(fetchData)
           </template>
           Thêm mới
         </NTooltip>
-
         <!-- Refresh -->
         <NTooltip trigger="hover" placement="top">
           <template #trigger>
@@ -552,11 +495,10 @@ onMounted(fetchData)
           </template>
           Làm mới
         </NTooltip>
-
         <!-- Xoá -->
         <NTooltip :disabled="checkedRowKeys.length > 0">
           <template #trigger>
-            <NPopconfirm @positive-click="handleDeleteMany(checkedRowKeys as string[])">
+            <NPopconfirm @positive="handleDeleteMany(checkedRowKeys as string[])">
               <template #trigger>
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
@@ -577,7 +519,6 @@ onMounted(fetchData)
       </NSpace>
     </div>
   </NCard>
-
   <!-- Table -->
   <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-3">
     <NDataTable

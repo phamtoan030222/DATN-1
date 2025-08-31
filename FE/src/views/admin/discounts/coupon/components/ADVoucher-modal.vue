@@ -81,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { ADVoucherResponse, getVoucherById } from '@/api/admin/product/api.voucher'
+import { ADVoucherResponse, getVoucherById } from '@/service/api/admin/product/api.voucher'
 import { Ref, ref, watch } from 'vue'
 
 const props = defineProps<{

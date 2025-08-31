@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.discount.voucher.model.request;
 
+import com.sd20201.datn.entity.VoucherDetail;
 import com.sd20201.datn.infrastructure.constant.TargetType;
 import com.sd20201.datn.infrastructure.constant.TypeVoucher;
 import jakarta.persistence.EnumType;
@@ -13,6 +14,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -43,7 +45,6 @@ public class AdVoucherCreateUpdateRequest {
     @DecimalMin(value = "0.0", inclusive = true, message = "Giá trị giảm tối đa không được âm")
     private BigDecimal maxValue;
 
-    @NotNull(message = "Số lượng không được để trống")
     @Min(value = 0, message = "Số lượng không được âm")
     private Integer quantity;
 
@@ -58,4 +59,6 @@ public class AdVoucherCreateUpdateRequest {
     private TargetType targetType;
 
     private String note;
+
+    private Set<VoucherDetail> voucherDetail;
 }

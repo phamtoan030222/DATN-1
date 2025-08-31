@@ -36,6 +36,7 @@ public interface AdVoucherRepository extends VoucherRepository {
         )
         AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
         AND ( :#{#request.endDate} IS NULL OR v.endDate <= :#{#request.endDate} )
+        AND (:#{#request.status} IS  NULL OR :#{#request.status} = v.status)
     ORDER BY v.createdDate DESC
     """,
             countQuery = """
@@ -48,6 +49,7 @@ public interface AdVoucherRepository extends VoucherRepository {
         )
         AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
         AND ( :#{#request.endDate} IS NULL OR v.endDate <= :#{#request.endDate} )
+        AND (:#{#request.status} IS  NULL OR :#{#request.status} = v.status)
     """)
     Page<AdVoucherResponse> getVouchers(Pageable pageable, AdVoucherRequest request);
 
