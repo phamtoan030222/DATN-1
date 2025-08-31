@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.discount.voucher.model.request;
 
 import com.sd20201.datn.entity.VoucherDetail;
+import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
 import com.sd20201.datn.infrastructure.constant.TypeVoucher;
 import jakarta.persistence.EnumType;
@@ -22,9 +23,6 @@ import java.util.Set;
 @NoArgsConstructor
 public class AdVoucherCreateUpdateRequest {
 
-    private String id;
-
-    private String code;
 
     private String name;
 
@@ -57,6 +55,7 @@ public class AdVoucherCreateUpdateRequest {
     @NotNull(message = "Mục đích không được để trống")
     @Enumerated(EnumType.ORDINAL)
     private TargetType targetType;
+
 
     private String note;
 

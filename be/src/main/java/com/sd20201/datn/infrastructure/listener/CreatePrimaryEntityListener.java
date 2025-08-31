@@ -13,5 +13,4 @@ public class CreatePrimaryEntityListener {
         entity.setId(UUID.randomUUID().toString());
         entity.setStatus(EntityStatus.ACTIVE);
     }
-
 }

@@ -1,39 +1,30 @@
-<!-- eslint-disable import/no-duplicates -->
+<!-- index.vue -->
 <script lang="ts" setup>
 /* ===================== Imports ===================== */
 import { computed, h, onMounted, ref, watch } from 'vue'
-import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
+import type { DataTableColumns } from 'naive-ui'
 import {
   NButton,
   NCard,
   NDatePicker,
-  NForm,
-  NFormItem,
   NIcon,
   NInput,
-  NInputNumber,
-  NModal,
   NPagination,
   NPopconfirm,
-  NRadio,
-  NRadioGroup,
-  NSelect,
   NSpace,
   NSwitch,
   NTooltip,
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { createVoucher, deleteVoucher, deleteVouchers, getVouchers, updateVoucher, updateVoucherStatus } from '@/service/api/admin/product/api.voucher'
+import { createVoucher, deleteVoucher, deleteVouchers, getVoucherById, getVouchers, updateVoucher, updateVoucherStatus } from '@/service/api/admin/product/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/product/api.voucher'
 import formatDate from '@/utils/common.helper'
-import { getVoucherById } from '@/service/api/admin/product/api.voucher'
+import ModalVoucher from './modal.vue' // Import modal component
 
 /* ===================== State ===================== */
 const message = useMessage()
-const addFormRef = ref<FormInst | null>(null)
 const showAddModal = ref(false)
-const showCustomerModal = ref(false)
 const checkedRowKeys = ref<(string | number)[]>([])
 const loading = ref(false)
 const data = ref<ADVoucherResponse[]>([])
@@ -45,142 +36,21 @@ const pagination = ref({
   showSizePicker: true,
 })
 const isEdit = ref(false)
-const editingId = ref<string | null>(null)
-/* ===================== Voucher form ===================== */
-const newVoucher = ref({
-  id: '',
-  code: '',
-  name: '',
-  typeVoucher: 'PERCENTAGE',
-  discountValue: null as number | null,
-  maxValue: null as number | null,
-  startDate: null as number | null,
-  endDate: null as number | null,
-  note: '',
-  targetType: 'ALL_CUSTOMERS',
-  quantity: null as number | null,
-  customers: [] as string[],
-})
-const voucherTypes = [
-  { label: 'Giảm %', value: 'PERCENTAGE' },
-  { label: 'Giảm tiền', value: 'FIXED_AMOUNT' },
-]
-const targetTypes = [
-  { label: 'Giới hạn điều kiện', value: 'LIMITED_BY_CONDITION' },
-  { label: 'Khách hàng riêng', value: 'INDIVIDUAL' },
-  { label: 'Tất cả khách hàng', value: 'ALL_CUSTOMERS' },
-]
-/* ===================== Computed ===================== */
-const showQuantity = computed(() => newVoucher.value.targetType === 'LIMITED_BY_CONDITION')
-const showCustomerPicker = computed(() => newVoucher.value.targetType === 'INDIVIDUAL')
-/* ===================== Validate Rules ===================== */
-const addVoucherRules: FormRules = {
-  name: { required: true, message: 'Vui lòng nhập tên phiếu giảm giá', trigger: ['input', 'blur'] },
-  typeVoucher: { required: true, message: 'Chọn loại phiếu giảm giá', trigger: ['change'] },
-  discountValue: {
-    validator: (_rule, value: number) => {
-      if (newVoucher.value.typeVoucher === 'PERCENTAGE') {
-        if (value <= 0 || value >= 100)
-          return new Error('Giá trị % phải >0 và <100')
-      }
-      else if (newVoucher.value.typeVoucher === 'FIXED_AMOUNT') {
-        if (value <= 0)
-          return new Error('Giá trị giảm phải >0 VND')
-      }
-      return true
-    },
-    trigger: ['blur', 'change'],
-  },
-  maxValue: {
-    type: 'number',
-    required: true,
-    message: 'Nhập giá trị tối đa',
-    trigger: ['blur', 'change'],
-  },
-  startDate: { type: 'number', required: true, message: 'Chọn ngày bắt đầu', trigger: ['change'] },
-  endDate: { type: 'number', required: true, message: 'Chọn ngày kết thúc', trigger: ['change'] },
-  targetType: { required: true, message: 'Chọn đối tượng áp dụng', trigger: ['change'] },
-  quantity: [
-    {
-      validator: (_rule, value: number) => {
-        if (newVoucher.value.targetType === 'LIMITED_BY_CONDITION') {
-          if (!value || value <= 0) {
-            return new Error('Vui lòng nhập số lượng hợp lệ')
-          }
-        }
-        return true
-      },
-      trigger: ['blur', 'change'],
-    },
-  ],
-}
-/* ===================== Watchers ===================== */
-watch(
-  () => newVoucher.value.typeVoucher,
-  (val) => {
-    if (val === 'FIXED_AMOUNT') {
-      newVoucher.value.maxValue = newVoucher.value.discountValue
-    }
-    else {
-      newVoucher.value.maxValue = null
-    }
-  },
-)
-watch(
-  () => newVoucher.value.discountValue,
-  (val) => {
-    if (newVoucher.value.typeVoucher === 'FIXED_AMOUNT') {
-      newVoucher.value.maxValue = val
-    }
-  },
-)
-/* ===================== Methods ===================== */
-function resetNewVoucher() {
-  newVoucher.value = {
-    id: '',
-    code: '',
-    name: '',
-    typeVoucher: 'PERCENTAGE',
-    discountValue: null,
-    maxValue: null,
-    startDate: null,
-    endDate: null,
-    note: '',
-    targetType: 'ALL_CUSTOMERS',
-    quantity: null,
-    customers: [],
-  }
-  addFormRef.value?.restoreValidation()
-}
+const editingVoucher = ref<Partial<ADVoucherResponse>>({}) // Dữ liệu voucher để edit
 
+/* ===================== Methods ===================== */
 function openAddModal() {
   isEdit.value = false
-  editingId.value = null
-  resetNewVoucher() // reset form trống
+  editingVoucher.value = {}
   showAddModal.value = true
 }
 
 async function openEditModal(id: string) {
   try {
     isEdit.value = true
-    editingId.value = id
     const res = await getVoucherById(id)
     if (res?.data) {
-      const v = res.data
-      newVoucher.value = {
-        id: v.id || '',
-        code: v.code || '',
-        name: v.name || '',
-        typeVoucher: v.typeVoucher || 'PERCENTAGE',
-        discountValue: v.discountValue ?? 0,
-        maxValue: v.maxValue ?? 0,
-        startDate: v.startDate || null,
-        endDate: v.endDate || null,
-        note: v.note || '',
-        targetType: v.targetType || 'ALL_CUSTOMERS',
-        quantity: v.quantity ?? 0,
-        customers: v.customers || [],
-      }
+      editingVoucher.value = res.data
     }
     showAddModal.value = true
   }
@@ -189,45 +59,33 @@ async function openEditModal(id: string) {
   }
 }
 
-function handleAddVoucher() {
-  addFormRef.value?.validate(async (errors) => {
-    if (!errors) {
-      try {
-        let res
-        if (isEdit.value && editingId.value) {
-          res = await updateVoucher(editingId.value, newVoucher.value)
-          if (!res.data.success) {
-            throw new Error(res.data.message || 'Cập nhật thất bại')
-          }
-          message.success('Cập nhật voucher thành công')
-        }
-        else {
-          res = await createVoucher(newVoucher.value)
-          if (!res.data.success) {
-            throw new Error(res.data.message || 'Thêm thất bại')
-          }
-          message.success('Thêm voucher thành công')
-        }
-        resetNewVoucher()
-        showAddModal.value = false
-        isEdit.value = false
-        editingId.value = null
-        fetchData()
+async function handleSaveVoucher(voucherData: any) {
+  try {
+    let res
+    if (isEdit.value && voucherData.id) {
+      res = await updateVoucher(voucherData.id, voucherData)
+      if (!res.data.success) {
+        throw new Error(res.data.message || 'Cập nhật thất bại')
       }
-      catch (err) {
-        const errorMessage = err.response?.data?.message || err.message || 'Thao tác thất bại'
-        message.error(errorMessage)
-      }
+      message.success('Cập nhật voucher thành công')
     }
     else {
-      message.error('Vui lòng nhập đầy đủ thông tin')
+      res = await createVoucher(voucherData)
+      if (!res.data.success) {
+        throw new Error(res.data.message || 'Thêm thất bại')
+      }
+      message.success('Thêm voucher thành công')
     }
-  })
+    showAddModal.value = false
+    isEdit.value = false
+    fetchData()
+  }
+  catch (err) {
+    const errorMessage = err.response?.data?.message || err.message || 'Thao tác thất bại'
+    message.error(errorMessage)
+  }
 }
 
-function handleChooseCustomers() {
-  showCustomerModal.value = true
-}
 /* ===================== Delete ===================== */
 async function handleDeleteOne(id: string, name: string) {
   try {
@@ -239,30 +97,31 @@ async function handleDeleteOne(id: string, name: string) {
     message.error('Lỗi xóa voucher')
   }
 }
+
 async function handleDeleteMany(ids: string[]) {
   try {
     await deleteVouchers(ids)
-    message.success(`Xoá thành công`)
+    message.success('Xoá thành công')
+    checkedRowKeys.value = [] // reset
     await fetchData()
   }
   catch (err) {
     message.error('Lỗi xóa voucher')
   }
 }
+
 /* ===================== Filters ===================== */
 const filters = ref({
-  name: '',
+  q: '',
   dateRange: null as [number, number] | null,
   status: null as string | null,
 })
+
 const statusOptions = [
-  { label: 'Tất cả', value: null },
+  { label: 'Tất cả', value: '' },
   { label: 'Hoạt động', value: 'ACTIVE' },
   { label: 'Không hoạt động', value: 'INACTIVE' },
 ]
-function onSearch() {
-  fetchData()
-}
 
 /* ===================== Data Table ===================== */
 const columns: DataTableColumns<ADVoucherResponse> = [
@@ -281,8 +140,20 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     key: 'quantity',
     width: '100',
   },
-  { title: 'Giá trị', key: 'discountValue' },
-  { title: 'Tối đa', key: 'maxValue' },
+  {
+    title: 'Giá trị',
+    key: 'discountValue',
+    render(row) {
+      if (row.typeVoucher === 'PERCENTAGE') {
+        return `${row.discountValue}%`
+      }
+      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.discountValue)
+    },
+  },
+
+  { title: 'Tối đa', key: 'maxValue', render(row) {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.maxValue)
+  } },
   {
     title: 'Ngày bắt đầu',
     key: 'startDate',
@@ -351,6 +222,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     },
   },
 ]
+
 /* ===================== Fetch API ===================== */
 async function fetchData() {
   loading.value = true
@@ -358,7 +230,7 @@ async function fetchData() {
     const query: ADVoucherQuery = {
       page: pagination.value.page,
       size: pagination.value.pageSize,
-      name: filters.value.name || undefined,
+      q: filters.value.q || undefined,
       status: filters.value.status || undefined,
       startDate: filters.value.dateRange?.[0],
       endDate: filters.value.dateRange?.[1],
@@ -376,84 +248,24 @@ async function fetchData() {
   }
 }
 onMounted(fetchData)
+
+// Tự động gọi fetchData khi filters thay đổi
+watch(filters, () => {
+  pagination.value.page = 1
+  fetchData()
+}, { deep: true })
 </script>
 
 <template>
-  <!-- Modal thêm voucher -->
-  <NModal v-model:show="showAddModal" preset="card" title="Thêm Phiếu Giảm Giá" style="width: 500px;" :bordered="false">
-    <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top">
-      <NFormItem label="Tên" path="name">
-        <NInput v-model:value="newVoucher.name" placeholder="Nhập tên phiếu giảm giá" />
-      </NFormItem>
-      <NFormItem label="Loại Phiếu" path="typeVoucher">
-        <NSelect v-model:value="newVoucher.typeVoucher" :options="voucherTypes" />
-      </NFormItem>
-      <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="Giá trị" path="discountValue">
-          <NInputNumber v-model:value="newVoucher.discountValue" :min="0" :step="1000">
-            <template #suffix>
-              {{ newVoucher.typeVoucher === 'PERCENTAGE' ? '%' : 'VND' }}
-            </template>
-          </NInputNumber>
-        </NFormItem>
-        <NFormItem label="Tối đa" path="maxValue">
-          <NInputNumber
-            v-model:value="newVoucher.maxValue" :min="0" :step="1000"
-            :disabled="newVoucher.typeVoucher === 'FIXED_AMOUNT'"
-          >
-            <template #suffix>
-              VND
-            </template>
-          </NInputNumber>
-        </NFormItem>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="Ngày bắt đầu" path="startDate">
-          <NDatePicker v-model:value="newVoucher.startDate" type="date" />
-        </NFormItem>
-        <NFormItem label="Ngày kết thúc" path="endDate">
-          <NDatePicker v-model:value="newVoucher.endDate" type="date" />
-        </NFormItem>
-      </div>
-      <NFormItem label="Ghi chú">
-        <NInput v-model:value="newVoucher.note" type="textarea" placeholder="Ghi chú..." />
-      </NFormItem>
-      <NFormItem label="Đối tượng áp dụng" path="targetType">
-        <NRadioGroup v-model:value="newVoucher.targetType">
-          <NRadio v-for="opt in targetTypes" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </NRadio>
-        </NRadioGroup>
-      </NFormItem>
-      <NFormItem v-if="showQuantity" label="Số lượng" path="quantity">
-        <NInputNumber v-model:value="newVoucher.quantity" :min="1" />
-      </NFormItem>
-      <NFormItem v-if="showCustomerPicker">
-        <NButton @click="handleChooseCustomers">
-          Chọn khách hàng
-        </NButton>
-      </NFormItem>
-      <div class="flex justify-end gap-2 mt-4">
-        <NButton @click="() => { resetNewVoucher(); showAddModal = false }">
-          Hủy
-        </NButton>
-        <NButton type="primary" @click="handleAddVoucher">
-          {{ isEdit ? 'Lưu' : 'Thêm' }}
-        </NButton>
-      </div>
-    </NForm>
-  </NModal>
-  <!-- Modal chọn khách hàng -->
-  <NModal v-model:show="showCustomerModal" preset="card" style="width: 500px;" title="Chọn khách hàng">
-    <div class="p-4">
-      <p>Danh sách khách hàng sẽ hiển thị ở đây...</p>
-    </div>
-    <div class="flex justify-end mt-4">
-      <NButton @click="showCustomerModal = false">
-        Đóng
-      </NButton>
-    </div>
-  </NModal>
+  <!-- Modal thêm/sửa voucher từ component riêng -->
+  <ModalVoucher
+    v-model:show="showAddModal"
+    :is-edit="isEdit"
+    :voucher-data="editingVoucher"
+    @save="handleSaveVoucher"
+    @cancel="showAddModal = false"
+  />
+
   <!-- Header -->
   <NCard class="mb-3">
     <NSpace vertical :size="8">
@@ -469,9 +281,15 @@ onMounted(fetchData)
   <!-- Bộ lọc -->
   <NCard title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-      <NInput v-model:value="filters.name" placeholder="Tên hoặc Mã..." />
+      <NInput v-model:value="filters.q" placeholder="Tên hoặc Mã..." />
       <NDatePicker v-model:value="filters.dateRange" type="daterange" clearable placeholder="Khoảng ngày" />
       <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Trạng thái" clearable />
+    </div>
+  </NCard>
+
+  <!-- Table -->
+  <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-3">
+    <template #header-extra>
       <NSpace>
         <!-- Thêm -->
         <NTooltip trigger="hover" placement="top">
@@ -498,7 +316,7 @@ onMounted(fetchData)
         <!-- Xoá -->
         <NTooltip :disabled="checkedRowKeys.length > 0">
           <template #trigger>
-            <NPopconfirm @positive="handleDeleteMany(checkedRowKeys as string[])">
+            <NPopconfirm @positive-click="handleDeleteMany(checkedRowKeys as string[])">
               <template #trigger>
                 <NTooltip trigger="hover" placement="top">
                   <template #trigger>
@@ -517,10 +335,7 @@ onMounted(fetchData)
           Chưa chọn phiếu giảm giá nào
         </NTooltip>
       </NSpace>
-    </div>
-  </NCard>
-  <!-- Table -->
-  <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-3">
+    </template>
     <NDataTable
       v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="data" :loading="loading"
       :row-key="row => row.id" :pagination="false" bordered

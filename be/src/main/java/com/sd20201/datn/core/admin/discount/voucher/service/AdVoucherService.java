@@ -24,9 +24,9 @@ public interface AdVoucherService {
     @Transactional
     ResponseObject<?> update(@PathVariable String id, @Valid AdVoucherCreateUpdateRequest request) throws BadRequestException;
 
-    public ResponseObject<?> deleteById(String id) ;
+    ResponseObject<?> deleteById(String id) ;
 
-    public ResponseObject<?> deleteAllByIds(List<String> ids) ;
+    ResponseObject<?> deleteAllByIds(List<String> ids) ;
 
-    public ResponseObject<?> claimVoucher(String voucherId, String customerId, BigDecimal currentOrderValue);
 }
+

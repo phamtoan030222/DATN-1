@@ -1,5 +1,5 @@
-import type { DefaultResponse, PaginationParams } from '@/api/api.common'
-import request from '@/api/request'
+import type { DefaultResponse, PaginationParams } from '@/typings/api/api.common'
+import request from '@/service/request'
 import { API_ADMIN_PRODUCT_VOUCHER } from '@/constants/url'
 import type { AxiosResponse } from 'axios'
 import axios from 'axios'
@@ -7,25 +7,37 @@ import axios from 'axios'
 export interface ADVoucherQuery {
   page: number
   size: number
+  q?: string
+  status?: string
+  startDate?: number
+  endDate?: number
 }
 
 // Adjust interface để match response thực tế (field rename)
 export interface ADVoucherResponse {
-  id?: string
+  id: string
   code: string
   name: string
   typeVoucher: 'PERCENTAGE' | 'FIXED_AMOUNT'
-  targetType: 'LIMITED_BY_CONDITION' | 'INDIVIDUAL' | 'ALL_CUSTOMERS'
+  targetType: 'INDIVIDUAL' | 'ALL_CUSTOMERS'
   discountValue: number
   maxValue: number
   quantity: number
   remainingQuantity: number
-  startDate: number // Rename từ startTime
-  endDate: number // Rename từ endTime
-  conditions: number // Rename từ conditionOfUse
+  startDate: number
+  endDate: number
+  conditions: number
   note: string | null
   status: string | null
   customers: [] | null
+}
+
+export interface ADCustomerResponse {
+  id: string
+  code: string
+  name: string
+  email: string
+  phone: string
 }
 
 // Hàm getVouchers: Return {content: array, totalElements: number} để component dùng trực tiếp
