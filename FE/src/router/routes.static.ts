@@ -82,6 +82,18 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     pid: 3,
   },
   {
+    name: "products_add",
+    path: "/products/add/:id?",
+    title: "Thêm sản phẩm",
+    requiresAuth: true,
+    hide: true,
+    icon: "icon-park-outline:ad-product",
+    menuType: "page",
+    componentPath: "/admin/products/list/component/ADAddProduct.vue",
+    id: 310,
+    pid: 3,
+  },
+  {
     name: 'products_variant',
     path: '/products/variant',
     title: 'Biến thể sản phẩm',

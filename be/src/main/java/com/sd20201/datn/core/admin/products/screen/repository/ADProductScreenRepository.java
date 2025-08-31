@@ -24,6 +24,7 @@ public interface ADProductScreenRepository extends ScreenRepository {
             , s.resolution as resolution
             , s.panelType as panelType
             , s.technology as technology
+            , s.status as status
     FROM Screen s
     where
         (

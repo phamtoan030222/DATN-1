@@ -4,13 +4,13 @@
             <NSpace vertical :size="8">
                 <NSpace align="center">
                     <NIcon size="24">
-                        <Icon icon="icon-park-outline:cpu" />
+                        <Icon icon="icon-park-outline:monitor" />
                     </NIcon>
                     <span style="font-weight: 600; font-size: 24px">
-                        Quản lý CPU
+                        Quản lý màn hình
                     </span>
                 </NSpace>
-                <span>Quản lý thuộc tính CPU của sản phẩm</span>
+                <span>Quản lý thuộc tính màn hình của sản phẩm</span>
             </NSpace>
         </n-card>
         <n-card title="Bộ lọc" class="mt-20px">
@@ -20,20 +20,21 @@
                     <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
                 </n-grid-item>
                 <n-grid-item span="2">
-                    <span>Hãng</span>
-                    <n-select v-model:value="state.search.brand" :options="brandOptionsSelect"></n-select>
+                    <span>Độ phân giải</span>
+                    <n-select v-model:value="state.search.resolution"
+                        :options="screenResolutionOptionsSelect"></n-select>
                 </n-grid-item>
                 <n-grid-item span="2">
-                    <span>Thế hệ</span>
-                    <n-input v-model:value="state.search.generation" placeholder="Nhập thế hệ" />
+                    <span>Dạng tấm nền</span>
+                    <n-select v-model:value="state.search.panelType" :options="panelTypeOptionsSelect"></n-select>
                 </n-grid-item>
                 <n-grid-item span="2">
-                    <span>Năm phát hành</span>
-                    <n-date-picker v-model:value="state.search.releaseYear" type="year" clearable />
+                    <span>Kích thước màn hình</span>
+                    <n-select v-model:value="state.search.physicalSize" :options="screenSizeOptionsSelect"></n-select>
                 </n-grid-item>
                 <n-grid-item span="2">
-                    <span>Dòng sản phẩm</span>
-                    <n-input v-model:value="state.search.series" placeholder="Nhập thế hệ" />
+                    <span>Công nghệ</span>
+                    <n-input v-model:value="state.search.technology" placeholder="Nhập công nghệ" />
                 </n-grid-item>
                 <n-grid-item span="1">
                     <n-flex vertical justify="end" style="height: 100%;">
@@ -56,7 +57,7 @@
                 </n-grid-item>
             </n-grid>
         </n-card>
-        <n-card title="Danh sách CPU" class="mt-20px">
+        <n-card title="Danh sách màn hình" class="mt-20px">
             <template #header-extra>
                 <n-space justify="end">
                     <n-button circle type="primary" @click="clickOpenModal()">
@@ -64,37 +65,37 @@
                     </n-button>
                 </n-space>
             </template>
-            <n-data-table class="mt-20px" :columns="columns" :data="state.data.cpus" :bordered="false" />
-
+            <n-data-table :columns="columns" :data="state.data.screens" :bordered="false" />
             <n-space justify="center" class="mt-20px">
                 <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
                     :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
             </n-space>
         </n-card>
 
-        <ADProductCPUModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
-            :id="cpuIDSelected" @close="closeModal" />
+        <ADProductScreenModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
+            :id="ScreenIDSelected" @close="closeModal" />
     </div>
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive, Ref, ref, watch } from 'vue'
 import { debounce } from 'lodash'
-import { ADProductCPUResponse, changeCPUStatus, getCPUs } from '@/service/api/admin/product/cpu.api'
-import { DataTableColumns, NButton, NIcon, NSpace, NSwitch } from 'naive-ui'
-import ADProductCPUModal from './component/ADProductCPUModal.vue'
+import { onMounted, reactive, Ref, ref, watch } from 'vue'
+import ADProductScreenModal from './component/ADProductScreenModal.vue'
+import { ADProductScreenResponse, changeScreenStatus, getScreens } from '@/service/api/admin/product/screen.api'
+import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
 import { Icon } from '@iconify/vue'
+
 
 const state = reactive({
     search: {
         q: '',
-        brand: '',
-        generation: '',
-        series: '',
-        releaseYear: null as number | null,
+        resolution: '' as string | undefined,
+        technology: '',
+        panelType: '',
+        physicalSize: undefined as number | undefined,
     },
     data: {
-        cpus: [] as ADProductCPUResponse[],
+        screens: [] as ADProductScreenResponse[],
     },
     pagination: {
         page: 1,
@@ -103,32 +104,30 @@ const state = reactive({
     },
 })
 
-const fetchCPUs = async () => {
-    const res = await getCPUs({
+const fetchScreens = async () => {
+    const res = await getScreens({
         page: state.pagination.page,
         size: state.pagination.size,
         q: state.search.q,
-        brand: state.search.brand,
-        releaseYear: state.search.releaseYear,
-        series: state.search.series,
-        generation: state.search.generation,
+        resolution: state.search.resolution as string,
+        physicalSize: state.search.physicalSize as number,
+        panelType: state.search.panelType,
+        technology: state.search.technology,
     })
 
-    console.table(res.data.data)
-
-    state.data.cpus = res.data.data
+    state.data.screens = res.data.data
     state.pagination.totalPages = res.data.totalPages
 }
 
 const refreshFilter = () => {
     state.search.q = ''
-    state.search.brand = ''
-    state.search.generation = ''
-    state.search.series = ''
-    state.search.releaseYear = null
+    state.search.resolution = undefined
+    state.search.technology = ''
+    state.search.panelType = ''
+    state.search.physicalSize = undefined
 }
 
-const columns: DataTableColumns<ADProductCPUResponse> = [
+const columns: DataTableColumns<ADProductScreenResponse> = [
     { type: 'selection', fixed: 'left' },
     {
         title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data, index) => {
@@ -136,28 +135,28 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
         }
     },
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
-    { title: 'Tên CPU', key: 'name', width: 150, fixed: 'left', },
+    { title: 'Tên', key: 'name', width: 150, fixed: 'left', },
     {
         title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductCPUResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
+        render: (data: ADProductScreenResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
     },
-    { title: 'Thế hệ', key: 'generation', width: 150, align: 'center', },
-    { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
-    { title: 'Năm phát hàng', key: 'releaseYear', width: 150, align: 'center', },
-    { title: 'Dòng CPU', key: 'series', width: 150, align: 'center', },
+    { title: 'Đô phân giải', key: 'resolution', width: 150, align: 'center', },
+    { title: 'Kích thước vật lý', key: 'physicalSize', width: 150, align: 'center', },
+    { title: 'Tấm nền', key: 'panelType', width: 150, align: 'center', },
+    { title: 'Công nghệ', key: 'technology', width: 150, align: 'center', },
     {
         title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
-        render: (data: ADProductCPUResponse, index) => {
+        render: (data: ADProductScreenResponse) => {
             return h(NSpace,
                 [
                     h(NButton, {
-                        size: 'small', quaternary: true, circle: true,
+                        quaternary: true, size: 'small', circle: true,
                         onClick: () => clickOpenModal(data.id, true)
                     },
                         h(Icon, { icon: 'carbon:edit' })
                     ),
                     // h(NButton, {
-                    //     size: 'small', quaternary: true, circle: true, type: 'warning',
+                    //     strong: true, circle: true, type: 'warning',
                     //     onClick: () => clickOpenModal(data.id)
                     // },
                     //     h(Icon, { icon: 'carbon:edit' })
@@ -169,18 +168,17 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
 ]
 
 onMounted(() => {
-    fetchCPUs()
+    fetchScreens()
 })
 
 const isOpenModal = ref<boolean>(false)
 
 const isDetailModal: Ref<boolean> = ref(true)
 
-const cpuIDSelected = ref<string>()
+const ScreenIDSelected = ref<string>()
 
 const clickOpenModal = (id?: string, isDetail?: boolean) => {
-    console.log(id)
-    cpuIDSelected.value = id
+    ScreenIDSelected.value = id
     isOpenModal.value = true
     isDetailModal.value = isDetail ?? false
 }
@@ -190,38 +188,58 @@ const closeModal = () => {
 }
 
 const handleSuccessModifyModal = () => {
-    fetchCPUs()
+    fetchScreens()
     closeModal()
 }
 
-const debounceFetchCPUs = debounce(fetchCPUs, 300)
+const debounceFetchScreens = debounce(fetchScreens, 300)
 
 watch(
-    () => [state.search.q, state.search.brand, state.search.releaseYear, state.search.generation, state.search.releaseYear, state.pagination.page, state.pagination.size],
+    () => [state.search.q, state.search.resolution, state.search.physicalSize, state.search.technology, state.search.panelType],
     () => {
-        debounceFetchCPUs()
+        debounceFetchScreens()
     }
 )
-// configuration select
-const brandOptionsSelect = [
-    { label: 'Intel', value: 'Intel' },
-    { label: 'AMD', value: 'AMD' },
-    { label: 'Apple', value: 'Apple' },
+
+const screenResolutionOptionsSelect = [
+    { label: '1920 x 1080 pixels', value: '1920x1080' },
+    { label: '1366 x 768 pixels', value: '1366x768' },
+    { label: '2880 x 1800 pixels', value: '2880x1800' },
+    { label: '3840 x 2160 pixels', value: '3840x2160' },
+    { label: '2560 x 1440 pixels', value: '2560x1440' },
+]
+
+const panelTypeOptionsSelect = [
+    { label: 'LCD', value: 'LCD' },
+    { label: 'OLED', value: 'OLED' },
+    { label: 'LED_BACKLIT_LCD', value: 'LED_BACKLIT_LCD' },
+    { label: 'AMOLED', value: 'AMOLED' },
+    { label: 'MINI_LED', value: 'MINI_LED' },
+    { label: 'MICRO_LED', value: 'MICRO_LED' },
+]
+
+const screenSizeOptionsSelect = [
+    { label: '11.6 inch', value: '11.6' },
+    { label: '13.3 inch', value: '13.3' },
+    { label: '14 inch', value: '14' },
+    { label: '15.6 inch', value: '15.6' },
+    { label: '16 inch', value: '16' },
+    { label: '17.3 inch', value: '17.3' },
 ]
 
 const handlePageChange = (page: number) => {
-    state.pagination.page
+    state.pagination.page = page
 }
 
-const notification = useNotification();
+const notification = useNotification()
 
 const handleChangeStatus = async (id: string) => {
-    const res = await changeCPUStatus(id)
+    const res = await changeScreenStatus(id)
 
     if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
     else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
 
-    fetchCPUs();
+    fetchScreens();
 }
 </script>
 
