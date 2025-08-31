@@ -11,6 +11,10 @@ export const API_ADMIN_RAM = `${API_ADMIN_PRODUCTS}/ram` as string
 export const API_ADMIN_HARD_DRIVE = `${API_ADMIN_PRODUCTS}/harddrive` as string
 export const API_ADMIN_MATERIAL = `${API_ADMIN_PRODUCTS}/material` as string
 
+export const API_ADMIN_DISCOUNT = `${PREFIX_API_ADMIN}/discounts/discount` as string
+export const API_ADMIN_DISCOUNTS = `${PREFIX_API_ADMIN}/discounts` as string
+
+
 export const API_ADMIN_PRODUCT_CPU = `${API_ADMIN_PRODUCTS}/cpu` as string
 export const API_ADMIN_PRODUCT_GPU = `${API_ADMIN_PRODUCTS}/gpu` as string
 export const API_ADMIN_PRODUCT_SCREEN = `${API_ADMIN_PRODUCTS}/screen` as string

@@ -304,7 +304,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     requiresAuth: true,
     icon: 'icon-park-outline:calendar',
     menuType: 'page',
-    componentPath: '/admin/discounts/campaign/index.vue',
+    componentPath: '/admin/discounts/promotion/index.vue',
     id: 601,
     pid: 6,
   },
