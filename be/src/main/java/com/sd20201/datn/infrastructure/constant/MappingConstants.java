@@ -24,8 +24,15 @@ public class MappingConstants {
 
     /* API PRODUCTS */
     public static final String API_ADMIN_PREFIX = API_VERSION_PREFIX + ADMIN;
+
+    public static final String API_ADMIN_PREFIX_GEO =  API_VERSION_PREFIX + "/geo";
     public static final String API_ADMIN_PREFIX_PRODUCTS = API_ADMIN_PREFIX + "/products";
     public static final String API_ADMIN_PREFIX_PRODUCTS_COLOR = API_ADMIN_PREFIX_PRODUCTS + "/color";
+
+    public static final String API_ADMIN_PREFIX_DISCOUNT = API_ADMIN_PREFIX + "/discounts";
+    public static final String API_ADMIN_PREFIX_DISCOUNT_DISCOUNT = API_ADMIN_PREFIX_DISCOUNT + "/discount";
+    public static final String API_ADMIN_PREFIX_DISCOUNT_DETAIL = API_ADMIN_PREFIX_DISCOUNT + "/detail";
+
 
     public static final String API_ADMIN_PREFIX_PRODUCTS_RAM = API_ADMIN_PREFIX_PRODUCTS + "/ram";
     public static final String API_ADMIN_PREFIX_PRODUCTS_HARDDRIVE = API_ADMIN_PREFIX_PRODUCTS + "/harddrive";
@@ -37,5 +44,7 @@ public class MappingConstants {
     public static final String API_ADMIN_PREFIX_PRODUCTS_BRAND =  API_ADMIN_PREFIX_PRODUCTS + "/brand";
     public static final String API_ADMIN_PREFIX_PRODUCTS_OPERATING =  API_ADMIN_PREFIX_PRODUCTS + "/operating";
     public static final String API_ADMIN_PREFIX_PRODUCTS_BATTERY =   API_ADMIN_PREFIX_PRODUCTS + "/battery";
+
+    public static final String API_ADMIN_PREFIX_STAFF =  API_ADMIN_PREFIX + "/staff";
     public static final String API_ADMIN_PREFIX_PRODUCTS_VOUCHER =   API_ADMIN_PREFIX_PRODUCTS + "/voucher";
 }

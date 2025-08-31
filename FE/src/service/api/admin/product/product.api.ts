@@ -1,6 +1,6 @@
-import { DefaultResponse, PaginationParams, PaginationResponse } from '@/api/api.common'
-import request from '@/api/request'
 import { API_ADMIN_PRODUCTS } from '@/constants/url'
+import request from '@/service/request'
+import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import { AxiosResponse } from 'axios'
 
 export type ADProductRequest = PaginationParams & {
@@ -24,10 +24,11 @@ export type ADProductResponse = {
   id?: string
   code: string
   name: string
-  idBrand: string
-  idBattery: string
-  idScreen: string
-  idOperatingSystem: string
+  status?: string
+  band: string
+  battery: string
+  screen: string
+  operatingSystem: string
 }
 
 export type ADProductDetailResponse = {
@@ -106,6 +107,15 @@ export const modifyProduct = async (data: ADProductCreateUpdateRequest) => {
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<ADProductResponse>>
+
+  return res.data
+}
+
+export const changeProductStatus = async (id: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCTS}/change-status/${id}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<null>>
 
   return res.data
 }

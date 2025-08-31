@@ -1,6 +1,6 @@
-import { DefaultResponse, PaginationParams, PaginationResponse } from '@/api/api.common'
-import request from '@/api/request'
 import { API_ADMIN_PRODUCT_GPU } from '@/constants/url'
+import request from '@/service/request';
+import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common';
 import { AxiosResponse } from 'axios'
 
 export type ADProductGPURequest = PaginationParams & {
@@ -25,6 +25,7 @@ export type ADProductGPUResponse = {
   id?: string,
   code: string;
   name: string;
+  status?: string
   description: string;
   generation: string;
   series: string;
@@ -52,11 +53,20 @@ export const getGPUById = async (id: string) => {
 }
 
 export const modifyGPU = async (data: ADProductGPUCreateUpdateRequest) => {
-  const res = await request({
+  const res = (await request({
     url: `${API_ADMIN_PRODUCT_GPU}`,
     method: 'POST',
-    data
-  }) as AxiosResponse<DefaultResponse<ADProductGPUResponse>>
+    data,
+  })) as AxiosResponse<DefaultResponse<null>>
 
-  return res.data;
+  return res.data
+}
+
+export const changeGPUStatus = async (id: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_GPU}/change-status/${id}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<null>>
+
+  return res.data
 }

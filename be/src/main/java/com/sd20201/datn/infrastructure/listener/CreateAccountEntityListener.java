@@ -10,7 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @RequiredArgsConstructor(onConstructor_ = {@Autowired})
 public class CreateAccountEntityListener {
 
-    private PasswordEncoder passwordEncoder;
+    public static PasswordEncoder passwordEncoder;
 
     @PrePersist
     public void prePersist(Account account) {

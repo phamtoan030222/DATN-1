@@ -1,6 +1,19 @@
 <template>
     <div>
-        <n-card title="CPU">
+        <n-card>
+            <NSpace vertical :size="8">
+                <NSpace align="center">
+                    <NIcon size="24">
+                        <Icon icon="icon-park-outline:cpu" />
+                    </NIcon>
+                    <span style="font-weight: 600; font-size: 24px">
+                        Quản lý CPU
+                    </span>
+                </NSpace>
+                <span>Quản lý thuộc tính CPU của sản phẩm</span>
+            </NSpace>
+        </n-card>
+        <n-card title="Bộ lọc" class="mt-20px">
             <n-grid x-gap="12" :cols="11">
                 <n-grid-item span="2">
                     <span>Tìm kiếm</span>
@@ -42,21 +55,35 @@
                     </n-flex>
                 </n-grid-item>
             </n-grid>
-            <div class="line"></div>
-            <n-data-table :columns="columns" :data="state.data.cpus" :pagination="paginationReactive" :bordered="false">F
-                <template #action="{row}">
-                </template>
-            </n-data-table>
+        </n-card>
+        <n-card title="Danh sách CPU" class="mt-20px">
+            <template #header-extra>
+                <n-space justify="end">
+                    <n-button circle type="primary" @click="clickOpenModal()">
+                        <Icon icon="material-symbols:add" />
+                    </n-button>
+                </n-space>
+            </template>
+            <n-data-table class="mt-20px" :columns="columns" :data="state.data.cpus" :bordered="false" />
+
+            <n-space justify="center" class="mt-20px">
+                <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
+                    :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
+            </n-space>
         </n-card>
 
+        <ADProductCPUModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
+            :id="cpuIDSelected" @close="closeModal" />
     </div>
 </template>
 
 <script lang="ts" setup>
 import { onMounted, reactive, Ref, ref, watch } from 'vue'
 import { debounce } from 'lodash'
-import { ADProductCPUResponse, getCPUs } from '@/service/api/admin/product/cpu.api'
-import { DataTableColumns } from 'naive-ui'
+import { ADProductCPUResponse, changeCPUStatus, getCPUs } from '@/service/api/admin/product/cpu.api'
+import { DataTableColumns, NButton, NIcon, NSpace, NSwitch } from 'naive-ui'
+import ADProductCPUModal from './component/ADProductCPUModal.vue'
+import { Icon } from '@iconify/vue'
 
 const state = reactive({
     search: {
@@ -103,14 +130,42 @@ const refreshFilter = () => {
 
 const columns: DataTableColumns<ADProductCPUResponse> = [
     { type: 'selection', fixed: 'left' },
-    { title: '#', key: 'orderNumber', width: 50, fixed: 'left', },
+    {
+        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data, index) => {
+            return h('span', { innerText: index + 1 })
+        }
+    },
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
     { title: 'Tên CPU', key: 'name', width: 150, fixed: 'left', },
+    {
+        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        render: (data: ADProductCPUResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
+    },
     { title: 'Thế hệ', key: 'generation', width: 150, align: 'center', },
     { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
     { title: 'Năm phát hàng', key: 'releaseYear', width: 150, align: 'center', },
     { title: 'Dòng CPU', key: 'series', width: 150, align: 'center', },
-    { title: '', key: 'action', width: 100, fixed: 'right', },
+    {
+        title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
+        render: (data: ADProductCPUResponse, index) => {
+            return h(NSpace,
+                [
+                    h(NButton, {
+                        size: 'small', quaternary: true, circle: true,
+                        onClick: () => clickOpenModal(data.id, true)
+                    },
+                        h(Icon, { icon: 'carbon:edit' })
+                    ),
+                    // h(NButton, {
+                    //     size: 'small', quaternary: true, circle: true, type: 'warning',
+                    //     onClick: () => clickOpenModal(data.id)
+                    // },
+                    //     h(Icon, { icon: 'carbon:edit' })
+                    // )
+                ]
+            )
+        }
+    },
 ]
 
 onMounted(() => {
@@ -142,7 +197,7 @@ const handleSuccessModifyModal = () => {
 const debounceFetchCPUs = debounce(fetchCPUs, 300)
 
 watch(
-    () => [state.search.q, state.search.brand, state.search.releaseYear, state.search.generation, state.search.releaseYear],
+    () => [state.search.q, state.search.brand, state.search.releaseYear, state.search.generation, state.search.releaseYear, state.pagination.page, state.pagination.size],
     () => {
         debounceFetchCPUs()
     }
@@ -154,19 +209,20 @@ const brandOptionsSelect = [
     { label: 'Apple', value: 'Apple' },
 ]
 
-const paginationReactive = reactive({
-    page: 2,
-    pageSize: 5,
-    showSizePicker: true,
-    pageSizes: [3, 5, 7],
-    onChange: (page: number) => {
-        paginationReactive.page = page
-    },
-    onUpdatePageSize: (pageSize: number) => {
-        paginationReactive.pageSize = pageSize
-        paginationReactive.page = 1
-    }
-})
+const handlePageChange = (page: number) => {
+    state.pagination.page
+}
+
+const notification = useNotification();
+
+const handleChangeStatus = async (id: string) => {
+    const res = await changeCPUStatus(id)
+
+    if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
+    else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
+
+    fetchCPUs();
+}
 </script>
 
 <style scoped>
