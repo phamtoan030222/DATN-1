@@ -1,7 +1,8 @@
-import { DefaultResponse, PaginationParams, PaginationResponse } from '@/api/api.common'
-import request from '@/api/request'
 import { API_ADMIN_PRODUCT_DETAIL } from '@/constants/url'
+import request from '@/service/request'
+import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import { AxiosResponse } from 'axios'
+import { ADProductCreateUpdateRequest } from './product.api'
 
 export type ADProductDetailRequest = PaginationParams & {
   idProduct: string,
@@ -14,14 +15,18 @@ export type ADProductDetailRequest = PaginationParams & {
 }
 
 export type ADProductDetailCreateUpdateRequest = {
-  id?: string
-  idProduct: string
-  idCPU: string
-  idGPU: string
-  idColor: Array<string>
-  idRAM: string
-  idHardDrive: string
-  idMaterial: string
+  id?: string;
+  code?: string;
+  idProduct?: string;
+  imei: string[];
+  idColor: string;
+  idRAM: string;
+  idHardDrive: string;
+  idMaterial: string;
+  idGPU: string;
+  idCPU: string;
+  price: number;
+  description?: string;
 }
 
 export type ADProductDetailResponse = {
@@ -136,6 +141,29 @@ export const modifyProductDetail = async (data: ADProductDetailCreateUpdateReque
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<ADProductDetailResponse>>
+
+  return res.data
+}
+
+export const createProductVariant = async (product: ADProductCreateUpdateRequest, variant: ADProductDetailCreateUpdateRequest[]) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/variant`,
+    method: 'POST',
+    data: {
+      product,
+      variant
+    }
+  })) as AxiosResponse<DefaultResponse<null>>
+
+  return res.data
+}
+
+export const isIMEIExists = async (idIMEIs: string[]) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/imei-exists`,
+    method: 'POST',
+    data: idIMEIs
+  })) as AxiosResponse<DefaultResponse<Array<string>>>
 
   return res.data
 }

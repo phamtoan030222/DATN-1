@@ -24,3 +24,9 @@ export const API_ADMIN_PRODUCT_BRAND = `${API_ADMIN_PRODUCTS}/brand` as string;
 export const API_ADMIN_PRODUCT_OPERATING_SYSTEM =
   `${API_ADMIN_PRODUCTS}/operating` as string;
 export const API_ADMIN_BATTERY = `${API_ADMIN_PRODUCTS}/battery` as string;
+export const API_ADMIN_DISCOUNT =
+  `${PREFIX_API_ADMIN}/discounts/discount` as string;
+export const API_ADMIN_DISCOUNTS = `${PREFIX_API_ADMIN}/discounts` as string;
+
+export const API_ADMIN_PRODUCT_VOUCHER =
+  `${API_ADMIN_PRODUCTS}/voucher` as string;

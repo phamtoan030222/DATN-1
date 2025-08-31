@@ -2,6 +2,8 @@ package com.sd20201.datn.entity;
 
 import com.sd20201.datn.entity.base.PrimaryEntity;
 import jakarta.persistence.Entity;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -13,4 +15,9 @@ import java.io.Serializable;
 @Entity
 @Table(name = "imei")
 public class IMEI extends PrimaryEntity implements Serializable {
+
+    @ManyToOne
+    @JoinColumn(name = "id_product_detail", referencedColumnName = "id")
+    private ProductDetail productDetail;
+
 }

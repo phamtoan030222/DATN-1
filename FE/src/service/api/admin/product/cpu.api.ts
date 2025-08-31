@@ -4,10 +4,10 @@ import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings
 import { AxiosResponse } from 'axios'
 
 export type ADProductCPURequest = PaginationParams & {
-  brand?: string,
-  releaseYear?: number | undefined,
-  generation?: string,
-  series?: string,
+  brand: string,
+  releaseYear: number | null,
+  generation: string,
+  series: string,
 }
 
 export type ADProductCPUCreateUpdateRequest = {
@@ -25,6 +25,7 @@ export type ADProductCPUResponse = {
   id?: string,
   code: string;
   name: string;
+  status?: string
   description: string;
   generation: string;
   series: string;
@@ -52,11 +53,20 @@ export const getCPUById = async (id: string) => {
 }
 
 export const modifyCPU = async (data: ADProductCPUCreateUpdateRequest) => {
-  const res = await request({
+  const res = (await request({
     url: `${API_ADMIN_PRODUCT_CPU}`,
     method: 'POST',
     data
-  }) as AxiosResponse<DefaultResponse<ADProductCPUResponse>>
+  })) as AxiosResponse<DefaultResponse<ADProductCPUResponse>>
 
   return res.data;
+}
+
+export const changeCPUStatus = async (id: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_CPU}/change-status/${id}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<null>>
+
+  return res.data
 }

@@ -19,9 +19,9 @@ public class ADPDProductDetailCreateUpdateRequest {
 
     private String idProduct;
 
-    private String idImei;
+    private List<String> imei;
 
-    private List<String> idColor;
+    private String idColor;
 
     private String idRAM;
 

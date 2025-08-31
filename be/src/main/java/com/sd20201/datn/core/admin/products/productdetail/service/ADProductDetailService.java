@@ -1,8 +1,11 @@
 package com.sd20201.datn.core.admin.products.productdetail.service;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductCreateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
+
+import java.util.List;
 
 public interface ADProductDetailService {
 
@@ -27,4 +30,7 @@ public interface ADProductDetailService {
 
     ResponseObject<?> modify(ADPDProductDetailCreateUpdateRequest request);
 
+    ResponseObject<?> createVariant(ADPDProductCreateRequest request);
+
+    ResponseObject<?> isIMEIExist(List<String> ids);
 }
