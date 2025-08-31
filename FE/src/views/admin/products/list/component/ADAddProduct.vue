@@ -207,11 +207,11 @@ const productDetails: Reactive<ADPRTableProductDetail[]> = reactive([])
 const columns: DataTableColumns<ADPRTableProductDetail> = [
     { type: 'selection', width: 50, fixed: 'left' },
     {
-        title: '#', key: 'orderNumber', width: 50, align: 'center',
+        title: '#', key: 'orderNumber', width: 50, align: 'center', fixed: 'left',
         render: (data, index) => h('span', { innerText: index + 1 })
     },
     {
-        title: 'Cấu hình', key: 'configuration', width: 120, align: 'center',
+        title: 'Cấu hình', key: 'configuration', width: 200, align: 'left',
         render: (row: ADPRTableProductDetail) => h('div',
             [
                 h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'iconoir:fill-color' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.label) })]),
@@ -226,15 +226,18 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     {
         title: 'Ảnh biến thể',
         key: 'imageProductDetail',
-        width: 50,
+        width: 100,
         align: 'center',
         render: (data: ADPRTableProductDetail) => h(NImage, { lazy: true, alt: 'Ảnh sản phẩm' })
     },
     {
-        title: 'Giá bán', key: 'price', width: 50, align: 'center',
+        title: 'Giá bán', key: 'price', width: 200, align: 'center',
         render: (data: ADPRTableProductDetail, index: number) => {
             return !(isEditPriceInputTable.value == index) ?
-                h('span', { innerText: data.price ? data.price : 'Chưa có giá cho biến thể này', onClick: () => { handleClickPriceTable(index) } }) :
+                h('span', { innerText: data.price ? (data.price + '').split('').reduce((prev, curr, index, arr) => {
+                    if((arr.length - index) % 3 == 0) return prev + ' ' + curr
+                    return prev + curr
+                },'') + ' vnđ' : 'Chưa có giá cho biến thể này', onClick: () => { handleClickPriceTable(index) } }) :
                 h(NInputNumber, {
                     style: { width: '100%' },
                     placeholder: 'Nhập giá',
@@ -250,24 +253,26 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         }
     },
     {
-        title: 'Tồn kho', key: 'quantity', width: 50, align: 'center',
+        title: 'Tồn kho', key: 'quantity', width: 150, align: 'center',
         render: (data: ADPRTableProductDetail) => h('span', data.imei ? data.imei.length + ' sản phẩm' : 'Không có sản phẩm')
     },
     {
-        title: 'Thao tác', key: 'action', width: 50, align: 'center',
-        render: (data, index) => h(NSpace,
-            [h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),]
+        title: 'Thao tác', key: 'action', width: 100, align: 'center',
+        render: (data, index) => h(NSpace, {justify: 'center'},
+            [
+            h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
+            ]
         )
     },
 ]
 
 const createVariant = () => {
-    formDataVariant.idColor = [...dataProperties.variantInformation.colors.map(data => data.value)]
-    formDataVariant.idCpu = dataProperties.variantInformation.cpus[0].value
-    formDataVariant.idGpu = dataProperties.variantInformation.gpus[0].value
-    formDataVariant.idHardDrive = dataProperties.variantInformation.hardDrives[0].value
-    formDataVariant.idMaterial = dataProperties.variantInformation.materials[0].value
-    formDataVariant.idRam = dataProperties.variantInformation.rams[0].value
+    // formDataVariant.idColor = [...dataProperties.variantInformation.colors.map(data => data.value)]
+    // formDataVariant.idCpu = dataProperties.variantInformation.cpus[0].value
+    // formDataVariant.idGpu = dataProperties.variantInformation.gpus[0].value
+    // formDataVariant.idHardDrive = dataProperties.variantInformation.hardDrives[0].value
+    // formDataVariant.idMaterial = dataProperties.variantInformation.materials[0].value
+    // formDataVariant.idRam = dataProperties.variantInformation.rams[0].value
 
     if (formDataVariant.idColor) {
         formDataVariant.idColor.forEach((element) => {
@@ -286,7 +291,6 @@ const createVariant = () => {
 const isEditPriceInputTable: Ref<number> = ref(-1)
 
 const handleClickPriceTable = (index: number) => {
-    console.log('here')
     isEditPriceInputTable.value = index
 }
 
@@ -332,29 +336,29 @@ const submitVariantHandler = async () => {
             const value = data[key as keyof ADPRTableProductDetail]
             if (!value) isValid = false
         })  
-        debugger
-        if(Array.isArray(data.imei) && data.imei.length == 0) return false
+
+        if(!(data.imei && Array.isArray(data.imei) && data.imei.length != 0)) return false
+
+        if(!data.price) return false
 
         return isValid
     })
 
-    console.log(dataVariant)
+    const res = await createProductVariant(formDataBasic, dataVariant.map(data => ({
+        idColor: data.idColor,
+        idCPU: data.idCPU,
+        idGPU: data.idGPU,
+        idRAM: data.idRAM,
+        idHardDrive: data.idHardDrive,
+        idMaterial: data.idMaterial,
+        imei: data.imei,
+        price: data.price
+    })) as ADProductDetailCreateUpdateRequest[])
 
-    // const res = await createProductVariant(formDataBasic, dataVariant.map(data => ({
-    //     idColor: data.idColor,
-    //     idCPU: data.idCPU,
-    //     idGPU: data.idGPU,
-    //     idRAM: data.idRAM,
-    //     idHardDrive: data.idHardDrive,
-    //     idMaterial: data.idMaterial,
-    //     imei: data.imei,
-    //     price: data.price
-    // })) as ADProductDetailCreateUpdateRequest[])
+    if (res.success) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
+    else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
 
-    // if (res.success) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
-    // else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
-
-    // router.push({ name: 'products_list' })
+    router.push({ name: 'products_list' })
 }
 </script>
 
