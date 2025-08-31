@@ -34,6 +34,7 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
+              order by p.createdDate desc
     """, countQuery = """
     SELECT
         COUNT(1)
