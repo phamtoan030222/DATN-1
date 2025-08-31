@@ -22,6 +22,7 @@ import io.jsonwebtoken.security.Keys;
 import io.jsonwebtoken.security.SignatureException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
@@ -38,6 +39,7 @@ import java.util.Optional;
 
 @Service
 @Slf4j
+@RequiredArgsConstructor
 public class TokenProvider {
 
     @Value("${jwt.secret}")
@@ -45,17 +47,13 @@ public class TokenProvider {
 
     private final long TOKEN_EXP = System.currentTimeMillis() + 2 * 60 * 60 * 100000;
 
-    @Setter(onMethod = @__({@Autowired}))
-    private AuthStaffRepository staffRepository;
+    private final AuthStaffRepository staffRepository;
 
-    @Setter(onMethod = @__({@Autowired}))
-    private HttpServletRequest request;
+    private final HttpServletRequest request;
 
-    @Setter(onMethod = @__({@Autowired}))
-    private AuthRoleRepository roleRepository;
+    private final AuthRoleRepository roleRepository;
 
-    @Setter(onMethod = @__({@Autowired}))
-    private AuthCustomerRepository customerRepository;
+    private final AuthCustomerRepository customerRepository;
 
     public String createTokenLogin(Authentication authentication) throws BadRequestException, JsonProcessingException {
         UserPrincipal user = (UserPrincipal) authentication.getPrincipal();

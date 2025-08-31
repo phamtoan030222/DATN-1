@@ -66,7 +66,7 @@ public class DBGenerator {
             Account account = new Account();
             account.setUsername(accountUsername);
             account.setPassword(passwordEncoder.encode(accountPassword));
-            account.setRole(role);
+            account.setRoleConstant(RoleConstant.QUAN_LY);
             accountRepository.save(account);
         }
 

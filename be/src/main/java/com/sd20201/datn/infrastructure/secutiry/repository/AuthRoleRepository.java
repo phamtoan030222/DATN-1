@@ -8,12 +8,12 @@ import java.util.List;
 
 public interface AuthRoleRepository extends RoleRepository {
 
-    @Query(value = """
-    SELECT r.code
-    FROM Role r
-    JOIN Account a ON r.id = a.role.id
+    @Query("""
+    SELECT a.roleConstant
+    FROM Account a
     WHERE a.username = :username
-    """)
+""")
     List<String> getRoleCodeByUsername(@Param("username") String username);
+
 
 }
