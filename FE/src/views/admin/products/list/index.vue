@@ -4,13 +4,13 @@
             <NSpace vertical :size="8">
                 <NSpace align="center">
                     <NIcon size="24">
-                        <Icon icon="icon-park-outline:cpu" />
+                        <Icon icon="icon-park-outline:list" />
                     </NIcon>
                     <span style="font-weight: 600; font-size: 24px">
-                        Quản lý CPU
+                        Quản lý sản phẩm
                     </span>
                 </NSpace>
-                <span>Quản lý thuộc tính CPU của sản phẩm</span>
+                <span>Quản lý sản phẩm trong cửa hàng</span>
             </NSpace>
         </n-card>
         <n-card title="Bộ lọc" class="mt-20px">
@@ -21,19 +21,20 @@
                 </n-grid-item>
                 <n-grid-item span="2">
                     <span>Hãng</span>
-                    <n-select v-model:value="state.search.brand" :options="brandOptionsSelect"></n-select>
+                    <n-select v-model:value="state.search.brand" :options="state.data.brands"></n-select>
                 </n-grid-item>
                 <n-grid-item span="2">
-                    <span>Thế hệ</span>
-                    <n-input v-model:value="state.search.generation" placeholder="Nhập thế hệ" />
+                    <span>Pin</span>
+                    <n-select v-model:value="state.search.battery" :options="state.data.batteries"></n-select>
                 </n-grid-item>
                 <n-grid-item span="2">
-                    <span>Năm phát hành</span>
-                    <n-date-picker v-model:value="state.search.releaseYear" type="year" clearable />
+                    <span>Màn hình</span>
+                    <n-select v-model:value="state.search.screen" :options="state.data.screens"></n-select>
                 </n-grid-item>
                 <n-grid-item span="2">
-                    <span>Dòng sản phẩm</span>
-                    <n-input v-model:value="state.search.series" placeholder="Nhập thế hệ" />
+                    <span>Hệ điều hành</span>
+                    <n-select v-model:value="state.search.operatingSystem"
+                        :options="state.data.operatingSystems"></n-select>
                 </n-grid-item>
                 <n-grid-item span="1">
                     <n-flex vertical justify="end" style="height: 100%;">
@@ -56,45 +57,68 @@
                 </n-grid-item>
             </n-grid>
         </n-card>
-        <n-card title="Danh sách CPU" class="mt-20px">
+        <n-card title="Danh sách sản phẩm" class="mt-20px">
             <template #header-extra>
                 <n-space justify="end">
-                    <n-button circle type="primary" @click="clickOpenModal()">
+                    <n-button circle type="primary" @click="handleClickAddProduct()">
                         <Icon icon="material-symbols:add" />
                     </n-button>
                 </n-space>
             </template>
-            <n-data-table class="mt-20px" :columns="columns" :data="state.data.cpus" :bordered="false" />
-
-            <n-space justify="center" class="mt-20px">
-                <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
-                    :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
-            </n-space>
+            <n-data-table :columns="columns" :data="state.data.products" :pagination="{
+                page: state.pagination.page,
+                pageSize: state.pagination.size,
+                showSizePicker: true,
+                pageSizes: [10, 20, 25, 50, 100],
+                onChange: (page: number) => {
+                    state.pagination.page = page
+                },
+                onUpdatePageSize: (pageSize: number) => {
+                    state.pagination.page = 1
+                    state.pagination.size = pageSize
+                }
+            }" :bordered="false" />
         </n-card>
 
-        <ADProductCPUModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
-            :id="cpuIDSelected" @close="closeModal" />
+        <ADProductModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
+            :id="productIdSelected" :screens="state.data.screens" :brands="state.data.brands"
+            :batteries="state.data.batteries" :operatingSystems="state.data.operatingSystems" @close="closeModal" />
     </div>
 </template>
 
 <script lang="ts" setup>
-import { onMounted, reactive, Ref, ref, watch } from 'vue'
-import { debounce } from 'lodash'
-import { ADProductCPUResponse, changeCPUStatus, getCPUs } from '@/service/api/admin/product/cpu.api'
-import { DataTableColumns, NButton, NIcon, NSpace, NSwitch } from 'naive-ui'
-import ADProductCPUModal from './component/ADProductCPUModal.vue'
+import {
+    ADProductResponse,
+    ADPRPropertiesComboboxResponse,
+    changeProductStatus,
+    getBatteries,
+    getBrands,
+    getOperatingSystems,
+    getProducts,
+    getScreens,
+} from '@/service/api/admin/product/product.api'
 import { Icon } from '@iconify/vue'
+import { debounce } from 'lodash'
+import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
+import { onMounted, reactive, Ref, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import ADProductModal from './component/ADProductModal.vue'
 
+const router = useRouter()
 const state = reactive({
     search: {
         q: '',
         brand: '',
-        generation: '',
-        series: '',
-        releaseYear: null as number | null,
+        screen: '',
+        battery: '',
+        operatingSystem: '',
     },
     data: {
-        cpus: [] as ADProductCPUResponse[],
+        products: [] as ADProductResponse[],
+        screens: [] as ADPRPropertiesComboboxResponse[],
+        brands: [] as ADPRPropertiesComboboxResponse[],
+        batteries: [] as ADPRPropertiesComboboxResponse[],
+        operatingSystems: [] as ADPRPropertiesComboboxResponse[],
     },
     pagination: {
         page: 1,
@@ -103,61 +127,77 @@ const state = reactive({
     },
 })
 
-const fetchCPUs = async () => {
-    const res = await getCPUs({
+const fetchProducts = async () => {
+    const res = await getProducts({
         page: state.pagination.page,
         size: state.pagination.size,
         q: state.search.q,
-        brand: state.search.brand,
-        releaseYear: state.search.releaseYear,
-        series: state.search.series,
-        generation: state.search.generation,
+        idBrand: state.search.brand,
+        idOperatingSystem: state.search.operatingSystem,
+        idBattery: state.search.battery,
+        idScreen: state.search.screen,
     })
 
-    console.table(res.data.data)
-
-    state.data.cpus = res.data.data
+    state.data.products = res.data.data
     state.pagination.totalPages = res.data.totalPages
+}
+
+const fetchComboboxProperties = async () => {
+    try {
+        const [screenProperties, brandProperties, batteryProperties, operatingSystemProperties] = await Promise.all([
+            getScreens(),
+            getBrands(),
+            getBatteries(),
+            getOperatingSystems(),
+        ])
+
+        state.data.screens = screenProperties.data
+        state.data.batteries = batteryProperties.data
+        state.data.brands = brandProperties.data
+        state.data.operatingSystems = operatingSystemProperties.data
+    } catch (error) {
+        console.log(error)
+    }
 }
 
 const refreshFilter = () => {
     state.search.q = ''
+    state.search.battery = ''
     state.search.brand = ''
-    state.search.generation = ''
-    state.search.series = ''
-    state.search.releaseYear = null
+    state.search.screen = ''
+    state.search.operatingSystem = ''
 }
 
-const columns: DataTableColumns<ADProductCPUResponse> = [
+const columns: DataTableColumns<ADProductResponse> = [
     { type: 'selection', fixed: 'left' },
     {
-        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data, index) => {
+        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data: ADProductResponse, index: number) => {
             return h('span', { innerText: index + 1 })
         }
     },
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
-    { title: 'Tên CPU', key: 'name', width: 150, fixed: 'left', },
+    { title: 'Tên', key: 'name', width: 100, fixed: 'left', },
     {
         title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductCPUResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
+        render: (data: ADProductResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
     },
-    { title: 'Thế hệ', key: 'generation', width: 150, align: 'center', },
     { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
-    { title: 'Năm phát hàng', key: 'releaseYear', width: 150, align: 'center', },
-    { title: 'Dòng CPU', key: 'series', width: 150, align: 'center', },
+    { title: 'Pin', key: 'battery', width: 150, fixed: 'left', },
+    { title: 'Màn hình', key: 'screen', width: 150, align: 'center', },
+    { title: 'Hệ điều hành', key: 'operatingSystem', width: 150, align: 'center', },
     {
         title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
-        render: (data: ADProductCPUResponse, index) => {
+        render: (data: ADProductResponse) => {
             return h(NSpace,
                 [
                     h(NButton, {
-                        size: 'small', quaternary: true, circle: true,
+                        quaternary: true, size: 'small', circle: true,
                         onClick: () => clickOpenModal(data.id, true)
                     },
                         h(Icon, { icon: 'carbon:edit' })
                     ),
                     // h(NButton, {
-                    //     size: 'small', quaternary: true, circle: true, type: 'warning',
+                    //     strong: true, circle: true, type: 'warning',
                     //     onClick: () => clickOpenModal(data.id)
                     // },
                     //     h(Icon, { icon: 'carbon:edit' })
@@ -169,18 +209,18 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
 ]
 
 onMounted(() => {
-    fetchCPUs()
+    fetchProducts()
+    fetchComboboxProperties()
 })
 
 const isOpenModal = ref<boolean>(false)
 
 const isDetailModal: Ref<boolean> = ref(true)
 
-const cpuIDSelected = ref<string>()
+const productIdSelected = ref<string>()
 
 const clickOpenModal = (id?: string, isDetail?: boolean) => {
-    console.log(id)
-    cpuIDSelected.value = id
+    productIdSelected.value = id
     isOpenModal.value = true
     isDetailModal.value = isDetail ?? false
 }
@@ -190,39 +230,39 @@ const closeModal = () => {
 }
 
 const handleSuccessModifyModal = () => {
-    fetchCPUs()
+    fetchProducts()
     closeModal()
 }
 
-const debounceFetchCPUs = debounce(fetchCPUs, 300)
+const debounceFetchProducts = debounce(fetchProducts, 300)
 
 watch(
-    () => [state.search.q, state.search.brand, state.search.releaseYear, state.search.generation, state.search.releaseYear, state.pagination.page, state.pagination.size],
+    () => [state.search.q, state.search.operatingSystem, state.search.battery, state.search.brand, state.search.screen],
     () => {
-        debounceFetchCPUs()
+        debounceFetchProducts()
     }
 )
-// configuration select
-const brandOptionsSelect = [
-    { label: 'Intel', value: 'Intel' },
-    { label: 'AMD', value: 'AMD' },
-    { label: 'Apple', value: 'Apple' },
-]
 
-const handlePageChange = (page: number) => {
-    state.pagination.page
+const handleClickAddProduct = (id?: string) => {
+    router.push({
+        name: 'products_add',
+        params: {
+            id,
+        },
+    })
 }
 
-const notification = useNotification();
+const notification = useNotification()
 
 const handleChangeStatus = async (id: string) => {
-    const res = await changeCPUStatus(id)
+    const res = await changeProductStatus(id)
 
     if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
     else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
 
-    fetchCPUs();
+    fetchProducts();
 }
+
 </script>
 
 <style scoped>

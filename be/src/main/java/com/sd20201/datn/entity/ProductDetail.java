@@ -29,10 +29,6 @@ public class ProductDetail extends PrimaryEntity implements Serializable, Clonea
     @JoinColumn(name="id_product", referencedColumnName = "id")
     private Product product;
 
-    @OneToOne
-    @JoinColumn(name = "id_imei")
-    private IMEI iMEI;
-
     @ManyToOne
     @JoinColumn(name = "id_color", nullable = false)
     private Color color;
@@ -58,6 +54,9 @@ public class ProductDetail extends PrimaryEntity implements Serializable, Clonea
     private CPU cpu;
 
     private BigDecimal price;
+
+    @Column(length = EntityProperties.LENGTH_PICTURE)
+    private String urlImage;
 
     @Column(length = EntityProperties.LENGTH_DESCRIPTION)
     private String description;

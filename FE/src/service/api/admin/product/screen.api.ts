@@ -1,6 +1,6 @@
-import { DefaultResponse, PaginationParams, PaginationResponse } from '@/api/api.common'
-import request from '@/api/request'
 import { API_ADMIN_PRODUCT_SCREEN } from '@/constants/url'
+import request from '@/service/request'
+import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import { AxiosResponse } from 'axios'
 
 export type ADProductScreenRequest = PaginationParams & {
@@ -24,6 +24,7 @@ export type ADProductScreenResponse = {
   id?: string
   code: string
   name: string
+  status?: string
   physicalSize: number
   resolution: string
   panelType: string
@@ -71,6 +72,15 @@ export const modifyScreen = async (data: ADProductScreenCreateUpdateRequest) => 
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<ADProductScreenResponse>>
+
+  return res.data
+}
+
+export const changeScreenStatus = async (id: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_SCREEN}/change-status/${id}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<null>>
 
   return res.data
 }
