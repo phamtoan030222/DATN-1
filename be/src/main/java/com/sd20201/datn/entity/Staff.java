@@ -39,4 +39,9 @@ public class Staff extends PrimaryEntity implements Serializable {
     private String phone;
 
     private String avatarUrl;
+
+    private String provinceCode;
+    private String districtCode;
+    private String communeCode;
+
 }
