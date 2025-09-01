@@ -8,6 +8,8 @@ export type ADProductRequest = PaginationParams & {
   idBrand: string
   idScreen: string
   idOperatingSystem: string
+  minPrice: number
+  maxPrice: number
 }
 
 export type ADProductCreateUpdateRequest = {
@@ -29,6 +31,9 @@ export type ADProductResponse = {
   battery: string
   screen: string
   operatingSystem: string
+  minPrice: number,
+  maxPrice: number,
+  quantity: number
 }
 
 export type ADProductDetailResponse = {

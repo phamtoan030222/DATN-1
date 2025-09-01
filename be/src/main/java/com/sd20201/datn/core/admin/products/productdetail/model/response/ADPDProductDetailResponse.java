@@ -1,8 +1,9 @@
 package com.sd20201.datn.core.admin.products.productdetail.model.response;
 
+import com.sd20201.datn.core.common.base.IsEntityStatus;
 import com.sd20201.datn.core.common.base.IsIdentify;
 
-public interface ADPDProductDetailResponse extends IsIdentify {
+public interface ADPDProductDetailResponse extends IsIdentify, IsEntityStatus {
 
     String getCode();
 
@@ -23,5 +24,7 @@ public interface ADPDProductDetailResponse extends IsIdentify {
     Double getPrice();
 
     String getDescription();
+
+    Integer getQuantity();
 
 }

@@ -14,48 +14,65 @@
             </NSpace>
         </n-card>
         <n-card title="Bộ lọc" class="mt-20px">
-            <n-grid x-gap="12" :cols="11">
-                <n-grid-item span="2">
-                    <span>Tìm kiếm</span>
-                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Hãng</span>
-                    <n-select v-model:value="state.search.brand" :options="state.data.brands"></n-select>
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Pin</span>
-                    <n-select v-model:value="state.search.battery" :options="state.data.batteries"></n-select>
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Màn hình</span>
-                    <n-select v-model:value="state.search.screen" :options="state.data.screens"></n-select>
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Hệ điều hành</span>
-                    <n-select v-model:value="state.search.operatingSystem"
-                        :options="state.data.operatingSystems"></n-select>
-                </n-grid-item>
-                <n-grid-item span="1">
-                    <n-flex vertical justify="end" style="height: 100%;">
-                        <n-button @click="refreshFilter" strong secondary circle type="success">
-                            <template #icon>
-                                <n-icon>
-                                    <svg version="1.1" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512"
-                                        enable-background="new 0 0 512 512" xml:space="preserve">
-                                        <path d="M433,288.8c-7.7,0-14.3,5.9-14.9,13.6c-6.9,83.1-76.8,147.9-161.8,147.9c-89.5,0-162.4-72.4-162.4-161.4
+            <template #header-extra>
+                <n-button @click="refreshFilter" strong secondary circle type="success">
+                    <template #icon>
+                        <n-icon>
+                            <svg version="1.1" xmlns="http://www.w3.org/2000/svg"
+                                xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512"
+                                enable-background="new 0 0 512 512" xml:space="preserve">
+                                <path d="M433,288.8c-7.7,0-14.3,5.9-14.9,13.6c-6.9,83.1-76.8,147.9-161.8,147.9c-89.5,0-162.4-72.4-162.4-161.4
                                     c0-87.6,70.6-159.2,158.2-161.4c2.3-0.1,4.1,1.7,4.1,4v50.3c0,12.6,13.9,20.2,24.6,13.5L377,128c10-6.3,10-20.8,0-27.1l-96.1-66.4
                                     c-10.7-6.7-24.6,0.9-24.6,13.5v45.7c0,2.2-1.7,4-3.9,4C148,99.8,64,184.6,64,288.9C64,394.5,150.1,480,256.3,480
                                     c100.8,0,183.4-76.7,191.6-175.1C448.7,296.2,441.7,288.8,433,288.8L433,288.8z">
-                                        </path>
-                                    </svg>
-                                </n-icon>
-                            </template>
-                        </n-button>
-                    </n-flex>
-                </n-grid-item>
-            </n-grid>
+                                </path>
+                            </svg>
+                        </n-icon>
+                    </template>
+                </n-button>
+            </template>
+            <n-space vertical>
+                <n-row :gutter="24">
+                    <n-col :span="12">
+                        <span>Tìm kiếm</span>
+                        <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
+                    </n-col>
+                    <n-col :span="3">
+                        <span>Hãng</span>
+                        <n-select v-model:value="state.search.brand" :options="state.data.brands"></n-select>
+                    </n-col>
+                    <n-col :span="3">
+                        <span>Pin</span>
+                        <n-select v-model:value="state.search.battery" :options="state.data.batteries"></n-select>
+                    </n-col>
+                    <n-col :span="3">
+                        <span>Màn hình</span>
+                        <n-select v-model:value="state.search.screen" :options="state.data.screens"></n-select>
+                    </n-col>
+                    <n-col :span="3">
+                        <span>Hệ điều hành</span>
+                        <n-select v-model:value="state.search.operatingSystem"
+                            :options="state.data.operatingSystems"></n-select>
+                    </n-col>
+                </n-row>
+                <div class="mt-20px">
+                    <n-row :gutter="12">
+                        <n-col :span="12">
+                            <span>Khoảng giá</span>
+                            <n-slider v-model:value="state.search.price" range :step="1000" :min="1000"
+                                :max="50000000" />
+                        </n-col>
+                        <n-col :span="6">
+                            <span>Giá nhỏ nhất</span>
+                            <n-input-number v-model:value="state.search.price[0]"></n-input-number>
+                        </n-col>
+                        <n-col :span="6">
+                            <span>Giá lớn nhất</span>
+                            <n-input-number v-model:value="state.search.price[1]"></n-input-number>
+                        </n-col>
+                    </n-row>
+                </div>
+            </n-space>
         </n-card>
         <n-card title="Danh sách sản phẩm" class="mt-20px">
             <template #header-extra>
@@ -112,6 +129,7 @@ const state = reactive({
         screen: '',
         battery: '',
         operatingSystem: '',
+        price: [10000, 50000000]
     },
     data: {
         products: [] as ADProductResponse[],
@@ -136,6 +154,8 @@ const fetchProducts = async () => {
         idOperatingSystem: state.search.operatingSystem,
         idBattery: state.search.battery,
         idScreen: state.search.screen,
+        minPrice: state.search.price[0],
+        maxPrice: state.search.price[1],
     })
 
     state.data.products = res.data.data
@@ -166,6 +186,7 @@ const refreshFilter = () => {
     state.search.brand = ''
     state.search.screen = ''
     state.search.operatingSystem = ''
+    state.search.price = [10000, 50000000]
 }
 
 const columns: DataTableColumns<ADProductResponse> = [
@@ -176,32 +197,57 @@ const columns: DataTableColumns<ADProductResponse> = [
         }
     },
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
-    { title: 'Tên', key: 'name', width: 100, fixed: 'left', },
+    { title: 'Tên', key: 'name', width: 200, fixed: 'left', },
     {
         title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
+        render: (data: ADProductResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+    },
+    {
+        title: 'Giá thấp nhất', key: 'minPrice', width: 150, align: 'center',
+        render: (data: ADProductResponse) => h('span', (data.minPrice + '').split('').reduce((prev, curr, index, arr) => {
+            if ((arr.length - index) % 3 == 0) return prev + '.' + curr
+            return prev + curr
+        }, '') + ' vnđ')
+    },
+    {
+        title: 'Giá lớn nhất', key: 'maxPrice', width: 150, align: 'center',
+        render: (data: ADProductResponse) => h('span', (data.maxPrice + '').split('').reduce((prev, curr, index, arr) => {
+            if ((arr.length - index) % 3 == 0) return prev + '.' + curr
+            return prev + curr
+        }, '') + ' vnđ')
+    },
+    {
+        title: 'Số lượng', key: 'quantity', width: 150, align: 'center',
+        render: (data: ADProductResponse) => h('span', data.quantity + ' sản phẩm')
+
     },
     { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
-    { title: 'Pin', key: 'battery', width: 150, fixed: 'left', },
+    { title: 'Pin', key: 'battery', width: 150, align: 'center', },
     { title: 'Màn hình', key: 'screen', width: 150, align: 'center', },
-    { title: 'Hệ điều hành', key: 'operatingSystem', width: 150, align: 'center', },
+    { title: 'Hệ điều hành', key: 'operatingSystem', width: 200, align: 'center', },
     {
-        title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
+        title: 'Thao tác', key: 'action', width: 150, fixed: 'right',
         render: (data: ADProductResponse) => {
             return h(NSpace,
                 [
+                    h(NButton, {
+                        quaternary: true, size: 'small', circle: true, type: 'info',
+                        onClick: () => redirectVariant(data.id as string)
+                    },
+                        h(Icon, { icon: 'material-symbols:info-outline' })
+                    ),
                     h(NButton, {
                         quaternary: true, size: 'small', circle: true,
                         onClick: () => clickOpenModal(data.id, true)
                     },
                         h(Icon, { icon: 'carbon:edit' })
                     ),
-                    // h(NButton, {
-                    //     strong: true, circle: true, type: 'warning',
-                    //     onClick: () => clickOpenModal(data.id)
-                    // },
-                    //     h(Icon, { icon: 'carbon:edit' })
-                    // )
+                    h(NButton, {
+                        quaternary: true, size: 'small', circle: true, type: 'success',
+                        onClick: () => addVariant(data.id as string)
+                    },
+                        h(Icon, { icon: 'material-symbols:add' })
+                    ),
                 ]
             )
         }
@@ -237,7 +283,7 @@ const handleSuccessModifyModal = () => {
 const debounceFetchProducts = debounce(fetchProducts, 300)
 
 watch(
-    () => [state.search.q, state.search.operatingSystem, state.search.battery, state.search.brand, state.search.screen],
+    () => [state.search.q, state.search.operatingSystem, state.search.battery, state.search.brand, state.search.screen, state.search.price[0], state.search.price[1]],
     () => {
         debounceFetchProducts()
     }
@@ -257,10 +303,18 @@ const notification = useNotification()
 const handleChangeStatus = async (id: string) => {
     const res = await changeProductStatus(id)
 
-    if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
-    else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
+    if (res.success) notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
+    else notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
 
     fetchProducts();
+}
+
+const redirectVariant = (id: string) => {
+    router.push({name: 'products_variant', query: {idProduct: id}})
+}
+
+const addVariant = (id: string) => {
+    router.push({name: 'products_add', params: {id}})
 }
 
 </script>

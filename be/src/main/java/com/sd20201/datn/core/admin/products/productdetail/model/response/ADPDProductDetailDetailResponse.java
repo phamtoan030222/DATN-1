@@ -20,7 +20,7 @@ public interface ADPDProductDetailDetailResponse extends IsIdentify {
 
     String getIdGPU();
 
-    List<String> getIdColor();
+    String getIdColor();
 
     String getIdRAM();
 

@@ -23,5 +23,9 @@ public class ADPDProductDetailRequest extends PageableRequest {
     private String idHardDrive;
 
     private String idMaterial;
+
+    private Integer minPrice;
+
+    private Integer maxPrice;
     
 }
