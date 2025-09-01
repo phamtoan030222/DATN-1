@@ -13,6 +13,10 @@ export interface ADVoucherQuery {
   endDate?: number
 }
 
+export interface customer {
+  id: string
+}
+
 // Adjust interface để match response thực tế (field rename)
 export interface ADVoucherResponse {
   id: string
@@ -29,7 +33,7 @@ export interface ADVoucherResponse {
   conditions: number
   note: string | null
   status: string | null
-  customers: [] | null
+  voucherDetail: customer[] | null
 }
 
 export interface ADCustomerResponse {
@@ -70,6 +74,8 @@ export async function getVouchers(params: ADVoucherQuery) {
       conditionOfUse: item.conditions, // Map về tên cũ nếu component dùng
       startTime: item.startDate,
       endTime: item.endDate,
+      // Optional: Map voucherDetail sang IDs nếu frontend dùng string[]
+      // voucherDetail: item.voucherDetail ? item.voucherDetail.map(detail => detail.customerId) : null,
     }))
 
     return { content, totalElements }
@@ -85,6 +91,7 @@ export async function getVoucherById(id: string) {
     url: `${API_ADMIN_PRODUCT_VOUCHER}/${id}`,
     method: 'GET',
   })
+  // Optional: Map voucherDetail sang IDs ở đây nếu cần
   return res.data
 }
 
@@ -113,11 +120,11 @@ export async function deleteVouchers(ids: string[]) {
 }
 
 // Thêm
-export function createVoucher(data: any) {
+export function createVoucher(data: Partial<ADVoucherResponse>) {
   return request.post(`${API_ADMIN_PRODUCT_VOUCHER}`, data)
 }
 
 // Sửa
-export function updateVoucher(id: string, data: any) {
+export function updateVoucher(id: string, data: Partial<ADVoucherResponse>) {
   return request.put(`${API_ADMIN_PRODUCT_VOUCHER}/${id}`, data)
 }

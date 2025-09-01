@@ -56,8 +56,7 @@ public class AdVoucherCreateUpdateRequest {
     @Enumerated(EnumType.ORDINAL)
     private TargetType targetType;
 
-
     private String note;
 
-    private Set<VoucherDetail> voucherDetail;
+    private Set<VoucherDetail> voucherUsers;
 }

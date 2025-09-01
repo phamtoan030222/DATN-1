@@ -11,6 +11,7 @@ import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.entity.VoucherDetail;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
+import com.sd20201.datn.infrastructure.constant.TypeVoucher;
 import com.sd20201.datn.repository.CustomerRepository;
 import com.sd20201.datn.repository.VoucherDetailRepository;
 import com.sd20201.datn.utils.DateTimeUtil;
@@ -28,12 +29,11 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Date;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,12 +49,17 @@ public class AdVoucherServiceImpl implements AdVoucherService {
 
     @Override
     public ResponseObject<?> getVouchers(AdVoucherRequest request) {
-        return ResponseObject.successForward(PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)), "Lấy danh sách voucher thành công");
+        return ResponseObject.successForward(
+                PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)),
+                "Lấy danh sách voucher thành công"
+        );
     }
 
     @Override
     public ResponseObject<?> getVoucherById(String id) {
-        return voucherRepository.getVoucherById(id).map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công")).orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
+        return voucherRepository.getVoucherById(id)
+                .map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công"))
+                .orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
     }
 
     @Override
@@ -68,116 +73,176 @@ public class AdVoucherServiceImpl implements AdVoucherService {
 
     @Override
     public ResponseObject<?> create(@Valid AdVoucherCreateUpdateRequest request) throws BadRequestException {
+        logger.debug("Received create request: {}", request);
+
         if (voucherRepository.findVoucherByName(request.getName()).isPresent()) {
-            logger.warn("Duplicate voucher name attempted: {}", request.getName());
             throw new DuplicateKeyException("Tên voucher đã tồn tại: " + request.getName());
         }
 
-        // Kiểm tra null cho startDate và endDate trước so sánh
         if (request.getStartDate() == null || request.getEndDate() == null) {
-            logger.warn("StartDate hoặc EndDate không được để trống!!");
             throw new BadRequestException("StartDate hoặc EndDate không được để trống!!");
         }
 
         if (request.getStartDate() >= request.getEndDate()) {
-            logger.warn("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
             throw new BadRequestException("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
         }
 
         if (request.getEndDate() < DateTimeUtil.getCurrentTimeMillisecondsStamp()) {
-            logger.warn("Ngày kết thúc không được nhỏ hơn hiện tại!!");
             throw new BadRequestException("Ngày kết thúc không được nhỏ hơn hiện tại!!");
         }
 
         Voucher voucher = new Voucher();
         voucher.setCode(Helper.generateCodeVoucher());
-
-        // Mapping request sang voucher trước khi xử lý targetType
         mapRequestToVoucher(request, voucher);
 
-        // Phân phối voucher dựa trên targetType
+        List<String> failedEmails = new ArrayList<>();
+
         if (request.getTargetType() == TargetType.ALL_CUSTOMERS) {
-            // Validation cho quantity chỉ áp dụng cho ALL_CUSTOMERS
             if (request.getQuantity() <= 0) {
                 throw new IllegalArgumentException("Số lượng phải lớn hơn 0 cho ALL_CUSTOMERS");
             }
-            // Thiết lập quantity và remainingQuantity từ request
             voucher.setQuantity(request.getQuantity());
             voucher.setRemainingQuantity(request.getQuantity());
-            // Không tạo VoucherDetail hoặc gửi email; voucher dùng chung
         } else if (request.getTargetType() == TargetType.INDIVIDUAL) {
-            if (request.getVoucherDetail() == null || request.getVoucherDetail().isEmpty()) {
+            if (request.getVoucherUsers() == null || request.getVoucherUsers().isEmpty()) {
                 throw new IllegalArgumentException("Danh sách khách hàng cá nhân không được để trống cho Khách Hàng Riêng");
             }
-            // Thiết lập quantity và remainingQuantity dựa trên kích thước danh sách khách hàng
-            int customerCount = request.getVoucherDetail().size();
+
+            List<VoucherDetail> voucherUsers = request.getVoucherUsers().stream().toList();
+            List<Customer> customers = new ArrayList<>();
+            List<String> missingIds = new ArrayList<>();
+
+            for (VoucherDetail vd : voucherUsers) {
+                Optional<Customer> optionalCustomer = customerRepository.findById(vd.getCustomer().getId());
+                if (optionalCustomer.isPresent()) {
+                    customers.add(optionalCustomer.get());
+                } else {
+                    missingIds.add(vd.getCustomer().getId());
+                }
+            }
+
+            if (!missingIds.isEmpty()) {
+                throw new IllegalArgumentException("Không tìm thấy khách hàng với IDs: " + String.join(", ", missingIds));
+            }
+
+            int customerCount = voucherUsers.size();
             voucher.setQuantity(customerCount);
             voucher.setRemainingQuantity(customerCount);
 
-            // Tiếp tục tạo VoucherDetail và gửi email
-            for (VoucherDetail vd : request.getVoucherDetail()) {
-                // Load customer đầy đủ từ repository để lấy email và các thuộc tính khác
-                Customer customer = customerRepository.findById(vd.getCustomer().getId()).orElseThrow(() ->
-                        new IllegalArgumentException("Không tìm thấy khách hàng với ID: " + vd.getCustomer().getId()));
+            for (int i = 0; i < customerCount; i++) {
+                VoucherDetail vd = voucherUsers.get(i);
+                Customer customer = customers.get(i);
                 vd.setCustomer(customer);
                 vd.setVoucher(voucher);
                 voucherDetailRepository.save(vd);
-                sendVoucherEmail(customer.getEmail(), voucher);
+
+                try {
+                    sendVoucherEmail(customer.getEmail(), voucher);
+                } catch (MailException e) {
+                    logger.error("❌ Failed to send email to {}: {}", customer.getEmail(), e.getMessage());
+                    failedEmails.add(customer.getEmail());
+                }
             }
         } else {
-            throw new IllegalArgumentException("TargetType không hợp lệ: Chỉ hỗ trợ ALL_CUSTOMERS hoặc INDIVIDUAL");
+            throw new IllegalArgumentException("TargetType không hợp lệ!");
         }
 
         voucher = voucherRepository.save(voucher);
 
-        logger.info("Voucher created successfully: {}", voucher.getCode());
-        return ResponseObject.successForward(voucher, "Thêm thành công voucher");
+        String message = "Thêm thành công voucher";
+        if (!failedEmails.isEmpty()) {
+            message += ". Tuy nhiên, gửi email thất bại cho các khách hàng: " + String.join(", ", failedEmails);
+        }
+
+        return ResponseObject.successForward(voucher, message);
     }
 
     @Override
     public ResponseObject<?> update(String id, @Valid AdVoucherCreateUpdateRequest request) throws BadRequestException {
-        // Giữ nguyên logic update, nhưng có thể cần điều chỉnh tương tự nếu update targetType
-        // Để đơn giản, giả định update không thay đổi targetType hoặc xử lý riêng nếu cần
         Optional<Voucher> optionalVoucher = voucherRepository.findById(id);
         if (optionalVoucher.isEmpty()) {
-            logger.warn("Voucher not found for update: ID {}", id);
             return ResponseObject.errorForward("Không tìm thấy voucher để cập nhật", HttpStatus.NOT_FOUND);
         }
 
         Voucher voucher = optionalVoucher.get();
 
-        if (!voucher.getCode().equals(request.getName()) && voucherRepository.findVoucherByCode(request.getName()).isPresent()) {
-            logger.warn("Duplicate voucher code attempted during update: {}", request.getName());
-            throw new DuplicateKeyException("Mã voucher mới đã tồn tại: " + request.getName());
-        }
-
-        if (request.getStartDate() >= request.getEndDate()) {
-            logger.warn("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
-            throw new BadRequestException("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
-        }
-
         if (!voucher.getName().equals(request.getName()) && voucherRepository.findVoucherByName(request.getName()).isPresent()) {
-            logger.warn("Duplicate voucher name attempted during update: {}", request.getName());
             throw new DuplicateKeyException("Tên voucher mới đã tồn tại: " + request.getName());
         }
 
+        if (request.getStartDate() >= request.getEndDate()) {
+            throw new BadRequestException("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
+        }
+
         if (request.getEndDate() < DateTimeUtil.getCurrentTimeMillisecondsStamp()) {
-            logger.warn("Ngày kết thúc không được nhỏ hơn hiện tại!!");
             throw new BadRequestException("Ngày kết thúc không được nhỏ hơn hiện tại!!");
         }
 
-        // Thêm validation quantity nếu update
-        if (request.getQuantity() <= 0) {
-            throw new IllegalArgumentException("Số lượng phải lớn hơn 0");
+        List<String> failedEmails = new ArrayList<>();
+
+        if (request.getTargetType() == TargetType.ALL_CUSTOMERS) {
+            if (request.getQuantity() <= 0) {
+                throw new IllegalArgumentException("Số lượng phải lớn hơn 0 cho ALL_CUSTOMERS");
+            }
+            voucher.setQuantity(request.getQuantity());
+            voucher.setRemainingQuantity(request.getQuantity());
+            if (voucher.getTargetType() == TargetType.INDIVIDUAL) {
+                voucherDetailRepository.deleteByVoucher(voucher);
+            }
+        } else if (request.getTargetType() == TargetType.INDIVIDUAL) {
+            if (request.getVoucherUsers() == null || request.getVoucherUsers().isEmpty()) {
+                throw new IllegalArgumentException("Danh sách khách hàng cá nhân không được để trống cho Khách Hàng Riêng");
+            }
+            voucherDetailRepository.deleteByVoucher(voucher);
+
+            List<VoucherDetail> voucherUsers = request.getVoucherUsers().stream().toList();
+            List<Customer> customers = new ArrayList<>();
+            List<String> missingIds = new ArrayList<>();
+
+            for (VoucherDetail vd : voucherUsers) {
+                Optional<Customer> optionalCustomer = customerRepository.findById(vd.getCustomer().getId());
+                if (optionalCustomer.isPresent()) {
+                    customers.add(optionalCustomer.get());
+                } else {
+                    missingIds.add(vd.getCustomer().getId());
+                }
+            }
+
+            if (!missingIds.isEmpty()) {
+                throw new IllegalArgumentException("Không tìm thấy khách hàng với IDs: " + String.join(", ", missingIds));
+            }
+
+            int customerCount = voucherUsers.size();
+            voucher.setQuantity(customerCount);
+            voucher.setRemainingQuantity(customerCount);
+
+            for (int i = 0; i < customerCount; i++) {
+                VoucherDetail vd = voucherUsers.get(i);
+                Customer customer = customers.get(i);
+                vd.setCustomer(customer);
+                vd.setVoucher(voucher);
+                voucherDetailRepository.save(vd);
+
+                try {
+                    sendVoucherEmail(customer.getEmail(), voucher);
+                } catch (MailException e) {
+                    logger.error("❌ Failed to send email to {}: {}", customer.getEmail(), e.getMessage());
+                    failedEmails.add(customer.getEmail());
+                }
+            }
+        } else {
+            throw new IllegalArgumentException("TargetType không hợp lệ!");
         }
-        voucher.setQuantity(request.getQuantity());
-        voucher.setRemainingQuantity(request.getQuantity()); // Giả định reset remaining khi update; điều chỉnh nếu cần
 
         mapRequestToVoucher(request, voucher);
         voucher = voucherRepository.save(voucher);
 
-        logger.info("Voucher updated successfully: {}", voucher.getCode());
-        return ResponseObject.successForward(voucher, "Chỉnh sửa thành công voucher");
+        String message = "Chỉnh sửa thành công voucher";
+        if (!failedEmails.isEmpty()) {
+            message += ". Tuy nhiên, gửi email thất bại cho các khách hàng: " + String.join(", ", failedEmails);
+        }
+
+        return ResponseObject.successForward(voucher, message);
     }
 
     @Override
@@ -202,36 +267,52 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         voucher.setEndDate(request.getEndDate());
         voucher.setConditions(request.getConditions());
         voucher.setNote(request.getNote());
-        if (request.getStartDate() <= DateTimeUtil.getCurrentTimeMillisecondsStamp() && DateTimeUtil.getCurrentTimeMillisecondsStamp() <= request.getEndDate()) {
+        if (request.getStartDate() <= DateTimeUtil.getCurrentTimeMillisecondsStamp()
+            && DateTimeUtil.getCurrentTimeMillisecondsStamp() <= request.getEndDate()) {
             voucher.setStatus(EntityStatus.ACTIVE);
         } else {
             voucher.setStatus(EntityStatus.INACTIVE);
         }
-
     }
 
     private void sendVoucherEmail(String toEmail, Voucher voucher) {
-        try {
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-            LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
-            LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+        LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
+        LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
 
-            SimpleMailMessage message = new SimpleMailMessage();
-            message.setTo(toEmail);
-            message.setSubject("Thông báo phiếu giảm giá");
-            message.setText(String.format(mess(), voucher.getCode(), voucher.getDiscountValue(), voucher.getMaxValue(), start.format(formatter), end.format(formatter), voucher.getConditions()));
-            mailSender.send(message);
-            logger.info("Email sent to: {}", toEmail);
-        } catch (MailException e) {
-            logger.error("Failed to send email to {}: {}", toEmail, e.getMessage());
-        }
+        String gt = voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE
+                ? voucher.getDiscountValue() + "%"
+                : voucher.getDiscountValue() + " VND";
+
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setTo(toEmail);
+        message.setSubject("🎁 Thông báo phiếu giảm giá");
+        message.setText(String.format(mess(),
+                voucher.getCode(),
+                gt,
+                DateTimeUtil.formatMoney(voucher.getMaxValue()) + " VND",
+                start.format(formatter),
+                end.format(formatter),
+                DateTimeUtil.formatMoney(voucher.getConditions()) + " VND"));
+        mailSender.send(message);
+        logger.info("✅ Email sent to: {}", toEmail);
     }
 
     private String mess() {
-        return "\uD83C\uDF81 Quà tặng đặc biệt dành riêng cho Quý khách từ My Laptop\n" + "Kính gửi Quý khách hàng thân thiết,\n" + "Trước tiên, My Laptop xin gửi lời cảm ơn chân thành đến Quý khách vì đã luôn tin tưởng và đồng hành cùng chúng tôi trong suốt thời gian qua.\n" + "Nhằm tri ân sự ủng hộ đặc biệt của Quý khách, chúng tôi xin trân trọng gửi đến Quý khách chương trình ưu đãi dành riêng cho khách hàng VIP:\n" + "✨ Mã giảm giá đặc biệt: %s\n" + "\uD83D\uDCB0 Giá trị ưu đãi: Giảm %s (tối đa %s)\n" + "\uD83D\uDCC5 Thời gian áp dụng: Từ %s đến %s\n" + "\uD83D\uDCCC Điều kiện áp dụng: %s\n" + "Đây là ưu đãi đặc biệt chỉ dành cho Quý khách hàng VIP và không áp dụng cho các chương trình khác.\n" + "\uD83D\uDC49 Hãy nhanh tay sử dụng mã giảm giá để tận hưởng những sản phẩm/dịch vụ chất lượng nhất từ My Laptop.\n" + "Chúng tôi rất mong tiếp tục được phục vụ và mang đến cho Quý khách những trải nghiệm tuyệt vời nhất.\n" + "Trân trọng,\n" + "My Laptop";
-    }
+        return """
+                🎁 Quà tặng đặc biệt dành riêng cho Quý khách từ My Laptop
 
-    public static void main(String[] args) {
-        System.out.println(System.currentTimeMillis());
+                Kính gửi Quý khách hàng thân thiết,
+                Trước tiên, My Laptop xin gửi lời cảm ơn chân thành đến Quý khách vì đã luôn tin tưởng và đồng hành cùng chúng tôi.
+
+                ✨ Mã giảm giá đặc biệt: %s
+                💰 Giá trị ưu đãi: Giảm %s (tối đa %s)
+                📅 Thời gian áp dụng: Từ %s đến %s
+                📌 Điều kiện áp dụng: %s
+
+                👉 Hãy nhanh tay sử dụng mã giảm giá để tận hưởng những sản phẩm/dịch vụ chất lượng nhất từ My Laptop.
+                Trân trọng,
+                My Laptop
+                """;
     }
 }

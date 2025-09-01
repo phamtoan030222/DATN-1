@@ -1,7 +1,6 @@
 <!-- modal.vue -->
 <script lang="ts" setup>
-/* ===================== Imports ===================== */
-import { computed, h, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { DataTableColumns, FormInst, FormItemInst, FormRules } from 'naive-ui'
 import {
   NButton,
@@ -9,7 +8,6 @@ import {
   NDatePicker,
   NForm,
   NFormItem,
-  NIcon,
   NInput,
   NInputNumber,
   NModal,
@@ -17,17 +15,16 @@ import {
   NRadio,
   NRadioGroup,
   NSelect,
-  NSpace,
   useMessage,
 } from 'naive-ui'
-import { Icon } from '@iconify/vue'
-import type { ADCustomerResponse, ADVoucherResponse } from '@/service/api/admin/product/api.voucher'
+import type { ADCustomerResponse, ADVoucherResponse, customer } from '@/service/api/admin/product/api.voucher'
 
-/* ===================== Props and Emits ===================== */
+/* ===================== Props & Emits ===================== */
 const props = defineProps<{
   show: boolean
   isEdit: boolean
   voucherData: Partial<ADVoucherResponse>
+  isLoading: boolean
 }>()
 
 const emit = defineEmits<{
@@ -41,8 +38,9 @@ const message = useMessage()
 const addFormRef = ref<FormInst | null>(null)
 const quantityFormItemRef = ref<FormItemInst | null>(null)
 const conditionsFormItemRef = ref<FormItemInst | null>(null)
-const customersFormItemRef = ref<FormItemInst | null>(null)
+const voucherUsersFormItemRef = ref<FormItemInst | null>(null)
 const showCustomerModal = ref(false)
+
 const newVoucher = ref({
   id: '',
   code: '',
@@ -56,7 +54,7 @@ const newVoucher = ref({
   conditions: null as number | null,
   targetType: 'ALL_CUSTOMERS',
   quantity: null as number | null,
-  customers: [] as string[],
+  voucherUsers: [] as string[] | null,
 })
 
 const voucherTypes = [
@@ -68,27 +66,32 @@ const targetTypes = [
   { label: 'Khách hàng riêng', value: 'INDIVIDUAL' },
 ]
 
-// State cho bảng khách hàng
-const dataCustomers = ref<ADCustomerResponse[]>([
-  { id: 'A1B2C3D4E5F6G43A', code: 'KH001', name: 'Nguyễn Văn Tâm', email: 'tamngason2004@gmail.com', phone: '0123456789' },
-  { id: 'CUS0000000000002', code: 'KH002', name: 'Nguyễn Anh Tuấn', email: 'tuangaymta@gmail.com.com', phone: '0987654321' },
-  { id: 'CUS0000000000001', code: 'KH003', name: 'Vương Đắc Tài', email: 'taideptrai11002@gmail.com', phone: '0912345678' },
-  { id: 'KH004', code: 'KH004', name: 'Phạm Thị D', email: 'phamthid@example.com', phone: '0845678901' },
+const datavoucherUsers = ref<ADCustomerResponse[]>([
+  { id: 'I9J8K7L6M5N4O3P2', code: 'KH001', name: 'Nguyễn Văn Tâm', email: 'tamngason2004@gmail.com', phone: '0123456789' },
+  { id: 'A1B2C3D4E5F6G7H8', code: 'KH002', name: 'Nguyễn Anh Tuấn', email: 'tuangaymta@gmail.com', phone: '0987654321' },
+  { id: 'Q1R2S3T4U5V6W7X8', code: 'KH003', name: 'Vương Đắc Tài', email: 'taideptrai11002@gmail.com', phone: '0912345678' },
+  { id: 'A1B2C3D4E7GTR43B', code: 'KH004', name: 'Lương Tiểu Băng', email: 'luongtieubang1192007@gmail.com', phone: '0845678901' },
   { id: 'KH005', code: 'KH005', name: 'Hoàng Văn E', email: 'hoangvane@example.com', phone: '0765432198' },
 ])
 
-const loadingCustomers = ref(false)
+const loadingvoucherUsers = ref(false)
 const checkedCustomerKeys = ref<(string | number)[]>([])
-const paginationCustomers = ref({
+const paginationvoucherUsers = ref({
   page: 1,
   pageSize: 10,
-  itemCount: 5, // Cập nhật số lượng bản ghi giả
+  itemCount: datavoucherUsers.value.length,
 })
 
 /* ===================== Computed ===================== */
 const showQuantity = computed(() => newVoucher.value.targetType === 'ALL_CUSTOMERS')
 
-/* ===================== Validate Rules ===================== */
+const paginatedCustomerData = computed(() => {
+  const start = (paginationvoucherUsers.value.page - 1) * paginationvoucherUsers.value.pageSize
+  const end = start + paginationvoucherUsers.value.pageSize
+  return datavoucherUsers.value.slice(start, end)
+})
+
+/* ===================== Validation Rules ===================== */
 const addVoucherRules: FormRules = {
   name: { required: true, message: 'Vui lòng nhập tên phiếu giảm giá', trigger: ['input', 'blur'] },
   typeVoucher: { required: true, message: 'Chọn loại phiếu giảm giá', trigger: ['change'] },
@@ -113,15 +116,24 @@ const addVoucherRules: FormRules = {
     trigger: ['blur', 'change'],
   },
   startDate: { type: 'number', required: true, message: 'Chọn ngày bắt đầu', trigger: ['change'] },
-  endDate: { type: 'number', required: true, message: 'Chọn ngày kết thúc', trigger: ['change'] },
+  endDate: {
+    type: 'number',
+    required: true,
+    validator: (_rule, value: number) => {
+      if (value <= (newVoucher.value.startDate || 0))
+        return new Error('Ngày kết thúc phải sau ngày bắt đầu')
+      return true
+    },
+    message: 'Chọn ngày kết thúc',
+    trigger: ['change'],
+  },
   targetType: { required: true, message: 'Chọn đối tượng áp dụng', trigger: ['change'] },
   quantity: [
     {
       validator: (_rule, value: number) => {
         if (newVoucher.value.targetType === 'ALL_CUSTOMERS') {
-          if (!value || value <= 0) {
+          if (!value || value <= 0)
             return new Error('Vui lòng nhập số lượng hợp lệ')
-          }
         }
         return true
       },
@@ -132,23 +144,21 @@ const addVoucherRules: FormRules = {
     {
       validator: (_rule, value: number) => {
         if (newVoucher.value.targetType === 'ALL_CUSTOMERS' || newVoucher.value.targetType === 'INDIVIDUAL') {
-          if (!value || value <= 0) {
+          if (!value || value <= 0)
             return new Error('Vui lòng nhập điều kiện hợp lệ')
-          }
         }
         return true
       },
       trigger: ['blur', 'change'],
     },
   ],
-  customers: [
+  voucherUsers: [
     {
       required: true,
       validator: (_rule, value: string[]) => {
         if (newVoucher.value.targetType === 'INDIVIDUAL') {
-          if (!value || value.length === 0) {
+          if (!value || value.length === 0)
             return new Error('Vui lòng chọn ít nhất một khách hàng')
-          }
         }
         return true
       },
@@ -158,6 +168,22 @@ const addVoucherRules: FormRules = {
 }
 
 /* ===================== Watchers ===================== */
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      resetNewVoucher()
+      if (props.isEdit && props.voucherData) {
+        newVoucher.value = {
+          ...props.voucherData,
+          voucherUsers: props.voucherData.voucherUsers ? props.voucherData.voucherUsers.map((detail: any) => detail.customerId || detail.id) : [],
+        }
+      }
+    }
+  },
+  { immediate: true },
+)
+
 watch(
   () => newVoucher.value.typeVoucher,
   (val) => {
@@ -169,6 +195,7 @@ watch(
     }
   },
 )
+
 watch(
   () => newVoucher.value.discountValue,
   (val) => {
@@ -178,62 +205,42 @@ watch(
   },
 )
 
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    resetNewVoucher()
-    if (props.isEdit && props.voucherData) {
-      newVoucher.value = {
-        id: props.voucherData.id || '',
-        code: props.voucherData.code || '',
-        name: props.voucherData.name || '',
-        typeVoucher: props.voucherData.typeVoucher || 'PERCENTAGE',
-        discountValue: props.voucherData.discountValue ?? 0,
-        maxValue: props.voucherData.maxValue ?? 0,
-        startDate: props.voucherData.startDate || null,
-        endDate: props.voucherData.endDate || null,
-        note: props.voucherData.note || '',
-        conditions: props.voucherData.conditions || null,
-        targetType: props.voucherData.targetType || 'ALL_CUSTOMERS',
-        quantity: props.voucherData.quantity ?? 0,
-        customers: props.voucherData.customers || [],
-      }
-    }
-  }
-}, { immediate: true })
-
-watch(showCustomerModal, (newVal) => {
-  if (!newVal) {
-    // Khi đóng modal, ép validate lại để hiển thị lỗi nếu chưa chọn
-    addFormRef.value?.validate({ fields: ['customers'] }).catch(() => {})
-  }
-  else {
-    // Khi mở modal, restore selection cũ
-    checkedCustomerKeys.value = newVoucher.value.customers.map(id => id)
-  }
-})
-
-// Watcher cho targetType để tự động mở modal và restore validation
 watch(
   () => newVoucher.value.targetType,
   (val) => {
     if (val === 'INDIVIDUAL') {
       showCustomerModal.value = true
     }
-    // Không reset customers để giữ selection cũ
-    // Restore validation cho các trường phụ thuộc
+    else {
+      newVoucher.value.voucherUsers = []
+      checkedCustomerKeys.value = []
+    }
     quantityFormItemRef.value?.restoreValidation()
     conditionsFormItemRef.value?.restoreValidation()
-    customersFormItemRef.value?.restoreValidation()
+    voucherUsersFormItemRef.value?.restoreValidation()
+    addFormRef.value?.validate().catch(() => {})
   },
 )
 
-// Watcher cho customers để tự động validate
 watch(
-  () => newVoucher.value.customers,
+  () => newVoucher.value.voucherUsers,
   () => {
-    addFormRef.value?.validate({ fields: ['customers'] }).catch(() => {})
+    voucherUsersFormItemRef.value?.restoreValidation()
+    addFormRef.value?.validate({ fields: ['voucherUsers'] }).catch(() => {})
   },
   { deep: true },
+)
+
+watch(
+  () => showCustomerModal.value,
+  (newVal) => {
+    if (newVal) {
+      checkedCustomerKeys.value = newVoucher.value.voucherUsers?.map(id => id) || []
+    }
+    else {
+      checkedCustomerKeys.value = [] // Reset khi hủy modal
+    }
+  },
 )
 
 /* ===================== Methods ===================== */
@@ -251,15 +258,23 @@ function resetNewVoucher() {
     conditions: null,
     targetType: 'ALL_CUSTOMERS',
     quantity: null,
-    customers: [],
+    voucherUsers: [],
   }
   addFormRef.value?.restoreValidation()
+  checkedCustomerKeys.value = [] // Reset lựa chọn khi reset form
 }
 
 function handleAddVoucher() {
   addFormRef.value?.validate((errors) => {
     if (!errors) {
-      emit('save', { ...newVoucher.value })
+      const payload = {
+        ...newVoucher.value,
+        voucherUsers: newVoucher.value.voucherUsers?.map(id => ({
+          customer: { id },
+        })) || [],
+      }
+      emit('save', payload)
+      // Removed premature success message and modal close; handle in parent component after API response
     }
     else {
       message.error('Vui lòng nhập đầy đủ thông tin')
@@ -267,18 +282,19 @@ function handleAddVoucher() {
   })
 }
 
-function fetchCustomers() { // Sửa để sử dụng dữ liệu giả
-  // Không cần loading vì dữ liệu tĩnh
-  // dataCustomers.value đã được khởi tạo sẵn
-  paginationCustomers.value.itemCount = dataCustomers.value.length
+function fetchvoucherUsers() {
+  paginationvoucherUsers.value.itemCount = datavoucherUsers.value.length
+  // Nếu cần fetch từ API, thêm async logic ở đây
 }
 
-function handleConfirmCustomers() {
-  newVoucher.value.customers = checkedCustomerKeys.value as string[]
+function handleConfirmvoucherUsers() {
+  newVoucher.value.voucherUsers = checkedCustomerKeys.value as string[]
   showCustomerModal.value = false
+  voucherUsersFormItemRef.value?.restoreValidation()
+  addFormRef.value?.validate({ fields: ['voucherUsers'] }).catch(() => {})
 }
 
-/* ===================== Data Table Columns for Customers ===================== */
+/* ===================== Data Table Columns ===================== */
 const customerColumns: DataTableColumns<ADCustomerResponse> = [
   { type: 'selection' },
   { title: 'Mã', key: 'code', width: 100 },
@@ -289,7 +305,6 @@ const customerColumns: DataTableColumns<ADCustomerResponse> = [
 </script>
 
 <template>
-  <!-- Modal thêm voucher -->
   <NModal
     :show="props.show" preset="card" :title="props.isEdit ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm Giá'"
     style="width: 500px;" :bordered="false" @update:show="emit('update:show', $event)"
@@ -320,29 +335,25 @@ const customerColumns: DataTableColumns<ADCustomerResponse> = [
           </NInputNumber>
         </NFormItem>
       </div>
-
       <div class="grid grid-cols-2 gap-4">
         <NFormItem label="Ngày bắt đầu" path="startDate">
-          <NDatePicker v-model:value="newVoucher.startDate" type="date" placeholder="Nhập ngày bắt đầu" />
+          <NDatePicker v-model:value="newVoucher.startDate" type="datetime" placeholder="Nhập ngày bắt đầu" />
         </NFormItem>
         <NFormItem label="Ngày kết thúc" path="endDate">
-          <NDatePicker v-model:value="newVoucher.endDate" type="date" placeholder="Nhập ngày kết thúc" />
+          <NDatePicker v-model:value="newVoucher.endDate" type="datetime" placeholder="Nhập ngày kết thúc" />
         </NFormItem>
       </div>
-
       <div class="grid grid-cols-2 gap-4">
-        <NFormItem v-if="showQuantity" ref="quantityFormItemRef" label="Số lượng" path="quantity">
-          <NInputNumber v-model:value="newVoucher.quantity" :min="1" placeholder="Nhập số lượng..." />
-        </NFormItem>
         <NFormItem ref="conditionsFormItemRef" label="Điều kiện áp dụng" path="conditions">
           <NInputNumber v-model:value="newVoucher.conditions" :min="1" placeholder="Nhập điều kiện áp dụng..." />
         </NFormItem>
+        <NFormItem v-if="showQuantity" ref="quantityFormItemRef" label="Số lượng" path="quantity">
+          <NInputNumber v-model:value="newVoucher.quantity" :min="1" placeholder="Nhập số lượng..." />
+        </NFormItem>
       </div>
-
       <NFormItem label="Ghi chú">
         <NInput v-model:value="newVoucher.note" type="textarea" placeholder="Ghi chú..." />
       </NFormItem>
-
       <NFormItem label="Đối tượng áp dụng" path="targetType">
         <NRadioGroup v-model:value="newVoucher.targetType">
           <NRadio v-for="opt in targetTypes" :key="opt.value" :value="opt.value">
@@ -350,49 +361,53 @@ const customerColumns: DataTableColumns<ADCustomerResponse> = [
           </NRadio>
         </NRadioGroup>
       </NFormItem>
-
-      <!-- Tích hợp path="customers" vào NFormItem hiển thị -->
       <NFormItem
         v-if="newVoucher.targetType === 'INDIVIDUAL'"
-        ref="customersFormItemRef"
-        :key="`customers-${newVoucher.targetType}`"
+        ref="voucherUsersFormItemRef"
+        :key="`voucherUsers-${newVoucher.targetType}`"
         label="Khách hàng đã chọn"
-        path="customers"
+        path="voucherUsers"
       >
         <NButton @click="showCustomerModal = true">
-          Chọn khách hàng (Đã chọn: {{ newVoucher.customers.length }})
+          Chọn khách hàng (Đã chọn: {{ newVoucher.voucherUsers?.length || 0 }})
         </NButton>
       </NFormItem>
-
       <div class="flex justify-end gap-2 mt-4">
         <NButton @click="() => { resetNewVoucher(); emit('cancel') }">
           Hủy
         </NButton>
-        <NButton type="primary" @click="handleAddVoucher">
+        <NButton type="primary" :loading="props.isLoading" :disabled="props.isLoading" @click="handleAddVoucher">
           {{ props.isEdit ? 'Lưu' : 'Thêm' }}
         </NButton>
       </div>
     </NForm>
   </NModal>
+
   <!-- Modal chọn khách hàng -->
   <NModal v-model:show="showCustomerModal" preset="card" style="width: 800px;" title="Chọn khách hàng">
     <NDataTable
-      v-model:checked-row-keys="checkedCustomerKeys" :columns="customerColumns" :data="dataCustomers"
-      :loading="loadingCustomers" :row-key="row => row.id" :pagination="false" bordered
+      v-model:checked-row-keys="checkedCustomerKeys"
+      :columns="customerColumns"
+      :data="paginatedCustomerData"
+      :loading="loadingvoucherUsers"
+      :row-key="row => row.id"
+      :pagination="false"
+      bordered
     />
     <div class="flex justify-center mt-4">
       <NPagination
-        :page="paginationCustomers.page" :page-size="paginationCustomers.pageSize"
-        :item-count="paginationCustomers.itemCount"
-        @update:page="page => { paginationCustomers.page = page; fetchCustomers() }"
-        @update:page-size="size => { paginationCustomers.pageSize = size; fetchCustomers() }"
+        :page="paginationvoucherUsers.page"
+        :page-size="paginationvoucherUsers.pageSize"
+        :item-count="paginationvoucherUsers.itemCount"
+        @update:page="page => { paginationvoucherUsers.page = page; fetchvoucherUsers() }"
+        @update:page-size="size => { paginationvoucherUsers.pageSize = size; fetchvoucherUsers() }"
       />
     </div>
     <div class="flex justify-end gap-2 mt-4">
-      <NButton @click="showCustomerModal = false">
+      <NButton @click="() => { showCustomerModal = false; checkedCustomerKeys.value = []; }">
         Đóng
       </NButton>
-      <NButton type="primary" @click="handleConfirmCustomers">
+      <NButton type="primary" @click="handleConfirmvoucherUsers">
         Xác nhận
       </NButton>
     </div>

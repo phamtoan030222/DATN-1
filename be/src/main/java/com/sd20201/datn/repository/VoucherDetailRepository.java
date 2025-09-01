@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface VoucherDetailRepository extends JpaRepository<VoucherDetail, String> {
     boolean existsByVoucherAndCustomer(Voucher voucher, Customer customer);
+
+    void deleteByVoucher(Voucher voucher);
 }
