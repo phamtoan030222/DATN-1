@@ -24,8 +24,12 @@ public interface ADProductRepository extends ProductRepository {
         , p.battery.name as battery
         , p.brand.name as brand
         , p.operatingSystem.name as operatingSystem
-        , p.createdDate as createdDate
+        , MIN(pd.price) as minPrice
+        , MAX(pd.price) as maxPrice
+        , COUNT(i.id) as quantity
     FROM Product p
+        JOIN ProductDetail pd on p.id = pd.product.id
+        JOIN IMEI i on pd.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -34,11 +38,22 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
-              order by p.createdDate desc
+    GROUP BY     p.id,
+                 p.code,
+                 p.name,
+                 p.status,
+                 p.screen,
+                 p.battery,
+                 p.brand,
+                 p.operatingSystem
+    HAVING (:#{#request.minPrice} <= MIN(pd.price) AND MAX(pd.price) <= :#{#request.maxPrice})
+    order by p.createdDate desc
     """, countQuery = """
     SELECT
         COUNT(1)
     FROM Product p
+        JOIN ProductDetail pd on p.id = pd.product.id
+        JOIN IMEI i on pd.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -47,6 +62,15 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
           AND (:#{#request.idScreen} is NULL OR p.screen.id = :#{#request.idScreen})
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
+    GROUP BY     p.id,
+                 p.code,
+                 p.name,
+                 p.status,
+                 p.screen,
+                 p.battery,
+                 p.brand,
+                 p.operatingSystem
+    HAVING (:#{#request.minPrice} <= MIN(pd.price) AND MAX(pd.price) <= :#{#request.maxPrice})
     """)
     Page<ADProductResponse> getProducts(Pageable pageable, ADProductRequest request);
 

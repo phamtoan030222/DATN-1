@@ -12,6 +12,8 @@ export type ADProductDetailRequest = PaginationParams & {
   idRAM: string
   idHardDrive: string
   idMaterial: string
+  minPrice: number,
+  maxPrice: number
 }
 
 export type ADProductDetailCreateUpdateRequest = {
@@ -33,7 +35,7 @@ export type ADProductDetailResponse = {
   id: string
   code: string
   product: string
-  imei: string
+  quantity: number
   color: string
   ram: string
   hardDrive: string
@@ -51,12 +53,11 @@ export type ADProductDetailDetailResponse = {
   name: string
   idCPU: string
   idGPU: string
-  idColor: Array<string>
+  idColor: string
   idRAM: string
   idHardDrive: string
   idMaterial: string
   price: number
-  description: string
 }
 
 export type ADPRPropertiesComboboxResponse = {
