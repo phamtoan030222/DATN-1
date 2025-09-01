@@ -78,10 +78,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
-        if(request.getIdProduct() == null) return ResponseObject.errorForward("Required id product", HttpStatus.BAD_GATEWAY);
-
         return ResponseObject.successForward(
-                PageableObject.of(productDetailRepository.getProducts(Helper.createPageable(request), request)),
+                PageableObject.of(productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
                 "OKE"
         );
     }
@@ -142,16 +140,19 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     private ResponseObject<?> create(ADPDProductDetailCreateUpdateRequest request) {
 
         Optional<ProductDetail> productDetailOptional = productDetailRepository.findByCode(request.getCode());
-        if(productDetailOptional.isPresent()) return ResponseObject.errorForward("Product detail code already exist", HttpStatus.CONFLICT);
+        if (productDetailOptional.isPresent())
+            return ResponseObject.errorForward("Product detail code already exist", HttpStatus.CONFLICT);
 
         Optional<Product> productOptional = productRepository.findById(request.getIdProduct());
-        if(productOptional.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND); {}
+        if (productOptional.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND);
+        {
+        }
 
         Optional<RAM> ramOptional = ramRepository.findById(request.getIdRAM());
         if (ramOptional.isEmpty()) return ResponseObject.errorForward("RAM not found", HttpStatus.NOT_FOUND);
 
         Optional<Material> materialOptional = materialRepository.findById(request.getIdMaterial());
-        if(materialOptional.isEmpty()) return ResponseObject.errorForward("Material not found", HttpStatus.NOT_FOUND);
+        if (materialOptional.isEmpty()) return ResponseObject.errorForward("Material not found", HttpStatus.NOT_FOUND);
 
         Optional<CPU> cpuOptional = cpuRepository.findById(request.getIdCPU());
         if (cpuOptional.isEmpty()) return ResponseObject.errorForward("CPU not found", HttpStatus.NOT_FOUND);
@@ -159,17 +160,12 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         Optional<GPU> gpuOptional = gpuRepository.findById(request.getIdGPU());
         if (gpuOptional.isEmpty()) return ResponseObject.errorForward("GPU not found", HttpStatus.NOT_FOUND);
 
-//        List<Color> colors = new ArrayList<>();
-//        for(String color : request.getIdColor()) {
-//           Optional<Color> colorOptional = colorRepository.findById(color);
-//           if(colorOptional.isEmpty()) return ResponseObject.errorForward("Color not found", HttpStatus.NOT_FOUND);
-//           colors.add(colorOptional.get());
-//        }
         Optional<Color> colorOptional = colorRepository.findById(request.getIdColor());
         if (colorOptional.isEmpty()) return ResponseObject.errorForward("Color not found", HttpStatus.NOT_FOUND);
 
         Optional<HardDrive> hardDriveOptional = hardDriveRepository.findById(request.getIdHardDrive());
-        if(hardDriveOptional.isEmpty()) return ResponseObject.errorForward("HardDrive not found", HttpStatus.NOT_FOUND);
+        if (hardDriveOptional.isEmpty())
+            return ResponseObject.errorForward("HardDrive not found", HttpStatus.NOT_FOUND);
 
         ProductDetail productDetail = new ProductDetail();
 
@@ -183,106 +179,105 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         productDetail.setDescription(request.getDescription());
         productDetail.setColor(colorOptional.get());
 
-//        List<ProductDetail> productDetails = new ArrayList<>();
-//        colors.forEach(color -> {
-//            try {
-//                ProductDetail pd = productDetail.clone();
-//                pd.setCode(Helper.generateCodeProductDetail());
-//                pd.setName(pd.getCode());
-//                pd.setColor(color);
-//                productDetails.add(pd);
-//            } catch (CloneNotSupportedException ex) {
-//                log.info("error clone object", ex);
-//            }
-//        });
-
         return ResponseObject.successForward(productDetailRepository.save(productDetail), "Create product success");
     }
 
     private ResponseObject<?> update(ADPDProductDetailCreateUpdateRequest request) {
-//        Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getId());
-//        if(productDetailOptional.isEmpty()) return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
-//
-//        ProductDetail productDetail = productDetailOptional.get();
-//        if(!productDetail.getGpu().getId().equals(request.getIdGPU())) {
-//            Optional<GPU> gpuOptional = gpuRepository.findById(request.getIdGPU());
-//            if (gpuOptional.isEmpty()) return ResponseObject.errorForward("GPU not found", HttpStatus.NOT_FOUND);
-//
-//            productDetail.setGpu(gpuOptional.get());
-//        }
-//
-//        if(!productDetail.getCpu().getId().equals(request.getIdCPU())) {
-//            Optional<CPU> cpuOptional = cpuRepository.findById(request.getIdCPU());
-//            if (cpuOptional.isEmpty()) return ResponseObject.errorForward("CPU not found", HttpStatus.NOT_FOUND);
-//
-//            productDetail.setCpu(cpuOptional.get());
-//        }
-//
-//        if(!productDetail.getRam().getId().equals(request.getIdRAM())) {
-//            Optional<RAM> ramOptional = ramRepository.findById(request.getIdRAM());
-//            if (ramOptional.isEmpty()) return ResponseObject.errorForward("RAM not found", HttpStatus.NOT_FOUND);
-//
-//            productDetail.setRam(ramOptional.get());
-//        }
-//
-//        if(!productDetail.getMaterial().getId().equals(request.getIdMaterial())) {
-//            Optional<Material> materialOptional = materialRepository.findById(request.getIdMaterial());
-//            if (materialOptional.isEmpty()) return ResponseObject.errorForward("Material not found", HttpStatus.NOT_FOUND);
-//
-//            productDetail.setMaterial(materialOptional.get());
-//        }
-//
-//        if(request.getIdColor().size() == 1) {
-//            Optional<Color> colorOptional = colorRepository.findById(request.getIdColor().get(0));
-//            if (colorOptional.isEmpty()) return ResponseObject.errorForward("Color not found", HttpStatus.NOT_FOUND);
-//
-//            productDetail.setColor(colorOptional.get());
-//        } else return ResponseObject.errorForward("Parameter color is not valid", HttpStatus.CONFLICT);
-//
-//        if(!productDetail.getHardDrive().getId().equals(request.getIdHardDrive())) {
-//            Optional<HardDrive> hardDriveOptional = hardDriveRepository.findById(request.getIdHardDrive());
-//            if (hardDriveOptional.isEmpty()) return ResponseObject.errorForward("HardDrive not found", HttpStatus.NOT_FOUND);
-//
-//            productDetail.setHardDrive(hardDriveOptional.get());
-//        }
-//
-//        productDetail.setPrice(BigDecimal.valueOf(request.getPrice()));
-//        productDetail.setDescription(request.getDescription());
-//
-//        return ResponseObject.successForward(productDetailRepository.save(productDetail), "Update product success");
+        Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getId());
+        if (productDetailOptional.isEmpty())
+            return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
 
-        return ResponseObject.errorForward("", HttpStatus.BAD_REQUEST);
+        ProductDetail productDetail = productDetailOptional.get();
+        if (!productDetail.getGpu().getId().equals(request.getIdGPU())) {
+            Optional<GPU> gpuOptional = gpuRepository.findById(request.getIdGPU());
+            if (gpuOptional.isEmpty()) return ResponseObject.errorForward("GPU not found", HttpStatus.NOT_FOUND);
+
+            productDetail.setGpu(gpuOptional.get());
+        }
+
+        if (!productDetail.getCpu().getId().equals(request.getIdCPU())) {
+            Optional<CPU> cpuOptional = cpuRepository.findById(request.getIdCPU());
+            if (cpuOptional.isEmpty()) return ResponseObject.errorForward("CPU not found", HttpStatus.NOT_FOUND);
+
+            productDetail.setCpu(cpuOptional.get());
+        }
+
+        if (!productDetail.getRam().getId().equals(request.getIdRAM())) {
+            Optional<RAM> ramOptional = ramRepository.findById(request.getIdRAM());
+            if (ramOptional.isEmpty()) return ResponseObject.errorForward("RAM not found", HttpStatus.NOT_FOUND);
+
+            productDetail.setRam(ramOptional.get());
+        }
+
+        if (!productDetail.getMaterial().getId().equals(request.getIdMaterial())) {
+            Optional<Material> materialOptional = materialRepository.findById(request.getIdMaterial());
+            if (materialOptional.isEmpty())
+                return ResponseObject.errorForward("Material not found", HttpStatus.NOT_FOUND);
+
+            productDetail.setMaterial(materialOptional.get());
+        }
+
+        if(!productDetail.getColor().getId().equals(request.getIdMaterial())) {
+            Optional<Color> colorOptional = colorRepository.findById(request.getIdColor());
+            if (colorOptional.isEmpty()) return ResponseObject.errorForward("Color not found", HttpStatus.NOT_FOUND);
+
+            productDetail.setColor(colorOptional.get());
+        }
+
+        if (!productDetail.getHardDrive().getId().equals(request.getIdHardDrive())) {
+            Optional<HardDrive> hardDriveOptional = hardDriveRepository.findById(request.getIdHardDrive());
+            if (hardDriveOptional.isEmpty())
+                return ResponseObject.errorForward("HardDrive not found", HttpStatus.NOT_FOUND);
+
+            productDetail.setHardDrive(hardDriveOptional.get());
+        }
+
+        productDetail.setPrice(BigDecimal.valueOf(request.getPrice()));
+        productDetail.setDescription(request.getDescription());
+
+        return ResponseObject.successForward(productDetailRepository.save(productDetail), "Update product success");
     }
 
     @Transactional(rollbackFor = Exception.class)
     @Override
     public ResponseObject<?> createVariant(ADPDProductCreateRequest request) {
-        Optional<Product> productOptional = productRepository.findByCode(request.getProduct().getCode());
+        Product product = null;
 
-        if(productOptional.isPresent()) return ResponseObject.errorForward("Product code is already exists", HttpStatus.CONFLICT);
+        if(request.getProduct().getId() == null) {
+            Optional<Product> productOptional = productRepository.findByCode(request.getProduct().getCode());
 
-        Optional<Screen> optionalScreen = screenRepository.findById(request.getProduct().getIdScreen());
-        if(optionalScreen.isEmpty()) return ResponseObject.errorForward("Screen not found", HttpStatus.NOT_FOUND);
+            if (productOptional.isPresent())
+                return ResponseObject.errorForward("Product code is already exists", HttpStatus.CONFLICT);
 
-        Optional<Battery> optionalBattery = batteryRepository.findById(request.getProduct().getIdBattery());
-        if(optionalBattery.isEmpty()) return ResponseObject.errorForward("Battery not found", HttpStatus.NOT_FOUND);
+            Optional<Screen> optionalScreen = screenRepository.findById(request.getProduct().getIdScreen());
+            if (optionalScreen.isEmpty()) return ResponseObject.errorForward("Screen not found", HttpStatus.NOT_FOUND);
 
-        Optional<OperatingSystem> optionalOS = operatingSystemRepository.findById(request.getProduct().getIdOperatingSystem());
-        if(optionalOS.isEmpty()) return ResponseObject.errorForward("OperatingSystem not found", HttpStatus.NOT_FOUND);
+            Optional<Battery> optionalBattery = batteryRepository.findById(request.getProduct().getIdBattery());
+            if (optionalBattery.isEmpty()) return ResponseObject.errorForward("Battery not found", HttpStatus.NOT_FOUND);
 
-        Optional<Brand> optionalBrand = brandRepository.findById(request.getProduct().getIdBrand());
-        if(optionalBrand.isEmpty()) return ResponseObject.errorForward("Brand not found", HttpStatus.NOT_FOUND);
+            Optional<OperatingSystem> optionalOS = operatingSystemRepository.findById(request.getProduct().getIdOperatingSystem());
+            if (optionalOS.isEmpty()) return ResponseObject.errorForward("OperatingSystem not found", HttpStatus.NOT_FOUND);
 
-        Product product = new Product();
+            Optional<Brand> optionalBrand = brandRepository.findById(request.getProduct().getIdBrand());
+            if (optionalBrand.isEmpty()) return ResponseObject.errorForward("Brand not found", HttpStatus.NOT_FOUND);
 
-        product.setCode(request.getProduct().getCode());
-        product.setName(request.getProduct().getName());
-        product.setScreen(optionalScreen.get());
-        product.setBrand(optionalBrand.get());
-        product.setOperatingSystem(optionalOS.get());
-        product.setBattery(optionalBattery.get());
+            product = new Product();
 
-        product = productRepository.save(product);
+            product.setCode(request.getProduct().getCode());
+            product.setName(request.getProduct().getName());
+            product.setScreen(optionalScreen.get());
+            product.setBrand(optionalBrand.get());
+            product.setOperatingSystem(optionalOS.get());
+            product.setBattery(optionalBattery.get());
+
+            product = productRepository.save(product);
+        } else {
+            Optional<Product> productOptional = productRepository.findById(request.getProduct().getId());
+
+            if(productOptional.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND); {}
+
+            product = productOptional.get();
+        }
 
         List<ADPDProductCreateRequest.VariantRequest> variants = request.getVariant();
 
@@ -310,6 +305,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
             ProductDetail productDetail = new ProductDetail();
 
+            productDetail.setCode(Helper.generateCodeProductDetail());
+            productDetail.setName(productDetail.getCode());
             productDetail.setProduct(product);
             productDetail.setRam(ramOptional.get());
             productDetail.setMaterial(materialOptional.get());
@@ -325,7 +322,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
             for (String imeiValue : imeiVariant) {
                 Optional<IMEI> imeiOptional = imeiRepository.findByCode(imeiValue);
-                if (imeiOptional.isPresent()) return ResponseObject.errorForward("Imei duplicated", HttpStatus.NOT_FOUND);
+                if (imeiOptional.isPresent())
+                    return ResponseObject.errorForward("Imei duplicated", HttpStatus.NOT_FOUND);
 
                 IMEI imei = new IMEI();
                 imei.setCode(imeiValue);

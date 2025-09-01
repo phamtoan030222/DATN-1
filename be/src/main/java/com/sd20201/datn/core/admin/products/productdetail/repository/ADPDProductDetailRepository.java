@@ -16,18 +16,20 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
 
     @Query(value = """
     SELECT
-        p.id as id
-        , p.code as code
-        , p.name as name
-        , p.description as description
-        , p.hardDrive.name as hardDrive
-        , p.material.name as material
-        , p.color.name as color
-        , p.gpu.name as gpu
-        , p.cpu.name as cpu
-        , p.ram.name as ram
-        , p.price as price
-    FROM ProductDetail p
+            p.id as id
+                , p.code as code
+                , p.name as name
+                , p.description as description
+                , p.hardDrive.name as hardDrive
+                , p.material.name as material
+                , p.color.name as color
+                , p.gpu.name as gpu
+                , p.cpu.name as cpu
+                , p.ram.name as ram
+                , p.price as price
+                , p.status as status
+                , COUNT(i.id) as quantity
+    FROM ProductDetail p join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -38,12 +40,25 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
           AND (:#{#request.idMaterial} is NULL OR p.material.id like concat('%',:#{#request.idMaterial},'%'))
           AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
           AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
-          AND p.product.id = :#{#request.idProduct}
+          AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
+    GROUP BY     p.id,
+                 p.code,
+                 p.name,
+                 p.description,
+                 p.hardDrive,
+                 p.material,
+                 p.color,
+                 p.gpu,
+                 p.cpu,
+                 p.ram,
+                 p.price,
+                 p.status
+    HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     ORDER BY p.createdDate DESC
     """, countQuery = """
     SELECT
         COUNT(1)
-    FROM ProductDetail p
+    FROM ProductDetail p join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -54,9 +69,22 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
           AND (:#{#request.idMaterial} is NULL OR p.material.id like concat('%',:#{#request.idMaterial},'%'))
           AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
           AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
-        AND p.product.id = :#{#request.idProduct}
+          AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
+        GROUP BY p.id,
+                 p.code,
+                 p.name,
+                 p.description,
+                 p.hardDrive,
+                 p.material,
+                 p.color,
+                 p.gpu,
+                 p.cpu,
+                 p.ram,
+                 p.price,
+                 p.status
+       HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     """)
-    Page<ADPDProductDetailResponse> getProducts(Pageable pageable, ADPDProductDetailRequest request);
+    Page<ADPDProductDetailResponse> getProductDetails(Pageable pageable, ADPDProductDetailRequest request);
 
     @Query(value = """
         SELECT

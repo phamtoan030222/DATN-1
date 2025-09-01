@@ -5,13 +5,15 @@ import { AxiosResponse } from 'axios'
 import { ADProductCreateUpdateRequest } from './product.api'
 
 export type ADProductDetailRequest = PaginationParams & {
-  idProduct: string,
+  idProduct?: string,
   idCPU: string
   idGPU: string
   idColor: string
   idRAM: string
   idHardDrive: string
   idMaterial: string
+  minPrice: number,
+  maxPrice: number
 }
 
 export type ADProductDetailCreateUpdateRequest = {
@@ -30,9 +32,10 @@ export type ADProductDetailCreateUpdateRequest = {
 }
 
 export type ADProductDetailResponse = {
+  id: string
   code: string
   product: string
-  imei: string
+  quantity: number
   color: string
   ram: string
   hardDrive: string
@@ -41,6 +44,7 @@ export type ADProductDetailResponse = {
   gpu: string
   price: number
   description: string
+  status: string
 }
 
 export type ADProductDetailDetailResponse = {
@@ -49,12 +53,11 @@ export type ADProductDetailDetailResponse = {
   name: string
   idCPU: string
   idGPU: string
-  idColor: Array<string>
+  idColor: string
   idRAM: string
   idHardDrive: string
   idMaterial: string
   price: number
-  description: string
 }
 
 export type ADPRPropertiesComboboxResponse = {
@@ -164,6 +167,15 @@ export const isIMEIExists = async (idIMEIs: string[]) => {
     method: 'POST',
     data: idIMEIs
   })) as AxiosResponse<DefaultResponse<Array<string>>>
+
+  return res.data
+}
+
+export const changeProductDetailStatus = async (id: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/change-status/${id}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<null>>
 
   return res.data
 }

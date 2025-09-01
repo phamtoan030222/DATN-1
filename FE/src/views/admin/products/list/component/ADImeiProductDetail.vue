@@ -44,7 +44,7 @@
 <script setup lang="ts">
 import { isIMEIExists } from '@/service/api/admin/product/productDetail.api';
 import { Icon } from '@iconify/vue';
-import { DataTableColumns, NButton, NTag } from 'naive-ui';
+import { DataTableColumns, NButton } from 'naive-ui';
 import { Reactive, Ref } from 'vue';
 
 const props = defineProps<{

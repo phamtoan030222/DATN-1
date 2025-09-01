@@ -1,40 +1,114 @@
 <template>
     <div>
-        <n-card title="Thông tin cơ bản">
-            <n-space justify="center">
-                <n-form>
-                    
-                </n-form>
+        <n-card>
+            <NSpace vertical :size="8">
+                <NSpace align="center">
+                    <NIcon size="24">
+                        <Icon icon="icon-park-outline:list" />
+                    </NIcon>
+                    <span style="font-weight: 600; font-size: 24px">
+                        Quản lý biến thể sản phẩm
+                    </span>
+                </NSpace>
+                <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
+            </NSpace>
+        </n-card>
+        <n-card class="mt-20px" title="Bộ lọc">
+            <template #header-extra>
+                <n-flex justify="end" strong secondary style="height: 100%;">
+                    <n-button @click="refreshFilter" circle type="success">
+                        <Icon icon="material-symbols:refresh"></Icon>
+                    </n-button>
+                </n-flex>
+            </template>
+            <n-row gutter="12">
+                <n-col :span="6">
+                    <span>Tìm kiếm</span>
+                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
+                </n-col>
+                <n-col :span="3">
+                    <span>CPU</span>
+                    <n-select v-model:value="state.search.cpu" :options="state.data.cpus" />
+                </n-col>
+                <n-col :span="3">
+                    <span>GPU</span>
+                    <n-select v-model:value="state.search.gpu" :options="state.data.gpus" />
+                </n-col>
+                <n-col :span="3">
+                    <span>Màu sắc</span>
+                    <n-select v-model:value="state.search.color" :options="state.data.colors" />
+                </n-col>
+                <n-col :span="3">
+                    <span>ổ cứng</span>
+                    <n-select v-model:value="state.search.hardDrive" :options="state.data.hardDrives" />
+                </n-col>
+                <n-col :span="3">
+                    <span>Chất liệu</span>
+                    <n-select v-model:value="state.search.material" :options="state.data.materials" />
+                </n-col>
+                <n-col :span="3">
+                    <span>RAM</span>
+                    <n-select v-model:value="state.search.ram" :options="state.data.rams" />
+                </n-col>
+            </n-row>
+            <div class="mt-20px">
+                <n-row :gutter="12">
+                    <n-col :span="12">
+                        <span>Khoảng giá</span>
+                        <n-slider v-model:value="state.search.price" range :step="1000" :min="1000" :max="50000000" />
+                    </n-col>
+                    <n-col :span="6">
+                        <span>Giá nhỏ nhất</span>
+                        <n-input-number v-model:value="state.search.price[0]"></n-input-number>
+                    </n-col>
+                    <n-col :span="6">
+                        <span>Giá lớn nhất</span>
+                        <n-input-number v-model:value="state.search.price[1]"></n-input-number>
+                    </n-col>
+                </n-row>
+            </div>
+        </n-card>
+        <n-card class="mt-20px" title="Danh sách biến thể">
+            <n-data-table :columns="columns" :data="state.data.productDetails"></n-data-table>
+
+            <n-space justify="center" class="mt-20px">
+                <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
+                    :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
             </n-space>
         </n-card>
+
+        <ADProductVariantModal :is-open="isOpenModal" :id="productDetailIdSelected" :cpus="state.data.cpus"
+            :gpus="state.data.gpus" :hard-drives="state.data.hardDrives" :materials="state.data.materials"
+            :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal"
+            @close="closeModal" />
     </div>
 </template>
 
 <script lang="ts" setup>
-import {
-    ADProductCreateUpdateRequest,
-    ADPRPropertiesComboboxResponse,
-    getBatteries,
-    getBrands,
-    getOperatingSystems,
-    getScreens,
-} from '@/service/api/admin/product/product.api'
-import { getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs } from '@/service/api/admin/product/productDetail.api'
-import { onMounted, Reactive, reactive, ref, Ref } from 'vue'
-import { useRoute } from 'vue-router'
+import { ADProductDetailResponse, ADPRPropertiesComboboxResponse, changeProductDetailStatus, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getProductDetails, getRAMs } from '@/service/api/admin/product/productDetail.api'
+import { Icon } from '@iconify/vue'
+import { debounce } from 'lodash'
+import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
+import { onMounted, reactive, ref, Ref } from 'vue'
+import ADProductVariantModal from './component/ADProductVariantModal.vue'
 
-const route = useRoute()
+const route = useRoute();
 
-const idProduct: Ref<string> = ref(route.params.id as string)
+const idProduct: Ref<string> = ref(route.query.idProduct as string)
 
-const dataProperties = reactive({
-    basicInformation: {
-        screens: [] as ADPRPropertiesComboboxResponse[],
-        batteries: [] as ADPRPropertiesComboboxResponse[],
-        operatingSystems: [] as ADPRPropertiesComboboxResponse[],
-        brands: [] as ADPRPropertiesComboboxResponse[],
+const state = reactive({
+    search: {
+        q: '',
+        cpu: '',
+        gpu: '',
+        hardDrive: '',
+        ram: '',
+        color: '',
+        material: '',
+        price: [10000, 50000000]
     },
-    variantInformation: {
+    data: {
+        productDetails: [] as ADProductDetailResponse[],
         materials: [] as ADPRPropertiesComboboxResponse[],
         colors: [] as ADPRPropertiesComboboxResponse[],
         rams: [] as ADPRPropertiesComboboxResponse[],
@@ -42,150 +116,167 @@ const dataProperties = reactive({
         cpus: [] as ADPRPropertiesComboboxResponse[],
         gpus: [] as ADPRPropertiesComboboxResponse[],
     },
+    pagination: {
+        page: 1,
+        size: 10,
+        totalPages: undefined as number | undefined,
+    },
 })
 
-const fetchDataProperties = async () => {
+const fetchProductDetails = async () => {
+    const res = await getProductDetails({
+        page: state.pagination.page,
+        size: state.pagination.size,
+        q: state.search.q,
+        idProduct: idProduct.value,
+        idCPU: state.search.cpu,
+        idGPU: state.search.gpu,
+        idColor: state.search.color,
+        idRAM: state.search.ram,
+        idHardDrive: state.search.hardDrive,
+        idMaterial: state.search.material,
+        minPrice: state.search.price[0],
+        maxPrice: state.search.price[1],
+    })
+
+    state.data.productDetails = res.data.data
+    state.pagination.totalPages = res.data.totalPages
+}
+
+const fetchComboboxProperties = async () => {
     try {
-        const [
-            screenProperties,
-            batteryProperties,
-            operatingSystemProperty,
-            brandProperties,
-            colorProperties,
-            cpuProperties,
-            gpuProperties,
-            ramProperties,
-            hardDriveProperties,
-            materialProperties,
-        ] = await Promise.all([
-            getScreens(),
-            getBatteries(),
-            getOperatingSystems(),
-            getBrands(),
+        const [colorProperties, cpuProperties, gpuProperties, materialProperties, ramSystemProperties, hardDriveProperties] = await Promise.all([
             getColors(),
             getCPUs(),
             getGPUs(),
-            getRAMs(),
-            getHardDrives(),
             getMaterials(),
+            getRAMs(),
+            getHardDrives()
         ])
 
-        dataProperties.basicInformation.screens = screenProperties.data
-        dataProperties.basicInformation.batteries = batteryProperties.data
-        dataProperties.basicInformation.operatingSystems = operatingSystemProperty.data
-        dataProperties.basicInformation.brands = brandProperties.data
-
-        dataProperties.variantInformation.colors = colorProperties.data
-        dataProperties.variantInformation.materials = materialProperties.data
-        dataProperties.variantInformation.cpus = cpuProperties.data
-        dataProperties.variantInformation.gpus = gpuProperties.data
-        dataProperties.variantInformation.hardDrives = hardDriveProperties.data
-        dataProperties.variantInformation.rams = ramProperties.data
+        state.data.colors = colorProperties.data
+        state.data.cpus = cpuProperties.data
+        state.data.gpus = gpuProperties.data
+        state.data.materials = materialProperties.data
+        state.data.rams = ramSystemProperties.data
+        state.data.hardDrives = hardDriveProperties.data
     } catch (error) {
         console.log(error)
     }
 }
 
-const formDataBasic: Reactive<ADProductCreateUpdateRequest> = reactive({
-    code: '',
-    name: '',
-    idBrand: '',
-    idBattery: '',
-    idScreen: '',
-    idOperatingSystem: '',
-})
-
-const formDataVariant = reactive({
-    idColor: undefined as undefined | [],
-    idMaterial: '',
-    idCpu: '',
-    idGpu: '',
-    idRam: '',
-    idHardDrive: '',
-})
-
-onMounted(() => {
-    fetchDataProperties()
-})
-
-const file = ref()
-
-const onChange = (_: any, currentFile: any) => {
-    file.value = {
-        ...currentFile,
-        // url: URL.createObjectURL(currentFile.file),
-    }
-}
-const onProgress = (currentFile: any) => {
-    file.value = currentFile
+const refreshFilter = () => {
+    state.search.q = ''
+    state.search.cpu = ''
+    state.search.gpu = ''
+    state.search.material = ''
+    state.search.ram = ''
+    state.search.color = ''
+    state.search.hardDrive = ''
 }
 
-type ADPRTableProductDetail = {
-    idColor: string
-    idMaterial: string
-    idCPU: string
-    idGPU: string
-    idRAM: string
-    idHardDrive: string
-    price?: number
-    imei?: number
-}
-
-const productDetails: Reactive<ADPRTableProductDetail[]> = reactive([])
-
-const columns = [
-        { type: 'selection', fixed: 'left' },
-    { title: '#', name: 'orderNumber', dataIndex: 'orderNumber', width: 50, align: 'center', slotName: 'orderNumber' },
-    { title: 'Cấu hình', name: 'configuration', dataIndex: 'configuration', width: 120, align: 'center', slotName: 'configuration' },
+const columns: DataTableColumns<ADProductDetailResponse> = [
+    { type: 'selection', fixed: 'left' },
     {
-        title: 'Ảnh biến thể',
-        name: 'imageProductDetail',
-        dataIndex: 'imageProductDetail',
-        width: 50,
-        align: 'center',
-        slotName: 'imageProductDetail',
+        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data: ADProductDetailResponse, index: number) => {
+            return h('span', { innerText: index + 1 })
+        }
     },
-    { title: 'Giá bán', name: 'price', dataIndex: 'price', width: 50, align: 'center', slotName: 'price' },
-    { title: 'Tồn kho', name: 'quantity', dataIndex: 'quantity', width: 50, align: 'center', slotName: 'quantity' },
-    { title: '', name: 'action', dataIndex: 'action', width: 50, align: 'center', slotName: 'action' },
+    { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
+    { title: 'Tên', key: 'name', width: 100 },
+    {
+        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        render: (data: ADProductDetailResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+    },
+    {
+        title: 'Giá', key: 'price', width: 150, align: 'center',
+        render: (data: ADProductDetailResponse) => h('span', (data.price + '').split('').reduce((prev, curr, index, arr) => {
+            if ((arr.length - index) % 3 == 0) return prev + '.' + curr
+            return prev + curr
+        }, '') + ' vnđ')
+    },
+    {
+        title: 'Tồn kho', key: 'quantity', width: 150, align: 'center',
+        render: (data: ADProductDetailResponse) => h('span', data.quantity + ' sản phẩm')
+    },
+    { title: 'CPU', key: 'cpu', width: 150, align: 'center', },
+    { title: 'GPU', key: 'gpu', width: 150, align: 'center', },
+    { title: 'RAM', key: 'ram', width: 200, align: 'center', },
+    { title: 'Ổ cứng', key: 'hardDrive', width: 200, align: 'center', },
+    { title: 'Màu', key: 'color', width: 150, align: 'center', },
+    { title: 'Chất liệu', key: 'material', width: 150, align: 'center', },
+    {
+        title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
+        render: (data: ADProductDetailResponse) => {
+            return h(NSpace,
+                [
+                    h(NButton, {
+                        quaternary: true, size: 'small', circle: true,
+                        onClick: () => clickOpenModal(data.id, true)
+                    },
+                        h(Icon, { icon: 'carbon:edit' })
+                    ),
+                    // h(NButton, {
+                    //     strong: true, circle: true, type: 'warning',
+                    //     onClick: () => clickOpenModal(data.id)
+                    // },
+                    //     h(Icon, { icon: 'carbon:edit' })
+                    // )
+                ]
+            )
+        }
+    },
 ]
 
-const createVariant = () => {
-    if (formDataVariant.idColor) {
-        formDataVariant.idColor.forEach((element) => {
-            productDetails.push({
-                idColor: element,
-                idMaterial: formDataVariant.idMaterial,
-                idCPU: formDataVariant.idCpu,
-                idGPU: formDataVariant.idGpu,
-                idRAM: formDataVariant.idRam,
-                idHardDrive: formDataVariant.idHardDrive,
-            })
-        })
+onMounted(() => {
+    fetchProductDetails()
+    fetchComboboxProperties()
+})
+
+const isOpenModal = ref<boolean>(false)
+
+const isDetailModal: Ref<boolean> = ref(true)
+
+const productDetailIdSelected = ref<string>()
+
+const clickOpenModal = (id?: string, isDetail?: boolean) => {
+    productDetailIdSelected.value = id
+    isOpenModal.value = true
+    isDetailModal.value = isDetail ?? false
+}
+
+const closeModal = () => {
+    isOpenModal.value = false
+}
+
+const handleSuccessModifyModal = () => {
+    fetchProductDetails()
+    closeModal()
+}
+
+const debounceFetchProducts = debounce(fetchProductDetails, 300)
+
+watch(
+    () => [state.search.q, state.search.cpu, state.search.gpu, state.search.hardDrive, state.search.material, state.search.ram, state.search.color, state.pagination.page, state.pagination.size,  state.search.price[0], state.search.price[1]],
+    () => {
+        debounceFetchProducts()
     }
+)
+
+const notification = useNotification()
+
+const handleChangeStatus = async (id: string) => {
+    const res = await changeProductDetailStatus(id)
+
+    if (res.success) notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
+    else notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
+
+    fetchProductDetails();
 }
 
-const isEditPriceInputTable: Ref<number> = ref(-1)
-
-const handleClickPriceTable = (index: number) => {
-    isEditPriceInputTable.value = index
+const handlePageChange = (page: number) => {
+    state.pagination.page = page
 }
-
-const priceTableValue: Ref<number> = ref(0)
-
-const handleEnterPrice = (index: number) => {
-    productDetails[index].price = priceTableValue.value
-    isEditPriceInputTable.value = -1
-    priceTableValue.value = 0
-}
-
-const isOpenModalIMEIProduct = ref<boolean>(false)
-
-const openModalIMEIProduct = (index: number) => {
-    isOpenModalIMEIProduct.value = true
-}
-
-const imeiInput = ref<string>()
 </script>
 
 <style scoped>

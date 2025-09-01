@@ -17,6 +17,8 @@ public class ADPDProductCreateRequest {
     @Setter
     @Getter
     public static class ProductRequest {
+        private String id;
+
         private String name;
 
         private String code;

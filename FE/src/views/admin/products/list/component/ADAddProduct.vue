@@ -85,11 +85,11 @@
 </template>
 
 <script lang="ts" setup>
-import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getScreens } from '@/service/api/admin/product/product.api'
+import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens } from '@/service/api/admin/product/product.api'
 import { ADProductDetailCreateUpdateRequest, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
 import { DataTableColumns, NButton, NImage, NInput, NInputNumber, NSpace } from 'naive-ui'
-import { Reactive } from 'vue'
+import { Reactive, watch } from 'vue'
 import ADImeiProductDetail from './ADImeiProductDetail.vue'
 
 const route = useRoute()
@@ -114,6 +114,19 @@ const dataProperties = reactive({
         gpus: [] as ADPRPropertiesComboboxResponse[],
     },
 })
+
+
+const fetchProductById = async () => {
+    const res = await getProductById(idProduct.value)
+
+    formDataBasic.id = res.data.id
+    formDataBasic.code = res.data.code
+    formDataBasic.name = res.data.name
+    formDataBasic.idBattery = res.data.idBattery
+    formDataBasic.idBrand = res.data.idBrand
+    formDataBasic.idScreen = res.data.idScreen
+    formDataBasic.idOperatingSystem = res.data.idOperatingSystem
+}
 
 const fetchDataProperties = async () => {
     try {
@@ -176,6 +189,7 @@ const formDataVariant = reactive({
 })
 
 onMounted(() => {
+    fetchProductById()
     fetchDataProperties()
 })
 
@@ -234,10 +248,12 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         title: 'Giá bán', key: 'price', width: 200, align: 'center',
         render: (data: ADPRTableProductDetail, index: number) => {
             return !(isEditPriceInputTable.value == index) ?
-                h('span', { innerText: data.price ? (data.price + '').split('').reduce((prev, curr, index, arr) => {
-                    if((arr.length - index) % 3 == 0) return prev + ' ' + curr
-                    return prev + curr
-                },'') + ' vnđ' : 'Chưa có giá cho biến thể này', onClick: () => { handleClickPriceTable(index) } }) :
+                h('span', {
+                    innerText: data.price ? (data.price + '').split('').reduce((prev, curr, index, arr) => {
+                        if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
+                        return prev + curr
+                    }, '') + ' vnđ' : 'Chưa có giá cho biến thể này', onClick: () => { handleClickPriceTable(index) }
+                }) :
                 h(NInputNumber, {
                     style: { width: '100%' },
                     placeholder: 'Nhập giá',
@@ -258,9 +274,9 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     },
     {
         title: 'Thao tác', key: 'action', width: 100, align: 'center',
-        render: (data, index) => h(NSpace, {justify: 'center'},
+        render: (data, index) => h(NSpace, { justify: 'center' },
             [
-            h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
+                h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
             ]
         )
     },
@@ -335,11 +351,11 @@ const submitVariantHandler = async () => {
         Object.keys(data).forEach(key => {
             const value = data[key as keyof ADPRTableProductDetail]
             if (!value) isValid = false
-        })  
+        })
 
-        if(!(data.imei && Array.isArray(data.imei) && data.imei.length != 0)) return false
+        if (!(data.imei && Array.isArray(data.imei) && data.imei.length != 0)) return false
 
-        if(!data.price) return false
+        if (!data.price) return false
 
         return isValid
     })
@@ -360,6 +376,12 @@ const submitVariantHandler = async () => {
 
     router.push({ name: 'products_list' })
 }
+
+watch(idProduct,
+    (newValue) => {
+        fetchProductById()
+    }
+)
 </script>
 
 <style scoped>
