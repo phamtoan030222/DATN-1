@@ -1,5 +1,7 @@
 package com.sd20201.datn.utils;
 
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -11,6 +13,12 @@ import java.util.Calendar;
 import java.util.Date;
 
 public class DateTimeUtil {
+
+    public static String formatMoney(BigDecimal money) {
+        DecimalFormat formatter = new DecimalFormat("#,###");
+        String formatted = formatter.format(money).replace(",", ".");
+        return formatted;
+    }
 
     public static Long convertDateToTimeStampSecond(Date startDate) {
         if (startDate != null) {
@@ -30,7 +38,9 @@ public class DateTimeUtil {
         return System.currentTimeMillis() / 1000;
     }
 
-    public static Long getCurrentTimeMillisecondsStamp() {return System.currentTimeMillis();}
+    public static Long getCurrentTimeMillisecondsStamp() {
+        return System.currentTimeMillis();
+    }
 
     public static Long getMillisecondsThisWeek() {
         LocalDate today = LocalDate.now();
@@ -57,5 +67,6 @@ public class DateTimeUtil {
 
         return timestamp.toEpochMilli();
     }
+
 
 }
