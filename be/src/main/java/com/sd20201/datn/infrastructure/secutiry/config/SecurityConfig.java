@@ -115,6 +115,12 @@ public class SecurityConfig {
 //
 //        http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
 
+        http.authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/upload/**").permitAll()  // Upload endpoint
+                .requestMatchers("/uploads/**").permitAll()     // Static files
+                .requestMatchers(MappingConstants.API_LOGIN).permitAll()
+                .anyRequest().permitAll() // Tạm thời cho phép tất cả để test
+        );
         return http.build();
     }
 }
