@@ -1,13 +1,13 @@
-import type { DefaultResponse, PaginationParams } from '@/typings/api/api.common'
+import type { DefaultResponse } from '@/typings/api/api.common'
 import request from '@/service/request'
 import { API_ADMIN_PRODUCT_VOUCHER } from '@/constants/url'
-import type { AxiosResponse } from 'axios'
 import axios from 'axios'
 
 export interface ADVoucherQuery {
   page: number
   size: number
   q?: string
+  conditions?: number
   status?: string
   startDate?: number
   endDate?: number
@@ -30,10 +30,11 @@ export interface ADVoucherResponse {
   remainingQuantity: number
   startDate: number
   endDate: number
+  createdDate: number
   conditions: number
   note: string | null
   status: string | null
-  voucherDetail: customer[] | null
+  voucherUsers: customer[] | null
 }
 
 export interface ADCustomerResponse {
