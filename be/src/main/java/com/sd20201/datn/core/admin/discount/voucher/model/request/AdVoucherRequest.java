@@ -5,6 +5,8 @@ import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Getter
 @Setter
 public class AdVoucherRequest extends PageableRequest {
@@ -16,4 +18,6 @@ public class AdVoucherRequest extends PageableRequest {
     public Long endDate;
 
     public EntityStatus status;
+
+    public BigDecimal conditions;
 }

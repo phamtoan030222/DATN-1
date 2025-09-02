@@ -113,9 +113,17 @@ async function handleDeleteMany(ids: string[]) {
 /* ===================== Filters ===================== */
 const filters = ref({
   q: '',
+  conditions: null as number | null,
   dateRange: null as [number, number] | null,
   status: null as string | null,
 })
+
+function resetFilters() {
+  filters.value.q = ''
+  filters.value.conditions = null
+  filters.value.dateRange = null
+  filters.value.status = null
+}
 
 const statusOptions = [
   { label: 'Tất cả', value: '' },
@@ -128,13 +136,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
   { type: 'selection' },
   { title: 'Mã', key: 'code', width: 120 },
   { title: 'Tên', key: 'name', width: 180 },
-  {
-    title: 'Loại Phiếu',
-    key: 'typeVoucher',
-    render(row) {
-      return row.typeVoucher === 'PERCENTAGE' ? 'Giảm %' : 'Giảm tiền'
-    },
-  },
   {
     title: 'Số lượng',
     key: 'quantity',
@@ -153,6 +154,9 @@ const columns: DataTableColumns<ADVoucherResponse> = [
 
   { title: 'Tối đa', key: 'maxValue', render(row) {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.maxValue)
+  } },
+  { title: 'Điều kiện', key: 'conditions', render(row) {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.conditions)
   } },
   {
     title: 'Ngày bắt đầu',
@@ -231,6 +235,7 @@ async function fetchData() {
       page: pagination.value.page,
       size: pagination.value.pageSize,
       q: filters.value.q || undefined,
+      conditions: filters.value.conditions || undefined,
       status: filters.value.status || undefined,
       startDate: filters.value.dateRange?.[0],
       endDate: filters.value.dateRange?.[1],
@@ -262,6 +267,7 @@ watch(filters, () => {
     v-model:show="showAddModal"
     :is-edit="isEdit"
     :voucher-data="editingVoucher"
+    :is-loading="loading"
     @save="handleSaveVoucher"
     @cancel="showAddModal = false"
   />
@@ -278,13 +284,39 @@ watch(filters, () => {
       <span>Quản lý danh sách Phiếu Giảm Giá có mặt tại cửa hàng</span>
     </NSpace>
   </NCard>
+
   <!-- Bộ lọc -->
   <NCard title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
-      <NInput v-model:value="filters.q" placeholder="Tên hoặc Mã..." />
-      <NDatePicker v-model:value="filters.dateRange" type="daterange" clearable placeholder="Khoảng ngày" />
-      <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Trạng thái" clearable />
-    </div>
+    <NForm label-placement="top">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
+        <NFormItem label="Tên hoặc mã">
+          <NInput v-model:value="filters.q" placeholder="Tên hoặc Mã..." class="w-full" />
+        </NFormItem>
+        <NFormItem label="Điều kiện áp dụng">
+          <NInputNumber v-model:value="filters.conditions" placeholder="Điều kiện áp dụng..." class="w-full" />
+        </NFormItem>
+        <NFormItem label="Ngày bắt đầu - ngày kết thúc">
+          <NDatePicker v-model:value="filters.dateRange" type="daterange" placeholder="Khoảng ngày" class="w-full" />
+        </NFormItem>
+        <NFormItem label="Trạng thái">
+          <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Trạng thái" class="w-full" />
+        </NFormItem>
+
+        <!-- Button đưa lên chung hàng -->
+        <div class="flex justify-end items-end col-span-full mr-10">
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton circle secondary type="primary" title="Làm mới" @click="resetFilters">
+                <NIcon size="30">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới bộ lọc
+          </NTooltip>
+        </div>
+      </div>
+    </NForm>
   </NCard>
 
   <!-- Table -->

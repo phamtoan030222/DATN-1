@@ -15,9 +15,10 @@ import {
   NRadio,
   NRadioGroup,
   NSelect,
+  NSpin,
   useMessage,
 } from 'naive-ui'
-import type { ADCustomerResponse, ADVoucherResponse, customer } from '@/service/api/admin/product/api.voucher'
+import type { ADCustomerResponse, ADVoucherResponse } from '@/service/api/admin/product/api.voucher'
 
 /* ===================== Props & Emits ===================== */
 const props = defineProps<{
@@ -50,11 +51,14 @@ const newVoucher = ref({
   maxValue: null as number | null,
   startDate: null as number | null,
   endDate: null as number | null,
+  remainingQuantity: null as number | null,
+  createdDate: null as number | null,
   note: '',
   conditions: null as number | null,
   targetType: 'ALL_CUSTOMERS',
   quantity: null as number | null,
   voucherUsers: [] as string[] | null,
+  status: '',
 })
 
 const voucherTypes = [
@@ -176,8 +180,23 @@ watch(
       if (props.isEdit && props.voucherData) {
         newVoucher.value = {
           ...props.voucherData,
-          voucherUsers: props.voucherData.voucherUsers ? props.voucherData.voucherUsers.map((detail: any) => detail.customerId || detail.id) : [],
-        }
+          id: props.voucherData?.id ?? '',
+          code: props.voucherData?.code ?? '',
+          name: props.voucherData?.name ?? '',
+          typeVoucher: props.voucherData?.typeVoucher ?? 'PERCENTAGE',
+          targetType: props.voucherData?.targetType ?? 'ALL_CUSTOMERS',
+          discountValue: props.voucherData?.discountValue ?? 0,
+          maxValue: props.voucherData?.maxValue ?? 0,
+          quantity: props.voucherData?.quantity ?? 0,
+          remainingQuantity: props.voucherData?.remainingQuantity ?? 0,
+          startDate: props.voucherData?.startDate ?? 0,
+          endDate: props.voucherData?.endDate ?? 0,
+          createdDate: props.voucherData?.createdDate ?? 0,
+          conditions: props.voucherData?.conditions ?? 0,
+          note: props.voucherData?.note ?? '', // Thay null bằng '' để đảm bảo non-null
+          status: props.voucherData?.status ?? '',
+          voucherUsers: props.voucherData.voucherUsers ? props.voucherData.voucherUsers.map((detail: any) => detail.customerId || detail.id || '') : [], // Thay null bằng [] để non-null
+        } // Loại bỏ 'as ADVoucherResponse' nếu gây lỗi, hoặc định nghĩa newVoucher với kiểu ADVoucherResponse
       }
     }
   },
@@ -238,7 +257,7 @@ watch(
       checkedCustomerKeys.value = newVoucher.value.voucherUsers?.map(id => id) || []
     }
     else {
-      checkedCustomerKeys.value = [] // Reset khi hủy modal
+      // Không reset checkedCustomerKeys khi đóng modal để giữ lựa chọn tạm thời
     }
   },
 )
@@ -254,11 +273,14 @@ function resetNewVoucher() {
     maxValue: null,
     startDate: null,
     endDate: null,
+    createdDate: null,
+    remainingQuantity: null,
     note: '',
     conditions: null,
     targetType: 'ALL_CUSTOMERS',
     quantity: null,
     voucherUsers: [],
+    status: '',
   }
   addFormRef.value?.restoreValidation()
   checkedCustomerKeys.value = [] // Reset lựa chọn khi reset form
@@ -274,7 +296,6 @@ function handleAddVoucher() {
         })) || [],
       }
       emit('save', payload)
-      // Removed premature success message and modal close; handle in parent component after API response
     }
     else {
       message.error('Vui lòng nhập đầy đủ thông tin')
@@ -294,6 +315,11 @@ function handleConfirmvoucherUsers() {
   addFormRef.value?.validate({ fields: ['voucherUsers'] }).catch(() => {})
 }
 
+function handleCancelCustomerModal() {
+  showCustomerModal.value = false
+  // Không reset checkedCustomerKeys để giữ lựa chọn, chỉ reset nếu hủy toàn bộ
+}
+
 /* ===================== Data Table Columns ===================== */
 const customerColumns: DataTableColumns<ADCustomerResponse> = [
   { type: 'selection' },
@@ -309,78 +335,80 @@ const customerColumns: DataTableColumns<ADCustomerResponse> = [
     :show="props.show" preset="card" :title="props.isEdit ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm Giá'"
     style="width: 500px;" :bordered="false" @update:show="emit('update:show', $event)"
   >
-    <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top">
-      <NFormItem label="Tên" path="name">
-        <NInput v-model:value="newVoucher.name" placeholder="Nhập tên phiếu giảm giá" />
-      </NFormItem>
-      <NFormItem label="Loại Phiếu" path="typeVoucher">
-        <NSelect v-model:value="newVoucher.typeVoucher" :options="voucherTypes" />
-      </NFormItem>
-      <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="Giá trị" path="discountValue">
-          <NInputNumber v-model:value="newVoucher.discountValue" :min="0" :step="1000" placeholder="Nhập giá trị phiếu">
-            <template #suffix>
-              {{ newVoucher.typeVoucher === 'PERCENTAGE' ? '%' : 'VND' }}
-            </template>
-          </NInputNumber>
+    <NSpin :show="props.isLoading">
+      <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top">
+        <NFormItem label="Tên" path="name">
+          <NInput v-model:value="newVoucher.name" placeholder="Nhập tên phiếu giảm giá" />
         </NFormItem>
-        <NFormItem label="Tối đa" path="maxValue">
-          <NInputNumber
-            v-model:value="newVoucher.maxValue" :min="0" :step="1000"
-            :disabled="newVoucher.typeVoucher === 'FIXED_AMOUNT'" placeholder="Nhập giá trị tối đa"
-          >
-            <template #suffix>
-              VND
-            </template>
-          </NInputNumber>
+        <NFormItem label="Loại Phiếu" path="typeVoucher">
+          <NSelect v-model:value="newVoucher.typeVoucher" :options="voucherTypes" />
         </NFormItem>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-        <NFormItem label="Ngày bắt đầu" path="startDate">
-          <NDatePicker v-model:value="newVoucher.startDate" type="datetime" placeholder="Nhập ngày bắt đầu" />
+        <div class="grid grid-cols-2 gap-4">
+          <NFormItem label="Giá trị" path="discountValue">
+            <NInputNumber v-model:value="newVoucher.discountValue" :min="0" :step="1000" placeholder="Nhập giá trị phiếu">
+              <template #suffix>
+                {{ newVoucher.typeVoucher === 'PERCENTAGE' ? '%' : 'VND' }}
+              </template>
+            </NInputNumber>
+          </NFormItem>
+          <NFormItem label="Tối đa" path="maxValue">
+            <NInputNumber
+              v-model:value="newVoucher.maxValue" :min="0" :step="1000"
+              :disabled="newVoucher.typeVoucher === 'FIXED_AMOUNT'" placeholder="Nhập giá trị tối đa"
+            >
+              <template #suffix>
+                VND
+              </template>
+            </NInputNumber>
+          </NFormItem>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <NFormItem label="Ngày bắt đầu" path="startDate">
+            <NDatePicker v-model:value="newVoucher.startDate" type="datetime" placeholder="Nhập ngày bắt đầu" />
+          </NFormItem>
+          <NFormItem label="Ngày kết thúc" path="endDate">
+            <NDatePicker v-model:value="newVoucher.endDate" type="datetime" placeholder="Nhập ngày kết thúc" />
+          </NFormItem>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <NFormItem ref="conditionsFormItemRef" label="Điều kiện áp dụng" path="conditions">
+            <NInputNumber v-model:value="newVoucher.conditions" :min="1" placeholder="Nhập điều kiện áp dụng..." />
+          </NFormItem>
+          <NFormItem v-if="showQuantity" ref="quantityFormItemRef" label="Số lượng" path="quantity">
+            <NInputNumber v-model:value="newVoucher.quantity" :min="1" placeholder="Nhập số lượng..." />
+          </NFormItem>
+        </div>
+        <NFormItem label="Ghi chú">
+          <NInput v-model:value="newVoucher.note" type="textarea" placeholder="Ghi chú..." />
         </NFormItem>
-        <NFormItem label="Ngày kết thúc" path="endDate">
-          <NDatePicker v-model:value="newVoucher.endDate" type="datetime" placeholder="Nhập ngày kết thúc" />
+        <NFormItem label="Đối tượng áp dụng" path="targetType">
+          <NRadioGroup v-model:value="newVoucher.targetType">
+            <NRadio v-for="opt in targetTypes" :key="opt.value" :value="opt.value">
+              {{ opt.label }}
+            </NRadio>
+          </NRadioGroup>
         </NFormItem>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-        <NFormItem ref="conditionsFormItemRef" label="Điều kiện áp dụng" path="conditions">
-          <NInputNumber v-model:value="newVoucher.conditions" :min="1" placeholder="Nhập điều kiện áp dụng..." />
+        <NFormItem
+          v-if="newVoucher.targetType === 'INDIVIDUAL'"
+          ref="voucherUsersFormItemRef"
+          :key="`voucherUsers-${newVoucher.targetType}`"
+          label="Khách hàng đã chọn"
+          path="voucherUsers"
+        >
+          <NButton @click="showCustomerModal = true">
+            Chọn khách hàng (Đã chọn: {{ newVoucher.voucherUsers?.length || 0 }})
+          </NButton>
         </NFormItem>
-        <NFormItem v-if="showQuantity" ref="quantityFormItemRef" label="Số lượng" path="quantity">
-          <NInputNumber v-model:value="newVoucher.quantity" :min="1" placeholder="Nhập số lượng..." />
-        </NFormItem>
-      </div>
-      <NFormItem label="Ghi chú">
-        <NInput v-model:value="newVoucher.note" type="textarea" placeholder="Ghi chú..." />
-      </NFormItem>
-      <NFormItem label="Đối tượng áp dụng" path="targetType">
-        <NRadioGroup v-model:value="newVoucher.targetType">
-          <NRadio v-for="opt in targetTypes" :key="opt.value" :value="opt.value">
-            {{ opt.label }}
-          </NRadio>
-        </NRadioGroup>
-      </NFormItem>
-      <NFormItem
-        v-if="newVoucher.targetType === 'INDIVIDUAL'"
-        ref="voucherUsersFormItemRef"
-        :key="`voucherUsers-${newVoucher.targetType}`"
-        label="Khách hàng đã chọn"
-        path="voucherUsers"
-      >
-        <NButton @click="showCustomerModal = true">
-          Chọn khách hàng (Đã chọn: {{ newVoucher.voucherUsers?.length || 0 }})
-        </NButton>
-      </NFormItem>
-      <div class="flex justify-end gap-2 mt-4">
-        <NButton @click="() => { resetNewVoucher(); emit('cancel') }">
-          Hủy
-        </NButton>
-        <NButton type="primary" :loading="props.isLoading" :disabled="props.isLoading" @click="handleAddVoucher">
-          {{ props.isEdit ? 'Lưu' : 'Thêm' }}
-        </NButton>
-      </div>
-    </NForm>
+        <div class="flex justify-end gap-2 mt-4">
+          <NButton @click="() => { resetNewVoucher(); emit('cancel') }">
+            Hủy
+          </NButton>
+          <NButton type="primary" :loading="props.isLoading" :disabled="props.isLoading" @click="handleAddVoucher">
+            {{ props.isEdit ? 'Lưu' : 'Thêm' }}
+          </NButton>
+        </div>
+      </NForm>
+    </NSpin>
   </NModal>
 
   <!-- Modal chọn khách hàng -->
@@ -404,7 +432,7 @@ const customerColumns: DataTableColumns<ADCustomerResponse> = [
       />
     </div>
     <div class="flex justify-end gap-2 mt-4">
-      <NButton @click="() => { showCustomerModal = false; checkedCustomerKeys.value = []; }">
+      <NButton @click="handleCancelCustomerModal">
         Đóng
       </NButton>
       <NButton type="primary" @click="handleConfirmvoucherUsers">
