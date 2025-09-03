@@ -7,7 +7,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 @Repository
-public interface AdCustomerRepository extends CustomerRepository {
+public interface git AdCustomerRepository extends CustomerRepository {
     @Query("SELECT c.email FROM Customer c WHERE c.status = 0 ")
     List<String> findAllActiveCustomerEmails();
 
