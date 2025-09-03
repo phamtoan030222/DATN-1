@@ -4,7 +4,7 @@ import com.sd20201.datn.core.admin.discounts.discount.model.request.AdDiscountRe
 import com.sd20201.datn.core.admin.discounts.discount.model.request.AdDscountFilterRequest;
 import com.sd20201.datn.core.admin.discounts.discount.model.request.DiscountUpdateRequest;
 import com.sd20201.datn.core.admin.discounts.discount.model.request.DiscountValidateRequest;
-import com.sd20201.datn.core.admin.discounts.discount.repository.AdCustomerRepository;
+import com.sd20201.datn.core.admin.discounts.discount.repository.AdCustomerDiscountRepository;
 import com.sd20201.datn.core.admin.discounts.discount.repository.AdDiscountRepossitory;
 import com.sd20201.datn.core.admin.discounts.discount.repository.AdDiscountSearchRepository;
 import com.sd20201.datn.core.admin.discounts.discount.service.AdDiscountService;
@@ -12,7 +12,6 @@ import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Discount;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
-import com.sd20201.datn.repository.CustomerRepository;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +32,7 @@ public class AdDiscountServiceImpl implements AdDiscountService {
     private final AdDiscountRepossitory adDiscountRepossitory;
     private final AdDiscountSearchRepository adDiscountSearchRepository;
 
-    @Autowired
-    private AdCustomerRepository customerRepository;
+    private final AdCustomerDiscountRepository customerRepository;
 
     @Override
     public ResponseObject<?> getAllDiscounts(AdDiscountRequest request) {
