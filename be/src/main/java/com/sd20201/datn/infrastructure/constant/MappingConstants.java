@@ -47,4 +47,5 @@ public class MappingConstants {
 
     public static final String API_ADMIN_PREFIX_STAFF =  API_ADMIN_PREFIX + "/staff";
     public static final String API_ADMIN_PREFIX_PRODUCTS_VOUCHER =   API_ADMIN_PREFIX_PRODUCTS + "/voucher";
+    public static final String API_ADMIN_PREFIX_CUSTOMERS = API_ADMIN_PREFIX + "/customers";
 }

@@ -30,3 +30,4 @@ export const API_ADMIN_DISCOUNTS = `${PREFIX_API_ADMIN}/discounts` as string;
 
 export const API_ADMIN_PRODUCT_VOUCHER =
   `${API_ADMIN_PRODUCTS}/voucher` as string;
+  export const API_ADMIN_CUSTOMERS = `${PREFIX_API_ADMIN}/customers` as string
