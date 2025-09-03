@@ -42,7 +42,7 @@ public interface AdVoucherRepository extends VoucherRepository {
     ORDER BY v.createdDate DESC
     """,
             countQuery = """
-    SELECT COUNT(v)
+    SELECT COUNT(v) 
     FROM Voucher v
     WHERE
         ( :#{#request.q} IS NULL 

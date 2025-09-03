@@ -287,6 +287,20 @@ watch(filters, () => {
 
   <!-- Bộ lọc -->
   <NCard title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
+    <template #header-extra>
+      <div class=" mr-5">
+        <NTooltip trigger="hover" placement="top">
+          <template #trigger>
+            <NButton size="large" circle secondary type="primary" title="Làm mới bộ lọc" @click="resetFilters">
+              <NIcon size="35">
+                <Icon icon="carbon:rotate" />
+              </NIcon>
+            </NButton>
+          </template>
+          Làm mới bộ lọc
+        </NTooltip>
+      </div>
+    </template>
     <NForm label-placement="top">
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4 items-end">
         <NFormItem label="Tên hoặc mã">
@@ -301,20 +315,6 @@ watch(filters, () => {
         <NFormItem label="Trạng thái">
           <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Trạng thái" class="w-full" />
         </NFormItem>
-
-        <!-- Button đưa lên chung hàng -->
-        <div class="flex justify-end items-end col-span-full mr-10">
-          <NTooltip trigger="hover" placement="top">
-            <template #trigger>
-              <NButton circle secondary type="primary" title="Làm mới" @click="resetFilters">
-                <NIcon size="30">
-                  <Icon icon="carbon:rotate" />
-                </NIcon>
-              </NButton>
-            </template>
-            Làm mới bộ lọc
-          </NTooltip>
-        </div>
       </div>
     </NForm>
   </NCard>
@@ -322,51 +322,53 @@ watch(filters, () => {
   <!-- Table -->
   <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-3">
     <template #header-extra>
-      <NSpace>
-        <!-- Thêm -->
-        <NTooltip trigger="hover" placement="top">
-          <template #trigger>
-            <NButton type="primary" secondary circle title="Thêm mới" @click="openAddModal">
-              <NIcon size="24">
-                <Icon icon="carbon:add" />
-              </NIcon>
-            </NButton>
-          </template>
-          Thêm mới
-        </NTooltip>
-        <!-- Refresh -->
-        <NTooltip trigger="hover" placement="top">
-          <template #trigger>
-            <NButton circle secondary type="primary" title="Làm mới" @click="fetchData">
-              <NIcon size="24">
-                <Icon icon="carbon:rotate" />
-              </NIcon>
-            </NButton>
-          </template>
-          Làm mới
-        </NTooltip>
-        <!-- Xoá -->
-        <NTooltip :disabled="checkedRowKeys.length > 0">
-          <template #trigger>
-            <NPopconfirm @positive-click="handleDeleteMany(checkedRowKeys as string[])">
-              <template #trigger>
-                <NTooltip trigger="hover" placement="top">
-                  <template #trigger>
-                    <NButton circle secondary type="error" :disabled="checkedRowKeys.length === 0" title="Xóa đã chọn">
-                      <NIcon size="24">
-                        <Icon icon="carbon:trash-can" />
-                      </NIcon>
-                    </NButton>
-                  </template>
-                  Xóa mục đã chọn
-                </NTooltip>
-              </template>
-              Bạn có chắc muốn xóa không?
-            </NPopconfirm>
-          </template>
-          Chưa chọn phiếu giảm giá nào
-        </NTooltip>
-      </NSpace>
+      <div class="mr-5">
+        <NSpace>
+          <!-- Thêm -->
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton type="primary" secondary circle title="Thêm mới" @click="openAddModal">
+                <NIcon size="24">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+              </NButton>
+            </template>
+            Thêm mới
+          </NTooltip>
+          <!-- Refresh -->
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton circle secondary type="primary" title="Làm mới" @click="fetchData">
+                <NIcon size="24">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới
+          </NTooltip>
+          <!-- Xoá -->
+          <NTooltip :disabled="checkedRowKeys.length > 0">
+            <template #trigger>
+              <NPopconfirm @positive-click="handleDeleteMany(checkedRowKeys as string[])">
+                <template #trigger>
+                  <NTooltip trigger="hover" placement="top">
+                    <template #trigger>
+                      <NButton circle secondary type="error" :disabled="checkedRowKeys.length === 0" title="Xóa đã chọn">
+                        <NIcon size="24">
+                          <Icon icon="carbon:trash-can" />
+                        </NIcon>
+                      </NButton>
+                    </template>
+                    Xóa mục đã chọn
+                  </NTooltip>
+                </template>
+                Bạn có chắc muốn xóa không?
+              </NPopconfirm>
+            </template>
+            Chưa chọn phiếu giảm giá nào
+          </NTooltip>
+        </NSpace>
+      </div>
     </template>
     <NDataTable
       v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="data" :loading="loading"

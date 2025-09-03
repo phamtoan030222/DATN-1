@@ -41,6 +41,7 @@ const quantityFormItemRef = ref<FormItemInst | null>(null)
 const conditionsFormItemRef = ref<FormItemInst | null>(null)
 const voucherUsersFormItemRef = ref<FormItemInst | null>(null)
 const showCustomerModal = ref(false)
+const isLoadingData = ref(false)
 
 const newVoucher = ref({
   id: '',
@@ -176,6 +177,7 @@ watch(
   () => props.show,
   (newVal) => {
     if (newVal) {
+      isLoadingData.value = true
       resetNewVoucher()
       if (props.isEdit && props.voucherData) {
         newVoucher.value = {
@@ -193,11 +195,13 @@ watch(
           endDate: props.voucherData?.endDate ?? 0,
           createdDate: props.voucherData?.createdDate ?? 0,
           conditions: props.voucherData?.conditions ?? 0,
-          note: props.voucherData?.note ?? '', // Thay null bằng '' để đảm bảo non-null
+          note: props.voucherData?.note ?? '',
           status: props.voucherData?.status ?? '',
-          voucherUsers: props.voucherData.voucherUsers ? props.voucherData.voucherUsers.map((detail: any) => detail.customerId || detail.id || '') : [], // Thay null bằng [] để non-null
-        } // Loại bỏ 'as ADVoucherResponse' nếu gây lỗi, hoặc định nghĩa newVoucher với kiểu ADVoucherResponse
+          voucherUsers: props.voucherData.voucherUsers ? props.voucherData.voucherUsers.map((detail: any) => detail.customerId || detail.id || '') : [],
+        }
+        checkedCustomerKeys.value = newVoucher.value.voucherUsers?.filter(id => datavoucherUsers.value.some(user => user.id === id)) || []
       }
+      isLoadingData.value = false
     }
   },
   { immediate: true },
@@ -227,7 +231,7 @@ watch(
 watch(
   () => newVoucher.value.targetType,
   (val) => {
-    if (val === 'INDIVIDUAL') {
+    if (val === 'INDIVIDUAL' && !isLoadingData.value) {
       showCustomerModal.value = true
     }
     else {
@@ -256,9 +260,6 @@ watch(
     if (newVal) {
       checkedCustomerKeys.value = newVoucher.value.voucherUsers?.map(id => id) || []
     }
-    else {
-      // Không reset checkedCustomerKeys khi đóng modal để giữ lựa chọn tạm thời
-    }
   },
 )
 
@@ -283,7 +284,7 @@ function resetNewVoucher() {
     status: '',
   }
   addFormRef.value?.restoreValidation()
-  checkedCustomerKeys.value = [] // Reset lựa chọn khi reset form
+  checkedCustomerKeys.value = []
 }
 
 function handleAddVoucher() {
@@ -305,7 +306,6 @@ function handleAddVoucher() {
 
 function fetchvoucherUsers() {
   paginationvoucherUsers.value.itemCount = datavoucherUsers.value.length
-  // Nếu cần fetch từ API, thêm async logic ở đây
 }
 
 function handleConfirmvoucherUsers() {
@@ -317,7 +317,6 @@ function handleConfirmvoucherUsers() {
 
 function handleCancelCustomerModal() {
   showCustomerModal.value = false
-  // Không reset checkedCustomerKeys để giữ lựa chọn, chỉ reset nếu hủy toàn bộ
 }
 
 /* ===================== Data Table Columns ===================== */
