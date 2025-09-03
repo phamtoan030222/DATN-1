@@ -5,10 +5,12 @@ import com.sd20201.datn.core.admin.discounts.discount.model.request.AdDscountFil
 import com.sd20201.datn.core.admin.discounts.discount.model.request.DiscountUpdateRequest;
 import com.sd20201.datn.core.admin.discounts.discount.model.request.DiscountValidateRequest;
 import com.sd20201.datn.core.admin.discounts.discount.service.AdDiscountService;
+import com.sd20201.datn.core.admin.discounts.discount.service.MailService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +26,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_DISCOUNT_DISCOUNT)
 @RequiredArgsConstructor
 public class AdDiscountController {
+     @Autowired
+     private final MailService mailService;
+
     private final AdDiscountService adDiscountService;
     @GetMapping()
     public ResponseEntity<?> getALLDiscount(@ModelAttribute AdDiscountRequest request){
@@ -61,5 +66,9 @@ public class AdDiscountController {
         return Helper.createResponseEntity(adDiscountService.filterDiscounts(request));
     }
 
+    @PostMapping("/sendEmail/{id}")
+    public ResponseEntity<?> sendMail(@PathVariable String id){
+        return Helper.createResponseEntity(adDiscountService.sendEmailDiscount(id));
+    }
 
 }

@@ -15,132 +15,108 @@
     </NSpace>
   </n-card>
 
-  <!-- Filter Section -->
-  <NCard title="Bộ lọc" style="margin-top: 16px ">
-    <!-- Quick Filter -->
-    <div style="margin-bottom: 16px">
-      <NSpace>
-        <NButton
-          v-for="status in statusOptions" 
-          :key="status.value"
-          :type="quickFilter === status.value ? 'primary' : 'default'"
-          @click="handleQuickFilterChange(status.value)"
-        >
-          {{ status.label }} ({{ getBadgeCount(status.value) }})
-        </NButton>
-      </NSpace>
-    </div>
-
-    <!-- Toggle Advanced Filter -->
-    <div style="margin-bottom: 16px">
-      <NButton text @click="toggleAdvancedFilter">
-        <template #icon>
-          <NIcon size="16">
-            <Icon :icon="'carbon:search'" />
-          </NIcon>
-        </template>
-        {{ showAdvancedFilter ? 'Ẩn bộ lọc' : 'Hiển thị bộ lọc' }}
+  <!-- Bộ lọc -->
+<NCard title="Bộ lọc" style="margin-top: 16px">
+  <div style="margin-bottom: 16px">
+    <NSpace>
+      <NButton
+        v-for="status in statusOptions" 
+        :key="status.value"
+        :type="quickFilter === status.value ? 'primary' : 'default'"
+        @click="handleQuickFilterChange(status.value)"
+      >
+        {{ status.label }} ({{ getBadgeCount(status.value) }})
       </NButton>
-    </div>
+    </NSpace>
+  </div>
 
-    <!-- Advanced Filters -->
-    <div v-if="showAdvancedFilter" style="border-top: 1px solid #f0f0f0; padding-top: 16px; margin-top: 16px " >
-      <div style="margin-bottom: 16px; font-weight: 500">Bộ lọc nâng cao</div>  
-      <NForm>
-        <NGrid cols="3" x-gap="16" y-gap="16">
-          <NGridItem>
-            <NFormItem label="Tên đợt giảm giá">
-              <NInput 
-                v-model:value="searchForm.q"
-                placeholder="Nhập tên đợt giảm giá"
-                @input="debouncedSearch"
-                clearable
+  <div style="border-top: 1px solid #f0f0f0; padding-top: 16px; margin-top: 16px">
+    <div style="margin-bottom: 16px; font-weight: 500">Bộ lọc nâng cao</div>  
+    <NForm>
+      <NGrid cols="3" x-gap="16" y-gap="16">
+        <NGridItem>
+          <NFormItem label="Tên đợt giảm giá">
+            <NInput 
+              v-model:value="searchForm.q"
+              placeholder="Nhập tên đợt giảm giá"
+              @input="debouncedSearch"
+              clearable
+            />
+          </NFormItem>
+        </NGridItem>
+        
+        <NGridItem>
+          <NFormItem label="Mã giảm giá">
+            <NInput 
+              v-model:value="searchForm.discountCode"
+              placeholder="Nhập mã giảm giá"
+              @input="debouncedSearch"
+              clearable
+            />
+          </NFormItem>
+        </NGridItem>
+        
+        <NGridItem>
+          <NFormItem label="Phần trăm giảm giá (%)">
+            <NSpace>
+              <NInputNumber 
+                v-model:value="searchForm.percentageRange[0]"
+                placeholder="0" 
+                :min="0" 
+                :max="100"
+                @update:value="handleAdvancedSearch"
+                style="width: 100px"
               />
-            </NFormItem>
-          </NGridItem>
-          
-          <NGridItem>
-            <NFormItem label="Mã giảm giá">
-              <NInput 
-                v-model:value="searchForm.discountCode"
-                placeholder="Nhập mã giảm giá"
-                @input="debouncedSearch"
-                clearable
+              <span>đến</span>
+              <NInputNumber 
+                v-model:value="searchForm.percentageRange[1]"
+                placeholder="100" 
+                :min="0" 
+                :max="100"
+                @update:value="handleAdvancedSearch"
+                style="width: 100px"
               />
-            </NFormItem>
-          </NGridItem>
-          
-          <NGridItem>
-            <NFormItem label="Phần trăm giảm giá (%)">
-              <NSpace>
-                <NInputNumber 
-                  v-model:value="searchForm.percentageRange[0]"
-                  placeholder="0" 
-                  :min="0" 
-                  :max="100"
-                  @update:value="handleAdvancedSearch"
-                  style="width: 100px"
-                />
-                <span>đến</span>
-                <NInputNumber 
-                  v-model:value="searchForm.percentageRange[1]"
-                  placeholder="100" 
-                  :min="0" 
-                  :max="100"
-                  @update:value="handleAdvancedSearch"
-                  style="width: 100px"
-                />
-              </NSpace>
-            </NFormItem>
-          </NGridItem>
-          <NGridItem>
-  <NFormItem label="Ngày bắt đầu">
-    <input
-      type="date"
-      v-model="searchForm.startDate"
-      @change="handleAdvancedSearch"
-      placeholder="Chọn ngày bắt đầu"
-      style="width: 100%; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px;"
-    />
-  </NFormItem>
-</NGridItem>
+            </NSpace>
+          </NFormItem>
+        </NGridItem>
+        <NGridItem>
+          <NFormItem label="Ngày bắt đầu">
+            <input
+              type="date"
+              v-model="searchForm.startDate"
+              @change="handleAdvancedSearch"
+              placeholder="Chọn ngày bắt đầu"
+              style="width: 100%; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px;"
+            />
+          </NFormItem>
+        </NGridItem>
 
-<NGridItem>
-  <NFormItem label="Ngày kết thúc">
-    <input
-      type="date"
-      v-model="searchForm.endDate"
-      @change="handleAdvancedSearch"
-      placeholder="Chọn ngày kết thúc"
-      style="width: 100%; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px;"
-    />
-  </NFormItem>
-</NGridItem>
-        </NGrid>
+        <NGridItem>
+          <NFormItem label="Ngày kết thúc">
+            <input
+              type="date"
+              v-model="searchForm.endDate"
+              @change="handleAdvancedSearch"
+              placeholder="Chọn ngày kết thúc"
+              style="width: 100%; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px;"
+            />
+          </NFormItem>
+        </NGridItem>
+        <NGridItem>
+          <br> 
+          <NButton @click="handleReset" style="margin-top: 4px;">
+          <template #icon>
+            <NIcon>
+              <Icon :icon="'carbon:rotate'" />
+            </NIcon>
+          </template>
+        </NButton>
+        </NGridItem>
+      </NGrid>
+    </NForm>
+  </div>
+</NCard>
 
-        <NSpace style="margin-top: 16px">
-          <NButton type="primary" @click="handleAdvancedSearch" :loading="loading">
-            <template #icon>
-              <NIcon>
-                <Icon :icon="'carbon:search'" />
-              </NIcon>
-            </template>
-            Tìm kiếm
-          </NButton>
-          <NButton @click="handleReset">
-            <template #icon>
-              <NIcon>
-                <Icon :icon="'carbon:rotate'" />
-              </NIcon>
-            </template>
-            Đặt lại
-          </NButton>
-        </NSpace>
-      </NForm>
-    </div>
-  </NCard>
-
-  <!-- Active Filters -->
   <NCard v-if="activeFilters.length > 0" style="margin-top: 16px">
     <template #header>
       <NSpace justify="space-between">
@@ -196,8 +172,9 @@
         >
           <NIcon size="24">
             <Icon :icon="'carbon:rotate'" />
-          </NIcon>
+          </NIcon>  
         </NButton>
+
         <NPopconfirm @positive-click="handleDeleteSelected"
          positive-text="Xóa"
         negative-text="Hủy bỏ"
@@ -211,6 +188,21 @@
           </template>
           Xác nhận xóa tất cả đợt giảm giá đã chọn?
         </NPopconfirm>
+
+         <NPopconfirm @positive-click="handleSendMailSelected"
+         positive-text="Xác nhận"
+          negative-text="Hủy bỏ"
+         >
+          <template #trigger>
+            <NButton type="error" secondary circle title="Gửi mail hàng loạt">
+              <NIcon size="24">
+                <Icon :icon="'icon-park-outline:align-text-top'" />
+              </NIcon>
+            </NButton>
+          </template>
+          Xác nhận gửi Mail tất cả đợt giảm giá đã chọn?
+        </NPopconfirm>
+
       </NSpace>
     </template>
 
@@ -238,7 +230,7 @@
   <NModal
     v-model:show="showModal"
     preset="card"
-    style="width: 1000px; max-width: 95vw"
+    :style="`width: ${modalWidth}; max-width: 95vw`"
     :title="modalMode === 'add' ? 'Thêm đợt giảm giá' : 'Chỉnh sửa đợt giảm giá'"
   >
     <NTabs v-model:value="modalTab" type="line" animated>
@@ -273,17 +265,6 @@
               </NFormItem>
             </NGridItem>
             <NGridItem>
-              <NFormItem label="Phần trăm giảm giá (%)" required>
-                <NInputNumber
-                  v-model:value="formData.percentage"
-                  :min="1"
-                  :max="100"
-                  placeholder="Nhập % giảm giá"
-                  style="width: 100%"
-                />
-              </NFormItem>
-            </NGridItem>
-            <NGridItem>
               <NFormItem label="Ngày bắt đầu" required>
                 <NDatePicker
                   v-model:value="formData.startDate"
@@ -293,7 +274,7 @@
                 />
               </NFormItem>
             </NGridItem>
-            <NGridItem span="2">
+            <NGridItem >
               <NFormItem label="Ngày kết thúc" required>
                 <NDatePicker
                   v-model:value="formData.endDate"
@@ -301,6 +282,22 @@
                   placeholder="Chọn ngày kết thúc"
                   style="width: 100%"
                   :is-date-disabled="(ts: number) => ts <= formData.startDate"
+                />
+              </NFormItem>
+            </NGridItem>
+            <NGridItem span="2" v-if="hasTimeConflict">
+              <NAlert type="warning" style="margin-top: 8px">
+                Khoảng thời gian này xung đột với đợt giảm giá khác đã tồn tại
+              </NAlert>
+            </NGridItem>
+            <NGridItem>
+              <NFormItem label="Phần trăm giảm giá (%)" required>
+                <NInputNumber
+                  v-model:value="formData.percentage"
+                  :min="1"
+                  :max="100"
+                  placeholder="Nhập % giảm giá"
+                  style="width: 100%"
                 />
               </NFormItem>
             </NGridItem>
@@ -352,20 +349,19 @@
                     </template>
                     {{ appliedTotal }} sản phẩm
                   </NTag>
-                  
-<NButton
-  v-if="appliedSelectedKeys.length > 0"
-  type="error"
-  secondary
-  size="small"
-  @click="handleRemoveProducts"
-  :loading="removingProducts"
->
-  <template #icon>
-    <NIcon><Icon icon="carbon:trash-can" /></NIcon>
-  </template>
-  Gỡ bỏ ({{ appliedSelectedKeys.length }})
-</NButton>
+                  <NButton
+                  v-if="appliedSelectedKeys.length > 0"
+                  type="error"
+                  secondary
+                  size="small"
+                  @click="handleRemoveProducts"
+                  :loading="removingProducts"
+                  >
+                <template #icon>
+                 <NIcon><Icon icon="carbon:trash-can" /></NIcon>
+                </template>
+                 Gỡ bỏ ({{ appliedSelectedKeys.length }})
+               </NButton>
                 </NSpace>
               </NSpace>
             </div>
@@ -570,6 +566,7 @@ import {
   deleteDiscount,
   deactivateDiscount,
   startDiscount,
+  sendEmail,
   getAppliedProducts,
   getUnappliedProducts,
   applySingleProductToDiscount,
@@ -590,7 +587,6 @@ const currentPage = ref(1);
 const pageSize = ref(10);
 const loading = ref(false);
 const searchKeyword = ref("");
-const showAdvancedFilter = ref(false);
 const quickFilter = ref('all');
 
 const checkedRowKeys = ref<(string | number)[]>([]);
@@ -633,6 +629,14 @@ const isDiscountActive = (discount: DiscountResponse) => {
 }
 
 
+const modalWidth = computed(() => {
+  if (modalTab.value === 'info') {
+    return '500px'
+  } else if (modalTab.value === 'products') {
+    return '1200px'
+  }
+  return '500px' 
+})
 
 const hasActiveDiscount = () => {
   return tableData.value.some(discount => isDiscountActive(discount))
@@ -795,11 +799,6 @@ const getBadgeCount = (status: string) => {
   }
 }
 
-const toggleAdvancedFilter = () => {
-  console.log('Trước khi toggle:', showAdvancedFilter.value)
-  showAdvancedFilter.value = !showAdvancedFilter.value
-  console.log('Sau khi toggle:', showAdvancedFilter.value)
-}
 
 const handleQuickFilterChange = (status: string) => {
   quickFilter.value = status
@@ -1197,8 +1196,32 @@ async function saveDiscount() {
     return;
   }
 
+ const now = Date.now();
+  if (formData.startDate <= now) {
+    message.warning("Thời gian bắt đầu phải lớn hơn thời gian hiện tại");
+    return;
+  }
+
   if (formData.startDate >= formData.endDate) {
     message.warning("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc");
+    return;
+  }
+
+   const hasConflict = tableData.value.some(discount => {
+    if (modalMode.value === 'edit' && modalRow.value && discount.id === modalRow.value.id) {
+      return false;
+    } 
+    const existingStart = discount.startTime || 0;
+    const existingEnd = discount.endTime || 0;
+    return (
+      (formData.startDate >= existingStart && formData.startDate <= existingEnd) ||
+      (formData.endDate >= existingStart && formData.endDate <= existingEnd) ||
+      (formData.startDate <= existingStart && formData.endDate >= existingEnd)
+    );
+  });
+
+  if (hasConflict) {
+    message.error("Khoảng thời gian này đã có đợt giảm giá khác. Vui lòng chọn thời gian khác.");
     return;
   }
 
@@ -1255,12 +1278,83 @@ async function handleDeleteSelected() {
   }
 }
 
+
+async function handleSendMailSelected() {
+  if (checkedRowKeys.value.length === 0) {
+    message.warning("Chưa chọn đợt giảm giá nào");
+    return;
+  }
+
+  try {
+    const results = await Promise.allSettled(
+      checkedRowKeys.value.map((id) => sendEmail(id.toString()))
+    );
+    const successCount = results.filter(r => r.status === "fulfilled").length;
+    const failCount = results.filter(r => r.status === "rejected").length;
+    if (failCount === 0) {
+      message.success(`Đã gửi Mail thành công cho ${successCount} đợt giảm giá`);
+    } else {
+      message.error(
+        `Gửi Mail hoàn tất. Thành công: ${successCount}, Thất bại: ${failCount}`
+      );
+    }
+    checkedRowKeys.value = [];
+    fetchDiscounts();
+  } catch (error) {
+    message.error("Có lỗi xảy ra khi gửi Mail");
+  }
+}
+
+
+
+const hasTimeConflict = computed(() => {
+  if (!formData.startDate || !formData.endDate) return false;
+  
+  return tableData.value.some(discount => {
+    if (modalMode.value === 'edit' && modalRow.value && discount.id === modalRow.value.id) {
+      return false;
+    }
+    
+    const existingStart = discount.startTime || 0;
+    const existingEnd = discount.endTime || 0;
+    
+    return (
+      (formData.startDate >= existingStart && formData.startDate <= existingEnd) ||
+      (formData.endDate >= existingStart && formData.endDate <= existingEnd) ||
+      (formData.startDate <= existingStart && formData.endDate >= existingEnd)
+    );
+  });
+});
+
 async function handleStart(row: DiscountResponse) {
+const now = Date.now();
+  const hasActiveOrOverlapping = tableData.value.some(discount => {
+    if (discount.id === row.id) return false; 
+    
+    const discountStart = discount.startTime || 0;
+    const discountEnd = discount.endTime || 0;
+    const rowStart = row.startTime || 0;
+    const rowEnd = row.endTime || 0;
+  
+    if (now >= discountStart && now <= discountEnd) return true;
+
+    return (
+      (rowStart >= discountStart && rowStart <= discountEnd) ||
+      (rowEnd >= discountStart && rowEnd <= discountEnd) ||
+      (rowStart <= discountStart && rowEnd >= discountEnd)
+    );
+  });
+
+  if (hasActiveOrOverlapping) {
+    message.error('Không thể bắt đầu đợt giảm giá do xung đột thời gian với đợt giảm giá khác');
+    return;
+  }
 
 if (hasActiveDiscount()) {
   message.error('Không thể bắt đầu đợt giảm giá khi đang có đợt giảm giá khác đang diễn ra')
   return
 }
+
   try {
     await startDiscount(row.id);
     message.success(`Bắt đầu sớm đợt giảm giá "${row.discountName}" thành công`);
@@ -1448,7 +1542,6 @@ const columns: DataTableColumns<DiscountResponse> = [
     render(row: DiscountResponse) {
       const status = getStatus(row)
       const actions = [
-        // Edit button
         h(NButton, {
           size: "small",
           quaternary: true,

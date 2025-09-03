@@ -323,3 +323,8 @@ export const deleteDiscount = async (id: string) => {
   const res = await request.delete(`${API_ADMIN_DISCOUNT}/delete/${id}`)
   return res.data
 }
+
+export const sendEmail = async (id: string) => {
+  const res = await request.post(`${API_ADMIN_DISCOUNT}/sendEmail/${id}`)
+  return res.data
+}

@@ -22,4 +22,6 @@ public interface AdDiscountService {
 
     ResponseObject<?> filterDiscounts(AdDscountFilterRequest request);
 
+    ResponseObject<?> sendEmailDiscount(String id);
+
 }
