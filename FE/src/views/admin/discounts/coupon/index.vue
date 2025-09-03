@@ -511,7 +511,7 @@ onMounted(fetchData)
   <!-- Header -->
   <NCard class="mb-3">
     <NSpace vertical :size="8">
-      <NSpace align="center">
+      <NSpace :align="'center'">
         <NIcon size="24">
           <Icon icon="icon-park-outline:ticket" />
         </NIcon>
