@@ -34,6 +34,7 @@ public interface AdProductApplyRepositoryProduct extends ProductDiscountDetailRe
                      JOIN pd.product p
                      JOIN c.discount d
             WHERE d.id = :discountId
+            AND c.status = 0
             """)
         Page<AdDiscountDetailRespone> getAllAppliedProductsByDiscount(Pageable pageable,
                                                                       @Param("discountId") String discountId);

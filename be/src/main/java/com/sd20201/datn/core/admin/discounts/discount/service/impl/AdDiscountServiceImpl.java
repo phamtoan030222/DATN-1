@@ -93,6 +93,8 @@ public class AdDiscountServiceImpl implements AdDiscountService {
 //            );
 //        }
 
+
+
         Long now = System.currentTimeMillis();
         if (request.getStartDate() != null && request.getEndDate() != null) {
             if (request.getStartDate() >= request.getEndDate()) {
@@ -114,6 +116,41 @@ public class AdDiscountServiceImpl implements AdDiscountService {
                 );
             }
         }
+
+
+        if (request.getPercentage() == null || request.getPercentage().toString().trim().isEmpty()) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.BAD_REQUEST,
+                    "Phần trăm giảm giá không được để trống",
+                    false,
+                    "DISCOUNT_PERCENTAGE_REQUIRED"
+            );
+        }
+
+        String percentageStr = request.getPercentage().toString();
+
+        if (percentageStr.matches(".*[a-zA-Z].*")) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.BAD_REQUEST,
+                    "Phần trăm giảm giá không được chứa chữ cái",
+                    false,
+                    "DISCOUNT_PERCENTAGE_ALPHA"
+            );
+        }
+
+        if (!percentageStr.matches("^\\d+(\\.\\d+)?$")) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.BAD_REQUEST,
+                    "Phần trăm giảm giá chỉ được nhập số, không được chứa ký tự đặc biệt",
+                    false,
+                    "DISCOUNT_PERCENTAGE_SPECIAL"
+            );
+        }
+
+        double percentage = Double.parseDouble(percentageStr);
 
         Discount discount = new Discount();
         discount.setName(request.getDiscountName());
@@ -225,6 +262,40 @@ public class AdDiscountServiceImpl implements AdDiscountService {
 //            );
 //        }
 
+        if (request.getPercentage() == null || request.getPercentage().toString().trim().isEmpty()) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.BAD_REQUEST,
+                    "Phần trăm giảm giá không được để trống",
+                    false,
+                    "DISCOUNT_PERCENTAGE_REQUIRED"
+            );
+        }
+
+        String percentageStr = request.getPercentage().toString();
+
+        if (percentageStr.matches(".*[a-zA-Z].*")) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.BAD_REQUEST,
+                    "Phần trăm giảm giá không được chứa chữ cái",
+                    false,
+                    "DISCOUNT_PERCENTAGE_ALPHA"
+            );
+        }
+
+        if (!percentageStr.matches("^\\d+(\\.\\d+)?$")) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.BAD_REQUEST,
+                    "Phần trăm giảm giá chỉ được nhập số, không được chứa ký tự đặc biệt",
+                    false,
+                    "DISCOUNT_PERCENTAGE_SPECIAL"
+            );
+        }
+
+        double percentage = Double.parseDouble(percentageStr);
+
 
         discount.setName(request.getDiscountName());
         discount.setCode(request.getDiscountCode());
@@ -232,7 +303,7 @@ public class AdDiscountServiceImpl implements AdDiscountService {
         discount.setEndDate(request.getEndDate());
         discount.setDescription(request.getDescription());
         discount.setPercentage(request.getPercentage());
-        discount.setLastModifiedDate(System.currentTimeMillis()); // nên để lastModified thay vì createdDate
+        discount.setLastModifiedDate(System.currentTimeMillis());
         discount.setStatus(EntityStatus.ACTIVE);
 
         adDiscountRepossitory.save(discount);
@@ -374,7 +445,9 @@ public class AdDiscountServiceImpl implements AdDiscountService {
             );
         }
 
-        adDiscountRepossitory.delete(discount);
+        discount.setStatus(EntityStatus.INACTIVE);
+        discount.setLastModifiedDate(now);
+        adDiscountRepossitory.save(discount);
 
         return new ResponseObject<>(
                 null,
