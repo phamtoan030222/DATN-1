@@ -17,6 +17,7 @@ public interface AdProductApplyRepositoryProduct extends ProductDiscountDetailRe
                    d.percentage AS percentageDiscount,
                    d.startDate AS startTime,
                    d.endDate AS endTime,
+                   pd.price AS price,
                    c.description AS description
             FROM ProductDetailDiscount c
                      JOIN c.productDetail pd

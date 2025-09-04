@@ -1509,6 +1509,14 @@
         return h('strong', row.productCode)
       }
     },
+      {
+      title: 'Ảnh',
+      key: 'image',
+      width: 120,
+      render(row) {
+        return null
+      }
+    },
     {
       title: 'Tên sản phẩm',
       key: 'productName',
@@ -1528,7 +1536,18 @@
         })
       }
     },
-
+    {
+    title: 'Giá',
+    key: 'price',
+    width: 200,
+    render(row) {
+    const salePrice = Math.round(row.price * (100 - formData.percentage) / 100)
+    return h('div', [ 
+      h('div', { style: 'text-decoration: line-through; color: #999; font-size: 12px' }, formatPrice(row.price)),
+      h('div', { style: 'color: #f56565; font-weight: 600; font-size: 14px' }, formatPrice(salePrice))
+    ])
+    }
+    },
     {
       title: 'Thời gian áp dụng',
       key: 'timeRange',
@@ -1550,6 +1569,14 @@
       width: 120,
       render(row) {
         return h('strong', row.productCode)
+      }
+    },
+    {
+      title: 'Ảnh',
+      key: 'image',
+      width: 120,
+      render(row) {
+        return null
       }
     },
     {
@@ -1575,23 +1602,25 @@
         return h('span', { style: 'color: #f56565; font-weight: 600' }, formatPrice(salePrice))
       }
     },
-    {
-      title: 'Cấu hình',
-      key: 'specs',
-      width: 250,
-      render(row) {
-        const specs = []
-        if (row.colorName) specs.push(`Màu: ${row.colorName}`)
-        if (row.ramName) specs.push(`RAM: ${row.ramName}`)
-        if (row.hardDriveName) specs.push(`Ổ cứng: ${row.hardDriveName}`)
-        if (row.gpuName) specs.push(`GPU: ${row.gpuName}`)
-        if (row.cpuName) specs.push(`CPU: ${row.cpuName}`)
-        
-        return h('div', { style: 'font-size: 12px' }, 
-          specs.length > 0 ? specs.join(' • ') : '-'
-        )
-      }
-    }
+ {
+  title: 'Cấu hình',
+  key: 'specs',
+  width: 250,
+  render(row) {
+    const specs = []
+    if (row.colorName) specs.push(`Màu: ${row.colorName}`)
+    if (row.ramName) specs.push(`RAM: ${row.ramName}`)
+    if (row.hardDriveName) specs.push(`Ổ cứng: ${row.hardDriveName}`)
+    if (row.gpuName) specs.push(`GPU: ${row.gpuName}`)
+    if (row.cpuName) specs.push(`CPU: ${row.cpuName}`)
+    
+    return h('div', { style: 'font-size: 12px; line-height: 1.4' },
+      specs.length > 0 
+        ? specs.map(spec => h('div', spec))
+        : '-'
+    )
+  }
+}
   ]
 
 

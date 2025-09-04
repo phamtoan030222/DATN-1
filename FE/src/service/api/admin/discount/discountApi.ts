@@ -66,7 +66,7 @@ export interface AppliedProductResponse {
   startTime: number
   endTime: number
   description?: string
-  price?: number 
+  price: number 
 }
 
 
