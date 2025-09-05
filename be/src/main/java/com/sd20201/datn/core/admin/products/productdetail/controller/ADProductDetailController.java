@@ -4,17 +4,21 @@ import com.sd20201.datn.core.admin.products.product.model.request.ADProductCreat
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductCreateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDUploadImageRequest;
 import com.sd20201.datn.core.admin.products.productdetail.service.ADProductDetailService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -85,5 +89,10 @@ public class ADProductDetailController {
     @PostMapping("/imei-exists")
     ResponseEntity<?> isIMEIExist(@RequestBody List<String> id) {
         return Helper.createResponseEntity(productDetailService.isIMEIExist(id));
+    }
+
+    @PostMapping(value = "/upload-images/{id}")
+    ResponseEntity<?> uploadImages(@RequestPart MultipartFile imageProduct, @PathVariable String id) {
+        return Helper.createResponseEntity(productDetailService.uploadImages(imageProduct, null,id));
     }
 }

@@ -3,6 +3,7 @@ package com.sd20201.datn.core.admin.products.productdetail.service.impl;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductCreateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDUploadImageRequest;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBatteryRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBrandRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDCPURepository;
@@ -39,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -334,11 +336,16 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
             }
         }
 
-        return ResponseObject.successForward(null, "Create variant success");
+        return ResponseObject.successForward(product.getId(), "Create variant success");
     }
 
     @Override
     public ResponseObject<?> isIMEIExist(List<String> ids) {
         return ResponseObject.successForward(imeiRepository.findByCode(ids), "OKE");
+    }
+
+    @Override
+    public ResponseObject<?> uploadImages(MultipartFile imageProduct, List<MultipartFile> images, String id) {
+        return ResponseObject.errorForward("error", HttpStatus.NOT_FOUND);
     }
 }

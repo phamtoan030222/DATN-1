@@ -3,7 +3,9 @@ package com.sd20201.datn.core.admin.products.productdetail.service;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductCreateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDUploadImageRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -33,4 +35,6 @@ public interface ADProductDetailService {
     ResponseObject<?> createVariant(ADPDProductCreateRequest request);
 
     ResponseObject<?> isIMEIExist(List<String> ids);
+
+    ResponseObject<?> uploadImages(MultipartFile imageProduct, List<MultipartFile> images, String id);
 }
