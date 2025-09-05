@@ -29,6 +29,12 @@
                     </n-grid>
                 </n-form>
             </n-space>
+            <div>
+                <span>Ảnh chính</span>
+                <n-upload :default-upload="false" list-type="image-card" @change="handleChange">
+                    Click to Upload
+                </n-upload>
+            </div>
         </n-card>
         <n-card title="Thông tin biến thể" class="mt-20px">
             <n-space justify="center">
@@ -85,12 +91,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens } from '@/service/api/admin/product/product.api'
+import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens, uploadImages } from '@/service/api/admin/product/product.api'
 import { ADProductDetailCreateUpdateRequest, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
-import { DataTableColumns, NButton, NImage, NInput, NInputNumber, NSpace } from 'naive-ui'
-import { Reactive, watch } from 'vue'
+import { DataTableColumns, NButton, NImage, NInput, NInputNumber, NSpace, UploadFileInfo } from 'naive-ui'
+import { Reactive } from 'vue'
 import ADImeiProductDetail from './ADImeiProductDetail.vue'
+import axios from 'axios'
 
 const route = useRoute()
 
@@ -170,6 +177,8 @@ const fetchDataProperties = async () => {
     }
 }
 
+const imageProduct: Reactive<UploadFileInfo[]> = reactive([])
+
 const formDataBasic: Reactive<ADProductCreateUpdateRequest> = reactive({
     code: '',
     name: '',
@@ -177,6 +186,7 @@ const formDataBasic: Reactive<ADProductCreateUpdateRequest> = reactive({
     idBattery: '',
     idScreen: '',
     idOperatingSystem: '',
+
 })
 
 const formDataVariant = reactive({
@@ -192,18 +202,6 @@ onMounted(() => {
     fetchProductById()
     fetchDataProperties()
 })
-
-const file = ref()
-
-const onChange = (_: any, currentFile: any) => {
-    file.value = {
-        ...currentFile,
-        // url: URL.createObjectURL(currentFile.file),
-    }
-}
-const onProgress = (currentFile: any) => {
-    file.value = currentFile
-}
 
 type ADPRTableProductDetail = {
     idColor: string
@@ -346,42 +344,66 @@ const notification = useNotification();
 
 const submitVariantHandler = async () => {
 
-    const dataVariant = productDetails.filter(data => {
-        let isValid = true
-        Object.keys(data).forEach(key => {
-            const value = data[key as keyof ADPRTableProductDetail]
-            if (!value) isValid = false
+    // const dataVariant = productDetails.filter(data => {
+    //     let isValid = true
+    //     Object.keys(data).forEach(key => {
+    //         const value = data[key as keyof ADPRTableProductDetail]
+    //         if (!value) isValid = false
+    //     })
+
+    //     if (!(data.imei && Array.isArray(data.imei) && data.imei.length != 0)) return false
+
+    //     if (!data.price) return false
+
+    //     return isValid
+    // })
+
+    // const res = await createProductVariant(formDataBasic, dataVariant.map(data => ({
+    //     idColor: data.idColor,
+    //     idCPU: data.idCPU,
+    //     idGPU: data.idGPU,
+    //     idRAM: data.idRAM,
+    //     idHardDrive: data.idHardDrive,
+    //     idMaterial: data.idMaterial,
+    //     imei: data.imei,
+    //     price: data.price
+    // })) as ADProductDetailCreateUpdateRequest[])
+
+
+    // if(!idProduct.value) idProduct.value = res.data
+    console.log(idProduct.value)
+    if (formDataBasic.imageProduct && idProduct.value) {
+        const formData = new FormData()
+
+        formData.append("imageProduct", formDataBasic.imageProduct)
+
+        // const resUpload = uploadImages(
+        //     formData
+        //     ,idProduct.value)
+
+        await axios.post(`http://localhost:2345/api/v1/admin/products/upload-images/${idProduct.value}`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data"
+            }
         })
+    }
 
-        if (!(data.imei && Array.isArray(data.imei) && data.imei.length != 0)) return false
+    // if (res.success) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
+    // else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
 
-        if (!data.price) return false
-
-        return isValid
-    })
-
-    const res = await createProductVariant(formDataBasic, dataVariant.map(data => ({
-        idColor: data.idColor,
-        idCPU: data.idCPU,
-        idGPU: data.idGPU,
-        idRAM: data.idRAM,
-        idHardDrive: data.idHardDrive,
-        idMaterial: data.idMaterial,
-        imei: data.imei,
-        price: data.price
-    })) as ADProductDetailCreateUpdateRequest[])
-
-    if (res.success) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
-    else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
-
-    router.push({ name: 'products_list' })
+    // router.push({ name: 'products_list' })
 }
 
-watch(idProduct,
-    (newValue) => {
-        fetchProductById()
-    }
-)
+const handleChange = (data: { fileList: UploadFileInfo[] }) => {
+    imageProduct.push(data.fileList[0])
+    formDataBasic.imageProduct = data.fileList[0].file
+}
+
+// watch(idProduct,
+//     (newValue) => {
+//         fetchProductById()
+//     }
+// )
 </script>
 
 <style scoped>

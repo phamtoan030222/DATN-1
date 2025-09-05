@@ -155,8 +155,8 @@ export const createProductVariant = async (product: ADProductCreateUpdateRequest
     data: {
       product,
       variant
-    }
-  })) as AxiosResponse<DefaultResponse<null>>
+    },
+  })) as AxiosResponse<DefaultResponse<string>>
 
   return res.data
 }

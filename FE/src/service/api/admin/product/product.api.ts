@@ -20,6 +20,7 @@ export type ADProductCreateUpdateRequest = {
   idBattery: string
   idScreen: string
   idOperatingSystem: string
+  imageProduct?: any
 }
 
 export type ADProductResponse = {
@@ -120,6 +121,19 @@ export const changeProductStatus = async (id: string) => {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/change-status/${id}`,
     method: 'GET',
+  })) as AxiosResponse<DefaultResponse<null>>
+
+  return res.data
+}
+
+export const uploadImages = async (data: FormData, id: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCTS}/upload-images/${id}`,
+    method: 'POST',
+    data,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
   })) as AxiosResponse<DefaultResponse<null>>
 
   return res.data

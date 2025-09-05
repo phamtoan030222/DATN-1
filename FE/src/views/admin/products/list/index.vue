@@ -35,25 +35,17 @@
                 <n-row :gutter="24">
                     <n-col :span="12">
                         <span>Tìm kiếm</span>
-                        <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
+                        <n-input v-model:value="state.search.q" placeholder="Tìm kiếm sản phẩm theo tên hoặc mã" />
                     </n-col>
-                    <n-col :span="3">
+                    <n-col :span="6">
                         <span>Hãng</span>
-                        <n-select v-model:value="state.search.brand" :options="state.data.brands"></n-select>
+                        <n-select v-model:value="state.search.brand" :options="state.data.brands" placeholder="Chọn hãng"></n-select>
                     </n-col>
-                    <n-col :span="3">
+                    <n-col :span="6">
                         <span>Pin</span>
-                        <n-select v-model:value="state.search.battery" :options="state.data.batteries"></n-select>
+                        <n-select v-model:value="state.search.battery" :options="state.data.batteries" placeholder="Chọn pin"></n-select>
                     </n-col>
-                    <n-col :span="3">
-                        <span>Màn hình</span>
-                        <n-select v-model:value="state.search.screen" :options="state.data.screens"></n-select>
-                    </n-col>
-                    <n-col :span="3">
-                        <span>Hệ điều hành</span>
-                        <n-select v-model:value="state.search.operatingSystem"
-                            :options="state.data.operatingSystems"></n-select>
-                    </n-col>
+
                 </n-row>
                 <div class="mt-20px">
                     <n-row :gutter="12">
@@ -62,14 +54,15 @@
                             <n-slider v-model:value="state.search.price" range :step="1000" :min="1000"
                                 :max="50000000" />
                         </n-col>
-                        <n-col :span="6">
-                            <span>Giá nhỏ nhất</span>
-                            <n-input-number v-model:value="state.search.price[0]"></n-input-number>
-                        </n-col>
-                        <n-col :span="6">
-                            <span>Giá lớn nhất</span>
-                            <n-input-number v-model:value="state.search.price[1]"></n-input-number>
-                        </n-col>
+                    <n-col :span="6">
+                        <span>Màn hình</span>
+                        <n-select v-model:value="state.search.screen" :options="state.data.screens" placeholder="Chọn màn hình"></n-select>
+                    </n-col>
+                    <n-col :span="6">
+                        <span>Hệ điều hành</span>
+                        <n-select v-model:value="state.search.operatingSystem"
+                            :options="state.data.operatingSystems" placeholder="Chọn hệ điều hành"></n-select>
+                    </n-col>
                     </n-row>
                 </div>
             </n-space>
@@ -125,10 +118,10 @@ const router = useRouter()
 const state = reactive({
     search: {
         q: '',
-        brand: '',
-        screen: '',
-        battery: '',
-        operatingSystem: '',
+        brand: undefined as string | undefined,
+        screen: undefined as string | undefined,
+        battery: undefined as string | undefined,
+        operatingSystem: undefined as string | undefined,
         price: [10000, 50000000]
     },
     data: {
@@ -150,10 +143,10 @@ const fetchProducts = async () => {
         page: state.pagination.page,
         size: state.pagination.size,
         q: state.search.q,
-        idBrand: state.search.brand,
-        idOperatingSystem: state.search.operatingSystem,
-        idBattery: state.search.battery,
-        idScreen: state.search.screen,
+        idBrand: state.search.brand as string,
+        idOperatingSystem: state.search.operatingSystem as string,
+        idBattery: state.search.battery as string,
+        idScreen: state.search.screen as string,
         minPrice: state.search.price[0],
         maxPrice: state.search.price[1],
     })
