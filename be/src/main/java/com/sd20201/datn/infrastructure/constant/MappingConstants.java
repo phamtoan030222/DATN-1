@@ -33,6 +33,7 @@ public class MappingConstants {
     public static final String API_ADMIN_PREFIX_DISCOUNT_DISCOUNT = API_ADMIN_PREFIX_DISCOUNT + "/discount";
     public static final String API_ADMIN_PREFIX_DISCOUNT_DETAIL = API_ADMIN_PREFIX_DISCOUNT + "/detail";
 
+    public static final String API_ADMIN_PREFIX_DISCOUNT_VOUCHER = API_ADMIN_PREFIX_DISCOUNT + "/voucher";
 
     public static final String API_ADMIN_PREFIX_PRODUCTS_RAM = API_ADMIN_PREFIX_PRODUCTS + "/ram";
     public static final String API_ADMIN_PREFIX_PRODUCTS_HARDDRIVE = API_ADMIN_PREFIX_PRODUCTS + "/harddrive";
@@ -46,6 +47,5 @@ public class MappingConstants {
     public static final String API_ADMIN_PREFIX_PRODUCTS_BATTERY =   API_ADMIN_PREFIX_PRODUCTS + "/battery";
 
     public static final String API_ADMIN_PREFIX_STAFF =  API_ADMIN_PREFIX + "/staff";
-    public static final String API_ADMIN_PREFIX_PRODUCTS_VOUCHER =   API_ADMIN_PREFIX_PRODUCTS + "/voucher";
     public static final String API_ADMIN_PREFIX_CUSTOMERS = API_ADMIN_PREFIX + "/customers";
 }

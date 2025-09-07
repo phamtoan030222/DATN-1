@@ -16,19 +16,23 @@ import com.sd20201.datn.repository.CustomerRepository;
 import com.sd20201.datn.repository.VoucherDetailRepository;
 import com.sd20201.datn.utils.DateTimeUtil;
 import com.sd20201.datn.utils.Helper;
+import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.MailException;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -37,29 +41,27 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+
 @Service
 @Transactional
 @RequiredArgsConstructor
+@Slf4j
 public class AdVoucherServiceImpl implements AdVoucherService {
     private final AdVoucherRepository voucherRepository;
     private final CustomerRepository customerRepository;
     private final VoucherDetailRepository voucherDetailRepository;
     private static final Logger logger = LoggerFactory.getLogger(AdVoucherServiceImpl.class);
-    private final JavaMailSenderImpl mailSender;
+    private final JavaMailSender mailSender;
+
 
     @Override
     public ResponseObject<?> getVouchers(AdVoucherRequest request) {
-        return ResponseObject.successForward(
-                PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)),
-                "Lấy danh sách voucher thành công"
-        );
+        return ResponseObject.successForward(PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)), "Lấy danh sách voucher thành công");
     }
 
     @Override
     public ResponseObject<?> getVoucherById(String id) {
-        return voucherRepository.getVoucherById(id)
-                .map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công"))
-                .orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
+        return voucherRepository.getVoucherById(id).map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công")).orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
     }
 
     @Override
@@ -132,12 +134,13 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             for (int i = 0; i < customerCount; i++) {
                 VoucherDetail vd = voucherUsers.get(i);
                 Customer customer = customers.get(i);
+                String customerId = vd.getCustomer().getId();
                 vd.setCustomer(customer);
                 vd.setVoucher(voucher);
                 voucherDetailRepository.save(vd);
 
                 try {
-                    sendVoucherEmail(customer.getEmail(), voucher);
+                    sendVoucherEmail(customer.getEmail(), voucher, customerId);
                 } catch (MailException e) {
                     logger.error("❌ Failed to send email to {}: {}", customer.getEmail(), e.getMessage());
                     failedEmails.add(customer.getEmail());
@@ -219,12 +222,13 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             for (int i = 0; i < customerCount; i++) {
                 VoucherDetail vd = voucherUsers.get(i);
                 Customer customer = customers.get(i);
+                String customerId = customer.getId();
                 vd.setCustomer(customer);
                 vd.setVoucher(voucher);
                 voucherDetailRepository.save(vd);
 
                 try {
-                    sendVoucherEmail(customer.getEmail(), voucher);
+                    sendVoucherEmail(customer.getEmail(), voucher, customerId);
                 } catch (MailException e) {
                     logger.error("❌ Failed to send email to {}: {}", customer.getEmail(), e.getMessage());
                     failedEmails.add(customer.getEmail());
@@ -267,52 +271,91 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         voucher.setEndDate(request.getEndDate());
         voucher.setConditions(request.getConditions());
         voucher.setNote(request.getNote());
-        if (request.getStartDate() <= DateTimeUtil.getCurrentTimeMillisecondsStamp()
-            && DateTimeUtil.getCurrentTimeMillisecondsStamp() <= request.getEndDate()) {
+        if (request.getStartDate() <= DateTimeUtil.getCurrentTimeMillisecondsStamp() && DateTimeUtil.getCurrentTimeMillisecondsStamp() <= request.getEndDate()) {
             voucher.setStatus(EntityStatus.ACTIVE);
         } else {
             voucher.setStatus(EntityStatus.INACTIVE);
         }
     }
 
-    private void sendVoucherEmail(String toEmail, Voucher voucher) {
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-        LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
-        LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
+    private void sendVoucherEmail(String toEmail, Voucher voucher, String customerId) {
+        try {
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+            LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
+            LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
 
-        String gt = voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE
-                ? voucher.getDiscountValue() + "%"
-                : voucher.getDiscountValue() + " VND";
+            String discount = voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE ? voucher.getDiscountValue() + "%"   // giữ nguyên %
+                    : voucher.getDiscountValue() + " VND";
+            String name = customerRepository.findById(customerId).get().getName();
 
-        SimpleMailMessage message = new SimpleMailMessage();
-        message.setTo(toEmail);
-        message.setSubject("🎁 Thông báo phiếu giảm giá");
-        message.setText(String.format(mess(),
-                voucher.getCode(),
-                gt,
-                DateTimeUtil.formatMoney(voucher.getMaxValue()) + " VND",
-                start.format(formatter),
-                end.format(formatter),
-                DateTimeUtil.formatMoney(voucher.getConditions()) + " VND"));
-        mailSender.send(message);
-        logger.info("✅ Email sent to: {}", toEmail);
-    }
+            String htmlTemplate = """
+                    <html>
+                      <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+                        <div style="max-width: 600px; margin: auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                    
+                          <div style="background: #ff6600; padding: 20px; text-align: center; color: white;">
+                            <h1 style="margin: 0;">🎁 Ưu Đãi Đặc Biệt Dành Cho Bạn</h1>
+                          </div>
+                    
+                          <div style="padding: 20px; color: #333;">
+                            <p>Xin chào, {6}</p>
+                            <p>Chúng tôi gửi tặng bạn một <b>phiếu giảm giá đặc biệt</b>. Hãy sử dụng ngay để nhận ưu đãi hấp dẫn!</p>
+                    
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                              <tr style="background: #f2f2f2;">
+                                <td style="padding: 10px; font-weight: bold;">Mã Voucher</td>
+                                <td style="padding: 10px; color: #ff6600; font-size: 18px; font-weight: bold;">{0}</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 10px; font-weight: bold;">Giá trị giảm</td>
+                                <td style="padding: 10px;">{1}</td>
+                              </tr>
+                              <tr style="background: #f2f2f2;">
+                                <td style="padding: 10px; font-weight: bold;">Giảm tối đa</td>
+                                <td style="padding: 10px;">{2} VND</td>
+                              </tr>
+                              <tr>
+                                <td style="padding: 10px; font-weight: bold;">Thời gian áp dụng</td>
+                                <td style="padding: 10px;">Từ {3} đến {4}</td>
+                              </tr>
+                              <tr style="background: #f2f2f2;">
+                                <td style="padding: 10px; font-weight: bold;">Điều kiện</td>
+                                <td style="padding: 10px;">Đơn hàng từ {5} VND</td>
+                              </tr>
+                            </table>
+                    
+                            <div style="text-align: center; margin-top: 30px;">
+                              <a href="https://your-shop.com"
+                                 style="background: #ff6600; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">
+                                Mua sắm ngay
+                              </a>
+                            </div>
+                          </div>
+                    
+                          <div style="background: #eee; text-align: center; padding: 15px; font-size: 12px; color: #777;">
+                            © 2025 YourShop. Mọi quyền được bảo lưu.
+                          </div>
+                        </div>
+                      </body>
+                    </html>
+                    """;
 
-    private String mess() {
-        return """
-                🎁 Quà tặng đặc biệt dành riêng cho Quý khách từ My Laptop
+            // ✅ Format với MessageFormat
+            String htmlBody = MessageFormat.format(htmlTemplate, voucher.getCode(), discount, DateTimeUtil.formatMoney(voucher.getMaxValue()), start.format(formatter), end.format(formatter), DateTimeUtil.formatMoney(voucher.getConditions()), name);
 
-                Kính gửi Quý khách hàng thân thiết,
-                Trước tiên, My Laptop xin gửi lời cảm ơn chân thành đến Quý khách vì đã luôn tin tưởng và đồng hành cùng chúng tôi.
+            // ✅ Tạo và gửi mail
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
 
-                ✨ Mã giảm giá đặc biệt: %s
-                💰 Giá trị ưu đãi: Giảm %s (tối đa %s)
-                📅 Thời gian áp dụng: Từ %s đến %s
-                📌 Điều kiện áp dụng: %s
+            helper.setTo(toEmail);
+            helper.setSubject("🎁 Ưu đãi dành riêng cho bạn - Mã giảm giá " + voucher.getCode());
+            helper.setText(htmlBody, true); // true = HTML
 
-                👉 Hãy nhanh tay sử dụng mã giảm giá để tận hưởng những sản phẩm/dịch vụ chất lượng nhất từ My Laptop.
-                Trân trọng,
-                My Laptop
-                """;
+            mailSender.send(mimeMessage);
+            logger.info("✅ Email voucher sent to: {}", toEmail);
+
+        } catch (Exception e) {
+            logger.error("❌ Error sending voucher email: {}", e.getMessage(), e);
+        }
     }
 }

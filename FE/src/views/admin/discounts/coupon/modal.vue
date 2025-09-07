@@ -18,7 +18,7 @@ import {
   NSpin,
   useMessage,
 } from 'naive-ui'
-import type { ADCustomerResponse, ADVoucherResponse } from '@/service/api/admin/product/api.voucher'
+import type { ADCustomerResponse, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
 
 /* ===================== Props & Emits ===================== */
 const props = defineProps<{

@@ -30,7 +30,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping(MappingConstants.API_ADMIN_PREFIX_PRODUCTS_VOUCHER)
+@RequestMapping(MappingConstants.API_ADMIN_PREFIX_DISCOUNT_VOUCHER)
 @RequiredArgsConstructor
 public class AdVoucherController {
     private final AdVoucherService voucherService;
