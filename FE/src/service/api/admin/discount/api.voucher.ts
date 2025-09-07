@@ -1,6 +1,6 @@
 import type { DefaultResponse } from '@/typings/api/api.common'
 import request from '@/service/request'
-import { API_ADMIN_PRODUCT_VOUCHER } from '@/constants/url'
+import { API_ADMIN_CUSTOMERS, API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
 import axios from 'axios'
 
 export interface ADVoucherQuery {
@@ -19,36 +19,28 @@ export interface customer {
 
 // Adjust interface để match response thực tế (field rename)
 export interface ADVoucherResponse {
-  id: string
+  id?: string
   code: string
   name: string
   typeVoucher: 'PERCENTAGE' | 'FIXED_AMOUNT'
   targetType: 'INDIVIDUAL' | 'ALL_CUSTOMERS'
-  discountValue: number
-  maxValue: number
-  quantity: number
-  remainingQuantity: number
-  startDate: number
-  endDate: number
-  createdDate: number
-  conditions: number
+  discountValue: number | null
+  maxValue: number | null
+  quantity: number | null
+  remainingQuantity: number | null
+  startDate: number | null
+  endDate: number | null
+  createdDate: number | null
+  conditions: number | null
   note: string | null
   status: string | null
   voucherUsers: customer[] | null
 }
 
-export interface ADCustomerResponse {
-  id: string
-  code: string
-  name: string
-  email: string
-  phone: string
-}
-
 // Hàm getVouchers: Return {content: array, totalElements: number} để component dùng trực tiếp
 export async function getVouchers(params: ADVoucherQuery) {
   try {
-    const res = await request(`${API_ADMIN_PRODUCT_VOUCHER}`, {
+    const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}`, {
       method: 'GET',
       params,
     })
@@ -89,7 +81,7 @@ export async function getVouchers(params: ADVoucherQuery) {
 
 export async function getVoucherById(id: string) {
   const res = await request<DefaultResponse<ADVoucherResponse>>({
-    url: `${API_ADMIN_PRODUCT_VOUCHER}/${id}`,
+    url: `${API_ADMIN_DISCOUNTS_VOUCHER}/${id}`,
     method: 'GET',
   })
   // Optional: Map voucherDetail sang IDs ở đây nếu cần
@@ -99,7 +91,7 @@ export async function getVoucherById(id: string) {
 // Hàm update status (adjust theo backend)
 export async function updateVoucherStatus(id: string, newStatus: 'ACTIVE' | 'INACTIVE') {
   try {
-    const res = await request(`${API_ADMIN_PRODUCT_VOUCHER}/${id}/status`, {
+    const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}/status`, {
       method: 'PATCH',
       data: { status: newStatus },
     })
@@ -112,20 +104,20 @@ export async function updateVoucherStatus(id: string, newStatus: 'ACTIVE' | 'INA
 }
 
 export async function deleteVoucher(id: string) {
-  return axios.delete(`${API_ADMIN_PRODUCT_VOUCHER}/${id}`)
+  return axios.delete(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}`)
 }
 
 // Xoá nhiều
 export async function deleteVouchers(ids: string[]) {
-  return axios.delete(`${API_ADMIN_PRODUCT_VOUCHER}`, { data: ids })
+  return axios.delete(`${API_ADMIN_DISCOUNTS_VOUCHER}`, { data: ids })
 }
 
 // Thêm
 export function createVoucher(data: Partial<ADVoucherResponse>) {
-  return request.post(`${API_ADMIN_PRODUCT_VOUCHER}`, data)
+  return request.post(`${API_ADMIN_DISCOUNTS_VOUCHER}`, data)
 }
 
 // Sửa
 export function updateVoucher(id: string, data: Partial<ADVoucherResponse>) {
-  return request.put(`${API_ADMIN_PRODUCT_VOUCHER}/${id}`, data)
+  return request.put(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}`, data)
 }
