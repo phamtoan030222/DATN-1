@@ -17,7 +17,6 @@ public interface AdProductApplyRepositoryProduct extends ProductDiscountDetailRe
                    d.percentage AS percentageDiscount,
                    d.startDate AS startTime,
                    d.endDate AS endTime,
-                   pd.price AS price,
                    c.description AS description
             FROM ProductDetailDiscount c
                      JOIN c.productDetail pd
@@ -35,7 +34,6 @@ public interface AdProductApplyRepositoryProduct extends ProductDiscountDetailRe
                      JOIN pd.product p
                      JOIN c.discount d
             WHERE d.id = :discountId
-            AND c.status = 0
             """)
         Page<AdDiscountDetailRespone> getAllAppliedProductsByDiscount(Pageable pageable,
                                                                       @Param("discountId") String discountId);

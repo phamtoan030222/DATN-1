@@ -4,7 +4,7 @@ import com.sd20201.datn.core.admin.discounts.discount.model.request.AdDiscountRe
 import com.sd20201.datn.core.admin.discounts.discount.model.request.AdDscountFilterRequest;
 import com.sd20201.datn.core.admin.discounts.discount.model.request.DiscountUpdateRequest;
 import com.sd20201.datn.core.admin.discounts.discount.model.request.DiscountValidateRequest;
-import com.sd20201.datn.core.admin.discounts.discount.repository.AdCustomerDiscountRepository;
+import com.sd20201.datn.core.admin.discounts.discount.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.discounts.discount.repository.AdDiscountRepossitory;
 import com.sd20201.datn.core.admin.discounts.discount.repository.AdDiscountSearchRepository;
 import com.sd20201.datn.core.admin.discounts.discount.service.AdDiscountService;
@@ -12,6 +12,7 @@ import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Discount;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
+import com.sd20201.datn.repository.CustomerRepository;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +33,8 @@ public class AdDiscountServiceImpl implements AdDiscountService {
     private final AdDiscountRepossitory adDiscountRepossitory;
     private final AdDiscountSearchRepository adDiscountSearchRepository;
 
-    private final AdCustomerDiscountRepository customerRepository;
+    @Autowired
+    private AdCustomerRepository customerRepository;
 
     @Override
     public ResponseObject<?> getAllDiscounts(AdDiscountRequest request) {
@@ -93,8 +95,6 @@ public class AdDiscountServiceImpl implements AdDiscountService {
 //            );
 //        }
 
-
-
         Long now = System.currentTimeMillis();
         if (request.getStartDate() != null && request.getEndDate() != null) {
             if (request.getStartDate() >= request.getEndDate()) {
@@ -116,41 +116,6 @@ public class AdDiscountServiceImpl implements AdDiscountService {
                 );
             }
         }
-
-
-        if (request.getPercentage() == null || request.getPercentage().toString().trim().isEmpty()) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Phần trăm giảm giá không được để trống",
-                    false,
-                    "DISCOUNT_PERCENTAGE_REQUIRED"
-            );
-        }
-
-        String percentageStr = request.getPercentage().toString();
-
-        if (percentageStr.matches(".*[a-zA-Z].*")) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Phần trăm giảm giá không được chứa chữ cái",
-                    false,
-                    "DISCOUNT_PERCENTAGE_ALPHA"
-            );
-        }
-
-        if (!percentageStr.matches("^\\d+(\\.\\d+)?$")) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Phần trăm giảm giá chỉ được nhập số, không được chứa ký tự đặc biệt",
-                    false,
-                    "DISCOUNT_PERCENTAGE_SPECIAL"
-            );
-        }
-
-        double percentage = Double.parseDouble(percentageStr);
 
         Discount discount = new Discount();
         discount.setName(request.getDiscountName());
@@ -262,40 +227,6 @@ public class AdDiscountServiceImpl implements AdDiscountService {
 //            );
 //        }
 
-        if (request.getPercentage() == null || request.getPercentage().toString().trim().isEmpty()) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Phần trăm giảm giá không được để trống",
-                    false,
-                    "DISCOUNT_PERCENTAGE_REQUIRED"
-            );
-        }
-
-        String percentageStr = request.getPercentage().toString();
-
-        if (percentageStr.matches(".*[a-zA-Z].*")) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Phần trăm giảm giá không được chứa chữ cái",
-                    false,
-                    "DISCOUNT_PERCENTAGE_ALPHA"
-            );
-        }
-
-        if (!percentageStr.matches("^\\d+(\\.\\d+)?$")) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Phần trăm giảm giá chỉ được nhập số, không được chứa ký tự đặc biệt",
-                    false,
-                    "DISCOUNT_PERCENTAGE_SPECIAL"
-            );
-        }
-
-        double percentage = Double.parseDouble(percentageStr);
-
 
         discount.setName(request.getDiscountName());
         discount.setCode(request.getDiscountCode());
@@ -303,7 +234,7 @@ public class AdDiscountServiceImpl implements AdDiscountService {
         discount.setEndDate(request.getEndDate());
         discount.setDescription(request.getDescription());
         discount.setPercentage(request.getPercentage());
-        discount.setLastModifiedDate(System.currentTimeMillis());
+        discount.setLastModifiedDate(System.currentTimeMillis()); // nên để lastModified thay vì createdDate
         discount.setStatus(EntityStatus.ACTIVE);
 
         adDiscountRepossitory.save(discount);
@@ -445,9 +376,7 @@ public class AdDiscountServiceImpl implements AdDiscountService {
             );
         }
 
-        discount.setStatus(EntityStatus.INACTIVE);
-        discount.setLastModifiedDate(now);
-        adDiscountRepossitory.save(discount);
+        adDiscountRepossitory.delete(discount);
 
         return new ResponseObject<>(
                 null,
