@@ -48,6 +48,7 @@ public interface AdProductNotApplyRepositoryProduct extends ProductDiscountDetai
               FROM ProductDetailDiscount d
               WHERE d.productDetail.id = pd.id
                 AND d.discount.id = :discountId
+                AND d.status = 0
           )
         """)
     Page<AdProductDetailResponse> getAllNotAppliedProductsByDiscount(Pageable pageable,
