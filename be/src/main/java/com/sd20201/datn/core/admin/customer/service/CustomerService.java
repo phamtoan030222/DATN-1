@@ -13,4 +13,8 @@ public interface CustomerService {
     ResponseObject<?> updateCustomer(String id, @Valid CustomerCreateUpdateRequest request);
 
     ResponseObject<?> deleteCustomer(String id);
+
+    ResponseObject<?> getCustomerById(String id);
+
+
 }

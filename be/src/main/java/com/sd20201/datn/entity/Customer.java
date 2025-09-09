@@ -10,6 +10,8 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 @NoArgsConstructor
 @AllArgsConstructor
@@ -40,5 +42,9 @@ public class Customer extends PrimaryEntity implements Serializable {
     @Enumerated(EnumType.ORDINAL) // vì DB đang để tinyint
     @Column(name = "status", nullable = false)
     private EntityStatus status;
+
+    @OneToMany(mappedBy = "customer", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<Address> addresses = new ArrayList<>();
+
 
 }

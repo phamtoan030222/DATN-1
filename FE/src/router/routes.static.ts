@@ -284,6 +284,30 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     id: 502,
     pid: 5,
   },
+  {
+    name: 'users_customer_add',
+    path: '/users/customer/add',
+    title: 'Thêm khách hàng',
+    requiresAuth: true,
+    hide: true, // Ẩn khỏi menu
+    icon: 'icon-park-outline:user-plus',
+    menuType: 'page',
+    componentPath: '/admin/users/customer/CustomerForm.vue',
+    id: 503,
+    pid: 5, // Thay đổi pid từ 502 thành 5 (parent users)
+  },
+  {
+    name: 'users_customer_edit',
+    path: '/users/customer/edit/:id',
+    title: 'Sửa khách hàng',
+    requiresAuth: true,
+    hide: true, // Ẩn khỏi menu
+    icon: 'icon-park-outline:user-edit',
+    menuType: 'page',
+    componentPath: '/admin/users/customer/CustomerForm.vue',
+    id: 504,
+    pid: 5, // Thay đổi pid từ 502 thành 5 (parent users)
+  },
 
   // Quản lý giảm giá
   {

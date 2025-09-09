@@ -1,5 +1,6 @@
 package com.sd20201.datn.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.sd20201.datn.entity.base.PrimaryEntity;
 import com.sd20201.datn.infrastructure.constant.EntityProperties;
 import jakarta.persistence.Column;
@@ -19,20 +20,27 @@ import java.io.Serializable;
 @Setter
 @Getter
 @Entity
+
 @Table(name = "address")
 public class Address extends PrimaryEntity implements Serializable {
 
     @ManyToOne
     @JoinColumn(name = "id_customer", referencedColumnName = "id")
+    @JsonIgnore
     private Customer customer;
 
     @Column(length = EntityProperties.LENGTH_CONTENT)
     private String provinceCity;
 
     @Column(length = EntityProperties.LENGTH_CONTENT)
+    private String district;
+
+    @Column(length = EntityProperties.LENGTH_CONTENT)
     private String wardCommune;
 
     @Column(length = EntityProperties.LENGTH_CONTENT)
     private String addressDetail;
+
+    private Boolean isDefault = false;  // địa chỉ mặc định
 
 }

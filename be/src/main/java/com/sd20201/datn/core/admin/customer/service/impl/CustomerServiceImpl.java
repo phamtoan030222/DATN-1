@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.customer.service.impl;
 
+import com.sd20201.datn.core.admin.customer.model.response.CustomerResponse;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.core.admin.customer.model.request.CustomerCreateUpdateRequest;
@@ -45,17 +46,20 @@ public class CustomerServiceImpl implements CustomerService {
     @Override
     public ResponseObject<?> createCustomer(CustomerCreateUpdateRequest request) {
         // Kiểm tra tên trùng
-        List<Customer> customersByName = adCustomerRepository.findByExactName(request.getCustomerName());
-        if (!customersByName.isEmpty()) {
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
-                    "Tên khách hàng đã tồn tại", false, "CUSTOMER_NAME_EXISTS");
-        }
 
-        // Kiểm tra phone trùng
         List<Customer> customersByPhone = adCustomerRepository.findByExactPhone(request.getCustomerPhone());
         if (!customersByPhone.isEmpty()) {
             return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
                     "Số điện thoại đã tồn tại", false, "CUSTOMER_PHONE_EXISTS");
+        }
+
+        // ✅ THÊM: Kiểm tra email trùng (nếu có email)
+        if (request.getCustomerEmail() != null && !request.getCustomerEmail().trim().isEmpty()) {
+            List<Customer> customersByEmail = adCustomerRepository.findByEmail(request.getCustomerEmail());
+            if (!customersByEmail.isEmpty()) {
+                return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
+                        "Email đã tồn tại", false, "CUSTOMER_EMAIL_EXISTS");
+            }
         }
 
         // Xử lý account
@@ -68,9 +72,11 @@ public class CustomerServiceImpl implements CustomerService {
             }
         }
 
+        String generatedCode = generateCustomerCode(request.getCustomerName());
         // Tạo customer
         Customer customer = new Customer();
         customer.setAccount(account);
+        customer.setCode(generatedCode);
         customer.setName(request.getCustomerName());
         customer.setPhone(request.getCustomerPhone());
         customer.setEmail(request.getCustomerEmail());
@@ -79,24 +85,7 @@ public class CustomerServiceImpl implements CustomerService {
         customer.setGender(request.getCustomerGender());
         customer.setDescription(request.getCustomerDescription());
 
-        // ✅ Mapping status
-        if (request.getCustomerStatus() != null) {
-            EntityStatus status;
-            switch (request.getCustomerStatus()) {
-                case 1:
-                    status = EntityStatus.ACTIVE;
-                    break;
-                case 0:
-                    status = EntityStatus.INACTIVE;
-                    break;
-                default:
-                    status = EntityStatus.ACTIVE;
-                    break;
-            }
-            customer.setStatus(status);
-        } else {
-            customer.setStatus(EntityStatus.ACTIVE); // Default
-        }
+        customer.setStatus(EntityStatus.ACTIVE);
         customer.setCreatedDate(System.currentTimeMillis());
 
 // Thêm debug này NGAY SAU khi save:
@@ -138,18 +127,6 @@ public class CustomerServiceImpl implements CustomerService {
             );
         }
 
-        // ✅ Kiểm tra trùng tên (ngoại trừ chính mình)
-        List<Customer> customersByName = adCustomerRepository.findByExactName(request.getCustomerName());
-        if (!customersByName.isEmpty() && !customersByName.get(0).getId().equals(id)) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Tên khách hàng đã tồn tại",
-                    false,
-                    "CUSTOMER_NAME_EXISTS"
-            );
-        }
-
         // ✅ Kiểm tra trùng số điện thoại (ngoại trừ chính mình)
         List<Customer> customersByPhone = adCustomerRepository.findByExactPhone(request.getCustomerPhone());
         if (!customersByPhone.isEmpty() && !customersByPhone.get(0).getId().equals(id)) {
@@ -160,6 +137,20 @@ public class CustomerServiceImpl implements CustomerService {
                     false,
                     "CUSTOMER_PHONE_EXISTS"
             );
+        }
+
+        // ✅ Kiểm tra trùng email (ngoại trừ chính mình, nếu có email)
+        if (request.getCustomerEmail() != null && !request.getCustomerEmail().trim().isEmpty()) {
+            List<Customer> customersByEmail = adCustomerRepository.findByEmail(request.getCustomerEmail());
+            if (!customersByEmail.isEmpty() && !customersByEmail.get(0).getId().equals(id)) {
+                return new ResponseObject<>(
+                        null,
+                        HttpStatus.BAD_REQUEST,
+                        "Email đã tồn tại",
+                        false,
+                        "CUSTOMER_EMAIL_EXISTS"
+                );
+            }
         }
 
         // Xử lý account nếu có customerIdAccount
@@ -231,4 +222,114 @@ public class CustomerServiceImpl implements CustomerService {
                 null
         );
     }
+
+    @Override
+    public ResponseObject<?> getCustomerById(String id) {
+        CustomerResponse customer = adCustomerRepository.findCustomerById(id);
+        if (customer == null) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy khách hàng với id = " + id,
+                    false,
+                    "CUSTOMER_NOT_FOUND"
+            );
+        }
+
+        return new ResponseObject<>(customer, HttpStatus.OK, "Lấy thông tin khách hàng thành công", true, null);
+    }
+
+    private String generateCustomerCode(String customerName) {
+        if (customerName == null || customerName.trim().isEmpty()) {
+            return "customer001";
+        }
+
+        // Tạo base code từ tên
+        String baseCode = createBaseCodeFromName(customerName);
+
+        // Tìm số thứ tự tiếp theo
+        int nextNumber = findNextAvailableNumber(baseCode);
+
+        // Format: baseCode + số 3 chữ số
+        return baseCode + String.format("%03d", nextNumber);
+    }
+
+    private String createBaseCodeFromName(String customerName) {
+        String[] words = customerName.trim().split("\\s+");
+
+        if (words.length == 0) {
+            return "customer";
+        }
+
+        StringBuilder baseCode = new StringBuilder();
+
+        // Lấy từ cuối cùng (tên) làm phần đầu
+        String lastName = removeVietnameseAccents(words[words.length - 1]).toLowerCase();
+        baseCode.append(lastName);
+
+        // Lấy chữ cái đầu của các từ trước (họ và tên đệm)
+        for (int i = 0; i < words.length - 1; i++) {
+            String word = removeVietnameseAccents(words[i]).toLowerCase();
+            if (!word.isEmpty()) {
+                baseCode.append(word.charAt(0));
+            }
+        }
+
+        return baseCode.toString();
+    }
+
+    private int findNextAvailableNumber(String baseCode) {
+        // Tìm tất cả mã khách hàng có cùng base code
+        List<String> existingCodes = adCustomerRepository.findCustomerCodesByPattern(baseCode + "%");
+
+        int maxNumber = 0;
+        String pattern = "^" + baseCode + "(\\d{3})$";
+
+        for (String code : existingCodes) {
+            if (code.matches(pattern)) {
+                try {
+                    String numberPart = code.substring(baseCode.length());
+                    int number = Integer.parseInt(numberPart);
+                    maxNumber = Math.max(maxNumber, number);
+                } catch (NumberFormatException e) {
+                    // Ignore invalid codes
+                }
+            }
+        }
+
+        return maxNumber + 1;
+    }
+
+    private String removeVietnameseAccents(String input) {
+        if (input == null) return "";
+
+        String[][] accents = {
+                {"à", "á", "ạ", "ả", "ã", "â", "ầ", "ấ", "ậ", "ẩ", "ẫ", "ă", "ằ", "ắ", "ặ", "ẳ", "ẵ"},
+                {"è", "é", "ẹ", "ẻ", "ẽ", "ê", "ề", "ế", "ệ", "ể", "ễ"},
+                {"ì", "í", "ị", "ỉ", "ĩ"},
+                {"ò", "ó", "ọ", "ỏ", "õ", "ô", "ồ", "ố", "ộ", "ổ", "ỗ", "ơ", "ờ", "ớ", "ợ", "ở", "ỡ"},
+                {"ù", "ú", "ụ", "ủ", "ũ", "ư", "ừ", "ứ", "ự", "ử", "ữ"},
+                {"ỳ", "ý", "ỵ", "ỷ", "ỹ"},
+                {"đ"},
+                {"À", "Á", "Ạ", "Ả", "Ã", "Â", "Ầ", "Ấ", "Ậ", "Ẩ", "Ẫ", "Ă", "Ằ", "Ắ", "Ặ", "Ẳ", "Ẵ"},
+                {"È", "É", "Ẹ", "Ẻ", "Ẽ", "Ê", "Ề", "Ế", "Ệ", "Ể", "Ễ"},
+                {"Ì", "Í", "Ị", "Ỉ", "Ĩ"},
+                {"Ò", "Ó", "Ọ", "Ỏ", "Õ", "Ô", "Ồ", "Ố", "Ộ", "Ổ", "Ỗ", "Ơ", "Ờ", "Ớ", "Ợ", "Ở", "Ỡ"},
+                {"Ù", "Ú", "Ụ", "Ủ", "Ũ", "Ư", "Ừ", "Ứ", "Ự", "Ử", "Ữ"},
+                {"Ỳ", "Ý", "Ỵ", "Ỷ", "Ỹ"},
+                {"Đ"}
+        };
+
+        String[] replacements = {"a", "e", "i", "o", "u", "y", "d", "A", "E", "I", "O", "U", "Y", "D"};
+
+        String result = input;
+        for (int i = 0; i < accents.length; i++) {
+            for (String accent : accents[i]) {
+                result = result.replace(accent, replacements[i]);
+            }
+        }
+
+        return result;
+    }
+
 }

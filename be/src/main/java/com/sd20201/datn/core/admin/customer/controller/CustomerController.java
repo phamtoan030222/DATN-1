@@ -2,6 +2,7 @@ package com.sd20201.datn.core.admin.customer.controller;
 
 import com.sd20201.datn.core.admin.customer.model.request.CustomerCreateUpdateRequest;
 import com.sd20201.datn.core.admin.customer.model.request.CustomerRequest;
+import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.customer.service.CustomerService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class CustomerController {
     private final CustomerService customerService;
+    private final AdCustomerRepository adCustomerRepository;
     @GetMapping
     public ResponseEntity<?> getAllCustomers(@ModelAttribute CustomerRequest request){
         return Helper.createResponseEntity(customerService.getAllCustomers(request));
@@ -36,4 +38,10 @@ public class CustomerController {
     public ResponseEntity<?> deleteCustomer(@PathVariable String id) {
         return Helper.createResponseEntity(customerService.deleteCustomer(id));
     }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getCustomerById(@PathVariable String id) {
+        return Helper.createResponseEntity(customerService.getCustomerById(id));
+    }
+
 }

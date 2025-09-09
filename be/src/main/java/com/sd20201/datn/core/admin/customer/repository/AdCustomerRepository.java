@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface AdCustomerRepository extends com.sd20201.datn.repository.CustomerRepository {
     @Query(
@@ -64,10 +65,63 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
     List<Customer> findByExactPhone(@Param("phone") String phone);
 
     // =========================
+    // 🆕 Query cho tự động tạo mã khách hàng
+    // =========================
+
+    /**
+     * Tìm tất cả mã khách hàng theo pattern để tạo mã tự động
+     * Ví dụ: pattern = "longvv%" sẽ tìm tất cả mã bắt đầu bằng "longvv"
+     */
+    @Query("SELECT c.code FROM Customer c WHERE c.code LIKE :pattern AND c.code IS NOT NULL")
+    List<String> findCustomerCodesByPattern(@Param("pattern") String pattern);
+
+    /**
+     * Kiểm tra mã khách hàng đã tồn tại chưa
+     */
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.code = :code")
+    Long countByCode(@Param("code") String code);
+
+    /**
+     * Tìm mã khách hàng lớn nhất theo base pattern
+     * Ví dụ: baseCode = "longvv" sẽ tìm mã lớn nhất như longvv001, longvv002...
+     */
+    @Query(value = """
+        SELECT c.code FROM customer c 
+        WHERE c.code REGEXP CONCAT('^', :baseCode, '[0-9]{3}$') 
+        ORDER BY c.code DESC 
+        LIMIT 1
+        """, nativeQuery = true)
+    String findLatestCodeByBase(@Param("baseCode") String baseCode);
+
+    // =========================
     // 🔍 Query hỗ trợ / tìm gần đúng
     // =========================
 
     @Query("SELECT c FROM Customer c WHERE UPPER(c.name) LIKE UPPER(CONCAT('%', :name, '%'))")
     List<Customer> findAllNameContaining(@Param("name") String name);
+
+    @Query("""
+    SELECT c.id AS id,
+           c.name AS customerName,
+           c.phone AS customerPhone,
+           c.email AS customerEmail,
+           c.avatarUrl AS customerAvatar,
+           c.account.id AS customerIdAccount,
+           c.code AS customerCode,
+           c.description AS customerDescription,
+           c.gender AS customerGender,
+           CASE WHEN c.status = 0 THEN 1 ELSE 0 END AS customerStatus,
+           c.birthday AS customerBirthday,
+           c.createdBy AS customerCreatedBy,
+           c.createdDate AS customerCreatedDate,
+           c.lastModifiedBy AS customerModifiedBy,
+           c.lastModifiedDate AS customerModifiedDate
+    FROM Customer c
+    WHERE c.id = :id
+    """)
+    CustomerResponse findCustomerById(@Param("id") String id);
+
+    List<Customer> findByEmail(String email);
+
 
 }

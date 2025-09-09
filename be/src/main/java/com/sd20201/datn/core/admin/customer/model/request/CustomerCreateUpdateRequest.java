@@ -1,8 +1,7 @@
 package com.sd20201.datn.core.admin.customer.model.request;
 
-import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -11,19 +10,25 @@ import lombok.Setter;
 
 public class CustomerCreateUpdateRequest {
     @NotBlank(message = "Tên khách hàng không được để trống")
+    @Size(min = 2, max = 100, message = "Tên khách hàng phải từ 2-100 ký tự")
+    @Pattern(regexp = "^[a-zA-ZÀ-ỹ\\s0-9]+$", message = "Tên khách hàng không được chứa ký tự đặc biệt")
     private String customerName;
 
     @NotBlank(message = "Số điện thoại không được để trống")
+    @Pattern(regexp = "^(03|05|07|08|09)[0-9]{8,9}$", message = "Số điện thoại không hợp lệ")
     private String customerPhone;
 
     @Email(message = "Email không hợp lệ")
+    @Size(max = 255, message = "Email không được quá 255 ký tự")
     private String customerEmail;
 
+    @Size(max = 500, message = "URL avatar không được quá 500 ký tự")
     private String customerAvatar;
 
-    @NotBlank(message = "Tài khoản khách hàng không được để trống")
+    // 🔄 Chuyển thành optional vì khách hàng có thể chưa có tài khoản
     private String customerIdAccount;
 
+    @JsonIgnore
     private String customerCode;
 
     private String customerDescription;
@@ -31,8 +36,9 @@ public class CustomerCreateUpdateRequest {
     private Integer customerStatus;
 
     @NotNull(message = "Giới tính không được để trống")
-    private Boolean customerGender; // 0 = Nữ, 1 = Nam (ví dụ)
+    private Boolean customerGender; // false = Nữ, true = Nam
 
-    private Long customerBirthday; // lưu dưới dạng timestamp (milliseconds)
+    @Past(message = "Ngày sinh phải là ngày trong quá khứ")
+    private Long customerBirthday; // timestamp (milliseconds)
 
 }
