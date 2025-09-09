@@ -66,7 +66,7 @@ export interface AppliedProductResponse {
   startTime: number
   endTime: number
   description?: string
-  price?: number 
+  price: number 
 }
 
 
@@ -321,5 +321,10 @@ export const startDiscount = async (id: string) => {
 
 export const deleteDiscount = async (id: string) => {
   const res = await request.delete(`${API_ADMIN_DISCOUNT}/delete/${id}`)
+  return res.data
+}
+
+export const sendEmail = async (id: string) => {
+  const res = await request.post(`${API_ADMIN_DISCOUNT}/sendEmail/${id}`)
   return res.data
 }

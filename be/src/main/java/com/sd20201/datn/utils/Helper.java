@@ -2,6 +2,7 @@ package com.sd20201.datn.utils;
 
 import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import com.sd20201.datn.entity.Discount;
 import com.sd20201.datn.infrastructure.constant.PaginationConstant;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
@@ -11,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 
 
 import java.text.Normalizer;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -149,6 +152,40 @@ public class Helper {
 
     public static String generateCodeVoucher() {
         return "VC" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+    }
+    public static String  buildEmailContent(Discount discount) {
+        SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+
+        StringBuilder content = new StringBuilder();
+        content.append("Kính chào Quý khách hàng,\n\n");
+        content.append("Chúng tôi vui mừng thông báo đến Quý khách về chương trình khuyến mãi đặc biệt:\n\n");
+        content.append("🔥 TÊN CHƯƠNG TRÌNH: ").append(discount.getName()).append("\n");
+        content.append("💰 MÃ GIẢM GIÁ: ").append(discount.getCode()).append("\n");
+        content.append("📊 PHẦN TRĂM GIẢM: ").append(discount.getPercentage()).append("%\n");
+
+        if (discount.getDescription() != null && !discount.getDescription().trim().isEmpty()) {
+            content.append("📝 MÔ TẢ: ").append(discount.getDescription()).append("\n");
+        }
+
+        if (discount.getStartDate() != null) {
+            content.append("⏰ THỜI GIAN BẮT ĐẦU: ").append(dateFormat.format(new Date(discount.getStartDate()))).append("\n");
+        }
+
+        if (discount.getEndDate() != null) {
+            content.append("⏰ THỜI GIAN KẾT THÚC: ").append(dateFormat.format(new Date(discount.getEndDate()))).append("\n");
+        }
+
+        content.append("\n");
+        content.append("Hãy nhanh tay sử dụng mã giảm giá để nhận được ưu đãi tốt nhất!\n\n");
+        content.append("Cách sử dụng:\n");
+        content.append("1. Thêm sản phẩm vào giỏ hàng\n");
+        content.append("2. Nhập mã giảm giá: ").append(discount.getCode()).append("\n");
+        content.append("3. Áp dụng và hoàn tất thanh toán\n\n");
+        content.append("Cảm ơn Quý khách đã tin tưởng và ủng hộ chúng tôi!\n\n");
+        content.append("Trân trọng,\n");
+        content.append("Đội ngũ [Siu siu siu 5 anh em siu nhân]");
+
+        return content.toString();
     }
 
 }
