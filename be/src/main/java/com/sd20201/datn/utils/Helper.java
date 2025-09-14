@@ -153,6 +153,7 @@ public class Helper {
     public static String generateCodeVoucher() {
         return "VC" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
+
     public static String  buildEmailContent(Discount discount) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 

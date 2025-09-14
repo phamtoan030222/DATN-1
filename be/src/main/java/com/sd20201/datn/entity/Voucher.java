@@ -51,9 +51,6 @@ public class Voucher extends PrimaryEntity implements Serializable {
     private String note;
 
     @OneToMany(mappedBy = "voucher", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Set<VoucherDetail> voucherUsers = new HashSet<>(); // Mối quan hệ many-to-many qua bảng trung gian
-
-    @OneToMany(mappedBy = "voucher", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    private Set<VoucherDetail> usages = new HashSet<>(); // Liên kết với sử dụng (nếu cần)
+    private Set<VoucherDetail> voucherCustomers = new HashSet<>(); // Mối quan hệ many-to-many qua bảng trung gian
 
 }

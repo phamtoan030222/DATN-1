@@ -2,7 +2,12 @@ package com.sd20201.datn.core.admin.discount.voucher.controller;
 
 import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherCreateUpdateRequest;
 import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherRequest;
+import com.sd20201.datn.core.admin.discount.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.admin.discount.voucher.service.AdVoucherService;
+import com.sd20201.datn.core.common.base.PageableRequest;
+import com.sd20201.datn.core.common.base.ResponseObject;
+import com.sd20201.datn.entity.Customer;
+import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import jakarta.validation.Valid;
@@ -10,9 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -21,11 +24,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.WebRequest;
 
-import java.util.Date;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -34,6 +35,7 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AdVoucherController {
     private final AdVoucherService voucherService;
+    private final AdVoucherRepository voucherRepository;
 
     @GetMapping
     ResponseEntity<?> getAllVouchers(@ModelAttribute AdVoucherRequest request) {
@@ -72,19 +74,40 @@ public class AdVoucherController {
         return Helper.createResponseEntity(voucherService.deleteAllByIds(ids));
     }
 
-    @ControllerAdvice
-    public class GlobalExceptionHandler {
-        @ExceptionHandler(Exception.class)
-        public ResponseEntity<Map<String, Object>> handleException(Exception ex, WebRequest request) {
-            Map<String, Object> body = new HashMap<>();
-            body.put("timestamp", new Date());
-            body.put("status", 500);
-            body.put("error", "Internal Server Error");
-            body.put("message", ex.getMessage());  // Add chi tiết
-            body.put("path", request.getDescription(false).replace("uri=", ""));
-            return new ResponseEntity<>(body, HttpStatus.INTERNAL_SERVER_ERROR);
+    @GetMapping("/customers-by-voucher")
+    public ResponseEntity<?> getCustomersByVoucher(@RequestParam(defaultValue = "false") boolean onlyActive) {
+        try {
+            Map<Voucher, List<Customer>> result = voucherService.getCustomersByVoucher(onlyActive);
+            if (result.isEmpty()) {
+                return Helper.createResponseEntity(
+                        ResponseObject.errorForward("Không tìm thấy dữ liệu khách hàng theo voucher", HttpStatus.NOT_FOUND)
+                );
+            }
+            return Helper.createResponseEntity(
+                    ResponseObject.successForward(
+                            result,
+                            "Lấy danh sách khách hàng theo voucher thành công"
+                    )
+            );
+        } catch (Exception e) {
+            return Helper.createResponseEntity(
+                    ResponseObject.errorForward("Lỗi khi lấy danh sách khách hàng: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR)
+            );
         }
     }
 
+    // AdVoucherControlle1r (ví dụ)
+
+    @GetMapping("/{id}/customers")
+    public ResponseEntity<?> customersByVoucher(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "false") boolean onlyUsed,
+            @ModelAttribute PageableRequest pageReq
+    ) {
+        var pageable = Helper.createPageable(pageReq, "createdDate");
+        return Helper.createResponseEntity(
+                voucherService.getCustomersOfVoucher(id, onlyUsed, pageable)
+        );
+    }
 
 }

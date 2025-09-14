@@ -22,3 +22,4 @@ export default function formatDate(timestamp: number | string): string {
   return `${day}/${month}/${year}
             ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`
 }
+
