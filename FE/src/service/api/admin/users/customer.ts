@@ -8,7 +8,7 @@ import axios from 'axios'
 // -----------------------------
 
 export interface Customer {
-  id?: string
+  id: string
   customerName: string
   customerPhone: string
   customerEmail: string

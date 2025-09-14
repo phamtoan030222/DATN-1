@@ -15,97 +15,129 @@ import java.util.Optional;
 
 public interface AdVoucherRepository extends VoucherRepository {
 
-    @Query(value = """
-    SELECT 
-      v.id as id,
-      v.code as code,
-      v.name as name,
-      v.typeVoucher as typeVoucher,
-      v.discountValue as discountValue,
-      v.targetType as targetType,
-      v.quantity as quantity,
-      v.remainingQuantity as remainingQuantity,
-      v.maxValue as maxValue,
-      v.startDate as startDate,
-      v.endDate as endDate,
-      v.conditions as conditions,
-      v.status as status,
-      v.createdDate as createdDate
-    FROM Voucher v
-    WHERE 
-      ( :#{#request.q} IS NULL 
-        OR v.name LIKE CONCAT('%', :#{#request.q}, '%') 
-        OR v.code LIKE CONCAT('%', :#{#request.q}, '%')
-      )
-      AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
-      AND ( :#{#request.endDate}   IS NULL OR v.endDate   <= :#{#request.endDate} )
-      AND ( :#{#request.conditions} IS NULL OR v.conditions <= :#{#request.conditions})
-      AND ( :#{#request.status} IS NULL OR :#{#request.status} = v.status )
-    ORDER BY v.createdDate DESC
-  """,
+    /* ===================== VOUCHER LIST (projection) ===================== */
+    @Query(
+            value = """
+            SELECT
+              v.id as id,
+              v.code as code,
+              v.name as name,
+              v.typeVoucher as typeVoucher,
+              v.discountValue as discountValue,
+              v.targetType as targetType,
+              v.quantity as quantity,
+              v.remainingQuantity as remainingQuantity,
+              v.maxValue as maxValue,
+              v.startDate as startDate,
+              v.endDate as endDate,
+              v.conditions as conditions,
+              v.status as status,
+              v.createdDate as createdDate
+            FROM Voucher v
+            WHERE
+              ( :#{#request.q} IS NULL
+                OR v.name LIKE CONCAT('%', :#{#request.q}, '%')
+                OR v.code LIKE CONCAT('%', :#{#request.q}, '%')
+              )
+              AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
+              AND ( :#{#request.endDate}   IS NULL OR v.endDate   <= :#{#request.endDate} )
+              AND ( :#{#request.conditions} IS NULL OR v.conditions <= :#{#request.conditions})
+              AND ( :#{#request.status} IS NULL OR :#{#request.status} = v.status )
+            ORDER BY v.createdDate DESC
+        """,
             countQuery = """
-    SELECT COUNT(v)
-    FROM Voucher v
-    WHERE 
-      ( :#{#request.q} IS NULL 
-        OR v.name LIKE CONCAT('%', :#{#request.q}, '%') 
-        OR v.code LIKE CONCAT('%', :#{#request.q}, '%')
-      )
-      AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
-      AND ( :#{#request.endDate}   IS NULL OR v.endDate   <= :#{#request.endDate} )
-      AND ( :#{#request.conditions} IS NULL OR v.conditions <= :#{#request.conditions})
-      AND ( :#{#request.status} IS NULL OR :#{#request.status} = v.status )
-  """)
+            SELECT COUNT(v)
+            FROM Voucher v
+            WHERE
+              ( :#{#request.q} IS NULL
+                OR v.name LIKE CONCAT('%', :#{#request.q}, '%')
+                OR v.code LIKE CONCAT('%', :#{#request.q}, '%')
+              )
+              AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
+              AND ( :#{#request.endDate}   IS NULL OR v.endDate   <= :#{#request.endDate} )
+              AND ( :#{#request.conditions} IS NULL OR v.conditions <= :#{#request.conditions})
+              AND ( :#{#request.status} IS NULL OR :#{#request.status} = v.status )
+        """
+    )
     Page<AdVoucherResponse> getVouchers(Pageable pageable, @Param("request") AdVoucherRequest request);
 
-    // Projection by id (an toàn)
     @Query("""
-    SELECT 
-      v.id as id, v.code as code, v.name as name, v.typeVoucher as typeVoucher,
-      v.discountValue as discountValue, v.targetType as targetType, v.quantity as quantity,
-      v.remainingQuantity as remainingQuantity, v.maxValue as maxValue,
-      v.startDate as startDate, v.endDate as endDate, v.conditions as conditions,
-      v.status as status, v.createdDate as createdDate
-    FROM Voucher v WHERE v.id = :id
-  """)
+        SELECT
+          v.id as id, v.code as code, v.name as name, v.typeVoucher as typeVoucher,
+          v.discountValue as discountValue, v.targetType as targetType, v.quantity as quantity,
+          v.remainingQuantity as remainingQuantity, v.maxValue as maxValue,
+          v.startDate as startDate, v.endDate as endDate, v.conditions as conditions,
+          v.status as status, v.createdDate as createdDate
+        FROM Voucher v WHERE v.id = :id
+    """)
     Optional<AdVoucherResponse> getVoucherById(@Param("id") String id);
 
+    /* ===================== Finders ===================== */
     Optional<Voucher> findByCode(String code);
-    Optional<Voucher> findByName(String name);
 
+    // Dùng đúng tên mà service của bạn gọi
+    Optional<Voucher> findVoucherByName(String name);
+
+    /* ===================== Voucher <-> Customer ===================== */
     @Query("""
-    SELECT v, vd.customer
-    FROM Voucher v
-    LEFT JOIN v.voucherCustomers vd
-    WHERE (:onlyUsed = false OR vd.usageStatus = true)
-  """)
+        SELECT v, vd.customer
+        FROM Voucher v
+        LEFT JOIN v.voucherCustomers vd
+        WHERE (:onlyUsed = false OR vd.usageStatus = true)
+    """)
     List<Object[]> getVouchersWithCustomers(@Param("onlyUsed") boolean onlyUsed);
 
-    Optional<Object> findVoucherByName(String name);
-
-    // VoucherDetailRepository
-    @Query("""
-  select c
-  from VoucherDetail vd
-  join vd.customer c
-  where vd.voucher.code = :codeÎÎÎÎ
-""")
-    List<Customer> findAssignedCustomersByVoucherCode(@Param("code") String code);
-
-    @Query("""
-  select c
-  from VoucherDetail vd
-  join vd.customer c
-  where vd.voucher.id = :vid
-""")
-    List<Customer> findAssignedCustomersByVoucherId(@Param("vid") String voucherId);
-
+    /* --------- KH được gán vào voucher (theo voucherId) --------- */
     @Query(
-            """ 
+            value = """
+            select c
+            from VoucherDetail vd
+            join vd.customer c
+            where vd.voucher.id = :voucherId
+        """,
+            countQuery = """
+            select count(c)
+            from VoucherDetail vd
+            join vd.customer c
+            where vd.voucher.id = :voucherId
+        """
+    )
+    Page<Customer> findAssignedCustomersByVoucherId(@Param("voucherId") String voucherId, Pageable pageable);
+
+    /* --------- KH đã sử dụng voucher (theo voucherCode) --------- */
+    @Query(
+            value = """
+            select c
+            from VoucherDetail vd
+            join vd.customer c
+            where vd.voucher.code = :code
+              and vd.usageStatus = true
+        """,
+            countQuery = """
+            select count(c)
+            from VoucherDetail vd
+            join vd.customer c
+            where vd.voucher.code = :code
+              and vd.usageStatus = true
+        """
+    )
+    Page<Customer> findUsedCustomersByVoucherCode(@Param("code") String code, Pageable pageable);
+
+    /* (Tuỳ chọn) Non-paged tiện dùng nhanh nếu cần */
+    @Query("""
         select c
         from VoucherDetail vd
-        join vd.customer c 
-        where vd.voucher.code = :code and vd.usageStatus = true 
-                """)
-    List<Customer> findUsedCustomersByVoucherCode( @Param("code") String code);
+        join vd.customer c
+        where vd.voucher.id = :voucherId
+    """)
+    List<Customer> findAssignedCustomersByVoucherIdRaw(@Param("voucherId") String voucherId);
+
+    @Query("""
+        select c
+        from VoucherDetail vd
+        join vd.customer c
+        where vd.voucher.code = :code
+          and vd.usageStatus = true
+    """)
+    List<Customer> findUsedCustomersByVoucherCodeRaw(@Param("code") String code);
 }

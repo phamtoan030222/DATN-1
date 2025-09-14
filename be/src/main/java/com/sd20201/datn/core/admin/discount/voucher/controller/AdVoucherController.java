@@ -4,6 +4,7 @@ import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherCreat
 import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.admin.discount.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.admin.discount.voucher.service.AdVoucherService;
+import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.Voucher;
@@ -96,21 +97,17 @@ public class AdVoucherController {
     }
 
     // AdVoucherControlle1r (ví dụ)
-    @GetMapping("/{id}/customers")
-    public ResponseEntity<?> customersByVoucher(@PathVariable String id,
-                                                @RequestParam(defaultValue = "false") boolean onlyUsed) {
-        var voucher = voucherRepository.findById(id)
-                .orElse(null);
-        if (voucher == null) {
-            return Helper.createResponseEntity(
-                    ResponseObject.errorForward("Không tìm thấy voucher", HttpStatus.NOT_FOUND));
-        }
-        var customers = onlyUsed
-                ? voucherRepository.findUsedCustomersByVoucherCode(voucher.getCode())
-                : voucherRepository.findAssignedCustomersByVoucherId(id);
-        return Helper.createResponseEntity(
-                ResponseObject.successForward(customers, "Lấy danh sách khách hàng theo voucher thành công"));
-    }
 
+    @GetMapping("/{id}/customers")
+    public ResponseEntity<?> customersByVoucher(
+            @PathVariable String id,
+            @RequestParam(defaultValue = "false") boolean onlyUsed,
+            @ModelAttribute PageableRequest pageReq
+    ) {
+        var pageable = Helper.createPageable(pageReq, "createdDate");
+        return Helper.createResponseEntity(
+                voucherService.getCustomersOfVoucher(id, onlyUsed, pageable)
+        );
+    }
 
 }

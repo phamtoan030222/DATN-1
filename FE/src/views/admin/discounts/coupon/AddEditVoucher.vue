@@ -22,9 +22,8 @@ import {
 } from 'naive-ui'
 import type { AxiosResponse } from 'axios'
 
-import type { ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
+import type { ADVoucherResponse, ADVoucherUpsertPayload } from '@/service/api/admin/discount/api.voucher'
 import { createVoucher, getVoucherById, getVoucherCustomers, updateVoucher } from '@/service/api/admin/discount/api.voucher'
-
 import type { Customer, CustomerFilterParams } from '@/service/api/admin/users/customer'
 import { getCustomers } from '@/service/api/admin/users/customer'
 
@@ -66,9 +65,9 @@ const newVoucher = ref<Partial<ADVoucherResponse>>({
 /* ====== Khối chọn khách hàng (hiển thị bên phải) ====== */
 const customers = ref<Customer[]>([])
 const checkedCustomerKeys = ref<(string | number)[]>([])
-const pagination = ref({ page: 1, pageSize: 10, itemCount: 0 })
+const pagination = ref({ page: 1, pageSize: 5, itemCount: 0 }) // ✅ cố định 5
 const customerFilters = ref({ customerName: '', customerStatus: null as number | null })
-const customerMap = ref<Record<string, Customer>>({}) // map để render danh sách đã chọn, kể cả khi đổi trang
+const customerMap = ref<Record<string, Customer>>({}) // để render “đã chọn”
 
 /* ===================== Computed ===================== */
 const showQuantity = computed(() => newVoucher.value.targetType === 'ALL_CUSTOMERS')
@@ -203,14 +202,12 @@ async function loadVoucherData() {
         if (newVoucher.value.targetType === 'INDIVIDUAL' && props.voucherId) {
           const assigned = await getVoucherCustomers(props.voucherId, false)
           newVoucher.value.voucherUsers = assigned.map(c => c.id)
-          // đưa vào map để luôn render được “đã chọn”
           assigned.forEach(c => (customerMap.value[c.id] = c))
-          // sync checkbox theo trang hiện tại
           checkedCustomerKeys.value = newVoucher.value.voucherUsers as string[]
         }
       }
     }
-    catch (e) {
+    catch {
       message.error('Không tải được dữ liệu voucher')
     }
     finally {
@@ -227,7 +224,7 @@ async function fetchCustomers() {
   try {
     const query: CustomerFilterParams = {
       page: pagination.value.page,
-      size: pagination.value.pageSize,
+      size: pagination.value.pageSize, // ✅ cố định 5
       customerName: customerFilters.value.customerName.trim() || undefined,
       customerStatus: customerFilters.value.customerStatus ?? undefined,
     }
@@ -243,15 +240,13 @@ async function fetchCustomers() {
       pagination.value.itemCount = data.length
     }
     else {
-      throw new TypeError(`Dữ liệu phản hồi từ API không đúng định dạng`)
+      throw new TypeError('Dữ liệu phản hồi từ API không đúng định dạng')
     }
 
     customers.value = data.map((it: Customer) => ({
       ...it,
       id: it.id || it.customerCode || `temp-${Math.random()}`,
     }))
-
-    // cập nhật map để phần “đã chọn” luôn hiển thị được
     customers.value.forEach(c => (customerMap.value[c.id] = c))
   }
   catch (err: any) {
@@ -289,19 +284,33 @@ async function handleValidateAndConfirm() {
 async function handleSaveVoucher() {
   loading.value = true
   try {
-    const payload: Partial<ADVoucherResponse> = {
-      ...newVoucher.value,
-      voucherUsers:
-        newVoucher.value.voucherUsers?.map(id => ({ customer: { id } })) ?? [],
+    // Build đúng payload gửi BE
+    const base: ADVoucherUpsertPayload = {
+      name: newVoucher.value.name!,
+      typeVoucher: newVoucher.value.typeVoucher as 'PERCENTAGE' | 'FIXED_AMOUNT',
+      targetType: newVoucher.value.targetType as 'INDIVIDUAL' | 'ALL_CUSTOMERS',
+      discountValue: Number(newVoucher.value.discountValue),
+      maxValue: newVoucher.value.maxValue ?? null,
+      conditions: newVoucher.value.conditions ?? null,
+      startDate: Number(newVoucher.value.startDate),
+      endDate: Number(newVoucher.value.endDate),
+      note: newVoucher.value.note ?? null,
     }
+
+    if (base.targetType === 'ALL_CUSTOMERS') {
+      base.quantity = Number(newVoucher.value.quantity)
+    }
+    else {
+      base.voucherUsers = (newVoucher.value.voucherUsers ?? []).map(id => ({ customer: { id } }))
+    }
+
     const res
       = props.mode === 'edit' && props.voucherId
-        ? await updateVoucher(props.voucherId, payload)
-        : await createVoucher(payload)
+        ? await updateVoucher(props.voucherId, base)
+        : await createVoucher(base)
 
-    if (!res.data?.success) {
+    if (!res.data?.success)
       throw new Error(res.data?.message || 'Thao tác thất bại')
-    }
     message.success(props.mode === 'edit' ? 'Cập nhật voucher thành công' : 'Thêm voucher thành công')
     emit('close')
   }
@@ -329,7 +338,8 @@ onMounted(async () => {
 })
 
 watch(() => newVoucher.value.typeVoucher, (val) => {
-  newVoucher.value.maxValue = val === 'FIXED_AMOUNT' ? newVoucher.value.discountValue : newVoucher.value.maxValue
+  if (val === 'FIXED_AMOUNT')
+    newVoucher.value.maxValue = newVoucher.value.discountValue
 })
 watch(() => newVoucher.value.discountValue, (val) => {
   if (newVoucher.value.typeVoucher === 'FIXED_AMOUNT')
@@ -383,9 +393,8 @@ function unselectCustomer(id: string) {
 <template>
   <NCard :title="props.mode === 'edit' ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm Giá'" class="mt-6">
     <NSpin :show="loading || isLoadingData">
-      <!-- 2 cột: trái = form, phải = chọn khách (chỉ khi INDIVIDUAL) -->
       <div class="grid grid-cols-12 gap-6">
-        <!-- Cột trái: form -->
+        <!-- Form -->
         <div class="col-span-12 lg:col-span-7">
           <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top">
             <NFormItem label="Tên" path="name">
@@ -480,7 +489,7 @@ function unselectCustomer(id: string) {
           </NForm>
         </div>
 
-        <!-- Cột phải: bảng chọn khách (chỉ khi INDIVIDUAL) -->
+        <!-- Bảng chọn khách hàng (chỉ khi INDIVIDUAL) -->
         <div v-if="newVoucher.targetType === 'INDIVIDUAL'" class="col-span-12 lg:col-span-5">
           <NCard title="Chọn khách hàng" size="small" class="mb-3">
             <NSpin :show="loadingCustomers">
