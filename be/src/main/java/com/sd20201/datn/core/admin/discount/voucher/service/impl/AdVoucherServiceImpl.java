@@ -37,10 +37,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-
+import java.util.*;
 
 @Service
 @Transactional
@@ -53,15 +50,19 @@ public class AdVoucherServiceImpl implements AdVoucherService {
     private static final Logger logger = LoggerFactory.getLogger(AdVoucherServiceImpl.class);
     private final JavaMailSender mailSender;
 
-
     @Override
     public ResponseObject<?> getVouchers(AdVoucherRequest request) {
-        return ResponseObject.successForward(PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)), "Lấy danh sách voucher thành công");
+        return ResponseObject.successForward(
+                PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)),
+                "Lấy danh sách voucher thành công"
+        );
     }
 
     @Override
     public ResponseObject<?> getVoucherById(String id) {
-        return voucherRepository.getVoucherById(id).map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công")).orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
+        return voucherRepository.getVoucherById(id)
+                .map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công"))
+                .orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
     }
 
     @Override
@@ -80,15 +81,12 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         if (voucherRepository.findVoucherByName(request.getName()).isPresent()) {
             throw new DuplicateKeyException("Tên voucher đã tồn tại: " + request.getName());
         }
-
         if (request.getStartDate() == null || request.getEndDate() == null) {
             throw new BadRequestException("StartDate hoặc EndDate không được để trống!!");
         }
-
         if (request.getStartDate() >= request.getEndDate()) {
             throw new BadRequestException("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
         }
-
         if (request.getEndDate() < DateTimeUtil.getCurrentTimeMillisecondsStamp()) {
             throw new BadRequestException("Ngày kết thúc không được nhỏ hơn hiện tại!!");
         }
@@ -100,63 +98,72 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         List<String> failedEmails = new ArrayList<>();
 
         if (request.getTargetType() == TargetType.ALL_CUSTOMERS) {
-            if (request.getQuantity() <= 0) {
+            if (request.getQuantity() == null || request.getQuantity() <= 0) {
                 throw new IllegalArgumentException("Số lượng phải lớn hơn 0 cho ALL_CUSTOMERS");
             }
             voucher.setQuantity(request.getQuantity());
             voucher.setRemainingQuantity(request.getQuantity());
+
+            // persist voucher trước
+            voucher = voucherRepository.save(voucher);
+
         } else if (request.getTargetType() == TargetType.INDIVIDUAL) {
             if (request.getVoucherUsers() == null || request.getVoucherUsers().isEmpty()) {
                 throw new IllegalArgumentException("Danh sách khách hàng cá nhân không được để trống cho Khách Hàng Riêng");
             }
 
+            // load customers & validate thiếu
             List<VoucherDetail> voucherUsers = request.getVoucherUsers().stream().toList();
             List<Customer> customers = new ArrayList<>();
             List<String> missingIds = new ArrayList<>();
-
             for (VoucherDetail vd : voucherUsers) {
-                Optional<Customer> optionalCustomer = customerRepository.findById(vd.getCustomer().getId());
-                if (optionalCustomer.isPresent()) {
-                    customers.add(optionalCustomer.get());
-                } else {
-                    missingIds.add(vd.getCustomer().getId());
-                }
+                String cid = vd.getCustomer().getId();
+                customerRepository.findById(cid).ifPresentOrElse(
+                        customers::add,
+                        () -> missingIds.add(cid)
+                );
             }
-
             if (!missingIds.isEmpty()) {
                 throw new IllegalArgumentException("Không tìm thấy khách hàng với IDs: " + String.join(", ", missingIds));
             }
 
-            int customerCount = voucherUsers.size();
+            int customerCount = customers.size();
             voucher.setQuantity(customerCount);
             voucher.setRemainingQuantity(customerCount);
 
-            for (int i = 0; i < customerCount; i++) {
-                VoucherDetail vd = voucherUsers.get(i);
-                Customer customer = customers.get(i);
-                String customerId = vd.getCustomer().getId();
+            // 1) persist voucher trước
+            voucher = voucherRepository.save(voucher);
+
+            // 2) build & save details
+            List<VoucherDetail> toSave = new ArrayList<>(customerCount);
+            for (Customer customer : customers) {
+                VoucherDetail vd = new VoucherDetail();
                 vd.setCustomer(customer);
                 vd.setVoucher(voucher);
-                voucherDetailRepository.save(vd);
+                vd.setUsageStatus(false);
+                vd.setDescription("Assigned to customer " + customer.getId());
+                toSave.add(vd);
+            }
+            voucherDetailRepository.saveAll(toSave);
 
+            // 3) gửi mail (dựa trên Customer đã load, không query lại)
+            for (Customer c : customers) {
                 try {
-                    sendVoucherEmail(customer.getEmail(), voucher, customerId);
+                    sendVoucherEmail(c, voucher);
                 } catch (MailException e) {
-                    logger.error("❌ Failed to send email to {}: {}", customer.getEmail(), e.getMessage());
-                    failedEmails.add(customer.getEmail());
+                    logger.error("❌ Failed to send email to {}: {}", c.getEmail(), e.getMessage());
+                    failedEmails.add(c.getEmail());
                 }
             }
+
         } else {
             throw new IllegalArgumentException("TargetType không hợp lệ!");
         }
-
-        voucher = voucherRepository.save(voucher);
 
         String message = "Thêm thành công voucher";
         if (!failedEmails.isEmpty()) {
             message += ". Tuy nhiên, gửi email thất bại cho các khách hàng: " + String.join(", ", failedEmails);
         }
-
         return ResponseObject.successForward(voucher, message);
     }
 
@@ -166,86 +173,98 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         if (optionalVoucher.isEmpty()) {
             return ResponseObject.errorForward("Không tìm thấy voucher để cập nhật", HttpStatus.NOT_FOUND);
         }
-
         Voucher voucher = optionalVoucher.get();
 
-        if (!voucher.getName().equals(request.getName()) && voucherRepository.findVoucherByName(request.getName()).isPresent()) {
+        if (!voucher.getName().equals(request.getName())
+            && voucherRepository.findVoucherByName(request.getName()).isPresent()) {
             throw new DuplicateKeyException("Tên voucher mới đã tồn tại: " + request.getName());
         }
-
         if (request.getStartDate() >= request.getEndDate()) {
             throw new BadRequestException("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
         }
-
         if (request.getEndDate() < DateTimeUtil.getCurrentTimeMillisecondsStamp()) {
             throw new BadRequestException("Ngày kết thúc không được nhỏ hơn hiện tại!!");
         }
 
         List<String> failedEmails = new ArrayList<>();
 
+        // set các thuộc tính chung
+        mapRequestToVoucher(request, voucher);
+
         if (request.getTargetType() == TargetType.ALL_CUSTOMERS) {
-            if (request.getQuantity() <= 0) {
+            if (request.getQuantity() == null || request.getQuantity() <= 0) {
                 throw new IllegalArgumentException("Số lượng phải lớn hơn 0 cho ALL_CUSTOMERS");
             }
             voucher.setQuantity(request.getQuantity());
             voucher.setRemainingQuantity(request.getQuantity());
+
+            // nếu trước đó là INDIVIDUAL thì xoá assign cũ
             if (voucher.getTargetType() == TargetType.INDIVIDUAL) {
                 voucherDetailRepository.deleteByVoucher(voucher);
             }
+
+            // persist voucher sau khi map & dọn dẹp
+            voucher = voucherRepository.save(voucher);
+
         } else if (request.getTargetType() == TargetType.INDIVIDUAL) {
             if (request.getVoucherUsers() == null || request.getVoucherUsers().isEmpty()) {
                 throw new IllegalArgumentException("Danh sách khách hàng cá nhân không được để trống cho Khách Hàng Riêng");
             }
+
+            // luôn xoá assign cũ trước khi gán lại
             voucherDetailRepository.deleteByVoucher(voucher);
 
             List<VoucherDetail> voucherUsers = request.getVoucherUsers().stream().toList();
             List<Customer> customers = new ArrayList<>();
             List<String> missingIds = new ArrayList<>();
-
             for (VoucherDetail vd : voucherUsers) {
-                Optional<Customer> optionalCustomer = customerRepository.findById(vd.getCustomer().getId());
-                if (optionalCustomer.isPresent()) {
-                    customers.add(optionalCustomer.get());
-                } else {
-                    missingIds.add(vd.getCustomer().getId());
-                }
+                String cid = vd.getCustomer().getId();
+                customerRepository.findById(cid).ifPresentOrElse(
+                        customers::add,
+                        () -> missingIds.add(cid)
+                );
             }
-
             if (!missingIds.isEmpty()) {
                 throw new IllegalArgumentException("Không tìm thấy khách hàng với IDs: " + String.join(", ", missingIds));
             }
 
-            int customerCount = voucherUsers.size();
+            int customerCount = customers.size();
             voucher.setQuantity(customerCount);
             voucher.setRemainingQuantity(customerCount);
 
-            for (int i = 0; i < customerCount; i++) {
-                VoucherDetail vd = voucherUsers.get(i);
-                Customer customer = customers.get(i);
-                String customerId = customer.getId();
+            // 1) lưu voucher trước
+            voucher = voucherRepository.save(voucher);
+
+            // 2) lưu danh sách assign mới
+            List<VoucherDetail> toSave = new ArrayList<>(customerCount);
+            for (Customer customer : customers) {
+                VoucherDetail vd = new VoucherDetail();
                 vd.setCustomer(customer);
                 vd.setVoucher(voucher);
-                voucherDetailRepository.save(vd);
+                vd.setUsageStatus(false);
+                vd.setDescription("Assigned to customer " + customer.getId());
+                toSave.add(vd);
+            }
+            voucherDetailRepository.saveAll(toSave);
 
+            // 3) gửi mail
+            for (Customer c : customers) {
                 try {
-                    sendVoucherEmail(customer.getEmail(), voucher, customerId);
+                    sendVoucherEmail(c, voucher);
                 } catch (MailException e) {
-                    logger.error("❌ Failed to send email to {}: {}", customer.getEmail(), e.getMessage());
-                    failedEmails.add(customer.getEmail());
+                    logger.error("❌ Failed to send email to {}: {}", c.getEmail(), e.getMessage());
+                    failedEmails.add(c.getEmail());
                 }
             }
+
         } else {
             throw new IllegalArgumentException("TargetType không hợp lệ!");
         }
-
-        mapRequestToVoucher(request, voucher);
-        voucher = voucherRepository.save(voucher);
 
         String message = "Chỉnh sửa thành công voucher";
         if (!failedEmails.isEmpty()) {
             message += ". Tuy nhiên, gửi email thất bại cho các khách hàng: " + String.join(", ", failedEmails);
         }
-
         return ResponseObject.successForward(voucher, message);
     }
 
@@ -261,6 +280,34 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         return ResponseObject.successForward(null, "Xóa thành công");
     }
 
+    @Override
+    public Map<Voucher, List<Customer>> getCustomersByVoucher(boolean onlyActive) {
+        List<Object[]> results = voucherRepository.getVouchersWithCustomers(onlyActive);
+        Map<Voucher, List<Customer>> resultMap = new HashMap<>();
+        for (Object[] result : results) {
+            Voucher voucher = (Voucher) result[0];
+            Customer customer = (Customer) result[1];
+            if (customer != null) {
+                resultMap.computeIfAbsent(voucher, k -> new ArrayList<>()).add(customer);
+            }
+        }
+        return resultMap;
+    }
+
+    @Override
+    public Map<Customer, List<Voucher>> getVouchersByCustomer(boolean onlyActive) {
+        List<Object[]> results = voucherRepository.getVouchersWithCustomers(onlyActive);
+        Map<Customer, List<Voucher>> resultMap = new HashMap<>();
+        for (Object[] result : results) {
+            Voucher voucher = (Voucher) result[0];
+            Customer customer = (Customer) result[1];
+            if (customer != null) {
+                resultMap.computeIfAbsent(customer, k -> new ArrayList<>()).add(voucher);
+            }
+        }
+        return resultMap;
+    }
+
     private void mapRequestToVoucher(AdVoucherCreateUpdateRequest request, Voucher voucher) {
         voucher.setName(request.getName());
         voucher.setTargetType(request.getTargetType());
@@ -271,36 +318,39 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         voucher.setEndDate(request.getEndDate());
         voucher.setConditions(request.getConditions());
         voucher.setNote(request.getNote());
-        if (request.getStartDate() <= DateTimeUtil.getCurrentTimeMillisecondsStamp() && DateTimeUtil.getCurrentTimeMillisecondsStamp() <= request.getEndDate()) {
+
+        long now = DateTimeUtil.getCurrentTimeMillisecondsStamp();
+        if (request.getStartDate() <= now && now <= request.getEndDate()) {
             voucher.setStatus(EntityStatus.ACTIVE);
         } else {
             voucher.setStatus(EntityStatus.INACTIVE);
         }
     }
 
-    private void sendVoucherEmail(String toEmail, Voucher voucher, String customerId) {
+    // --- gửi mail: dùng trực tiếp Customer đã load, không query DB lại
+    private void sendVoucherEmail(Customer customer, Voucher voucher) {
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
             LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
             LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
 
-            String discount = voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE ? voucher.getDiscountValue() + "%"   // giữ nguyên %
+            String discount = voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE
+                    ? voucher.getDiscountValue() + "%"
                     : voucher.getDiscountValue() + " VND";
-            String name = customerRepository.findById(customerId).get().getName();
+
+            String name = customer.getName();
+            String toEmail = customer.getEmail();
 
             String htmlTemplate = """
                     <html>
                       <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
                         <div style="max-width: 600px; margin: auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                    
                           <div style="background: #ff6600; padding: 20px; text-align: center; color: white;">
                             <h1 style="margin: 0;">🎁 Ưu Đãi Đặc Biệt Dành Cho Bạn</h1>
                           </div>
-                    
                           <div style="padding: 20px; color: #333;">
                             <p>Xin chào, {6}</p>
                             <p>Chúng tôi gửi tặng bạn một <b>phiếu giảm giá đặc biệt</b>. Hãy sử dụng ngay để nhận ưu đãi hấp dẫn!</p>
-                    
                             <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
                               <tr style="background: #f2f2f2;">
                                 <td style="padding: 10px; font-weight: bold;">Mã Voucher</td>
@@ -323,7 +373,6 @@ public class AdVoucherServiceImpl implements AdVoucherService {
                                 <td style="padding: 10px;">Đơn hàng từ {5} VND</td>
                               </tr>
                             </table>
-                    
                             <div style="text-align: center; margin-top: 30px;">
                               <a href="https://your-shop.com"
                                  style="background: #ff6600; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">
@@ -331,7 +380,6 @@ public class AdVoucherServiceImpl implements AdVoucherService {
                               </a>
                             </div>
                           </div>
-                    
                           <div style="background: #eee; text-align: center; padding: 15px; font-size: 12px; color: #777;">
                             © 2025 YourShop. Mọi quyền được bảo lưu.
                           </div>
@@ -340,16 +388,22 @@ public class AdVoucherServiceImpl implements AdVoucherService {
                     </html>
                     """;
 
-            // ✅ Format với MessageFormat
-            String htmlBody = MessageFormat.format(htmlTemplate, voucher.getCode(), discount, DateTimeUtil.formatMoney(voucher.getMaxValue()), start.format(formatter), end.format(formatter), DateTimeUtil.formatMoney(voucher.getConditions()), name);
+            String htmlBody = MessageFormat.format(
+                    htmlTemplate,
+                    voucher.getCode(),
+                    discount,
+                    DateTimeUtil.formatMoney(voucher.getMaxValue()),
+                    start.format(formatter),
+                    end.format(formatter),
+                    DateTimeUtil.formatMoney(voucher.getConditions()),
+                    name
+            );
 
-            // ✅ Tạo và gửi mail
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
-
             helper.setTo(toEmail);
             helper.setSubject("🎁 Ưu đãi dành riêng cho bạn - Mã giảm giá " + voucher.getCode());
-            helper.setText(htmlBody, true); // true = HTML
+            helper.setText(htmlBody, true);
 
             mailSender.send(mimeMessage);
             logger.info("✅ Email voucher sent to: {}", toEmail);

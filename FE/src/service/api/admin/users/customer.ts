@@ -1,9 +1,12 @@
+// API customer
+
 import { API_ADMIN_CUSTOMERS } from '@/constants/url'
 import axios from 'axios'
 
 // -----------------------------
 // Types
 // -----------------------------
+
 export interface Customer {
   id?: string
   customerName: string

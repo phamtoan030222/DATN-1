@@ -1,89 +1,86 @@
-import { API_ADMIN_PRODUCT_BRAND } from "@/constants/url";
-import { AxiosResponse } from "axios";
-import {
+import { API_ADMIN_PRODUCT_BRAND } from '@/constants/url'
+import type { AxiosResponse } from 'axios'
+import type {
   DefaultResponse,
   PaginationParams,
   ResponseList,
-} from "@/typings/api/api.common";
-import request from "@/service/request";
+} from '@/typings/api/api.common'
+import request from '@/service/request'
 
 // Tham số truy vấn
 export interface ParamsGetBrand extends PaginationParams {
-  name?: string;
+  name?: string
 }
 
 // Kiểu dữ liệu Brand trả về
 export interface BrandResponse extends ResponseList {
-  id: string;
-  code: string;
-  name: string;
-  status: string;
+  id: string
+  code: string
+  name: string
+  status: string
 }
 
 // Payload tạo Brand
 export interface CreateBrandRequest {
-  name: string;
-  code: string;
+  name: string
+  code: string
 }
 
 // Lấy danh sách Brand
-export const getAllBrands = async (params: ParamsGetBrand) => {
-  const queryParams = { ...params };
+export async function getAllBrands(params: ParamsGetBrand) {
+  const queryParams = { ...params }
 
   const res = (await request({
     url: API_ADMIN_PRODUCT_BRAND,
-    method: "GET",
+    method: 'GET',
     params: queryParams,
   })) as AxiosResponse<
     DefaultResponse<{
-      data: BrandResponse[];
-      totalPages: number;
-      currentPage: number;
-      totalElements: number;
+      data: BrandResponse[]
+      totalPages: number
+      currentPage: number
+      totalElements: number
     }>
-  >;
+  >
 
   return {
     items: res.data.data.data || [],
     totalItems: res.data.data.totalElements || 0,
     totalPages: res.data.data.totalPages || 0,
     currentPage: res.data.data.currentPage || 1,
-  };
-};
+  }
+}
 
 // Cập nhật trạng thái Brand
-export const updateBrandStatus = async (
-  id: string,
-  status: "ACTIVE" | "INACTIVE"
-) => {
+export async function updateBrandStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
   return request({
     url: `${API_ADMIN_PRODUCT_BRAND}/${id}/status`,
-    method: "PATCH",
+    method: 'PATCH',
     data: { status },
-  });
-};
+  })
+}
 
 // Tạo Brand mới
-export const createBrand = async (payload: CreateBrandRequest) => {
+export async function createBrand(payload: CreateBrandRequest) {
   return request({
     url: `${API_ADMIN_PRODUCT_BRAND}/add`,
-    method: "POST",
+    method: 'POST',
     data: payload,
-  });
-};
+  })
+}
 
 // Cập nhật Brand
-export const updateBrand = async (id: string, payload: CreateBrandRequest) => {
+export async function updateBrand(id: string, payload: CreateBrandRequest) {
   return request({
     url: `${API_ADMIN_PRODUCT_BRAND}/${id}`,
-    method: "PUT",
+    method: 'PUT',
     data: payload,
-  });
-};
+  })
+}
 
-export const deleteBrand = async (id: string) => {
+export async function deleteBrand(id: string) {
   return request({
     url: `${API_ADMIN_PRODUCT_BRAND}/${id}`,
-    method: "DELETE",
-  });
-};
+    method: 'DELETE',
+  })
+}

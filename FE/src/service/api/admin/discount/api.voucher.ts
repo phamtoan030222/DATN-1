@@ -1,7 +1,9 @@
+// API Voucher
 import type { DefaultResponse } from '@/typings/api/api.common'
 import request from '@/service/request'
-import { API_ADMIN_CUSTOMERS, API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
+import { API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
 import axios from 'axios'
+import type { Customer } from '@/service/api/admin/users/customer'
 
 export interface ADVoucherQuery {
   page: number
@@ -34,7 +36,7 @@ export interface ADVoucherResponse {
   conditions: number | null
   note: string | null
   status: string | null
-  voucherUsers: customer[] | null
+  voucherUsers: string[] | null
 }
 
 // Hàm getVouchers: Return {content: array, totalElements: number} để component dùng trực tiếp
@@ -120,4 +122,32 @@ export function createVoucher(data: Partial<ADVoucherResponse>) {
 // Sửa
 export function updateVoucher(id: string, data: Partial<ADVoucherResponse>) {
   return request.put(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}`, data)
+}
+
+// typings
+export interface CustomerLite {
+  id: string
+  name: string
+  email?: string
+  phone?: string
+}
+
+// api.voucher.ts
+export async function getVoucherCustomers(voucherId: string, onlyUsed = false): Promise<Customer[]> {
+  const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}/${voucherId}/customers`, {
+    method: 'GET',
+    params: { onlyUsed },
+  })
+  const root = res.data
+  // Hỗ trợ cả 2 kiểu: {status, data, message} hoặc trả mảng trực tiếp
+  const items = (root?.data ?? root) as any
+  const list = Array.isArray(items) ? items : (Array.isArray(items?.data) ? items.data : [])
+  return (list as any[]).map(x => ({
+    id: x.id || x.customerId || x.code,
+    customerName: x.customerName || x.name || x.fullName || 'Khách hàng',
+    customerEmail: x.customerEmail || x.email,
+    customerPhone: x.customerPhone || x.phone,
+    customerCode: x.customerCode || x.code,
+    customerStatus: x.customerStatus ?? x.status ?? 1,
+  }))
 }
