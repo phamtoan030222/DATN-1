@@ -20,7 +20,6 @@ export type ADProductCreateUpdateRequest = {
   idBattery: string
   idScreen: string
   idOperatingSystem: string
-  imageProduct?: any
 }
 
 export type ADProductResponse = {
@@ -35,6 +34,7 @@ export type ADProductResponse = {
   minPrice: number,
   maxPrice: number,
   quantity: number
+  urlImage: string
 }
 
 export type ADProductDetailResponse = {
@@ -107,12 +107,23 @@ export const getProductById = async (id: string) => {
   return res.data
 }
 
-export const modifyProduct = async (data: ADProductCreateUpdateRequest) => {
+export const modifyProduct = async (data: ADProductCreateUpdateRequest, images: any) => {
+  const formData = new FormData();
+  formData.append('request', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  if (Array.isArray(images)) {
+    images.forEach((image) => formData.append('images', image));
+  } else {
+    formData.append('images', images);
+  }
+
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}`,
     method: 'POST',
-    data,
-  })) as AxiosResponse<DefaultResponse<ADProductResponse>>
+    data: formData,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  })) as AxiosResponse<DefaultResponse<string>>
 
   return res.data
 }

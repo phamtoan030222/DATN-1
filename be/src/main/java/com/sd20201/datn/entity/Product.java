@@ -33,6 +33,6 @@ public class Product extends PrimaryEntity implements Serializable {
     private Battery battery;
 
     @ManyToOne
-    @JoinColumn(name = "id_operatin_system", referencedColumnName = "id")
+    @JoinColumn(name = "id_operating_system", referencedColumnName = "id")
     private OperatingSystem operatingSystem;
 }

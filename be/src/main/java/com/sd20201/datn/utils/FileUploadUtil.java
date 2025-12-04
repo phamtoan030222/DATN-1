@@ -2,7 +2,6 @@ package com.sd20201.datn.utils;
 
 import com.sd20201.datn.infrastructure.exception.CloudinaryException;
 import lombok.experimental.UtilityClass;
-import org.apache.commons.io.FilenameUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.text.DateFormat;
@@ -12,7 +11,7 @@ import java.util.regex.Pattern;
 @UtilityClass
 public class FileUploadUtil {
 
-    public static final long MAX_FILE_SIZE = 2 * 1024 * 1024;
+    public static final long MAX_FILE_SIZE = 15 * 1024 * 1024;
 
     public static final String IMAGE_PATTERN = "([^\\s]+(\\.(?i)(jpg|png|gif|bmp))$)";
 
@@ -20,8 +19,8 @@ public class FileUploadUtil {
 
     public static final String FILE_NAME_FORMAT = "%s_%s";
 
-    public static boolean isAllowedExtension(final String fileName,final String pattern) {
-        return Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(fileName).matches();
+    public static boolean isAllowedExtension(final String fileName) {
+        return Pattern.compile(IMAGE_PATTERN, Pattern.CASE_INSENSITIVE).matcher(fileName).matches();
     }
 
     public static void assertAllowed(MultipartFile file,String pattern) {
@@ -31,9 +30,8 @@ public class FileUploadUtil {
         }
 
         final String fileName = file.getOriginalFilename();
-        final String extension = FilenameUtils.getExtension(fileName);
 
-        if(!isAllowedExtension(fileName,extension)) {
+        if(!isAllowedExtension(fileName)) {
             throw new CloudinaryException("Only jpg, png, gif, bmp files are allowed");
         }
     }

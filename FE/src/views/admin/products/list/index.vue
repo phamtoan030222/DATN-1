@@ -35,15 +35,17 @@
                 <n-row :gutter="24">
                     <n-col :span="12">
                         <span>Tìm kiếm</span>
-                        <n-input v-model:value="state.search.q" placeholder="Tìm kiếm sản phẩm theo tên hoặc mã" />
+                        <n-input v-model:value="state.search.q" placeholder="Tìm kiếm sản phẩm theo tên hoặc mã" clearable/>
                     </n-col>
                     <n-col :span="6">
                         <span>Hãng</span>
-                        <n-select v-model:value="state.search.brand" :options="state.data.brands" placeholder="Chọn hãng"></n-select>
+                        <n-select v-model:value="state.search.brand" :options="state.data.brands"
+                            placeholder="Chọn hãng" clearable></n-select>
                     </n-col>
                     <n-col :span="6">
                         <span>Pin</span>
-                        <n-select v-model:value="state.search.battery" :options="state.data.batteries" placeholder="Chọn pin"></n-select>
+                        <n-select v-model:value="state.search.battery" :options="state.data.batteries"
+                            placeholder="Chọn pin" clearable></n-select>
                     </n-col>
 
                 </n-row>
@@ -52,17 +54,18 @@
                         <n-col :span="12">
                             <span>Khoảng giá</span>
                             <n-slider v-model:value="state.search.price" range :step="1000" :min="1000"
-                                :max="50000000" />
+                                :max="50000000" clearable/>
                         </n-col>
-                    <n-col :span="6">
-                        <span>Màn hình</span>
-                        <n-select v-model:value="state.search.screen" :options="state.data.screens" placeholder="Chọn màn hình"></n-select>
-                    </n-col>
-                    <n-col :span="6">
-                        <span>Hệ điều hành</span>
-                        <n-select v-model:value="state.search.operatingSystem"
-                            :options="state.data.operatingSystems" placeholder="Chọn hệ điều hành"></n-select>
-                    </n-col>
+                        <n-col :span="6">
+                            <span>Màn hình</span>
+                            <n-select v-model:value="state.search.screen" :options="state.data.screens"
+                                placeholder="Chọn màn hình" clearable></n-select>
+                        </n-col>
+                        <n-col :span="6">
+                            <span>Hệ điều hành</span>
+                            <n-select v-model:value="state.search.operatingSystem"
+                                :options="state.data.operatingSystems" clearable placeholder="Chọn hệ điều hành"></n-select>
+                        </n-col>
                     </n-row>
                 </div>
             </n-space>
@@ -89,10 +92,6 @@
                 }
             }" :bordered="false" />
         </n-card>
-
-        <ADProductModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
-            :id="productIdSelected" :screens="state.data.screens" :brands="state.data.brands"
-            :batteries="state.data.batteries" :operatingSystems="state.data.operatingSystems" @close="closeModal" />
     </div>
 </template>
 
@@ -109,10 +108,9 @@ import {
 } from '@/service/api/admin/product/product.api'
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
-import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
+import { DataTableColumns, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import { onMounted, reactive, Ref, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import ADProductModal from './component/ADProductModal.vue'
 
 const router = useRouter()
 const state = reactive({
@@ -192,8 +190,10 @@ const columns: DataTableColumns<ADProductResponse> = [
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
     { title: 'Tên', key: 'name', width: 200, fixed: 'left', },
     {
-        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+        title: 'Ảnh sản phẩm', key: 'brand', width: 150, align: 'center',
+        render: (data: ADProductResponse) => {
+            return h(NImage, { width: 200, src: data.urlImage })
+        }
     },
     {
         title: 'Giá thấp nhất', key: 'minPrice', width: 150, align: 'center',
@@ -218,6 +218,10 @@ const columns: DataTableColumns<ADProductResponse> = [
     { title: 'Pin', key: 'battery', width: 150, align: 'center', },
     { title: 'Màn hình', key: 'screen', width: 150, align: 'center', },
     { title: 'Hệ điều hành', key: 'operatingSystem', width: 200, align: 'center', },
+    {
+        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        render: (data: ADProductResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+    },
     {
         title: 'Thao tác', key: 'action', width: 150, fixed: 'right',
         render: (data: ADProductResponse) => {
@@ -303,11 +307,11 @@ const handleChangeStatus = async (id: string) => {
 }
 
 const redirectVariant = (id: string) => {
-    router.push({name: 'products_variant', query: {idProduct: id}})
+    router.push({ name: 'products_variant', query: { idProduct: id } })
 }
 
 const addVariant = (id: string) => {
-    router.push({name: 'products_add', params: {id}})
+    router.push({ name: 'products_add', params: { id } })
 }
 
 </script>

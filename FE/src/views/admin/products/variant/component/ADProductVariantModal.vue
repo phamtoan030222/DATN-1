@@ -84,16 +84,16 @@ const props = defineProps<{
 
 const emit = defineEmits(['success', 'close'])
 
-const detailProduct: Ref<ADProductDetailDetailResponse> = ref({
-    id: '',
-    code: '',
-    name: '',
-    idCPU: '',
-    idGPU: '',
-    idColor: '',
-    idRAM: '',
-    idHardDrive: '',
-    idMaterial: '',
+const detailProduct: Ref<Partial<ADProductDetailDetailResponse>> = ref({
+    id: undefined,
+    code: undefined,
+    name: undefined,
+    idCPU: undefined,
+    idGPU: undefined,
+    idColor: undefined,
+    idRAM: undefined,
+    idHardDrive: undefined,
+    idMaterial: undefined,
     price: 0,
 })
 
@@ -105,15 +105,15 @@ const fetchDetailProduct = async () => {
 
 const resetField = () => {
     detailProduct.value = {
-        id: '',
-        code: '',
-        name: '',
-        idCPU: '',
-        idGPU: '',
-        idColor: '',
-        idRAM: '',
-        idHardDrive: '',
-        idMaterial: '',
+        id: undefined,
+        code: undefined,
+        name: undefined,
+        idCPU: undefined,
+        idGPU: undefined,
+        idColor: undefined,
+        idRAM: undefined,
+        idHardDrive: undefined,
+        idMaterial: undefined,
         price: 0,
     }
 }
@@ -134,7 +134,7 @@ const notification = useNotification()
 
 const handleClickOK = async () => {
     const res = await modifyProductDetail({
-        ...detailProduct.value,
+        ...detailProduct.value as ADProductDetailDetailResponse,
         imei: []
     })
 

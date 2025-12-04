@@ -1,10 +1,8 @@
 package com.sd20201.datn.core.admin.products.productdetail.controller;
 
-import com.sd20201.datn.core.admin.products.product.model.request.ADProductCreateUpdateRequest;
-import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductCreateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
-import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDUploadImageRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.service.ADProductDetailService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
@@ -81,18 +79,13 @@ public class ADProductDetailController {
         return Helper.createResponseEntity(productDetailService.modify(request));
     }
 
-    @PostMapping("/variant")
-    ResponseEntity<?> createVariant(@RequestBody ADPDProductCreateRequest request) {
-        return Helper.createResponseEntity(productDetailService.createVariant(request));
+    @PostMapping(value = "/variant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ADPDVariantRequest variant, @RequestPart List<MultipartFile> images) {
+        return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant, images));
     }
 
     @PostMapping("/imei-exists")
     ResponseEntity<?> isIMEIExist(@RequestBody List<String> id) {
         return Helper.createResponseEntity(productDetailService.isIMEIExist(id));
-    }
-
-    @PostMapping(value = "/upload-images/{id}")
-    ResponseEntity<?> uploadImages(@RequestPart MultipartFile imageProduct, @PathVariable String id) {
-        return Helper.createResponseEntity(productDetailService.uploadImages(imageProduct, null,id));
     }
 }

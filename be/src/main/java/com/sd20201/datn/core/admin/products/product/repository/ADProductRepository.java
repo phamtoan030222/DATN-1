@@ -27,9 +27,11 @@ public interface ADProductRepository extends ProductRepository {
         , MIN(pd.price) as minPrice
         , MAX(pd.price) as maxPrice
         , COUNT(i.id) as quantity
+        , ip.url as urlImage
     FROM Product p
-        JOIN ProductDetail pd on p.id = pd.product.id
-        JOIN IMEI i on pd.id = i.productDetail.id
+        LEFT JOIN ProductDetail pd on p.id = pd.product.id
+        LEFT JOIN IMEI i on pd.id = i.productDetail.id
+        LEFT JOIN ImageProduct ip on p.id = ip.product.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -38,6 +40,7 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
+          AND (ip.index = 1 or ip.id is null)
     GROUP BY     p.id,
                  p.code,
                  p.name,
@@ -45,15 +48,17 @@ public interface ADProductRepository extends ProductRepository {
                  p.screen,
                  p.battery,
                  p.brand,
-                 p.operatingSystem
+                 p.operatingSystem,
+                 ip.url
     HAVING (:#{#request.minPrice} <= MIN(pd.price) AND MAX(pd.price) <= :#{#request.maxPrice})
     order by p.createdDate desc
     """, countQuery = """
     SELECT
         COUNT(1)
     FROM Product p
-        JOIN ProductDetail pd on p.id = pd.product.id
-        JOIN IMEI i on pd.id = i.productDetail.id
+        LEFT JOIN ProductDetail pd on p.id = pd.product.id
+        LEFT JOIN IMEI i on pd.id = i.productDetail.id
+        LEFT JOIN ImageProduct ip on p.id = ip.product.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -62,6 +67,7 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
           AND (:#{#request.idScreen} is NULL OR p.screen.id = :#{#request.idScreen})
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
+          AND (ip.index = 1 or ip.id is null)
     GROUP BY     p.id,
                  p.code,
                  p.name,
@@ -69,7 +75,8 @@ public interface ADProductRepository extends ProductRepository {
                  p.screen,
                  p.battery,
                  p.brand,
-                 p.operatingSystem
+                 p.operatingSystem,
+                 ip.url
     HAVING (:#{#request.minPrice} <= MIN(pd.price) AND MAX(pd.price) <= :#{#request.maxPrice})
     """)
     Page<ADProductResponse> getProducts(Pageable pageable, ADProductRequest request);

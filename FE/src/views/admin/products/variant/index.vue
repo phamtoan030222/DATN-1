@@ -24,48 +24,41 @@
             <n-row gutter="12">
                 <n-col :span="6">
                     <span>Tìm kiếm</span>
-                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
+                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" clearable/>
                 </n-col>
                 <n-col :span="3">
                     <span>CPU</span>
-                    <n-select v-model:value="state.search.cpu" :options="state.data.cpus" />
+                    <n-select v-model:value="state.search.cpu" placeholder="Tìm kiếm" :options="state.data.cpus" clearable/>
                 </n-col>
                 <n-col :span="3">
                     <span>GPU</span>
-                    <n-select v-model:value="state.search.gpu" :options="state.data.gpus" />
+                    <n-select v-model:value="state.search.gpu" placeholder="Tìm kiếm" :options="state.data.gpus" clearable/>
                 </n-col>
                 <n-col :span="3">
                     <span>Màu sắc</span>
-                    <n-select v-model:value="state.search.color" :options="state.data.colors" />
+                    <n-select v-model:value="state.search.color" placeholder="Tìm kiếm" :options="state.data.colors" clearable/>
                 </n-col>
                 <n-col :span="3">
                     <span>ổ cứng</span>
-                    <n-select v-model:value="state.search.hardDrive" :options="state.data.hardDrives" />
+                    <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm" :options="state.data.hardDrives" clearable/>
                 </n-col>
                 <n-col :span="3">
                     <span>Chất liệu</span>
-                    <n-select v-model:value="state.search.material" :options="state.data.materials" />
+                    <n-select v-model:value="state.search.material" placeholder="Tìm kiếm" :options="state.data.materials" clearable/>
                 </n-col>
                 <n-col :span="3">
                     <span>RAM</span>
-                    <n-select v-model:value="state.search.ram" :options="state.data.rams" />
+                    <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm" :options="state.data.rams" clearable/>
                 </n-col>
             </n-row>
             <div class="mt-20px">
                 <n-row :gutter="12">
-                    <n-col :span="12">
+                    <n-col :span="16">
                         <span>Khoảng giá</span>
                         <n-slider v-model:value="state.search.price" range :step="1000" :min="1000" :max="50000000" />
                     </n-col>
-                    <n-col :span="6">
-                        <span>Giá nhỏ nhất</span>
-                        <n-input-number v-model:value="state.search.price[0]"></n-input-number>
-                    </n-col>
-                    <n-col :span="6">
-                        <span>Giá lớn nhất</span>
-                        <n-input-number v-model:value="state.search.price[1]"></n-input-number>
-                    </n-col>
                 </n-row>
+                
             </div>
         </n-card>
         <n-card class="mt-20px" title="Danh sách biến thể">
@@ -88,7 +81,7 @@
 import { ADProductDetailResponse, ADPRPropertiesComboboxResponse, changeProductDetailStatus, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getProductDetails, getRAMs } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
-import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
+import { DataTableColumns, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import { onMounted, reactive, ref, Ref } from 'vue'
 import ADProductVariantModal from './component/ADProductVariantModal.vue'
 
@@ -98,13 +91,13 @@ const idProduct: Ref<string> = ref(route.query.idProduct as string)
 
 const state = reactive({
     search: {
-        q: '',
-        cpu: '',
-        gpu: '',
-        hardDrive: '',
-        ram: '',
-        color: '',
-        material: '',
+        q: undefined as string | undefined,
+        cpu: undefined as string | undefined,
+        gpu: undefined as string | undefined,
+        hardDrive: undefined as string | undefined,
+        ram: undefined as string | undefined,
+        color: undefined as string | undefined,
+        material: undefined as string | undefined,
         price: [10000, 50000000]
     },
     data: {
@@ -166,13 +159,13 @@ const fetchComboboxProperties = async () => {
 }
 
 const refreshFilter = () => {
-    state.search.q = ''
-    state.search.cpu = ''
-    state.search.gpu = ''
-    state.search.material = ''
-    state.search.ram = ''
-    state.search.color = ''
-    state.search.hardDrive = ''
+    state.search.q = undefined
+    state.search.cpu = undefined
+    state.search.gpu = undefined
+    state.search.material = undefined
+    state.search.ram = undefined
+    state.search.color = undefined
+    state.search.hardDrive = undefined
 }
 
 const columns: DataTableColumns<ADProductDetailResponse> = [
@@ -185,8 +178,10 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
     { title: 'Tên', key: 'name', width: 100 },
     {
-        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductDetailResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+        title: 'Ảnh sản phẩm', key: 'brand', width: 150, align: 'center',
+        render: (data: ADProductDetailResponse) => {
+            return h(NImage, { width: 200, src: data.urlImage })
+        }
     },
     {
         title: 'Giá', key: 'price', width: 150, align: 'center',
@@ -205,6 +200,10 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     { title: 'Ổ cứng', key: 'hardDrive', width: 200, align: 'center', },
     { title: 'Màu', key: 'color', width: 150, align: 'center', },
     { title: 'Chất liệu', key: 'material', width: 150, align: 'center', },
+    {
+        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        render: (data: ADProductDetailResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+    },
     {
         title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
         render: (data: ADProductDetailResponse) => {
@@ -257,7 +256,7 @@ const handleSuccessModifyModal = () => {
 const debounceFetchProducts = debounce(fetchProductDetails, 300)
 
 watch(
-    () => [state.search.q, state.search.cpu, state.search.gpu, state.search.hardDrive, state.search.material, state.search.ram, state.search.color, state.pagination.page, state.pagination.size,  state.search.price[0], state.search.price[1]],
+    () => [state.search.q, state.search.cpu, state.search.gpu, state.search.hardDrive, state.search.material, state.search.ram, state.search.color, state.pagination.page, state.pagination.size, state.search.price[0], state.search.price[1]],
     () => {
         debounceFetchProducts()
     }

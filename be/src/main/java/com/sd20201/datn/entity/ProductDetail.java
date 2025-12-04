@@ -58,6 +58,9 @@ public class ProductDetail extends PrimaryEntity implements Serializable, Clonea
     @Column(length = EntityProperties.LENGTH_PICTURE)
     private String urlImage;
 
+    @Column(length = 255)
+    private String cloudinaryImageId;
+
     @Column(length = EntityProperties.LENGTH_DESCRIPTION)
     private String description;
 

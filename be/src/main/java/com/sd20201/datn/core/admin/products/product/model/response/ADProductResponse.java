@@ -25,4 +25,6 @@ public interface ADProductResponse extends IsIdentify, IsEntityStatus {
 
     Long getCreatedDate();
 
+    String getUrlImage();
+
 }

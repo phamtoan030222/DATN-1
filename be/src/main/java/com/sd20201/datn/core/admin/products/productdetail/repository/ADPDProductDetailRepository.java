@@ -29,6 +29,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                 , p.price as price
                 , p.status as status
                 , COUNT(i.id) as quantity
+                , p.urlImage as urlImage
     FROM ProductDetail p join IMEI i on p.id = i.productDetail.id
     where
         (
@@ -52,7 +53,8 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                  p.cpu,
                  p.ram,
                  p.price,
-                 p.status
+                 p.status,
+                 p.urlImage
     HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     ORDER BY p.createdDate DESC
     """, countQuery = """
@@ -81,7 +83,8 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                  p.cpu,
                  p.ram,
                  p.price,
-                 p.status
+                 p.status,
+                 p.urlImage
        HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     """)
     Page<ADPDProductDetailResponse> getProductDetails(Pageable pageable, ADPDProductDetailRequest request);
