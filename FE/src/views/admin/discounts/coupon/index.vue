@@ -99,9 +99,9 @@ async function toggleOne(row: ADVoucherResponse) {
     return
   rowLoading.value = { ...rowLoading.value, [id]: true }
   try {
-    const next = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
-    await updateVoucherStatus(id, next)
-    row.status = next
+    await updateVoucherStatus(id) // ✅ chỉ 1 tham số
+    // FE tự đảo trạng thái
+    row.status = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
     message.success('Cập nhật trạng thái thành công')
   }
   catch (err: any) {
@@ -114,43 +114,35 @@ async function toggleOne(row: ADVoucherResponse) {
 
 /* ===================== Toggle Status for Selected (FIXED) ===================== */
 async function handleConfirmStatusChange() {
-  // ✅ CHỤP ID TRƯỚC
-  const ids = checkedRowKeys.value.map(k => String(k))
-  if (ids.length === 0) {
+  if (checkedRowKeys.value.length === 0) {
     message.warning('Vui lòng chọn ít nhất một phiếu giảm giá')
     return
   }
-
-  // ✅ Bật loading theo danh sách ids
-  const rlStart = { ...rowLoading.value }
-  ids.forEach((id) => { rlStart[id] = true })
-  rowLoading.value = rlStart
+  const newRowLoading = { ...rowLoading.value }
+  checkedRowKeys.value.forEach(k => (newRowLoading[String(k)] = true))
+  rowLoading.value = newRowLoading
 
   try {
-    await Promise.all(ids.map(async (id) => {
-      const row = data.value.find(v => v.id === id)
-      if (!row)
-        return
-      const next = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
-      await updateVoucherStatus(id, next)
-      row.status = next
-    }))
-    message.success('Cập nhật trạng thái thành công cho các phiếu đã chọn')
+    await Promise.all(
+      checkedRowKeys.value.map(async (k) => {
+        const id = String(k)
+        await updateVoucherStatus(id) // ✅ chỉ 1 tham số
+        const row = data.value.find(v => String(v.id) === id)
+        if (row)
+          row.status = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+      }),
+    )
+    message.success('Cập nhật trạng thái thành công cho các phiếu giảm giá đã chọn')
+    checkedRowKeys.value = []
   }
   catch (err: any) {
     message.error(`Lỗi cập nhật trạng thái: ${err.message || 'Unknown error'}`)
   }
   finally {
-    // ✅ TẮT loading theo đúng ids
-    const rlEnd = { ...rowLoading.value }
-    ids.forEach((id) => { rlEnd[id] = false })
-    rowLoading.value = rlEnd
-
-    // ✅ Rồi mới clear selection
-    checkedRowKeys.value = []
-
-    // Optional: đồng bộ server
-    await fetchData()
+    const done = { ...rowLoading.value }
+    Object.keys(done).forEach(k => (done[k] = false))
+    rowLoading.value = done
+    // nếu muốn, gọi lại fetchData()
   }
 }
 
@@ -355,12 +347,12 @@ watch(
             <NInput v-model:value="filters.q" placeholder="Tên hoặc Mã..." class="w-full" />
           </NFormItem>
           <NFormItem label="Điều kiện áp dụng">
-            <NInputNumber v-model:value="filters.conditions" placeholder="Điều kiện áp dụng..." class="w-full" />
+            <NInputNumber v-model:value="filters.conditions" step="1000" placeholder="Điều kiện áp dụng..." class="w-full" />
           </NFormItem>
           <NFormItem label="Trạng thái">
             <NRadioGroup v-model:value="filters.status" name="status">
               <NSpace>
-                <NRadio value="">
+                <NRadio value=""> 
                   Tất cả
                 </NRadio>
                 <NRadio value="ACTIVE">
