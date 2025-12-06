@@ -109,5 +109,4 @@ public class AdVoucherController {
                 voucherService.getCustomersOfVoucher(id, onlyUsed, pageable)
         );
     }
-
 }
