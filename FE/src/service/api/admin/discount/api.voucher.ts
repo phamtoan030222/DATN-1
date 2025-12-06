@@ -3,7 +3,7 @@ import type { DefaultResponse } from '@/typings/api/api.common'
 import request from '@/service/request'
 import { API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
 import axios from 'axios'
-import type { Customer } from '@/service/api/admin/users/customer'
+import type { Customer } from '@/service/api/admin/users/customer/customer'
 
 /* ===================== Types ===================== */
 export interface ADVoucherQuery {
