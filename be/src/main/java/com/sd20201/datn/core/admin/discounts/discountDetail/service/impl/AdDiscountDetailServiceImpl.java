@@ -4,7 +4,10 @@ import com.sd20201.datn.core.admin.discounts.discountDetail.model.request.AdCrea
 import com.sd20201.datn.core.admin.discounts.discountDetail.model.request.AdCreateDiscountRequest;
 import com.sd20201.datn.core.admin.discounts.discountDetail.model.respone.AdDiscountDetailRespone;
 import com.sd20201.datn.core.admin.discounts.discountDetail.model.respone.AdProductDetailResponse;
+import com.sd20201.datn.core.admin.discounts.discountDetail.model.respone.AdProductRespone;
 import com.sd20201.datn.core.admin.discounts.discountDetail.repository.AdProductApplyRepositoryProduct;
+import com.sd20201.datn.core.admin.discounts.discountDetail.repository.AdProductDetailRepository;
+import com.sd20201.datn.core.admin.discounts.discountDetail.repository.AdProductDiscountRepository;
 import com.sd20201.datn.core.admin.discounts.discountDetail.repository.AdProductNotApplyRepositoryProduct;
 import com.sd20201.datn.core.admin.discounts.discountDetail.repository.CRUDProductDiscountRepository;
 import com.sd20201.datn.core.admin.discounts.discountDetail.service.AdDiscountDetailService;
@@ -21,6 +24,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class AdDiscountDetailServiceImpl implements AdDiscountDetailService {
@@ -29,6 +34,8 @@ public class AdDiscountDetailServiceImpl implements AdDiscountDetailService {
     private final ProductDetailRepository productDetailRepository;
     private final AdProductApplyRepositoryProduct adProductApplyRepository;
     private final AdProductNotApplyRepositoryProduct adProductNotApplyRepository;
+    private final AdProductDiscountRepository adProductRepository;
+    private final AdProductDetailRepository adProductDetailRepository;
     @Override
     public ResponseObject<?> creatDiscount(AdCreateDiscountRequest request) {
         ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId())
@@ -137,6 +144,42 @@ public class AdDiscountDetailServiceImpl implements AdDiscountDetailService {
                 pageResult,
                 HttpStatus.OK,
                 "Lấy danh sách sản phẩm chưa áp dung giảm giá",
+                true,
+                null
+        );
+    }
+
+    @Override
+    public ResponseObject<Page<AdProductRespone>> getAllProducts(Pageable pageable) {
+        Page<AdProductRespone> page = adProductRepository.getAllProducts(pageable);
+
+        return new ResponseObject<>(
+                page,
+                HttpStatus.OK,
+                "Lấy danh sách sản phẩm thành công. Tổng số sản phẩm: " + page.getTotalElements(),
+                true,
+                null
+        );
+    }
+
+    @Override
+    public ResponseObject<List<AdProductDetailResponse>> getProductDetailsByProductId(String productId) {
+        List<AdProductDetailResponse> details = adProductDetailRepository.findProductDetailsByProductId(productId);
+
+        if (details.isEmpty()) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.NOT_FOUND,
+                    "Không tìm thấy sản phẩm chi tiết cho productId = " + productId,
+                    false,
+                    null
+            );
+        }
+
+        return new ResponseObject<>(
+                details,
+                HttpStatus.OK,
+                "Lấy chi tiết sản phẩm thành công",
                 true,
                 null
         );

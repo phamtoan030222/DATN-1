@@ -2,11 +2,15 @@ package com.sd20201.datn.core.admin.discounts.discountDetail.controller;
 
 import com.sd20201.datn.core.admin.discounts.discountDetail.model.request.AdCreateDiscountMultiRequest;
 import com.sd20201.datn.core.admin.discounts.discountDetail.model.request.AdCreateDiscountRequest;
+import com.sd20201.datn.core.admin.discounts.discountDetail.model.respone.AdProductDetailResponse;
+import com.sd20201.datn.core.admin.discounts.discountDetail.model.respone.AdProductRespone;
 import com.sd20201.datn.core.admin.discounts.discountDetail.service.AdDiscountDetailService;
+import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
@@ -19,11 +23,20 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_DISCOUNT_DETAIL)
 @RequiredArgsConstructor
 public class AdDiscountDetailController {
     private final AdDiscountDetailService adDiscountDetailService;
+
+    @GetMapping
+    public ResponseObject<Page<AdProductRespone>> getAllProducts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return adDiscountDetailService.getAllProducts(PageRequest.of(page, size));
+    }
 
     @GetMapping("/applied-products")
     public ResponseEntity<?> getAppliedProductsByDiscount(
@@ -66,6 +79,12 @@ public class AdDiscountDetailController {
     @PutMapping("/updateStatus/{id}")
     public ResponseEntity<?> updateStatus(@PathVariable String id){
         return Helper.createResponseEntity(adDiscountDetailService.updateStatus(id));
+    }
+
+    @GetMapping("/{productId}")
+    public ResponseObject<List<AdProductDetailResponse>> getProductDetails(
+            @PathVariable("productId") String productId) {
+        return adDiscountDetailService.getProductDetailsByProductId(productId);
     }
 
 }

@@ -17,21 +17,6 @@
 
     <!-- Bộ lọc -->
   <NCard title="Bộ lọc" style="margin-top: 16px">
-    <div style="margin-bottom: 16px">
-      <NSpace>
-        <NButton
-          v-for="status in statusOptions" 
-          :key="status.value"
-          :type="quickFilter === status.value ? 'primary' : 'default'"
-          @click="handleQuickFilterChange(status.value)"
-        >
-          {{ status.label }} ({{ getBadgeCount(status.value) }})
-        </NButton>
-      </NSpace>
-    </div>
-
-    <div style="border-top: 1px solid #f0f0f0; padding-top: 16px; margin-top: 16px">
-      <div style="margin-bottom: 16px; font-weight: 500">Bộ lọc nâng cao</div>  
       <NForm>
         <NGrid cols="3" x-gap="16" y-gap="16">
           <NGridItem>
@@ -55,7 +40,22 @@
               />
             </NFormItem>
           </NGridItem>
-          
+                    <NGridItem>
+  <NFormItem label="Trạng thái">
+    <NSelect 
+      v-model:value="searchForm.discountStatus"
+      placeholder="Chọn trạng thái"
+      style="width: 150px;"
+      clearable
+      @update:value="handleAdvancedSearch"
+      :options="[
+        { label: `Đang diễn ra (${statistics.active})`, value: 0 },
+        { label: `Sắp diễn ra (${statistics.upcoming})`, value: 1 }, 
+        { label: `Đã hết hạn (${statistics.expired})`, value: 3 }
+      ]"
+    />
+      </NFormItem>
+      </NGridItem>
           <NGridItem>
             <NFormItem label="Phần trăm giảm giá (%)">
               <NSpace>
@@ -65,7 +65,7 @@
                   :min="0" 
                   :max="100"
                   @update:value="handleAdvancedSearch"
-                  style="width: 100px"
+                  style="width: 160px"
                 />
                 <span>đến</span>
                 <NInputNumber 
@@ -74,37 +74,32 @@
                   :min="0" 
                   :max="100"
                   @update:value="handleAdvancedSearch"
-                  style="width: 100px"
+                  style="width: 160px"
                 />
               </NSpace>
             </NFormItem>
           </NGridItem>
           <NGridItem>
-            <NFormItem label="Ngày bắt đầu">
+            <NFormItem label="Thời gian áp dụng ">
               <input
                 type="date"
                 v-model="searchForm.startDate"
                 @change="handleAdvancedSearch"
                 placeholder="Chọn ngày bắt đầu"
-                style="width: 100%; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px;"
+                style="width: 175px; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px; margin-right: 5px ;"
               />
-            </NFormItem>
-          </NGridItem>
-
-          <NGridItem>
-            <NFormItem label="Ngày kết thúc">
-              <input
+              <span> đến </span>
+                <input
                 type="date"
                 v-model="searchForm.endDate"
                 @change="handleAdvancedSearch"
                 placeholder="Chọn ngày kết thúc"
-                style="width: 100%; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px;"
+                style="width: 175px; padding: 6px; border: 1px solid #d9d9d9; border-radius: 4px; margin-left: 5px;"
               />
             </NFormItem>
           </NGridItem>
           <NGridItem>
-            <br> 
-            <NButton @click="handleReset" style="margin-top: 4px;">
+            <NButton @click="handleReset" style="margin-top: 28px;">
             <template #icon>
               <NIcon>
                 <Icon :icon="'carbon:rotate'" />
@@ -114,27 +109,7 @@
           </NGridItem>
         </NGrid>
       </NForm>
-    </div>
   </NCard>
-
-    <NCard v-if="activeFilters.length > 0" style="margin-top: 16px">
-      <template #header>
-        <NSpace justify="space-between">
-          <span>Bộ lọc đang áp dụng</span>
-          <NButton text @click="clearAllFilters">Xóa tất cả</NButton>
-        </NSpace>
-      </template>
-      <NSpace>
-        <NTag 
-          v-for="filter in activeFilters" 
-          :key="filter.key"
-          closable
-          @close="removeFilter(filter.key)"
-        >
-          {{ filter.label }}
-        </NTag>
-      </NSpace>
-    </NCard>
 
     <!-- Main Table -->
     <NCard title="Danh sách đợt giảm giá" style="margin-top: 16px">
@@ -157,7 +132,7 @@
             type="primary"
             circle
             title="Thêm mới"
-            @click="openModal('add')"
+            @click="navigateToAddPage"
           >
             <NIcon size="24">
               <Icon :icon="'carbon:add'" />
@@ -174,20 +149,6 @@
               <Icon :icon="'carbon:rotate'" />
             </NIcon>  
           </NButton>
-
-          <NPopconfirm @positive-click="handleDeleteSelected"
-          positive-text="Xóa"
-          negative-text="Hủy bỏ"
-          >
-            <template #trigger>
-              <NButton type="error" secondary circle title="Xóa hàng loạt">
-                <NIcon size="24">
-                  <Icon :icon="'icon-park-outline:delete'" />
-                </NIcon>
-              </NButton>
-            </template>
-            Xác nhận xóa tất cả đợt giảm giá đã chọn?
-          </NPopconfirm>
 
           <NPopconfirm @positive-click="handleSendMailSelected"
           positive-text="Xác nhận"
@@ -226,294 +187,6 @@
       </div>
     </NCard>
 
-    <!-- Modal thêm/sửa với tab quản lý sản phẩm -->
-    <NModal
-      v-model:show="showModal"
-      preset="card"
-      :style="`width: ${modalWidth}; max-width: 95vw`"
-      :title="modalMode === 'add' ? 'Thêm đợt giảm giá' : 'Chỉnh sửa đợt giảm giá'"
-    >
-      <NTabs v-model:value="modalTab" type="line" animated>
-        <NTabPane name="info" tab="Thông tin cơ bản">
-          <NForm ref="formRef">
-            <NGrid cols="2" x-gap="12" y-gap="16">
-              <NGridItem>
-                <NFormItem label="Tên đợt giảm giá" required>
-                  <NInput 
-                    v-model:value="formData.discountName" 
-                    placeholder="Nhập tên đợt giảm giá"
-                    maxlength="100"
-                    show-count
-                  />
-                </NFormItem>
-              </NGridItem>
-              <NGridItem>
-                <NFormItem label="Mã giảm giá" required>
-                  <NInput 
-                    v-model:value="formData.discountCode" 
-                    placeholder="Nhập mã giảm giá"
-                    maxlength="50"
-                  >
-                    <template #suffix>
-                      <NButton text @click="generateCode">
-                        <NIcon size="16">
-                          <Icon :icon="'carbon:rotate'" />
-                        </NIcon>
-                      </NButton>
-                    </template>
-                  </NInput>
-                </NFormItem>
-              </NGridItem>
-              <NGridItem>
-                <NFormItem label="Ngày bắt đầu" required>
-                  <NDatePicker
-                    v-model:value="formData.startDate"
-                    type="datetime"
-                    placeholder="Chọn ngày bắt đầu"
-                    style="width: 100%"
-                  />
-                </NFormItem>
-              </NGridItem>
-              <NGridItem >
-                <NFormItem label="Ngày kết thúc" required>
-                  <NDatePicker
-                    v-model:value="formData.endDate"
-                    type="datetime"
-                    placeholder="Chọn ngày kết thúc"
-                    style="width: 100%"
-                    :is-date-disabled="(ts: number) => ts <= formData.startDate"
-                  />
-                </NFormItem>
-              </NGridItem>
-              <NGridItem span="2" v-if="hasTimeConflict">
-                <NAlert type="warning" style="margin-top: 8px">
-                  Khoảng thời gian này xung đột với đợt giảm giá khác đã tồn tại
-                </NAlert>
-              </NGridItem>
-              <NGridItem>
-  <NFormItem 
-    label="Phần trăm giảm giá (%)" 
-    required
-    :validation-status="formErrors.percentage ? 'error' : undefined"
-    :feedback="formErrors.percentage"
-  >
-    <NInputNumber
-      v-model:value="formData.percentage"
-      :min="1"
-      :max="100"
-      :precision="0"
-      placeholder="Nhập % giảm giá"
-      style="width: 100%"
-      @keydown="preventNonNumericInput"
-      @update:value="validatePercentageRealtime"
-      @blur="validatePercentageOnBlur"
-    />
-  </NFormItem>
-              </NGridItem>
-              <NGridItem span="2">
-                <NFormItem label="Mô tả">
-                  <NInput
-                    v-model:value="formData.description"
-                    type="textarea"
-                    placeholder="Nhập mô tả cho đợt giảm giá"
-                    maxlength="500"
-                    show-count
-                    :rows="3"
-                  />
-                </NFormItem>
-              </NGridItem>
-            </NGrid>
-          </NForm>
-        </NTabPane>
-
-        <!-- Tab quản lý sản phẩm (chỉ hiện khi edit hoặc sau khi tạo thành công) -->
-        <NTabPane 
-          v-if="modalMode === 'edit' || (modalMode === 'add' && modalRow?.id)" 
-          name="products" 
-          tab="Quản lý sản phẩm"
-        >
-          <NTabs v-model:value="productTab" type="segment" size="small">
-            <NTabPane name="applied" tab="Đã áp dụng">
-              <div style="margin-bottom: 16px">
-                <NSpace justify="space-between">
-                  <NInput
-                    v-model:value="appliedSearchKeyword"
-                    placeholder="Tìm sản phẩm đã áp dụng..."
-                    clearable
-                    style="width: 300px"
-                    @input="debouncedSearchApplied"
-                  >
-                    <template #prefix>
-                      <NIcon size="18">
-                        <Icon icon="carbon:search" />
-                      </NIcon>
-                    </template>
-                  </NInput>
-                  <NSpace>
-                    <NTag type="info" size="small">
-                      <template #icon>
-                        <NIcon>
-                          <Icon icon="carbon:checkmark-filled" />
-                        </NIcon>
-                      </template>
-                      {{ appliedTotal }} sản phẩm
-                    </NTag>
-                    <NButton
-                    v-if="appliedSelectedKeys.length > 0"
-                    type="error"
-                    secondary
-                    size="small"
-                    @click="handleRemoveProducts"
-                    :loading="removingProducts"
-                    >
-                  <template #icon>
-                  <NIcon><Icon icon="carbon:trash-can" /></NIcon>
-                  </template>
-                  Gỡ bỏ ({{ appliedSelectedKeys.length }})
-                </NButton>
-                  </NSpace>
-                </NSpace>
-              </div>
-
-              <NDataTable
-                :columns="appliedColumns"
-                :data="appliedProducts"
-                :loading="loadingApplied"
-                :row-key="(row) => row.id"
-                v-model:checked-row-keys="appliedSelectedKeys"
-                :pagination="false"
-                size="small"
-                max-height="400px"
-                :scroll-x="800"
-              />
-
-              <div class="flex justify-center mt-4" v-if="appliedTotal > appliedPageSize">
-                <NPagination
-                  :page="appliedCurrentPage"
-                  :page-size="appliedPageSize"
-                  :page-count="Math.ceil(appliedTotal / appliedPageSize)"
-                  @update:page="handleAppliedPageChange"
-                  size="small"
-                />
-              </div>
-            </NTabPane>
-
-            <NTabPane name="unapplied" tab="Chưa áp dụng">
-              <div style="margin-bottom: 16px">
-                <NSpace justify="space-between">
-                  <NInput
-                    v-model:value="unappliedSearchKeyword"
-                    placeholder="Tìm sản phẩm chưa áp dụng..."
-                    clearable
-                    style="width: 300px"
-                    @input="debouncedSearchUnapplied"
-                  >
-                    <template #prefix>
-                      <NIcon size="18">
-                        <Icon icon="carbon:search" />
-                      </NIcon>
-                    </template>
-                  </NInput>
-                  <NSpace>
-                    <NTag type="warning" size="small">
-                      <template #icon>
-                        <NIcon>
-                          <Icon icon="carbon:warning" />
-                        </NIcon>
-                      </template>
-                      {{ unappliedTotal }} sản phẩm
-                    </NTag>
-                    <NButton
-                      v-if="unappliedSelectedKeys.length > 0"
-                      type="primary"
-                      size="small"
-                      @click="handleApplySelectedProducts"
-                      :loading="applyingProducts"
-                    >
-                      <template #icon>
-                        <NIcon>
-                          <Icon icon="carbon:checkmark" />
-                        </NIcon>
-                      </template>
-                      Áp dụng ({{ unappliedSelectedKeys.length }})
-                    </NButton>
-                  </NSpace>
-                </NSpace>
-              </div>
-
-
-              <NDataTable
-                :columns="unappliedColumns"
-                :data="unappliedProducts"
-                :loading="loadingUnapplied"
-                :row-key="(row) => row.id"
-                v-model:checked-row-keys="unappliedSelectedKeys"
-                :pagination="false"
-                size="small"
-                max-height="400px"
-                :scroll-x="900"
-              />
-
-              <div class="flex justify-center mt-4" v-if="unappliedTotal > unappliedPageSize">
-                <NPagination
-                  :page="unappliedCurrentPage"
-                  :page-size="unappliedPageSize"
-                  :page-count="Math.ceil(unappliedTotal / unappliedPageSize)"
-                  @update:page="handleUnappliedPageChange"
-                  size="small"
-                />
-              </div>
-            </NTabPane>
-          </NTabs>
-        </NTabPane>
-      </NTabs>
-
-      <template #footer>
-        <NSpace justify="space-between">
-          <!-- Left side - Tab navigation buttons -->
-          <NSpace v-if="modalMode === 'edit' || (modalMode === 'add' && modalRow?.id)">
-            <NButton 
-              v-if="modalTab === 'products'"
-              @click="modalTab = 'info'"
-              secondary
-            >
-              <template #icon>
-                <NIcon>
-                  <Icon icon="carbon:arrow-left" />
-                </NIcon>
-              </template>
-              Quay lại thông tin
-            </NButton>
-            <NButton 
-              v-if="modalTab === 'info' && modalRow?.id"
-              @click="() => { modalTab = 'products'; fetchAppliedProducts(); fetchUnappliedProducts(); }"
-              secondary
-              type="info"
-            >
-              Quản lý sản phẩm
-              <template #icon>
-                <NIcon>
-                  <Icon icon="carbon:arrow-right" />
-                </NIcon>
-              </template>
-            </NButton>
-          </NSpace>
-          <div v-else></div>
-
-          <!-- Right side - Action buttons -->
-          <NSpace justify="end">
-            <NButton @click="closeModal">Hủy</NButton>
-            <NButton 
-              v-if="modalTab === 'info'"
-              type="primary" 
-              @click="saveDiscount"
-            >
-              {{ modalMode === 'add' ? 'Thêm' : 'Cập nhật' }}
-            </NButton>
-          </NSpace>
-        </NSpace>
-      </template>
-    </NModal>
   </template>
 
   <style scoped>
@@ -549,46 +222,45 @@
     NSpace,
     NCard,
     NDataTable,
-    NModal,
     NForm,
     NFormItem,
     NInput,
+    NSelect,
     NInputNumber,
     NGrid,
     NGridItem,
     NPopconfirm,
     NTag,
-    NDatePicker,
     NPagination,
     NIcon,
-    NTabs,
-    NTabPane,
     useMessage,
-    FormInst,
     DataTableColumns
   } from "naive-ui";
   import { Icon } from "@iconify/vue";
   import {
     getAllDiscounts,
-    createDiscount,
-    updateDiscount,
-    deleteDiscount,
-    deactivateDiscount,
-    startDiscount,
     sendEmail,
     getAppliedProducts,
     getUnappliedProducts,
-    applySingleProductToDiscount,
-    removeProductsFromDiscount,
-    type ApplyDiscountRequest,
+
     type DiscountResponse,
     type ParamsGetDiscount,
     type CreateDiscountRequest,
     type ProductDetailResponse,
     type AppliedProductResponse,
+    deleteDiscount,
   } from '@/service/api/admin/discount/discountApi'
 
+import { useRouter } from 'vue-router'
+const router = useRouter()
 
+function navigateToAddPage() {
+  router.push('/discounts/campaign/add')
+}
+
+function navigateToEditPage(row: DiscountResponse) {
+  router.push(`/discounts/campaign/edit/${row.id}`)
+}
   const message = useMessage();
   const tableData = ref<DiscountResponse[]>([]);
   const total = ref(0);
@@ -597,89 +269,8 @@
   const loading = ref(false);
   const searchKeyword = ref("");
   const quickFilter = ref('all');
-  const formErrors = reactive({
-    percentage: ''
-  });
   const checkedRowKeys = ref<(string | number)[]>([]);
 
-  const validatePercentageRealtime = (value: number | null) => {
-    if (formErrors.percentage) {
-      formErrors.percentage = '';
-    }
-    
-    if (value === null || value === undefined) {
-      return;
-    }
-    
-    setTimeout(() => {
-      validatePercentageValue(value);
-    }, 100);
-  };
-
-  const validatePercentageOnBlur = () => {
-    validatePercentageValue(formData.percentage);
-  };
-
-  const validatePercentageValue = (value: number | null) => {
-    formErrors.percentage = '';
-    
-    if (value === null || value === undefined) {
-      formErrors.percentage = 'Vui lòng nhập phần trăm giảm giá';
-      return false;
-    }
-    
-    if (isNaN(Number(value))) {
-      formErrors.percentage = 'Phần trăm giảm giá phải là số hợp lệ';
-      return false;
-    }
-    
-    if (value <= 0) {
-      formErrors.percentage = 'Phần trăm giảm giá phải lớn hơn 0';
-      return false;
-    }
-    
-    if (value > 100) {
-      formErrors.percentage = 'Phần trăm giảm giá không được vượt quá 100%';
-      return false;
-    }
-    
-    const decimalPlaces = (value.toString().split('.')[1] || '').length;
-    if (decimalPlaces > 2) {
-      formErrors.percentage = 'Phần trăm giảm giá chỉ được có tối đa 2 chữ số thập phân';
-      return false;
-    }
-    
-    return true;
-  };
-
-  const preventNonNumericInput = (event: KeyboardEvent) => {
-    const allowedKeys = [
-      'Backspace', 'Delete', 'Tab', 'Escape', 'Enter',
-      'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown',
-      'Home', 'End'
-    ];
-    
-    if (allowedKeys.includes(event.key)) {
-      return;
-    }
-    
-    if (event.ctrlKey && ['a', 'c', 'v', 'x'].includes(event.key.toLowerCase())) {
-      return;
-    }
-    
-    if (!/[0-9.]/.test(event.key)) {
-      event.preventDefault();
-      formErrors.percentage = 'Chỉ được nhập số và dấu thập phân';
-      return;
-    }
-    
-    const currentValue = (event.target as HTMLInputElement).value;
-    if (event.key === '.' && currentValue.includes('.')) {
-      event.preventDefault();
-      formErrors.percentage = 'Chỉ được nhập một dấu thập phân';
-      return;
-    }
-  };
 
 
   // ================= FILTER STATE =================
@@ -700,89 +291,9 @@
     total: 0
   });
 
-  const statusOptions = [
-    { value: 'all', label: 'Tất cả' },
-    { value: 'active', label: 'Đang diễn ra' },
-    { value: 'upcoming', label: 'Sắp diễn ra' },
-    { value: 'expired', label: 'Đã hết hạn' }
-  ];
-
-  // VAlidate nè
-  const isDiscountExpired = (discount: DiscountResponse) => {
-    const now = Date.now()
-    return discount.endTime && now > discount.endTime
-  }
-
-  const isDiscountActive = (discount: DiscountResponse) => {
-    const now = Date.now()
-    return discount.startTime && discount.endTime && 
-          now >= discount.startTime && now <= discount.endTime
-  }
-
-
-  const modalWidth = computed(() => {
-    if (modalTab.value === 'info') {
-      return '500px'
-    } else if (modalTab.value === 'products') {
-      return '1200px'
-    }
-    return '500px' 
-  })
-
-  const hasActiveDiscount = () => {
-    return tableData.value.some(discount => isDiscountActive(discount))
-  }
-
-  // ================= có pu tờ =================
-  const activeFilters = computed(() => {
-    const filters: Array<{ key: string; label: string }> = []
-
-    if (searchForm.q) {
-      filters.push({ key: 'q', label: `Tên: "${searchForm.q}"` })
-    }
-
-    if (searchForm.discountCode) {
-      filters.push({ key: 'discountCode', label: `Mã: "${searchForm.discountCode}"` })
-    }
-
-    if (searchForm.percentageRange && searchForm.percentageRange[0] !== null && searchForm.percentageRange[1] !== null) {
-      filters.push({
-        key: 'percentageRange',
-        label: `Phần trăm: ${searchForm.percentageRange[0]}% - ${searchForm.percentageRange[1]}%`
-      })
-    }
-
-    if (searchForm.startDate) {
-      filters.push({
-        key: 'startDate',
-        label: `Từ ngày: ${formatDate(searchForm.startDate)}`
-      })
-    }
-
-    if (searchForm.endDate) {
-      filters.push({
-        key: 'endDate',
-        label: `Đến ngày: ${formatDate(searchForm.endDate)}`
-      })
-    }
-
-    if (searchForm.discountStatus !== undefined) {
-      const statusMap: { [key: number]: string } = {
-        0: 'Đang diễn ra',
-        1: 'Sắp diễn ra',
-        3: 'Đã hết hạn'
-      }
-      filters.push({ key: 'discountStatus', label: `Trạng thái: ${statusMap[searchForm.discountStatus]}` })
-    }
-
-    return filters
-  });
 
   // ================= mó đồ =================
-  const showModal = ref(false);
-  const modalMode = ref<"add" | "edit">("add");
   const modalRow = ref<DiscountResponse | null>(null);
-  const formRef = ref<FormInst>();
   const modalTab = ref('info'); 
   const productTab = ref('applied'); 
 
@@ -808,13 +319,6 @@
   const loadingUnapplied = ref(false)
   const appliedSearchKeyword = ref('')
   const unappliedSearchKeyword = ref('')
-  const appliedSelectedKeys = ref<(string | number)[]>([])
-  const unappliedSelectedKeys = ref<(string | number)[]>([])
-  const applyingProducts = ref(false)
-  const removingProducts = ref(false)
-
-  let appliedSearchTimeout: ReturnType<typeof setTimeout>
-  let unappliedSearchTimeout: ReturnType<typeof setTimeout>
 
   // ================= Chuyển đổi time =================
   const formatDateTime = (timestamp: number) => {
@@ -828,12 +332,6 @@
     })
   }
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', {
-      style: 'currency',
-      currency: 'VND'
-    }).format(price)
-  }
 
   const getStatus = (item: DiscountResponse) => {
     const now = Date.now()
@@ -854,15 +352,6 @@
     }
   }
 
-  const generateCode = () => {
-    const timestamp = Date.now().toString().slice(-6)
-    const random = Math.random().toString(36).substring(2, 6).toUpperCase()
-    formData.discountCode = `PROMO${timestamp}${random}`
-  }
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('vi-VN')
-  }
 
   // ================= chức năng của bộ lọc =================
   const calculateStatistics = (data: DiscountResponse[]) => {
@@ -880,68 +369,57 @@
     ).length
   }
 
-  const getBadgeCount = (status: string) => {
-    switch (status) {
-      case 'all': return statistics.total
-      case 'active': return statistics.active
-      case 'upcoming': return statistics.upcoming
-      case 'expired': return statistics.expired
-      default: return 0
-    }
+
+const filteredTableData = computed(() => {
+  let filtered = tableData.value;
+  
+  if (searchForm.discountStatus !== undefined) {
+    filtered = filtered.filter(item => {
+      const status = getStatusValue(item);
+      return status === searchForm.discountStatus;
+    });
   }
-
-
-  const handleQuickFilterChange = (status: string) => {
-    quickFilter.value = status
-    currentPage.value = 1
-    fetchDiscounts() 
+  
+  if (searchForm.q) {
+    filtered = filtered.filter(item => 
+      item.discountName.toLowerCase().includes(searchForm.q.toLowerCase())
+    );
   }
+  
+  if (searchForm.discountCode) {
+    filtered = filtered.filter(item => 
+      item.discountCode.toLowerCase().includes(searchForm.discountCode.toLowerCase())
+    );
+  }
+  
+  if (searchForm.percentageRange[0] !== null && searchForm.percentageRange[1] !== null) {
+    filtered = filtered.filter(item => 
+      item.percentage >= searchForm.percentageRange[0]! && 
+      item.percentage <= searchForm.percentageRange[1]!
+    );
+  }
+  
+  if (searchForm.startDate) {
+    const startTime = new Date(searchForm.startDate).getTime();
+    filtered = filtered.filter(item => item.startTime && item.startTime >= startTime);
+  }
+  
+  if (searchForm.endDate) {
+    const endTime = new Date(searchForm.endDate).getTime();
+    filtered = filtered.filter(item => item.endTime && item.endTime <= endTime);
+  }
+  
+  return filtered;
+});
 
-  const filteredTableData = computed(() => {
-    let filtered = tableData.value;
-    
-    if (quickFilter.value !== 'all') {
-      const now = Date.now();
-      filtered = filtered.filter(item => {
-        switch (quickFilter.value) {
-          case 'active':
-            return item.startTime && item.endTime && now >= item.startTime && now <= item.endTime;
-          case 'upcoming':
-            return item.startTime && now < item.startTime;
-          case 'expired':
-            return item.endTime && now > item.endTime;
-          default:
-            return true;
-        }
-      });
-    }
-    
-    if (searchForm.discountCode) {
-      filtered = filtered.filter(item => 
-        item.discountCode.toLowerCase().includes(searchForm.discountCode.toLowerCase())
-      );
-    }
-    
-    if (searchForm.percentageRange[0] !== null && searchForm.percentageRange[1] !== null) {
-      filtered = filtered.filter(item => 
-        item.percentage >= searchForm.percentageRange[0]! && 
-        item.percentage <= searchForm.percentageRange[1]!
-      );
-    }
-    
-    if (searchForm.startDate) {
-      const startTime = new Date(searchForm.startDate).getTime();
-      filtered = filtered.filter(item => item.startTime && item.startTime >= startTime);
-    }
-    
-    if (searchForm.endDate) {
-      const endTime = new Date(searchForm.endDate).getTime();
-      filtered = filtered.filter(item => item.endTime && item.endTime <= endTime);
-    }
-    
-    return filtered;
-  });
-
+const getStatusValue = (item: DiscountResponse): number => {
+  const now = Date.now()
+  if (item.startTime && item.endTime) {
+    if (now >= item.startTime && now <= item.endTime) return 0 
+    if (now < item.startTime) return 1 
+  }
+  return 3
+}
 
   const paginatedData = computed(() => {
     const start = (currentPage.value - 1) * pageSize.value
@@ -952,35 +430,6 @@
   const totalFilteredPages = computed(() => {
     return Math.ceil(filteredTableData.value.length / pageSize.value)
   })  
-
-  const removeFilter = (filterKey: string) => {
-    switch (filterKey) {
-      case 'q':
-        searchForm.q = ''
-        break
-      case 'discountCode':
-        searchForm.discountCode = ''
-        break
-      case 'discountStatus':
-        searchForm.discountStatus = undefined
-        quickFilter.value = 'all'
-        break
-      case 'percentageRange':
-        searchForm.percentageRange = [null, null]
-        break
-      case 'startDate':
-        searchForm.startDate = ''
-        break
-      case 'endDate':
-        searchForm.endDate = ''
-        break
-    }
-    handleAdvancedSearch()
-  }
-
-  const clearAllFilters = () => {
-    handleReset()
-  }
 
   const handleReset = () => {
     searchForm.q = ''
@@ -1010,21 +459,6 @@
   }
 
 
-  const debouncedSearchApplied = () => {
-    clearTimeout(appliedSearchTimeout)
-    appliedSearchTimeout = setTimeout(() => {
-      appliedCurrentPage.value = 1
-      fetchAppliedProducts()
-    }, 500)
-  }
-
-  const debouncedSearchUnapplied = () => {
-    clearTimeout(unappliedSearchTimeout)
-    unappliedSearchTimeout = setTimeout(() => {
-      unappliedCurrentPage.value = 1
-      fetchUnappliedProducts()
-    }, 500)
-  }
 
   const fetchAppliedProducts = async () => {
     if (!modalRow.value?.id) return
@@ -1094,118 +528,7 @@
     }
   }
 
-  const handleAppliedPageChange = (page: number) => {
-    appliedCurrentPage.value = page
-    fetchAppliedProducts()
-  }
 
-  const handleUnappliedPageChange = (page: number) => {
-    unappliedCurrentPage.value = page
-    fetchUnappliedProducts()
-  }
-
-  const handleApplySelectedProducts = async () => { 
-    if (!modalRow.value?.id || unappliedSelectedKeys.value.length === 0) {
-      message.warning('Chưa chọn sản phẩm nào để áp dụng')
-      return
-    }
-    
-  if (isDiscountExpired(modalRow.value)) {
-    message.error('Không thể áp dụng sản phẩm cho đợt giảm giá đã hết hạn')
-    return
-  }
-
-    applyingProducts.value = true
-    let successCount = 0
-    let failCount = 0
-
-    try {
-      console.log('Bắt đầu áp dụng sản phẩm...')
-      console.log('Discount ID:', modalRow.value.id)
-      console.log('Selected products:', unappliedSelectedKeys.value)
-      console.log('Discount percentage:', modalRow.value.percentage)
-
-      const discountPercentage = modalRow.value.percentage || formData.percentage
-      if (!discountPercentage || discountPercentage <= 0) {
-        message.error('Phần trăm giảm giá không hợp lệ')
-        return
-      }
-      for (const productId of unappliedSelectedKeys.value) {
-        try {
-          const product = unappliedProducts.value.find(p => p.id === productId)
-          if (!product) {
-            console.error(`Không tìm thấy sản phẩm với ID: ${productId}`)
-            failCount++
-            continue
-          }
-          
-          const discountedPrice = Math.round(product.price * (100 - discountPercentage) / 100)
-          
-          const requestData: ApplyDiscountRequest = {
-            productDetailIds: [productId.toString()],
-            discountId: modalRow.value.id,
-            originalPrice: product.price,
-            salePrice: discountedPrice,
-            description: 'Áp dụng sản phẩm'
-          }
-
-          console.log(`Áp dụng sản phẩm ${product.productCode}:`, requestData)
-          
-          await applySingleProductToDiscount(requestData)
-          successCount++
-          
-          console.log(`Thành công: ${product.productCode}`)
-          
-        } catch (error) {
-          console.error(`Lỗi khi áp dụng sản phẩm ${productId}:`, error)
-          failCount++
-        }
-      }
-      if (successCount > 0) {
-        message.success(`Đã áp dụng thành công ${successCount} sản phẩm`)
-      }
-      if (failCount > 0) {
-        message.warning(`${failCount} sản phẩm không thể áp dụng`)
-      }
-      
-      unappliedSelectedKeys.value = []
-      
-      await Promise.all([fetchAppliedProducts(), fetchUnappliedProducts()])
-      
-    } catch (error) {
-      console.error('Lỗi tổng quát:', error)
-      message.error('Có lỗi xảy ra trong quá trình áp dụng sản phẩm')
-    } finally {
-      applyingProducts.value = false
-    }
-  }
-
-
-  const handleRemoveProducts = async () => {
-    if (appliedSelectedKeys.value.length === 0) {
-      message.warning('Chưa chọn sản phẩm nào');
-      return;
-    }
-    if (modalRow.value && isDiscountExpired(modalRow.value)) {
-    message.error('Không thể gỡ bỏ sản phẩm khỏi đợt giảm giá đã hết hạn')
-    return
-  } 
-    
-    removingProducts.value = true;
-    try {
-      for (const productDetailDiscountId of appliedSelectedKeys.value) {
-        await removeProductsFromDiscount(productDetailDiscountId.toString());
-      }
-      
-      message.success(`Đã cập nhật trạng thái ${appliedSelectedKeys.value.length} sản phẩm`);
-      appliedSelectedKeys.value = [];
-      await Promise.all([fetchAppliedProducts(), fetchUnappliedProducts()])
-    } catch {
-      message.error('Có lỗi xảy ra khi cập nhật trạng thái');
-    } finally {
-      removingProducts.value = false;
-    }
-  };
 
   // ================= gọi api =================
   async function fetchDiscounts() {
@@ -1240,164 +563,6 @@
 
   onMounted(fetchDiscounts);
 
-  function openModal(mode: "add" | "edit", row?: DiscountResponse) {
-    modalMode.value = mode;
-    modalTab.value = 'info'; 
-    productTab.value = 'applied';
-
-
-    if (mode === "edit" && row) {
-      modalRow.value = row;
-      formData.discountName = row.discountName;
-      formData.discountCode = row.discountCode;
-      formData.percentage = row.percentage;
-      formData.startDate = row.startTime || Date.now();
-      formData.endDate = row.endTime || Date.now() + 24 * 60 * 60 * 1000;
-      formData.description = row.description || "";
-    } else {
-      modalRow.value = null;
-      formData.discountName = "";
-      formData.discountCode = "";
-      formData.percentage = 1;
-      formData.startDate = Date.now();
-      formData.endDate = Date.now() + 24 * 60 * 60 * 1000;
-      formData.description = "";
-      generateCode();
-    }
-    showModal.value = true;
-  }
-
-  function closeModal() {
-    showModal.value = false;
-    modalTab.value = 'info';
-    productTab.value = 'applied';
-    appliedProducts.value = []
-    unappliedProducts.value = []
-    appliedSelectedKeys.value = []
-    unappliedSelectedKeys.value = []
-    appliedSearchKeyword.value = ''
-    unappliedSearchKeyword.value = ''
-    formErrors.percentage = '';
-    appliedCurrentPage.value = 1
-    unappliedCurrentPage.value = 1
-  }
-
-  async function saveDiscount() {
-    if (!formData.discountName || !formData.discountCode || !formData.percentage) {
-      message.warning("Vui lòng nhập đầy đủ thông tin bắt buộc");
-      return;
-    }
-
-  const now = Date.now();
-    if (formData.startDate <= now) {
-      message.warning("Thời gian bắt đầu phải lớn hơn thời gian hiện tại");
-      return;
-    }
-
-    if (formData.startDate >= formData.endDate) {
-      message.warning("Thời gian bắt đầu phải nhỏ hơn thời gian kết thúc");
-      return;
-    }
-    const isPercentageValid = validatePercentageValue(formData.percentage);
-    if (!isPercentageValid) {
-      message.warning("Vui lòng kiểm tra lại phần trăm giảm giá");
-      return;
-    }
-
-  if (!formData.percentage || formData.percentage <= 0) {
-    message.warning("Phần trăm giảm giá phải lớn hơn 0");
-    return;
-  }
-
-  if (formData.percentage > 100) {
-    message.warning("Phần trăm giảm giá không được vượt quá 100%");
-    return;
-  }
-
-  if (isNaN(Number(formData.percentage))) {
-    message.warning("Phần trăm giảm giá phải là số");
-    return;
-  }
-
-  const percentageStr = String(formData.percentage);
-  if (!/^[0-9]*\.?[0-9]+$/.test(percentageStr)) {
-    message.warning("Phần trăm giảm giá chỉ được chứa số và dấu thập phân");
-    return;
-  }
-
-
-    const hasConflict = tableData.value.some(discount => {
-      if (modalMode.value === 'edit' && modalRow.value && discount.id === modalRow.value.id) {
-        return false;
-      } 
-      const existingStart = discount.startTime || 0;
-      const existingEnd = discount.endTime || 0;
-      return (
-        (formData.startDate >= existingStart && formData.startDate <= existingEnd) ||
-        (formData.endDate >= existingStart && formData.endDate <= existingEnd) ||
-        (formData.startDate <= existingStart && formData.endDate >= existingEnd)
-      );
-    });
-
-    if (hasConflict) {
-      message.error("Khoảng thời gian này đã có đợt giảm giá khác. Vui lòng chọn thời gian khác.");
-      return;
-    }
-
-    try {
-      if (modalMode.value === "add") {
-        const result = await createDiscount(formData);
-        message.success("Thêm đợt giảm giá thành công");
-        closeModal();
-        // if (result?.data?.id) {
-        //   modalRow.value = { 
-        //     ...formData, 
-        //     id: result.data.id,
-        //     startTime: formData.startDate,
-        //     endTime: formData.endDate,
-        //     createdDate: Date.now()
-        //   } as DiscountResponse;
-        //   modalTab.value = 'products';
-        //   message.info('Bạn có thể quản lý sản phẩm áp dụng discount ở tab bên cạnh')
-        // }
-      } else if (modalMode.value === "edit" && modalRow.value) {
-        await updateDiscount(modalRow.value.id, formData);
-        message.success("Cập nhật đợt giảm giá thành công");
-        modalRow.value = { ...modalRow.value, ...formData };
-      }
-      fetchDiscounts();
-    } catch (e: any) {
-      message.error(e?.message || "Có lỗi xảy ra khi lưu đợt giảm giá");
-    }
-  }
-
-  async function handleDelete(id: string) {
-    try {
-      await deleteDiscount(id);
-      message.success("Xóa đợt giảm giá thành công");
-      fetchDiscounts();
-    } catch {
-      message.error("Xóa thất bại");
-    }
-  }
-
-  async function handleDeleteSelected() {
-    if (checkedRowKeys.value.length === 0) {
-      message.warning("Chưa chọn đợt giảm giá nào");
-      return;
-    }
-    try {
-      await Promise.all(
-        checkedRowKeys.value.map((id) => deleteDiscount(id.toString()))
-      );
-      message.success("Đã xóa các đợt giảm giá đã chọn");
-      checkedRowKeys.value = [];
-      fetchDiscounts();
-    } catch {
-      message.error("Xóa hàng loạt thất bại");
-    }
-  }
-
 
   async function handleSendMailSelected() {
     if (checkedRowKeys.value.length === 0) {
@@ -1427,209 +592,28 @@
 
 
 
-  const hasTimeConflict = computed(() => {
-    if (!formData.startDate || !formData.endDate) return false;
-    
-    return tableData.value.some(discount => {
-      if (modalMode.value === 'edit' && modalRow.value && discount.id === modalRow.value.id) {
-        return false;
-      }
-      
-      const existingStart = discount.startTime || 0;
-      const existingEnd = discount.endTime || 0;
-      
-      return (
-        (formData.startDate >= existingStart && formData.startDate <= existingEnd) ||
-        (formData.endDate >= existingStart && formData.endDate <= existingEnd) ||
-        (formData.startDate <= existingStart && formData.endDate >= existingEnd)
-      );
-    });
-  });
-
-  async function handleStart(row: DiscountResponse) {
-  const now = Date.now();
-    const hasActiveOrOverlapping = tableData.value.some(discount => {
-      if (discount.id === row.id) return false; 
-      
-      const discountStart = discount.startTime || 0;
-      const discountEnd = discount.endTime || 0;
-      const rowStart = row.startTime || 0;
-      const rowEnd = row.endTime || 0;
-    
-      if (now >= discountStart && now <= discountEnd) return true;
-
-      return (
-        (rowStart >= discountStart && rowStart <= discountEnd) ||
-        (rowEnd >= discountStart && rowEnd <= discountEnd) ||
-        (rowStart <= discountStart && rowEnd >= discountEnd)
-      );
-    });
-
-    if (hasActiveOrOverlapping) {
-      message.error('Không thể bắt đầu đợt giảm giá do xung đột thời gian với đợt giảm giá khác');
-      return;
-    }
-
-  if (hasActiveDiscount()) {
-    message.error('Không thể bắt đầu đợt giảm giá khi đang có đợt giảm giá khác đang diễn ra')
-    return
-  }
-
-    try {
-      await startDiscount(row.id);
-      message.success(`Bắt đầu sớm đợt giảm giá "${row.discountName}" thành công`);
-      fetchDiscounts();
-    } catch (e: any) {
-      message.error(e?.message || "Có lỗi xảy ra khi bắt đầu đợt giảm giá");
-    }
-  }
-
-  async function handleDeactivate(row: DiscountResponse) {
-    try {
-      await deactivateDiscount(row.id);
-      message.success(`Kết thúc sớm đợt giảm giá "${row.discountName}" thành công`);
-      fetchDiscounts();
-    } catch (e: any) {
-      message.error(e?.message || "Có lỗi xảy ra khi kết thúc đợt giảm giá");
-    }
-  }
 
   function refreshTable() {
     fetchDiscounts();
     message.success("Đã làm mới dữ liệu");
   }
 
-  const appliedColumns: DataTableColumns<AppliedProductResponse> = [
-    { type: 'selection' as const },
-    {
-      title: 'Mã sản phẩm',
-      key: 'productCode',
-      width: 120,
-      render(row) {
-        return h('strong', row.productCode)
-      }
-    },
-      {
-      title: 'Ảnh',
-      key: 'image',
-      width: 120,
-      render(row) {
-        return null
-      }
-    },
-    {
-      title: 'Tên sản phẩm',
-      key: 'productName',
-      width: 200,
-      ellipsis: { tooltip: true }
-    },
-    {
-      title: 'Phần trăm giảm',
-      key: 'percentageDiscount',
-      width: 120,
-      render(row) {
-        return h(NTag, {
-          type: 'success',
-          size: 'small'
-        }, {
-          default: () => `${row.percentageDiscount}%`
-        })
-      }
-    },
-    {
-    title: 'Giá',
-    key: 'price',
-    width: 200,
-    render(row) {
-    const salePrice = Math.round(row.price * (100 - formData.percentage) / 100)
-    return h('div', [ 
-      h('div', { style: 'text-decoration: line-through; color: #999; font-size: 12px' }, formatPrice(row.price)),
-      h('div', { style: 'color: #f56565; font-weight: 600; font-size: 14px' }, formatPrice(salePrice))
-    ])
-    }
-    },
-    {
-      title: 'Thời gian áp dụng',
-      key: 'timeRange',
-      width: 200,
-      render(row) {
-        return h('div', { style: 'font-size: 12px; line-height: 1.4' }, [
-          h('div', `Từ: ${new Date(row.startTime).toLocaleDateString('vi-VN')}`),
-          h('div', `Đến: ${new Date(row.endTime).toLocaleDateString('vi-VN')}`)
-        ])
-      }
-    }
-  ]
-
-  const unappliedColumns: DataTableColumns<ProductDetailResponse> = [
-    { type: 'selection' },
-    {
-      title: 'Mã sản phẩm',
-      key: 'productCode',
-      width: 120,
-      render(row) {
-        return h('strong', row.productCode)
-      }
-    },
-    {
-      title: 'Ảnh',
-      key: 'image',
-      width: 120,
-      render(row) {
-        return null
-      }
-    },
-    {
-      title: 'Tên sản phẩm',
-      key: 'productName',
-      width: 200,
-      ellipsis: { tooltip: true }
-    },
-    {
-      title: 'Giá gốc',
-      key: 'price',
-      width: 120,
-      render(row) {
-        return formatPrice(row.price)
-      }
-    },
-    {
-      title: 'Giá sau giảm',
-      key: 'salePrice',
-      width: 120,
-      render(row) {
-        const salePrice = Math.round(row.price * (100 - formData.percentage) / 100)
-        return h('span', { style: 'color: #f56565; font-weight: 600' }, formatPrice(salePrice))
-      }
-    },
- {
-  title: 'Cấu hình',
-  key: 'specs',
-  width: 250,
-  render(row) {
-    const specs = []
-    if (row.colorName) specs.push(`Màu: ${row.colorName}`)
-    if (row.ramName) specs.push(`RAM: ${row.ramName}`)
-    if (row.hardDriveName) specs.push(`Ổ cứng: ${row.hardDriveName}`)
-    if (row.gpuName) specs.push(`GPU: ${row.gpuName}`)
-    if (row.cpuName) specs.push(`CPU: ${row.cpuName}`)
-    
-    return h('div', { style: 'font-size: 12px; line-height: 1.4' },
-      specs.length > 0 
-        ? specs.map(spec => h('div', spec))
-        : '-'
-    )
-  }
-}
-  ]
-
 
   const columns: DataTableColumns<DiscountResponse> = [
     { type: "selection" as const },
+     {
+    title: "STT",
+    key: "stt",
+    width: 50,
+    align: "center",
+    render(_: DiscountResponse, index: number) {
+      return index + 1
+    }
+  },
     {
       title: "Mã",
       key: "discountCode",
-      width: 120,
+      width: 230,
       render(row) {
         return h('strong', row.discountCode)
       }
@@ -1637,7 +621,7 @@
     {
       title: "Tên đợt giảm giá",
       key: "discountName",
-      width: 200,
+      width: 230,
       ellipsis: {
         tooltip: true
       }
@@ -1661,7 +645,8 @@
         ])
       }
     },
-    {
+
+        {
       title: "Trạng thái",
       key: "status",
       width: 120,
@@ -1675,20 +660,9 @@
       }
     },
     {
-      title: "Mô tả",
-      key: "description",
-      width: 200,
-      ellipsis: {
-        tooltip: true
-      },
-      render(row) {
-        return row.description || '-'
-      }
-    },
-    {
       title: "Thao tác",
       key: "actions",
-      width: 180,
+      width: 90,
       render(row: DiscountResponse) {
         const status = getStatus(row)
         const actions = [
@@ -1696,39 +670,14 @@
             size: "small",
             quaternary: true,
             circle: true,
-            onClick: () => openModal("edit", row)
+            onClick: () => navigateToEditPage(row)
           }, {
             default: () => h(Icon, { icon: "carbon:edit", width: "18" })
           })
-        ]
-        if (status === 'Sắp diễn ra') {
-          actions.push(
-            h(NButton, {
-              size: "small",
-              quaternary: true,
-              circle: true,
-              type: "primary",
-              onClick: () => handleStart(row)
-            }, {
-              default: () => h(Icon, { icon: "carbon:play", width: "18" })
-            })
-          )
-        }
-        if (status === 'Đang diễn ra') {
-          actions.push(
-            h(NButton, {
-              size: "small",
-              quaternary: true,
-              circle: true,
-              type: "warning",
-              onClick: () => handleDeactivate(row)
-            }, {
-              default: () => h(Icon, { icon: "carbon:pause", width: "18" })
-            })
-          )
-        }
 
-        if(status==='Sắp diễn ra'){
+        ]
+
+            if(status==='Sắp diễn ra'){
           actions.push(
           h(NPopconfirm, {
             onPositiveClick: () => handleDelete(row.id),
@@ -1753,6 +702,16 @@
     }
   ];
 
+
+    async function handleDelete(id: string) {
+    try {
+      await deleteDiscount(id);
+      message.success("Xóa đợt giảm giá thành công");
+      fetchDiscounts();
+    } catch {
+      message.error("Xóa thất bại");
+    }
+  }
 
   function handlePageChange(page: number) {
     currentPage.value = page;

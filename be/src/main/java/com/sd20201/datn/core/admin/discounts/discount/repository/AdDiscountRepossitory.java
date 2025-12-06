@@ -51,6 +51,7 @@ public interface AdDiscountRepossitory  extends DiscountRepository {
     List<Discount> findByCodeAndNotId(@Param("discountCode") String discountCode,
                                      @Param("id") String id);
 
+
 //    @Query("SELECT d FROM Discount d WHERE d.status = 'ACTIVE' AND " +
 //            "NOT (d.endDate <= :startDate OR d.startDate >= :endDate)")
 //    List<Discount> findOverlappingDiscounts(@Param("startDate") Long startDate,
