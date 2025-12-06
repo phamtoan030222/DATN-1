@@ -295,6 +295,81 @@ export const getAllDiscounts = async (params: ParamsGetDiscount) => {
  }
 }
 
+export interface ProductResponse {
+  id: string
+  productCode: string
+  productName: string
+  productBrand: string
+  quantity: number
+}
+
+
+export interface ProductDetailResponse {
+  id: string
+  productCode: string
+  productName: string
+  colorName?: string
+  ramName?: string
+  hardDriveName?: string
+  materialName?: string
+  gpuName?: string
+  cpuName?: string
+  price: number
+  description?: string
+}
+
+export const getAllProducts = async (params: PaginationParams) => {
+  const page = (params.page && params.page > 0) ? params.page - 1 : 0
+  const size = params.size || 10
+
+  const queryParams: any = {
+    page,
+    size,
+  };
+
+
+  if (params.q?.trim()) {
+    queryParams.q = params.q.trim();
+  }
+
+  try {
+    const res = await request.get<DefaultResponse<any>>(
+      `${API_ADMIN_DISCOUNTS}/detail`, 
+      { params: queryParams }
+    )
+
+    const responseData = res.data.data
+    return {
+      items: responseData?.content || responseData?.data || [],
+      totalItems: responseData?.totalElements || responseData?.total || 0,
+      totalPages: responseData?.totalPages || 0,
+      currentPage: (responseData?.number ?? page) + 1,
+    }
+  } catch (error) {
+    console.error('❌ Error fetching products:', error)
+    return {
+      items: [],
+      totalItems: 0,
+      totalPages: 0,
+      currentPage: 1,
+    }
+  }
+}
+
+
+export const getProductDetailsByProductId = async (productId: string) => {
+  try {
+    const res = await request.get<DefaultResponse<ProductDetailResponse[]>>(
+      `${API_ADMIN_DISCOUNTS}/detail/${productId}`
+    )
+    return res.data
+  } catch (error) {
+    console.error(`❌ Error fetching product details for productId=${productId}:`, error)
+    throw error
+  }
+}
+
+
 
 export const createDiscount = async (data: CreateDiscountRequest) => {
   const res = await request.post(`${API_ADMIN_DISCOUNT}/addDiscount`, data)

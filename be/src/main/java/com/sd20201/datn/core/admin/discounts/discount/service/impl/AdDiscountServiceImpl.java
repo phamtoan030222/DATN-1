@@ -50,15 +50,6 @@ public class AdDiscountServiceImpl implements AdDiscountService {
 
     @Override
     public ResponseObject<?> creatDiscount(DiscountValidateRequest request) {
-//        List<Discount> discountsByName = adDiscountRepossitory.findAllDiscountByName(request.getDiscountName());
-//        if (!discountsByName.isEmpty()) {
-//            return new ResponseObject<>(
-//                    null,
-//                    HttpStatus.BAD_REQUEST, "Têm Đợt giảm giá đã tồn tại",
-//                    false,
-//                    "DISCOUNT_NAME_EXISTS"
-//            );
-//        }
         List<Discount> discountsCode = adDiscountRepossitory.findAlDiscountByCode(request.getDiscountCode());
         if (!discountsCode.isEmpty()) {
             return new ResponseObject<>(
@@ -69,30 +60,6 @@ public class AdDiscountServiceImpl implements AdDiscountService {
                     "DISCOUNT_CODE_EXISTS"
             );
         }
-
-//        List<Discount> overlappingDiscounts = adDiscountRepossitory.findOverlappingDiscounts(
-//                request.getStartDate(),
-//                request.getEndDate()
-//        );
-//
-//        if (!overlappingDiscounts.isEmpty()) {
-//            Discount conflictDiscount = overlappingDiscounts.get(0);
-//            String conflictInfo = String.format(
-//                    "Thời gian bị trùng với đợt giảm giá '%s' (%s - %s)",
-//                    conflictDiscount.getName(),
-//                    new Date(conflictDiscount.getStartDate()).toString(),
-//                    new Date(conflictDiscount.getEndDate()).toString()
-//            );
-//
-//            return new ResponseObject<>(
-//                    null,
-//                    HttpStatus.BAD_REQUEST,
-//                    "Trong một khoảng thời gian chỉ được có một đợt giảm giá. " + conflictInfo,
-//                    false,
-//                    "DISCOUNT_TIME_OVERLAPPING"
-//            );
-//        }
-
 
 
         Long now = System.currentTimeMillis();
@@ -161,10 +128,11 @@ public class AdDiscountServiceImpl implements AdDiscountService {
         discount.setPercentage(request.getPercentage());
         discount.setCreatedDate(System.currentTimeMillis());
         discount.setStatus(EntityStatus.ACTIVE);
-        adDiscountRepossitory.save(discount);
+
+        Discount savedDiscount = adDiscountRepossitory.save(discount);
 
         return new ResponseObject<>(
-                null,
+                savedDiscount,
                 HttpStatus.OK,
                 "Thêm Đợt giảm giá thành công thành công",
                 true,
