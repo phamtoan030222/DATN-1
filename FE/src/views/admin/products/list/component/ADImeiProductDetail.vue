@@ -1,6 +1,6 @@
 <template>
     <n-modal :show="isOpen">
-        <n-card style="width: 600px" title="Quản lý IMEI biến thể sản phẩm" :bordered="false" size="huge" role="dialog"
+        <n-card style="width: 800px" title="Quản lý IMEI biến thể sản phẩm" :bordered="false" size="huge" role="dialog"
             aria-modal="true">
             <template #header-extra>
                 <n-button @click="handleClickCancel">
@@ -16,7 +16,6 @@
                     <n-button @click="clickAddIMEIHandler" type="primary">
                         Thêm
                     </n-button>
-
                 </n-flex>
                 <n-space class="mt-20px">
                     <n-button @click="downloadIMEITemplate">Tải template IMEI</n-button>
@@ -47,7 +46,8 @@
 </template>
 
 <script setup lang="ts">
-import { checkIMEIExist, downloadTemplateImei, IMEIExcelResponse, importIMEIExcel } from '@/service/api/admin/product/productDetail.api';
+import { Regex } from '@/constants';
+import { checkIMEIExist, downloadTemplateImei, importIMEIExcel } from '@/service/api/admin/product/productDetail.api';
 import { Icon } from '@iconify/vue';
 import { DataTableColumns, NButton, NTag, UploadCustomRequestOptions } from 'naive-ui';
 import { Reactive, Ref } from 'vue';
@@ -65,24 +65,51 @@ const imei: Ref<string | undefined> = ref()
 
 const handleClickCancel = () => {
     emit('close')
+    data.splice(0, data.length)
 }
 
 const resetField = () => {
     imei.value = undefined
 }
 
-const data: Reactive<IMEIExcelResponse[]> = reactive([])
+type IMEITableType = {
+    imei: string,
+    isValid: boolean,
+    note: string | undefined,
+}
+
+const data: Reactive<IMEITableType[]> = reactive([])
 
 const clickAddIMEIHandler = async () => {
     const imeis = imei.value?.split(/[,;|]/);
     const imeiExists = (await checkIMEIExist(imeis as string[])).data;
 
-    imeis?.forEach(ele => data.push({imei: ele, isExist: imeiExists.some(imei => imei == ele)}))
+    imeis?.forEach(ele => {
+        let isValid = true;
+        let note = undefined;
+
+        if (!validateSerialNumber(ele)) {
+            isValid = false;
+            note = 'Số serial không hợp lệ! Số serial chỉ bao gồm chữ hoa, số và dấu gạch ngang, độ dài từ 5-30 ký tự';
+        }
+
+        if (imeiExists.includes(ele)) {
+            isValid = false;
+            note = 'Số serial đã tồn tại';
+        }
+
+        data.push({
+            imei: ele,
+            isValid: isValid,
+            note: note,
+        })
+    })
+    resetField()
 }
 
 const handleClickOK = () => {
-    if(data.some(ele => ele.isExist)) {
-        notification.error({content: 'Không thể thêm IMEI đã tồn tại', duration: 3000})
+    if(data.some(ele => !ele.isValid)) {
+        notification.error({content: 'Không thể thêm IMEI không hợp lệ', duration: 3000})
         return false;
     }
 
@@ -92,21 +119,25 @@ const handleClickOK = () => {
     emit('update:imei', imeis, props.index)
 }
 
-const columns: DataTableColumns<IMEIExcelResponse> = [
+const columns: DataTableColumns<IMEITableType> = [
     {
-        title: '#', key: 'orderNumber', width: 50, align: 'center',
+        title: '#', key: 'orderNumber', width: 30, align: 'left',
         render: (data, index) => h('span', { innerText: index + 1 })
     },
     {
-        title: 'Giá trị', key: 'imei', width: 50, align: 'center',
+        title: 'Giá trị', key: 'imei', width: 150, align: 'center',
     },
     {
-        title: 'Trạng thái', key: 'status', width: 50, align: 'center',
-        render: (data: IMEIExcelResponse) => h(NTag, { type: !data.isExist ? 'success' : 'error', innerText: !data.isExist ? 'Hợp lệ' : 'Đã tồn tại' })
+        title: 'Trạng thái', key: 'isValid', width: 50, align: 'center',
+        render: (data: IMEITableType) => h(NTag, { type: data.isValid ? 'success' : 'error', innerText: data.isValid ? 'Hợp lệ' : 'Không hợp lệ' })
+    },
+    {
+        title: 'Ghi chú', key: 'note', width: 150, align: 'center',
+        render: (data: IMEITableType) => h('span', { innerText: data.note })
     },
     {
         title: 'Thao tác', key: 'status', width: 50, align: 'center',
-        render: (rowData, index) => h(NButton, { quaternary: true, onClick: () => { data.splice(index, 1); imei.value = data.map(element => element.imei).join(',') } },
+        render: (rowData, index) => h(NButton, { quaternary: true, onClick: () => { data.splice(index, 1)} },
             {
                 default:() => h(Icon, { icon: 'tabler:trash' })
             }
@@ -144,10 +175,19 @@ const handleUploadImportExcel = async ({ file }: UploadCustomRequestOptions) => 
     try {
         const response = await importIMEIExcel(file);
 
-        data.splice(0, data.length, ...response.data);
+        data.splice(0, data.length, ...response.data.map(ele => ({
+            imei: ele.imei,
+            isValid: !ele.isExist,
+            note: ele.isExist ? 'Đã tồn tại' : undefined,
+        })));
     } catch (error) {
         notification.error({ content: 'Xảy ra lỗi khi import excel. Vui lòng thử lại !!!', duration: 3000})
     }
+}
+
+const validateSerialNumber = (serialNumber: string): boolean => {
+    const regex = new RegExp(Regex.SerialNumber);
+    return regex.test(serialNumber);
 }
 </script>
 

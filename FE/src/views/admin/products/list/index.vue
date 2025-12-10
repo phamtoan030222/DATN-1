@@ -35,7 +35,8 @@
                 <n-row :gutter="24">
                     <n-col :span="12">
                         <span>Tìm kiếm</span>
-                        <n-input v-model:value="state.search.q" placeholder="Tìm kiếm sản phẩm theo tên hoặc mã" clearable/>
+                        <n-input v-model:value="state.search.q" placeholder="Tìm kiếm sản phẩm theo tên hoặc mã"
+                            clearable />
                     </n-col>
                     <n-col :span="6">
                         <span>Hãng</span>
@@ -53,8 +54,8 @@
                     <n-row :gutter="12">
                         <n-col :span="12">
                             <span>Khoảng giá</span>
-                            <n-slider v-model:value="state.search.price" range :step="1000" :min="1000"
-                                :max="50000000" clearable/>
+                            <n-slider v-model:value="state.search.price" range :step="1000" :min="1000" :max="50000000"
+                                clearable />
                         </n-col>
                         <n-col :span="6">
                             <span>Màn hình</span>
@@ -64,7 +65,8 @@
                         <n-col :span="6">
                             <span>Hệ điều hành</span>
                             <n-select v-model:value="state.search.operatingSystem"
-                                :options="state.data.operatingSystems" clearable placeholder="Chọn hệ điều hành"></n-select>
+                                :options="state.data.operatingSystems" clearable
+                                placeholder="Chọn hệ điều hành"></n-select>
                         </n-col>
                     </n-row>
                 </div>
@@ -90,7 +92,12 @@
                     state.pagination.page = 1
                     state.pagination.size = pageSize
                 }
-            }" :bordered="false" />
+            }"
+            :ellipsis="true"
+            :bordered="false" :row-key="(row) => row.id" 
+            :expanded-row-keys="expandedKeys"
+            @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
+            />
         </n-card>
     </div>
 </template>
@@ -135,6 +142,8 @@ const state = reactive({
         totalPages: undefined as number | undefined,
     },
 })
+
+const expandedKeys = ref<Array<string>>([])
 
 const fetchProducts = async () => {
     const res = await getProducts({
@@ -181,14 +190,26 @@ const refreshFilter = () => {
 }
 
 const columns: DataTableColumns<ADProductResponse> = [
-    { type: 'selection', fixed: 'left' },
+    { type: 'selection' },
     {
-        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data: ADProductResponse, index: number) => {
+        type: 'expand',
+        expandable: rowData => rowData.name !== 'Jim Green',
+        renderExpand: (rowData: ADProductResponse) => h('div', {style: {marginTop: '10px', marginLeft: '45px', display: 'flex', gap: '20px', flexDirection: 'column'}},
+            [
+                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:tag' }), h('span', { style: { marginLeft: '8px' }, innerText: `Hãng: ${rowData.brand}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', { style: { marginLeft: '8px' }, innerText: `Pin: ${rowData.battery}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:carbon-for-ibm-dotcom' }), h('span', { style: { marginLeft: '8px' }, innerText: `Hệ điều hành: ${rowData.operatingSystem}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:monitor' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màn hình: ${rowData.screen}` })]),
+            ]
+        )
+    },
+    {
+        title: '#', key: 'orderNumber', width: 50, render: (_: ADProductResponse, index: number) => {
             return h('span', { innerText: index + 1 })
         }
     },
-    { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
-    { title: 'Tên', key: 'name', width: 200, fixed: 'left', },
+    { title: 'Mã', key: 'code', width: 100, },
+    { title: 'Tên', key: 'name', width: 200, },
     {
         title: 'Ảnh sản phẩm', key: 'brand', width: 150, align: 'center',
         render: (data: ADProductResponse) => {
@@ -214,16 +235,12 @@ const columns: DataTableColumns<ADProductResponse> = [
         render: (data: ADProductResponse) => h('span', data.quantity + ' sản phẩm')
 
     },
-    { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
-    { title: 'Pin', key: 'battery', width: 150, align: 'center', },
-    { title: 'Màn hình', key: 'screen', width: 150, align: 'center', },
-    { title: 'Hệ điều hành', key: 'operatingSystem', width: 200, align: 'center', },
     {
         title: 'Trạng thái', key: 'status', width: 70, align: 'center',
         render: (data: ADProductResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
     },
     {
-        title: 'Thao tác', key: 'action', width: 150, fixed: 'right',
+        title: 'Thao tác', key: 'action', width: 150,
         render: (data: ADProductResponse) => {
             return h(NSpace,
                 [

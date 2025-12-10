@@ -1,3 +1,4 @@
+import { ProductPropertiesType } from '@/constants/ProductPropertiesType'
 import { API_ADMIN_PRODUCT_DETAIL } from '@/constants/url'
 import request from '@/service/request'
 import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
@@ -209,6 +210,19 @@ export const checkIMEIExist = async (ids: Array<string>) => {
     url: `${API_ADMIN_PRODUCT_DETAIL}/imei-exists`,
     method: 'POST',
     data: ids
+  })) as AxiosResponse<DefaultResponse<Array<string>>>
+
+  return res.data
+}
+
+export const quickAddProperties = async (nameProperty: string, type: ProductPropertiesType) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/quick-add`,
+    method: 'POST',
+    data: {
+      nameProperty,
+      type
+    }
   })) as AxiosResponse<DefaultResponse<Array<string>>>
 
   return res.data

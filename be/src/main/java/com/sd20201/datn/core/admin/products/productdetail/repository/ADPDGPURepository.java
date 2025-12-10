@@ -10,6 +10,7 @@ public interface ADPDGPURepository extends GPURepository {
 
     @Query(value = """ 
     SELECT g.id as value, g.name as label FROM GPU g
+    ORDER BY g.createdDate desc
     """)
     List<ADPDPropertyComboboxResponse> getGPUs();
 }

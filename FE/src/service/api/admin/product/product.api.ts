@@ -27,7 +27,7 @@ export type ADProductResponse = {
   code: string
   name: string
   status?: string
-  band: string
+  brand: string
   battery: string
   screen: string
   operatingSystem: string

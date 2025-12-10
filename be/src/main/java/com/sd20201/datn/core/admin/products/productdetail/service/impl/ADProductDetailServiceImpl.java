@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.service.impl;
 
+import com.sd20201.datn.core.admin.products.product.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
@@ -21,8 +22,23 @@ import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.core.common.cloudinary.model.response.CloudinaryResponse;
 import com.sd20201.datn.core.common.cloudinary.service.CloudinaryService;
-import com.sd20201.datn.entity.*;
+import com.sd20201.datn.entity.Battery;
+import com.sd20201.datn.entity.Brand;
+import com.sd20201.datn.entity.CPU;
+import com.sd20201.datn.entity.Color;
+import com.sd20201.datn.entity.GPU;
+import com.sd20201.datn.entity.HardDrive;
+import com.sd20201.datn.entity.IMEI;
+import com.sd20201.datn.entity.Material;
+import com.sd20201.datn.entity.OperatingSystem;
+import com.sd20201.datn.entity.Product;
+import com.sd20201.datn.entity.ProductDetail;
+import com.sd20201.datn.entity.RAM;
+import com.sd20201.datn.entity.Screen;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
+import com.sd20201.datn.infrastructure.constant.TechnolyCharging;
+import com.sd20201.datn.infrastructure.constant.TypeBattery;
+import com.sd20201.datn.infrastructure.constant.TypeScreenResolution;
 import com.sd20201.datn.repository.ImageProductRepository;
 import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
@@ -36,7 +52,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
@@ -64,6 +79,14 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     private final CloudinaryService cloudinaryService;
 
     private final ImageProductRepository imageProductRepository;
+
+    private final ADPDOperatingSystemRepository operatingSystemRepository;
+
+    private final ADPDScreenRepository screenRepository;
+
+    private final ADPDBatteryRepository batteryRepository;
+
+    private final ADPDBrandRepository brandRepository;
 
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
@@ -317,5 +340,97 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     @Override
     public ResponseObject<?> isIMEIExist(List<String> ids) {
         return ResponseObject.successForward(imeiRepository.findByCode(ids), "OKE");
+    }
+
+    @Override
+    public ResponseObject<?> quickAddPropertiesProduct(ADQuickAddProductRequest request ) {
+        switch (request.getType()) {
+            case CPU -> {
+                CPU cpu = new CPU();
+
+                cpu.setName(request.getNameProperty());
+
+                cpu = cpuRepository.save(cpu);
+                return ResponseObject.successForward(cpu.getId(),"Quick add CPU success");
+            }
+
+            case BRAND -> {
+                Brand brand = new Brand();
+                brand.setName(request.getNameProperty());
+                brand = brandRepository.save(brand);
+                return ResponseObject.successForward(brand.getId(),"Quick add brand success");
+            }
+
+            case BATTERY -> {
+                Battery battery = new Battery();
+
+                battery.setName(request.getNameProperty());
+                battery.setTechnolyCharging(TechnolyCharging.STANDARD);
+                battery.setTypeBattery(TypeBattery.LI_ION);
+
+                battery = batteryRepository.save(battery);
+                return ResponseObject.successForward(battery.getId(),"Quick add battery success");
+            }
+
+            case SCREEN -> {
+                Screen screen = new Screen();
+
+                screen.setName(request.getNameProperty());
+                screen.setResolution(TypeScreenResolution.HD);
+
+                screen = screenRepository.save(screen);
+                return ResponseObject.successForward(screen.getId(),"Quick add screen success");
+            }
+
+            case OPERATING_SYSTEM -> {
+                OperatingSystem os = new OperatingSystem();
+
+                os.setName(request.getNameProperty());
+
+                os = operatingSystemRepository.save(os);
+                return ResponseObject.successForward(os.getId(),"Quick add operating system success");
+            }
+
+            case COLOR -> {
+                Color color = new Color();
+
+                color.setName(request.getNameProperty());
+
+                color = colorRepository.save(color);
+                return ResponseObject.successForward(color.getId(),"Quick add color success");
+            }
+
+            case GPU -> {
+                GPU gpu = new GPU();
+
+                gpu.setName(request.getNameProperty());
+
+                gpu = gpuRepository.save(gpu);
+                return ResponseObject.successForward(gpu.getId(),"Quick add gpu success");
+            }
+
+            case MATERIAL -> {
+                Material material = new Material();
+                material.setName(request.getNameProperty());
+                material = materialRepository.save(material);
+                return ResponseObject.successForward(material.getId(),"Quick material CPU success");
+            }
+
+            case RAM -> {
+                RAM ram = new RAM();
+                ram.setName(request.getNameProperty());
+                ram = ramRepository.save(ram);
+                return ResponseObject.successForward(ram.getId(),"Quick add ram success");
+            }
+
+            case HARD_DRIVE -> {
+                HardDrive hardDrive = new HardDrive();
+                hardDrive.setName(request.getNameProperty());
+                hardDrive = hardDriveRepository.save(hardDrive);
+                return ResponseObject.successForward(hardDrive.getId(),"Quick add hard drive success");
+            }
+        }
+
+        return ResponseObject.errorForward("Error", HttpStatus.NOT_FOUND);
     }
 }

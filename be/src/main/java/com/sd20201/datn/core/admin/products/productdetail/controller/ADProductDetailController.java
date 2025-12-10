@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.controller;
 
+import com.sd20201.datn.core.admin.products.product.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
@@ -87,5 +88,10 @@ public class ADProductDetailController {
     @PostMapping("/imei-exists")
     ResponseEntity<?> isIMEIExist(@RequestBody List<String> id) {
         return Helper.createResponseEntity(productDetailService.isIMEIExist(id));
+    }
+
+    @PostMapping("/quick-add")
+    ResponseEntity<?> quickAddPropertiesProduct(@RequestBody ADQuickAddProductRequest request) {
+        return Helper.createResponseEntity(productDetailService.quickAddPropertiesProduct(request));
     }
 }

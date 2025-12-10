@@ -10,6 +10,7 @@ public interface ADPDHardDriveRepository extends HardDriveRepository {
 
     @Query(value = """ 
     SELECT h.id as value, h.name as label FROM HardDrive h
+    ORDER BY h.createdDate desc
     """)
     List<ADPDPropertyComboboxResponse> getHardDrives();
 

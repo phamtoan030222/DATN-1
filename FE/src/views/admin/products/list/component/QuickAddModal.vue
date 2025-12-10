@@ -1,6 +1,6 @@
 <template>
     <n-modal :show="isOpen">
-        <n-card style="width: 50%" :title="getTextByProductPropertiesType" :bordered="false" size="huge" role="dialog"
+        <n-card style="width: 40%" :title="getTextByProductPropertiesType" :bordered="false" size="huge" role="dialog"
             aria-modal="true">
             <template #header-extra>
                 <n-button @click="handleClickCancel">
@@ -9,8 +9,8 @@
             </template>
 
             <!-- content -->
-            <div :style="{  }">
-                
+            <div :style="{}">
+                <n-input v-model:value="data" placeholder="Nhập giá trị" />
             </div>
 
             <!-- footer -->
@@ -32,21 +32,38 @@
 
 <script lang="ts" setup>
 import { ProductPropertiesType, translateProperty } from '@/constants/ProductPropertiesType';
+import { quickAddProperties } from '@/service/api/admin/product/productDetail.api';
+import { Icon } from '@iconify/vue';
 
 const props = defineProps<{
     isOpen: boolean,
-    type: ProductPropertiesType
+    type: ProductPropertiesType | undefined
 }>()
 
 const emit = defineEmits(['close', 'success'])
 
 const handleClickCancel = () => emit('close')
 
-const handleClickOK = async () => {
+const notification = useNotification();
 
+const handleClickOK = async () => {
+    const res = await quickAddProperties(data.value, props.type as ProductPropertiesType);
+
+    if (res.success) {
+        notification.success({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thành công`, duration: 3000 })
+        emit('success');
+    }
+    else notification.error({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thất bại`, duration: 3000 })
+    emit('close');
+    clearData();
+}
+const clearData = () => {
+    data.value = '';
 }
 
+const data = ref<string>('');
+
 const getTextByProductPropertiesType = computed(() => {
-    return translateProperty(props.type)
+    return translateProperty(props.type as ProductPropertiesType);
 })
 </script>

@@ -10,6 +10,7 @@ public interface ADPDCPURepository extends CPURepository {
 
     @Query(value = """ 
     SELECT c.id as value, c.name as label FROM CPU c
+    ORDER BY c.createdDate desc
     """)
     List<ADPDPropertyComboboxResponse> getCPUs();
 

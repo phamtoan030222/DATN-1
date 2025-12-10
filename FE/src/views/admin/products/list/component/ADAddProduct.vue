@@ -4,68 +4,154 @@
             <n-space justify="center">
                 <n-form ref="formRef">
                     <n-grid :span="24" :x-gap="36">
-                        <n-form-item-gi :span="12" label="Mã sản phẩm">
-                            <n-input placeholder="Nhập mã sản phẩm" v-model:value="formDataBasic.code"></n-input>
-                        </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Tên sản phẩm">
+                        <n-form-item-gi :span="24" label="Tên sản phẩm">
                             <n-input placeholder="Nhập tên sản phẩm" v-model:value="formDataBasic.name"></n-input>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Hãng">
+                        <n-form-item-gi :span="12" label-placement="top">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Hãng</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.BRAND)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataBasic.idBrand"
                                 :options="dataProperties.basicInformation.brands"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Pin">
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Pin</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.BATTERY)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataBasic.idBattery"
                                 :options="dataProperties.basicInformation.batteries"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Màn hình">
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Màn hình</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.SCREEN)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataBasic.idScreen"
                                 :options="dataProperties.basicInformation.screens"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Hệ điều hành">
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Hệ điều hành</span>
+                                    <n-button
+                                        @click="clickAddQuickPropertiesHandler(ProductPropertiesType.OPERATING_SYSTEM)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataBasic.idOperatingSystem"
                                 :options="dataProperties.basicInformation.operatingSystems"></n-select>
                         </n-form-item-gi>
                     </n-grid>
                 </n-form>
             </n-space>
-            <div>
+            <div v-if="!idProduct">
                 <n-h4>Ảnh sản phẩm</n-h4>
-                <n-upload :default-upload="false"
-                list-type="image-card"
-                style="height: 100px;"
-                @change="handleChangeImageProduct">
+                <n-upload :default-upload="false" list-type="image-card" style="height: 100px;"
+                    @change="handleChangeImageProduct">
                     Click to Upload
                 </n-upload>
             </div>
         </n-card>
         <n-card title="Thông tin biến thể" class="mt-20px">
             <n-space justify="center">
-                <n-form ref="formRef">
+                <n-form ref="formRef" style="width: 1200px;">
                     <n-grid :span="24" :x-gap="36">
-                        <n-form-item-gi :span="8" label="Màu sắc">
+                        <n-form-item-gi :span="8">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Màu sắc</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.COLOR)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataVariant.idColor"
-                                :options="dataProperties.variantInformation.colors" multiple
+                                :options="dataProperties.variantInformation.colors" multiple clearable
                                 placeholder="Chọn màu sắc"></n-select> </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="CPU">
+                        <n-form-item-gi :span="8">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>CPU</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.CPU)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataVariant.idCpu"
-                                :options="dataProperties.variantInformation.cpus"></n-select>
+                                :options="dataProperties.variantInformation.cpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="GPU">
+                        <n-form-item-gi :span="8">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>GPU</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.GPU)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataVariant.idGpu"
-                                :options="dataProperties.variantInformation.gpus"></n-select>
+                                :options="dataProperties.variantInformation.gpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="Chất liệu">
+                        <n-form-item-gi :span="8">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Chất liệu</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.MATERIAL)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataVariant.idMaterial"
-                                :options="dataProperties.variantInformation.materials"></n-select>
+                                :options="dataProperties.variantInformation.materials" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="RAM">
+                        <n-form-item-gi :span="8">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>RAM</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.RAM)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataVariant.idRam"
-                                :options="dataProperties.variantInformation.rams"></n-select>
+                                :options="dataProperties.variantInformation.rams" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="Ổ cứng">
+                        <n-form-item-gi :span="8">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Ổ cứng</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.HARD_DRIVE)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataVariant.idHardDrive"
-                                :options="dataProperties.variantInformation.hardDrives"></n-select>
+                                :options="dataProperties.variantInformation.hardDrives" multiple clearable></n-select>
                         </n-form-item-gi>
                         <n-form-item-gi :span="24" justify="end">
                             <n-space justify="end" :style="{ width: '100%' }">
@@ -77,7 +163,7 @@
             </n-space>
         </n-card>
         <n-card title="Danh sách biến thể" class="mt-20px">
-            <n-data-table :data="productDetails" :columns="columns" :bordered="false"></n-data-table>
+            <n-data-table :data="productDetails" :columns="columns" :bordered="false" :max-height="450"></n-data-table>
 
             <template #footer>
                 <n-space justify="end">
@@ -95,6 +181,12 @@
         <ADImeiProductDetail :is-open="isOpenModalIMEIProduct" :index="indexRowDataImei" @close="handleEmitClose"
             @update:imei="handleEmitUpdateImei" />
 
+        <QuickAddModal 
+            :is-open="isOpenQuickAddModal"
+            :type="dataQuickAdd.type"
+            @close="closeQuickAddModalHandler"
+            @success="fetchDataProperties"
+        />
     </div>
 </template>
 
@@ -105,6 +197,8 @@ import { Icon } from '@iconify/vue'
 import { DataTableColumns, NButton, NInput, NInputNumber, NSpace, NUpload, UploadFileInfo } from 'naive-ui'
 import { Reactive } from 'vue'
 import ADImeiProductDetail from './ADImeiProductDetail.vue'
+import QuickAddModal from './QuickAddModal.vue'
+import { ProductPropertiesType } from '@/constants/ProductPropertiesType'
 
 const route = useRoute()
 
@@ -129,6 +223,7 @@ const dataProperties = reactive({
     },
 })
 
+const isOpenQuickAddModal = ref<boolean>(false)
 
 const fetchProductById = async () => {
     const res = await getProductById(idProduct.value)
@@ -197,15 +292,15 @@ const formDataBasic: Reactive<ADProductCreateUpdateRequest> = reactive({
 
 const formDataVariant = reactive({
     idColor: undefined as undefined | string[],
-    idMaterial: '',
-    idCpu: '',
-    idGpu: '',
-    idRam: '',
-    idHardDrive: '',
+    idMaterial: undefined as undefined | string[],
+    idCpu: undefined as undefined | string[],
+    idGpu: undefined as undefined | string[],
+    idRam: undefined as undefined | string[],
+    idHardDrive: undefined as undefined | string[],
 })
 
 onMounted(() => {
-    if(idProduct.value) fetchProductById()
+    if (idProduct.value) fetchProductById()
     fetchDataProperties()
 })
 
@@ -248,7 +343,7 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         align: 'center',
         render: (data: ADPRTableProductDetail, index) => {
             return h('div',
-                {display: 'flex', justifyContent: 'center'},
+                { display: 'flex', justifyContent: 'center' },
                 h(NUpload, {
                     max: 1,
                     defaultUpload: false,
@@ -306,13 +401,23 @@ const createVariant = () => {
 
     if (formDataVariant.idColor) {
         formDataVariant.idColor.forEach((element) => {
-            productDetails.push({
-                idColor: element,
-                idMaterial: formDataVariant.idMaterial,
-                idCPU: formDataVariant.idCpu,
-                idGPU: formDataVariant.idGpu,
-                idRAM: formDataVariant.idRam,
-                idHardDrive: formDataVariant.idHardDrive,
+            formDataVariant.idCpu?.forEach((cpu) => {
+                formDataVariant.idGpu?.forEach((gpu) => {
+                    formDataVariant.idHardDrive?.forEach((hardDrive) => {
+                        formDataVariant.idMaterial?.forEach((material) => {
+                            formDataVariant.idRam?.forEach((ram) => {
+                                productDetails.push({
+                                    idColor: element,
+                                    idCPU: cpu,
+                                    idGPU: gpu,
+                                    idHardDrive: hardDrive,
+                                    idMaterial: material,
+                                    idRAM: ram,
+                                })
+                            })
+                        })
+                    })
+                })
             })
         })
     }
@@ -372,10 +477,12 @@ const submitVariantHandler = async () => {
     //     return isValid
     // })
 
-    let idNewProduct = "";
-    if(idProduct) {
+    let idNewProduct: string = "";
+    if (!idProduct.value) {
         const resCreateProduct = await modifyProduct(formDataBasic, imageProduct);
         idNewProduct = resCreateProduct.data;
+    } else {
+        idNewProduct = idProduct.value;
     }
 
     const length = productDetails.length;
@@ -406,16 +513,29 @@ const handleChangeProductDetail = (data: { fileList: UploadFileInfo[] }, index: 
     imageProductDetails[index].push(data.fileList[0].file)
 }
 
-// watch(idProduct,
-//     (newValue) => {
-//         fetchProductById()
-//     }
-// )
+const dataQuickAdd = reactive<Partial<{
+    type: ProductPropertiesType
+}>>({
+    type: undefined
+})
+
+const clickAddQuickPropertiesHandler = (typeData: ProductPropertiesType) => {
+    isOpenQuickAddModal.value = true
+    dataQuickAdd.type = typeData
+}
+
+const closeQuickAddModalHandler = () => {
+    isOpenQuickAddModal.value = false
+}
 </script>
 
 <style scoped>
 .line-configuration {
     display: flex;
     align-items: center;
+}
+
+:deep(.n-form-item-label__text) {
+    width: 100% !important;
 }
 </style>

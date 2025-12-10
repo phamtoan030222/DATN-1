@@ -9,7 +9,8 @@ import java.util.List;
 public interface ADPDMaterialRepository extends MaterialRepository {
 
     @Query(value = """ 
-    SELECT m.id as value, m.code as label FROM Material m
+    SELECT m.id as value, m.name as label FROM Material m
+    ORDER BY m.createdDate desc
     """)
     List<ADPDPropertyComboboxResponse> getMaterials();
 

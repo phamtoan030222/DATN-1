@@ -13,6 +13,7 @@ public interface ADPDImeiRepository extends IMEIRepository {
 
     @Query(value = """
     SELECT i.code FROM IMEI i where i.code in :codes
+    ORDER BY i.createdDate desc
     """)
     List<String> findByCode(List<String> codes);
 }
