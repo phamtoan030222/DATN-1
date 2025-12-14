@@ -38,7 +38,7 @@
                 <NRadio :value="null">Tất cả</NRadio>
                 <NRadio :value="1">Sắp diễn ra</NRadio>
                 <NRadio :value="0">Đang diễn ra</NRadio> 
-                <NRadio :value="3">Đã kết thúc</NRadio>
+                <NRadio :value="3">Đã hết hạn</NRadio>
               </NSpace>
             </NRadioGroup>
           </NFormItem>
@@ -195,7 +195,7 @@ const formatDateTime = (timestamp: number | undefined) => {
   return new Date(timestamp).toLocaleString('en-GB', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: false
-  }).replace(',', '') // Loại bỏ dấu phẩy nếu có để đúng format dd/MM/yyyy HH:mm
+  }).replace(',', '') 
 }
 
 const getStatus = (item: DiscountResponse) => {
