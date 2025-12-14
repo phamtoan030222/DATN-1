@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDPriceMinMaxResponse;
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDProductDetailDetailResponse;
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDProductDetailResponse;
 import com.sd20201.datn.entity.ProductDetail;
@@ -110,4 +111,9 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
 
     Optional<ProductDetail> findByCode(String code);
 
+    @Query(value = """
+    SELECT MIN(p.price) as priceMin, MAX(p.price) as priceMax
+    FROM ProductDetail p
+    """)
+    Optional<ADPDPriceMinMaxResponse> findPriceMinMax();
 }

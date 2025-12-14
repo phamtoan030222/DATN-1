@@ -94,4 +94,19 @@ public class ADProductDetailController {
     ResponseEntity<?> quickAddPropertiesProduct(@RequestBody ADQuickAddProductRequest request) {
         return Helper.createResponseEntity(productDetailService.quickAddPropertiesProduct(request));
     }
+
+    @GetMapping("/min-max-price")
+    ResponseEntity<?> getMinMaxPrice() {
+        return Helper.createResponseEntity(productDetailService.getMinMaxPrice());
+    }
+
+    @GetMapping("/imei/{idProductDetail}")
+    ResponseEntity<?> getImeiProduct(@PathVariable String idProductDetail) {
+        return Helper.createResponseEntity(productDetailService.getImeiProductDetail(idProductDetail));
+    }
+
+    @GetMapping("/imei/change-status/{idImei}")
+    ResponseEntity<?> changeStatusImei(@PathVariable String idImei) {
+        return Helper.createResponseEntity(productDetailService.changeStatusImei(idImei));
+    }
 }

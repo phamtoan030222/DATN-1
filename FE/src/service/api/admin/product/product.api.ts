@@ -14,7 +14,6 @@ export type ADProductRequest = PaginationParams & {
 
 export type ADProductCreateUpdateRequest = {
   id?: string
-  code: string
   name: string
   idBrand: string
   idBattery: string

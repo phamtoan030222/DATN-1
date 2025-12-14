@@ -40,4 +40,9 @@ public interface ADProductDetailService {
 
     ResponseObject<?> quickAddPropertiesProduct(ADQuickAddProductRequest request);
 
+    ResponseObject<?> getMinMaxPrice();
+
+    ResponseObject<?> getImeiProductDetail(String idProductDetail);
+
+    ResponseObject<?> changeStatusImei(String idImei);
 }

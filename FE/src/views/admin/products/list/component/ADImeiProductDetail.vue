@@ -54,7 +54,8 @@ import { Reactive, Ref } from 'vue';
 
 const props = defineProps<{
     isOpen: boolean,
-    index: number | undefined
+    index: number | undefined,
+    idColorImei: string | undefined,
 }>()
 
 const emit = defineEmits(['success', 'close', 'update:imei'])
@@ -116,7 +117,7 @@ const handleClickOK = () => {
     const imeis = data.map(ele => ele.imei)
     resetField()
     data.splice(0, data.length)
-    emit('update:imei', imeis, props.index)
+    emit('update:imei', imeis, props.idColorImei, props.index)
 }
 
 const columns: DataTableColumns<IMEITableType> = [

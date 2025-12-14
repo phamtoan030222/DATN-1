@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div class="ml-40px">
         <n-card>
             <NSpace vertical :size="8">
                 <NSpace align="center">
@@ -54,8 +54,8 @@
                     <n-row :gutter="12">
                         <n-col :span="12">
                             <span>Khoảng giá</span>
-                            <n-slider v-model:value="state.search.price" range :step="1000" :min="1000" :max="50000000"
-                                clearable />
+                            <n-slider v-model:value="state.search.price" range :step="1000" :min="stateMinMaxPrice.priceMin ?? 0" :max="stateMinMaxPrice.priceMax ?? 100000000"
+                                clearable :format-tooltip="formatTooltipRangePrice"/>
                         </n-col>
                         <n-col :span="6">
                             <span>Màn hình</span>
@@ -113,7 +113,9 @@ import {
     getProducts,
     getScreens,
 } from '@/service/api/admin/product/product.api'
+import { getMinMaxPrice } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
+import { init } from 'echarts/core'
 import { debounce } from 'lodash'
 import { DataTableColumns, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import { onMounted, reactive, Ref, ref, watch } from 'vue'
@@ -160,6 +162,8 @@ const fetchProducts = async () => {
 
     state.data.products = res.data.data
     state.pagination.totalPages = res.data.totalPages
+
+    getMinMaxPriceProduct();
 }
 
 const fetchComboboxProperties = async () => {
@@ -194,7 +198,7 @@ const columns: DataTableColumns<ADProductResponse> = [
     {
         type: 'expand',
         expandable: rowData => rowData.name !== 'Jim Green',
-        renderExpand: (rowData: ADProductResponse) => h('div', {style: {marginTop: '10px', marginLeft: '45px', display: 'flex', gap: '20px', flexDirection: 'column'}},
+        renderExpand: (rowData: ADProductResponse) => h('div', {style: {marginLeft: '80px', display: 'flex', gap: '20px', flexDirection: 'column'}},
             [
                 h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:tag' }), h('span', { style: { marginLeft: '8px' }, innerText: `Hãng: ${rowData.brand}` })]),
                 h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', { style: { marginLeft: '8px' }, innerText: `Pin: ${rowData.battery}` })]),
@@ -271,7 +275,13 @@ const columns: DataTableColumns<ADProductResponse> = [
 onMounted(() => {
     fetchProducts()
     fetchComboboxProperties()
+    initSearchPrice();
 })
+
+const initSearchPrice = async () => {
+    const res = await getMinMaxPrice()
+    state.search.price = [res.data.priceMin as number, res.data.priceMax as number]
+}
 
 const isOpenModal = ref<boolean>(false)
 
@@ -283,15 +293,6 @@ const clickOpenModal = (id?: string, isDetail?: boolean) => {
     productIdSelected.value = id
     isOpenModal.value = true
     isDetailModal.value = isDetail ?? false
-}
-
-const closeModal = () => {
-    isOpenModal.value = false
-}
-
-const handleSuccessModifyModal = () => {
-    fetchProducts()
-    closeModal()
 }
 
 const debounceFetchProducts = debounce(fetchProducts, 300)
@@ -331,6 +332,21 @@ const addVariant = (id: string) => {
     router.push({ name: 'products_add', params: { id } })
 }
 
+const formatTooltipRangePrice = (value: number) => (value + '').split('').reduce((prev, curr, index, arr) => {
+                        if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
+                        return prev + curr
+                    }, '') + ' vnđ'
+
+const stateMinMaxPrice = reactive<{priceMin: number | undefined, priceMax: number | undefined}>({
+    priceMin: undefined,
+    priceMax: undefined,
+})
+
+const getMinMaxPriceProduct = async () => {
+    const res = await getMinMaxPrice()
+    stateMinMaxPrice.priceMin = res.data.priceMin
+    stateMinMaxPrice.priceMax = res.data.priceMax
+}
 </script>
 
 <style scoped>
@@ -361,5 +377,9 @@ const addVariant = (id: string) => {
 
 .d-inline {
     display: inline;
+}
+
+.ml-40px {
+    margin-left: 40px;
 }
 </style>

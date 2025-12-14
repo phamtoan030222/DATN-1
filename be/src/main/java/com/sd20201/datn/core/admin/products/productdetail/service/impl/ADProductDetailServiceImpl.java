@@ -433,4 +433,25 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
         return ResponseObject.errorForward("Error", HttpStatus.NOT_FOUND);
     }
+
+    @Override
+    public ResponseObject<?> getMinMaxPrice() {
+        return ResponseObject.successForward(productDetailRepository.findPriceMinMax(), "OKE");
+    }
+
+    @Override
+    public ResponseObject<?> getImeiProductDetail(String idProductDetail) {
+        return ResponseObject.successForward(imeiRepository.findByIdProductDetail(idProductDetail), "OKE");
+    }
+
+    @Override
+    public ResponseObject<?> changeStatusImei(String idImei) {
+        return imeiRepository.findById(idImei)
+                .map(imei -> {
+                    imei.setStatus(imei.getStatus() == EntityStatus.ACTIVE ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
+                    imeiRepository.save(imei);
+                    return ResponseObject.successForward(imei.getId(), "Update imei success");
+                })
+                .orElse(ResponseObject.errorForward("Update imei failure", HttpStatus.NOT_FOUND));
+    }
 }

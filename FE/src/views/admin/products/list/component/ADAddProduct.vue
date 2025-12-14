@@ -1,7 +1,7 @@
 <template>
     <div>
         <n-card title="Thông tin cơ bản">
-            <n-space justify="center">
+            <n-space >
                 <n-form ref="formRef">
                     <n-grid :span="24" :x-gap="36">
                         <n-form-item-gi :span="24" label="Tên sản phẩm">
@@ -17,7 +17,7 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataBasic.idBrand"
+                            <n-select v-model:value="formDataBasic.idBrand" filterable placeholder="Chọn hãng"
                                 :options="dataProperties.basicInformation.brands"></n-select>
                         </n-form-item-gi>
                         <n-form-item-gi :span="12">
@@ -30,7 +30,7 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataBasic.idBattery"
+                            <n-select v-model:value="formDataBasic.idBattery" filterable placeholder="Chọn pin"
                                 :options="dataProperties.basicInformation.batteries"></n-select>
                         </n-form-item-gi>
                         <n-form-item-gi :span="12">
@@ -43,7 +43,7 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataBasic.idScreen"
+                            <n-select v-model:value="formDataBasic.idScreen" filterable placeholder="Chọn màn hình"
                                 :options="dataProperties.basicInformation.screens"></n-select>
                         </n-form-item-gi>
                         <n-form-item-gi :span="12">
@@ -57,25 +57,26 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataBasic.idOperatingSystem"
+                            <n-select v-model:value="formDataBasic.idOperatingSystem" filterable
+                                placeholder="Chọn hệ điều hành"
                                 :options="dataProperties.basicInformation.operatingSystems"></n-select>
                         </n-form-item-gi>
                     </n-grid>
                 </n-form>
             </n-space>
-            <div v-if="!idProduct">
+            <div v-if="!idProduct" class="mt-40px">
                 <n-h4>Ảnh sản phẩm</n-h4>
-                <n-upload :default-upload="false" list-type="image-card" style="height: 100px;"
+                <n-upload :default-upload="false" list-type="image-card" multiple style="height: 100px;"
                     @change="handleChangeImageProduct">
-                    Click to Upload
+                    Chọn ảnh
                 </n-upload>
             </div>
         </n-card>
         <n-card title="Thông tin biến thể" class="mt-20px">
-            <n-space justify="center">
-                <n-form ref="formRef" style="width: 1200px;">
+            <n-space >
+                <n-form ref="formRef" style="width: 50%;">
                     <n-grid :span="24" :x-gap="36">
-                        <n-form-item-gi :span="8">
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Màu sắc</span>
@@ -86,9 +87,9 @@
                                 </n-space>
                             </template>
                             <n-select v-model:value="formDataVariant.idColor"
-                                :options="dataProperties.variantInformation.colors" multiple clearable
+                                :options="dataProperties.variantInformation.colors" multiple clearable filterable
                                 placeholder="Chọn màu sắc"></n-select> </n-form-item-gi>
-                        <n-form-item-gi :span="8">
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>CPU</span>
@@ -98,10 +99,10 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataVariant.idCpu"
+                            <n-select v-model:value="formDataVariant.idCpu" filterable placeholder="Chọn CPU"
                                 :options="dataProperties.variantInformation.cpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8">
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>GPU</span>
@@ -111,10 +112,10 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataVariant.idGpu"
+                            <n-select v-model:value="formDataVariant.idGpu" filterable placeholder="Chọn GPU"
                                 :options="dataProperties.variantInformation.gpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8">
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Chất liệu</span>
@@ -124,10 +125,10 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataVariant.idMaterial"
+                            <n-select v-model:value="formDataVariant.idMaterial" filterable placeholder="Chọn chất liệu"
                                 :options="dataProperties.variantInformation.materials" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8">
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>RAM</span>
@@ -137,10 +138,10 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataVariant.idRam"
+                            <n-select v-model:value="formDataVariant.idRam" filterable placeholder="Chọn RAM"
                                 :options="dataProperties.variantInformation.rams" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8">
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Ổ cứng</span>
@@ -150,11 +151,11 @@
                                     </n-button>
                                 </n-space>
                             </template>
-                            <n-select v-model:value="formDataVariant.idHardDrive"
+                            <n-select v-model:value="formDataVariant.idHardDrive" filterable placeholder="Chọn ổ cứng"
                                 :options="dataProperties.variantInformation.hardDrives" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="24" justify="end">
-                            <n-space justify="end" :style="{ width: '100%' }">
+                        <n-form-item-gi :span="24" >
+                            <n-space  :style="{ width: '100%' }">
                                 <n-button @click="createVariant" type="primary">Tạo biến thể</n-button>
                             </n-space>
                         </n-form-item-gi>
@@ -162,31 +163,38 @@
                 </n-form>
             </n-space>
         </n-card>
-        <n-card title="Danh sách biến thể" class="mt-20px">
-            <n-data-table :data="productDetails" :columns="columns" :bordered="false" :max-height="450"></n-data-table>
+        <!-- title="Danh sách biến thể" -->
+        <n-card v-for="productDetailList in partitionProductDetailsByColor" class="mt-20px">
+            <template #header>
+                <n-space justify="space-between" >
+                    <span>Danh sách biến thể màu {{ getNameColorById(productDetailList[0].idColor) }}</span>
 
-            <template #footer>
-                <n-space justify="end">
-                    <n-button>Hủy</n-button>
-                    <n-popconfirm @positive-click="submitVariantHandler" positive-text="Xác nhận" negative-text="Hủy">
-                        <template #trigger>
-                            <n-button type="success">Xác nhận</n-button>
-                        </template>
-                        Bạn chắc chắn muốn thao tác ?
-                    </n-popconfirm>
+                    <n-space>
+                        <n-input-number v-model:value="priceCommonVariant" placeholder="Nhập giá chung"
+                            clearable></n-input-number>
+                        <n-button type="success"
+                            @click="applyPriceCommonVariantHandler(productDetailList[0].idColor)">Áp dụng</n-button>
+                    </n-space>
                 </n-space>
             </template>
+            <n-data-table :data="productDetailList" :columns="columns" :bordered="false"></n-data-table>
         </n-card>
 
-        <ADImeiProductDetail :is-open="isOpenModalIMEIProduct" :index="indexRowDataImei" @close="handleEmitClose"
+        <n-space class="mt-20px" v-if="productDetails && productDetails.length > 0" >
+            <n-button>Hủy</n-button>
+            <n-popconfirm @positive-click="submitVariantHandler" positive-text="Xác nhận" negative-text="Hủy">
+                <template #trigger>
+                    <n-button :loading="loadingCreateVariant" type="success">Xác nhận</n-button>
+                </template>
+                Bạn chắc chắn muốn thao tác ?
+            </n-popconfirm>
+        </n-space>
+
+        <ADImeiProductDetail :is-open="isOpenModalIMEIProduct" :idColorImei="idColorImei" :index="indexRowDataImei" @close="handleEmitClose"
             @update:imei="handleEmitUpdateImei" />
 
-        <QuickAddModal 
-            :is-open="isOpenQuickAddModal"
-            :type="dataQuickAdd.type"
-            @close="closeQuickAddModalHandler"
-            @success="fetchDataProperties"
-        />
+        <QuickAddModal :is-open="isOpenQuickAddModal" :type="dataQuickAdd.type" @close="closeQuickAddModalHandler"
+            @success="fetchDataProperties" />
     </div>
 </template>
 
@@ -229,7 +237,6 @@ const fetchProductById = async () => {
     const res = await getProductById(idProduct.value)
 
     formDataBasic.id = res.data.id
-    formDataBasic.code = res.data.code
     formDataBasic.name = res.data.name
     formDataBasic.idBattery = res.data.idBattery
     formDataBasic.idBrand = res.data.idBrand
@@ -281,13 +288,12 @@ const fetchDataProperties = async () => {
 
 const imageProduct: Reactive<any[]> = reactive([])
 
-const formDataBasic: Reactive<ADProductCreateUpdateRequest> = reactive({
-    code: '',
-    name: '',
-    idBrand: '',
-    idBattery: '',
-    idScreen: '',
-    idOperatingSystem: '',
+const formDataBasic: Reactive<Partial<ADProductCreateUpdateRequest>> = reactive({
+    name: undefined as undefined | string,
+    idBrand: undefined as undefined | string,
+    idBattery: undefined as undefined | string,
+    idScreen: undefined as undefined | string,
+    idOperatingSystem: undefined as undefined | string,
 })
 
 const formDataVariant = reactive({
@@ -299,10 +305,18 @@ const formDataVariant = reactive({
     idHardDrive: undefined as undefined | string[],
 })
 
-onMounted(() => {
+onMounted(async () => {
     if (idProduct.value) fetchProductById()
-    fetchDataProperties()
+    await fetchDataProperties()
+    initSelectPropertiesProduct()
 })
+
+const initSelectPropertiesProduct = () => {
+    formDataBasic.idBrand = dataProperties.basicInformation.brands[0]?.value
+    formDataBasic.idBattery = dataProperties.basicInformation.batteries[0]?.value
+    formDataBasic.idScreen = dataProperties.basicInformation.screens[0]?.value
+    formDataBasic.idOperatingSystem = dataProperties.basicInformation.operatingSystems[0]?.value
+}
 
 type ADPRTableProductDetail = {
     idColor: string
@@ -337,23 +351,6 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         )
     },
     {
-        title: 'Ảnh biến thể',
-        key: 'imageProductDetail',
-        width: 100,
-        align: 'center',
-        render: (data: ADPRTableProductDetail, index) => {
-            return h('div',
-                { display: 'flex', justifyContent: 'center' },
-                h(NUpload, {
-                    max: 1,
-                    defaultUpload: false,
-                    listType: "image-card",
-                    onChange: (data: { fileList: UploadFileInfo[] }) => handleChangeProductDetail(data, index)
-                })
-            )
-        }
-    },
-    {
         title: 'Giá bán', key: 'price', width: 200, align: 'center',
         render: (data: ADPRTableProductDetail, index: number) => {
             return !(isEditPriceInputTable.value == index) ?
@@ -378,16 +375,35 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         }
     },
     {
-        title: 'Tồn kho', key: 'quantity', width: 150, align: 'center',
+        title: 'Số lượng', key: 'quantity', width: 150, align: 'center',
         render: (data: ADPRTableProductDetail) => h('span', data.imei ? data.imei.length + ' sản phẩm' : 'Không có sản phẩm')
     },
     {
         title: 'Thao tác', key: 'action', width: 100, align: 'center',
         render: (data, index) => h(NSpace, { justify: 'center' },
             [
-                h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
+                h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(data.idColor, index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
+                h(NButton, { quaternary: true, circle: true, onClick: () => { productDetails.splice(index, 1) } }, h(Icon, { icon: 'mdi:delete' })),
             ]
         )
+    },
+    {
+        title: 'Ảnh biến thể',
+        key: 'imageProductDetail',
+        className: 'rowspan-top',
+        width: 150,
+        rowSpan: (_) => productDetails.length,
+        render: (dataProduct: ADPRTableProductDetail) => {
+            return h('div',
+                { style: { display: 'flex', justifyContent: 'start' } },
+                h(NUpload, {
+                    max: 1,
+                    defaultUpload: false,
+                    listType: "image-card",
+                    onChange: (data: { fileList: UploadFileInfo[] }) => handleChangeProductDetail(data, dataProduct.idColor)
+                })
+            )
+        },
     },
 ]
 
@@ -440,65 +456,59 @@ const handleEnterPrice = (index: number) => {
 // imei
 const isOpenModalIMEIProduct = ref<boolean>(false)
 
-const openModalIMEIProduct = (index: number) => {
+const openModalIMEIProduct = (idColor: string, index: number) => {
     isOpenModalIMEIProduct.value = true
     indexRowDataImei.value = index
+    idColorImei.value = idColor
 }
 
 const indexRowDataImei = ref<number>()
+const idColorImei = ref<string>()
 
 const handleEmitClose = () => {
     isOpenModalIMEIProduct.value = false
 }
 
-const handleEmitUpdateImei = (imeis: string[], index: number) => {
-    productDetails[index].imei = imeis
+const handleEmitUpdateImei = (imeis: string[], idColorImei: string, index: number) => {
+    const indexIdColor = productDetails.map((productDetail, index) => ({idColor: productDetail.idColor, index}))
+                            .filter(productDetail => productDetail.idColor === idColorImei).map((indexObj) => indexObj.index)[0]
+
+    productDetails[indexIdColor + index].imei = imeis
 
     handleEmitClose()
 }
 
 const notification = useNotification();
 
-const imageProductDetails = reactive<any[]>([]);
+const imageProductDetails = reactive<{[key: string]: any}>({});
+
+const loadingCreateVariant = ref(false)
 
 const submitVariantHandler = async () => {
-
-    // const dataVariant = productDetails.filter(data => {
-    //     let isValid = true
-    //     Object.keys(data).forEach(key => {
-    //         const value = data[key as keyof ADPRTableProductDetail]
-    //         if (!value) isValid = false
-    //     })
-
-    //     if (!(data.imei && Array.isArray(data.imei) && data.imei.length != 0)) return false
-
-    //     if (!data.price) return false
-
-    //     return isValid
-    // })
-
+    loadingCreateVariant.value = true;
     let idNewProduct: string = "";
     if (!idProduct.value) {
-        const resCreateProduct = await modifyProduct(formDataBasic, imageProduct);
+        const resCreateProduct = await modifyProduct(formDataBasic as ADProductCreateUpdateRequest, imageProduct);
         idNewProduct = resCreateProduct.data;
     } else {
         idNewProduct = idProduct.value;
     }
 
-    const length = productDetails.length;
-    for (let i = 0; i < length; i++) {
-        const productDetail = productDetails[i];
-
-        const res = await createProductVariant(
-            idProduct.value ? idProduct.value : idNewProduct,
+    const requests = productDetails.map((productDetail, index) =>
+        createProductVariant(
+            idNewProduct!,
             productDetail as ADProductDetailCreateUpdateRequest,
-            imageProductDetails[i]
-        );
-    }
+            imageProductDetails[productDetail.idColor] ? [imageProductDetails[productDetail.idColor]] : []
+        )
+    );
+
+    // Gửi đồng thời
+    await Promise.all(requests);
 
     if (idNewProduct) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
     else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
 
+    loadingCreateVariant.value = false;
     router.push({ name: 'products_list' })
 }
 
@@ -506,11 +516,8 @@ const handleChangeImageProduct = (data: { fileList: UploadFileInfo[] }) => {
     imageProduct.push(data.fileList[0].file)
 }
 
-const handleChangeProductDetail = (data: { fileList: UploadFileInfo[] }, index: number) => {
-    if (!Array.isArray(imageProductDetails[index])) {
-        imageProductDetails[index] = []
-    }
-    imageProductDetails[index].push(data.fileList[0].file)
+const handleChangeProductDetail = (data: { fileList: UploadFileInfo[] }, idColor: string) => {
+    imageProductDetails[idColor] = (data.fileList[0].file)
 }
 
 const dataQuickAdd = reactive<Partial<{
@@ -527,15 +534,50 @@ const clickAddQuickPropertiesHandler = (typeData: ProductPropertiesType) => {
 const closeQuickAddModalHandler = () => {
     isOpenQuickAddModal.value = false
 }
+
+const priceCommonVariant: Ref<number> = ref(0)
+
+const applyPriceCommonVariantHandler = (idColor: string) => {
+    productDetails.filter(item => item.idColor === idColor).forEach(item => {
+        item.price = priceCommonVariant.value
+    })
+    priceCommonVariant.value = 0
+}
+
+const partitionProductDetailsByColor = computed(() => {
+    const partitioned: { [key: string]: ADPRTableProductDetail[] } = {}
+
+    productDetails.forEach((item) => {
+        if (!partitioned[item.idColor]) {
+            partitioned[item.idColor] = []
+        }
+        partitioned[item.idColor].push(item)
+    })
+
+    return partitioned
+})
+
+const getNameColorById = (idColor: string) => {
+    const color = dataProperties.variantInformation.colors.find(color => color.value === idColor)
+    return color ? color.label : 'Không xác định'
+}
+
 </script>
 
 <style scoped>
-.line-configuration {
-    display: flex;
-    align-items: center;
+.mt-40px {
+    margin-top: 40px !important;
+}
+
+:deep(.rowspan-top) {
+    vertical-align: top !important;
 }
 
 :deep(.n-form-item-label__text) {
     width: 100% !important;
+}
+
+:deep(.n-input-number .n-input-number-control) {
+    display: none !important;
 }
 </style>

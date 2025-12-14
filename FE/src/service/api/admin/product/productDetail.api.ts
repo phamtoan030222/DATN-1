@@ -66,6 +66,13 @@ export type ADPRPropertiesComboboxResponse = {
   value: string
 }
 
+export type ADPDImeiResponse = {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+}
+
 export type IMEIExcelResponse = {
   readonly imei: string;
   readonly isExist: boolean;
@@ -224,6 +231,33 @@ export const quickAddProperties = async (nameProperty: string, type: ProductProp
       type
     }
   })) as AxiosResponse<DefaultResponse<Array<string>>>
+
+  return res.data
+}
+
+export const getMinMaxPrice = async () => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/min-max-price`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<{priceMin: number, priceMax: number}>>
+
+  return res.data
+}
+
+export const getImeiProductDetail = async (idProductDetail: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/imei/${idProductDetail}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPDImeiResponse>>>
+
+  return res.data
+}
+
+export const changeStatusImei = async (idProductDetail: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/imei/change-status/${idProductDetail}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<string>>
 
   return res.data
 }

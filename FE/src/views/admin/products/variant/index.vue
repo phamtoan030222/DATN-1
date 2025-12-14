@@ -3,12 +3,17 @@
         <n-card>
             <NSpace vertical :size="8">
                 <NSpace align="center">
-                    <NIcon size="24">
-                        <Icon icon="icon-park-outline:list" />
-                    </NIcon>
-                    <span style="font-weight: 600; font-size: 24px">
-                        Quản lý biến thể sản phẩm
-                    </span>
+                    <div>
+                        <NIcon size="24">
+                            <Icon icon="icon-park-outline:list" />
+                        </NIcon>
+                        <span style="font-weight: 600; font-size: 24px">
+                            Quản lý biến thể sản phẩm {{ idProduct ? `${product?.code} - ${product?.name}` : '' }}
+                        </span>
+                    </div>
+                    <div>
+                        <!-- // chọn sản phẩm -->
+                    </div>
                 </NSpace>
                 <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
             </NSpace>
@@ -24,41 +29,49 @@
             <n-row gutter="12">
                 <n-col :span="6">
                     <span>Tìm kiếm</span>
-                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" clearable/>
+                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" clearable />
                 </n-col>
                 <n-col :span="3">
                     <span>CPU</span>
-                    <n-select v-model:value="state.search.cpu" placeholder="Tìm kiếm" :options="state.data.cpus" clearable/>
+                    <n-select v-model:value="state.search.cpu" placeholder="Tìm kiếm" :options="state.data.cpus"
+                        clearable />
                 </n-col>
                 <n-col :span="3">
                     <span>GPU</span>
-                    <n-select v-model:value="state.search.gpu" placeholder="Tìm kiếm" :options="state.data.gpus" clearable/>
+                    <n-select v-model:value="state.search.gpu" placeholder="Tìm kiếm" :options="state.data.gpus"
+                        clearable />
                 </n-col>
                 <n-col :span="3">
                     <span>Màu sắc</span>
-                    <n-select v-model:value="state.search.color" placeholder="Tìm kiếm" :options="state.data.colors" clearable/>
+                    <n-select v-model:value="state.search.color" placeholder="Tìm kiếm" :options="state.data.colors"
+                        clearable />
                 </n-col>
                 <n-col :span="3">
                     <span>ổ cứng</span>
-                    <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm" :options="state.data.hardDrives" clearable/>
+                    <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm"
+                        :options="state.data.hardDrives" clearable />
                 </n-col>
                 <n-col :span="3">
                     <span>Chất liệu</span>
-                    <n-select v-model:value="state.search.material" placeholder="Tìm kiếm" :options="state.data.materials" clearable/>
+                    <n-select v-model:value="state.search.material" placeholder="Tìm kiếm"
+                        :options="state.data.materials" clearable />
                 </n-col>
                 <n-col :span="3">
                     <span>RAM</span>
-                    <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm" :options="state.data.rams" clearable/>
+                    <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm" :options="state.data.rams"
+                        clearable />
                 </n-col>
             </n-row>
             <div class="mt-20px">
                 <n-row :gutter="12">
                     <n-col :span="16">
                         <span>Khoảng giá</span>
-                        <n-slider v-model:value="state.search.price" range :step="1000" :min="1000" :max="50000000" />
+                        <n-slider v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range
+                            :step="1000" :min="stateMinMaxPrice.priceMin ?? 0"
+                            :max="stateMinMaxPrice.priceMax ?? 50000000" />
                     </n-col>
                 </n-row>
-                
+
             </div>
         </n-card>
         <n-card class="mt-20px" title="Danh sách biến thể">
@@ -78,12 +91,14 @@
 </template>
 
 <script lang="ts" setup>
-import { ADProductDetailResponse, ADPRPropertiesComboboxResponse, changeProductDetailStatus, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getProductDetails, getRAMs } from '@/service/api/admin/product/productDetail.api'
+import { ADProductDetailResponse, ADPRPropertiesComboboxResponse, changeProductDetailStatus, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getMinMaxPrice, getProductDetails, getRAMs } from '@/service/api/admin/product/productDetail.api'
+import { ADProductDetailResponse as ADProductResponse } from '@/service/api/admin/product/product.api'
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 import { DataTableColumns, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import { onMounted, reactive, ref, Ref } from 'vue'
 import ADProductVariantModal from './component/ADProductVariantModal.vue'
+import { getProductById } from '@/service/api/admin/product/product.api'
 
 const route = useRoute();
 
@@ -116,6 +131,14 @@ const state = reactive({
     },
 })
 
+const product: Ref<ADProductResponse | null> = ref(null)
+
+const fetchProduct = async () => {
+    const res = await getProductById(idProduct.value)
+
+    product.value = res.data
+}
+
 const fetchProductDetails = async () => {
     const res = await getProductDetails({
         page: state.pagination.page,
@@ -134,6 +157,8 @@ const fetchProductDetails = async () => {
 
     state.data.productDetails = res.data.data
     state.pagination.totalPages = res.data.totalPages
+
+    getMinMaxPriceProduct();
 }
 
 const fetchComboboxProperties = async () => {
@@ -229,8 +254,18 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
 
 onMounted(() => {
     fetchProductDetails()
+    if (idProduct.value) {
+        fetchProduct()
+    }
     fetchComboboxProperties()
+    initSearchPrice()
+
 })
+
+const initSearchPrice = async () => {
+    const res = await getMinMaxPrice()
+    state.search.price = [res.data.priceMin as number, res.data.priceMax as number]
+}
 
 const isOpenModal = ref<boolean>(false)
 
@@ -276,6 +311,22 @@ const handleChangeStatus = async (id: string) => {
 const handlePageChange = (page: number) => {
     state.pagination.page = page
 }
+
+const stateMinMaxPrice = reactive<{ priceMin: number | undefined, priceMax: number | undefined }>({
+    priceMin: undefined,
+    priceMax: undefined,
+})
+
+const getMinMaxPriceProduct = async () => {
+    const res = await getMinMaxPrice()
+    stateMinMaxPrice.priceMin = res.data.priceMin
+    stateMinMaxPrice.priceMax = res.data.priceMax
+}
+
+const formatTooltipRangePrice = (value: number) => (value + '').split('').reduce((prev, curr, index, arr) => {
+    if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
+    return prev + curr
+}, '') + ' vnđ'
 </script>
 
 <style scoped>
