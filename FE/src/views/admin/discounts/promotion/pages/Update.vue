@@ -164,7 +164,7 @@
         <NGridItem :span="3"><div class="filter-label">GPU</div><NSelect v-model:value="filterUnapplied.gpu" :options="uniqueGpusUnapplied" placeholder="GPU" clearable size="small" /></NGridItem>
         <NGridItem :span="3"><div class="filter-label">CPU</div><NSelect v-model:value="filterUnapplied.cpu" :options="uniqueCpusUnapplied" placeholder="CPU" clearable size="small" /></NGridItem>
         <NGridItem :span="4" class="flex items-end" style="padding-bottom: 2px;">
-          <NButton circle type="error" secondary @click="resetUnappliedFilters" size="small"><template #icon><NIcon size="18"><Icon icon="carbon:rotate-360" /></NIcon></template></NButton>
+          <NButton circle type="default" secondary @click="resetUnappliedFilters" size="small"><template #icon><NIcon size="18"><Icon icon="carbon:rotate-360" /></NIcon></template></NButton>
         </NGridItem>
       </NGrid>
     </div>
