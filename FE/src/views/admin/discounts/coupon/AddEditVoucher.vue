@@ -38,6 +38,7 @@ const quantityFormItemRef = ref<FormItemInst | null>(null)
 const conditionsFormItemRef = ref<FormItemInst | null>(null)
 const voucherUsersFormItemRef = ref<FormItemInst | null>(null)
 
+// Biến này cực kỳ quan trọng để chặn watcher khi đang fill dữ liệu
 const isLoadingData = ref(false)
 const loading = ref(false)
 const loadingCustomers = ref(false)
@@ -65,9 +66,9 @@ const newVoucher = ref<Partial<ADVoucherResponse>>({
 /* ====== Khối chọn khách hàng (hiển thị bên phải) ====== */
 const customers = ref<Customer[]>([])
 const checkedCustomerKeys = ref<(string | number)[]>([])
-const pagination = ref({ page: 1, pageSize: 5, itemCount: 0 }) // ✅ cố định 5
+const pagination = ref({ page: 1, pageSize: 5, itemCount: 0 })
 const customerFilters = ref({ customerName: '', customerStatus: null as number | null })
-const customerMap = ref<Record<string, Customer>>({}) // để render “đã chọn”
+const customerMap = ref<Record<string, Customer>>({}) // Map để render tag "đã chọn"
 
 /* ===================== Computed ===================== */
 const showQuantity = computed(() => newVoucher.value.targetType === 'ALL_CUSTOMERS')
@@ -166,12 +167,13 @@ function resetNewVoucher() {
   }
   addFormRef.value?.restoreValidation()
   checkedCustomerKeys.value = []
+  customerMap.value = {}
   showConfirm.value = false
 }
 
 async function loadVoucherData() {
   if (props.mode === 'edit' && props.voucherId) {
-    isLoadingData.value = true
+    isLoadingData.value = true // [FIX] Lock watcher
     try {
       const res = await getVoucherById(props.voucherId)
       if (res?.data) {
@@ -179,6 +181,7 @@ async function loadVoucherData() {
         const validType = (['PERCENTAGE', 'FIXED_AMOUNT'] as const).includes(v.typeVoucher)
           ? (v.typeVoucher as 'PERCENTAGE' | 'FIXED_AMOUNT')
           : 'PERCENTAGE'
+
         newVoucher.value = {
           ...v,
           id: v.id ?? '',
@@ -196,14 +199,21 @@ async function loadVoucherData() {
           conditions: v.conditions ?? null,
           note: v.note ?? '',
           status: v.status ?? '',
+          voucherUsers: [], // Tạm thời để rỗng
         }
 
-        // lấy DS khách hàng đã gán cho màn sửa
+        // [FIX] Xử lý load khách hàng riêng biệt nếu type là INDIVIDUAL
         if (newVoucher.value.targetType === 'INDIVIDUAL' && props.voucherId) {
+          // 1. Lấy khách đã gán
           const assigned = await getVoucherCustomers(props.voucherId, false)
+
+          // 2. Map vào form
           newVoucher.value.voucherUsers = assigned.map(c => c.id)
           assigned.forEach(c => (customerMap.value[c.id] = c))
           checkedCustomerKeys.value = newVoucher.value.voucherUsers as string[]
+
+          // 3. Load bảng khách hàng để checkbox hiển thị đúng
+          await fetchCustomers()
         }
       }
     }
@@ -211,6 +221,7 @@ async function loadVoucherData() {
       message.error('Không tải được dữ liệu voucher')
     }
     finally {
+      // [FIX] Unlock watcher sau khi hoàn tất mọi việc
       isLoadingData.value = false
     }
   }
@@ -224,7 +235,7 @@ async function fetchCustomers() {
   try {
     const query: CustomerFilterParams = {
       page: pagination.value.page,
-      size: pagination.value.pageSize, // ✅ cố định 5
+      size: pagination.value.pageSize,
       customerName: customerFilters.value.customerName.trim() || undefined,
       customerStatus: customerFilters.value.customerStatus ?? undefined,
     }
@@ -240,13 +251,14 @@ async function fetchCustomers() {
       pagination.value.itemCount = data.length
     }
     else {
-      throw new TypeError('Dữ liệu phản hồi từ API không đúng định dạng')
+      throw new TypeError('Dữ liệu API không đúng định dạng')
     }
 
     customers.value = data.map((it: Customer) => ({
       ...it,
       id: it.id || it.customerCode || `temp-${Math.random()}`,
     }))
+    // Cập nhật map để hiển thị tags (giữ lại các key cũ để không mất tag của trang khác)
     customers.value.forEach(c => (customerMap.value[c.id] = c))
   }
   catch (err: any) {
@@ -284,7 +296,6 @@ async function handleValidateAndConfirm() {
 async function handleSaveVoucher() {
   loading.value = true
   try {
-    // Build đúng payload gửi BE
     const base: ADVoucherUpsertPayload = {
       name: newVoucher.value.name!,
       typeVoucher: newVoucher.value.typeVoucher as 'PERCENTAGE' | 'FIXED_AMOUNT',
@@ -331,10 +342,6 @@ function handleCancel() {
 /* ===================== Watchers & Mount ===================== */
 onMounted(async () => {
   await loadVoucherData()
-  if (newVoucher.value.targetType === 'INDIVIDUAL') {
-    await fetchCustomers()
-    syncCheckedFromModel()
-  }
 })
 
 watch(() => newVoucher.value.typeVoucher, (val) => {
@@ -347,6 +354,10 @@ watch(() => newVoucher.value.discountValue, (val) => {
 })
 
 watch(() => newVoucher.value.targetType, async (val) => {
+  // [FIX] Nếu đang load dữ liệu ban đầu thì không reset, không gọi API
+  if (isLoadingData.value)
+    return
+
   if (val === 'INDIVIDUAL') {
     await fetchCustomers()
     syncCheckedFromModel()
@@ -394,7 +405,6 @@ function unselectCustomer(id: string) {
   <NCard :title="props.mode === 'edit' ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm Giá'" class="mt-6">
     <NSpin :show="loading || isLoadingData">
       <div class="grid grid-cols-12 gap-6">
-        <!-- Form -->
         <div class="col-span-12 lg:col-span-7">
           <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top">
             <NFormItem label="Tên" path="name">
@@ -489,7 +499,6 @@ function unselectCustomer(id: string) {
           </NForm>
         </div>
 
-        <!-- Bảng chọn khách hàng (chỉ khi INDIVIDUAL) -->
         <div v-if="newVoucher.targetType === 'INDIVIDUAL'" class="col-span-12 lg:col-span-5">
           <NCard title="Chọn khách hàng" size="small" class="mb-3">
             <NSpin :show="loadingCustomers">

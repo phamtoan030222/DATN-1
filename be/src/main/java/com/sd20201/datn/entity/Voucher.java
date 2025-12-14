@@ -47,7 +47,7 @@ public class Voucher extends PrimaryEntity implements Serializable {
 
     @Enumerated(EnumType.ORDINAL)
     private TargetType targetType; // Enum: LIMITED_BY_CONDITION, INDIVIDUAL, ALL_CUSTOMERS
-
+    
     private String note;
 
     @OneToMany(mappedBy = "voucher", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
