@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.orders.order.service.impl;
 
 import com.sd20201.datn.core.admin.orders.order.model.request.OrderRequest;
+import com.sd20201.datn.core.admin.orders.order.repository.ADOrderIMEIRepository;
 import com.sd20201.datn.core.admin.orders.order.repository.OrderRepository;
 import com.sd20201.datn.core.admin.orders.order.service.OrderService;
 import com.sd20201.datn.core.common.base.ResponseObject;
@@ -34,7 +35,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final InvoiceDetailRepository invoiceDetailRepository;
     private final ProductDetailRepository productDetailRepository;
-    private final IMEIRepository imeiRepository;
+    private final ADOrderIMEIRepository imeiRepository;
     private final IMEISoldRepository imeiSoldRepository;
     private final StaffRepository staffRepository;
     private final CustomerRepository customerRepository;
@@ -92,17 +93,17 @@ public class OrderServiceImpl implements OrderService {
                     IMEI imei = imeiRepository.findById(imeiId)
                             .orElseThrow(() -> new RuntimeException("IMEI không tồn tại"));
 
-                    if (imei.getStatus() != 1) { // Giả sử 1 là ACTIVE/IN_STOCK
-                        throw new RuntimeException("IMEI " + imei.getImei() + " đã bán hoặc không khả dụng");
-                    }
+//                    if (imei.getStatus() != 1) { // Giả sử 1 là ACTIVE/IN_STOCK
+//                        throw new RuntimeException("IMEI " + imei.getImei() + " đã bán hoặc không khả dụng");
+//                    }
 
                     // Cập nhật trạng thái IMEI gốc -> Đã bán
-                    imei.setStatus(0); // 0: SOLD
+//                    imei.setStatus(0); // 0: SOLD
                     imeiRepository.save(imei);
 
                     // Tạo bản ghi IMEISold (Lịch sử bán)
                     IMEISold imeiSold = new IMEISold();
-                    imeiSold.setImei(imei);
+//                    imeiSold.setImei(imei);
                     // imeiSold.setProduct(productDetail.getProduct()); // Nếu entity IMEISold có trường này
                     IMEISold savedImeiSold = imeiSoldRepository.save(imeiSold);
 
@@ -119,7 +120,7 @@ public class OrderServiceImpl implements OrderService {
                 }
 
                 // Trừ tồn kho tổng của ProductDetail
-                productDetail.setQuantity(productDetail.getQuantity() - item.getListImeiIds().size());
+//                productDetail.setQuantity(productDetail.getQuantity() - item.getListImeiIds().size());
                 productDetailRepository.save(productDetail);
 
             } else {
@@ -137,7 +138,7 @@ public class OrderServiceImpl implements OrderService {
                 detailsToSave.add(detail);
 
                 // Trừ tồn kho
-                productDetail.setQuantity(productDetail.getQuantity() - item.getQuantity());
+//                productDetail.setQuantity(productDetail.getQuantity() - item.getQuantity());
                 productDetailRepository.save(productDetail);
             }
         }
