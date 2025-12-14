@@ -86,7 +86,7 @@
               @click="handleReset" 
               secondary 
               circle
-              type="error"
+              type="default"
               ghost
               title="Làm mới bộ lọc"
             >
