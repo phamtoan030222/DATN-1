@@ -123,7 +123,6 @@ public interface AdVoucherRepository extends VoucherRepository {
     )
     Page<Customer> findUsedCustomersByVoucherCode(@Param("code") String code, Pageable pageable);
 
-    /* (Tuỳ chọn) Non-paged tiện dùng nhanh nếu cần */
     @Query("""
                 select c
                 from VoucherDetail vd

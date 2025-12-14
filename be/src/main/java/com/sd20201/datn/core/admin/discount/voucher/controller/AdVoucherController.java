@@ -96,7 +96,6 @@ public class AdVoucherController {
         }
     }
 
-    // AdVoucherControlle1r (ví dụ)
 
     @GetMapping("/{id}/customers")
     public ResponseEntity<?> customersByVoucher(
