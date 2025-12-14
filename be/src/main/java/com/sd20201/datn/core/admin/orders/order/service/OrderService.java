@@ -8,4 +8,7 @@ public interface OrderService {
     // API tạo hóa đơn tại quầy
     ResponseObject<Object> createOrderAtCounter(OrderRequest request);
 
+    Boolean updateOrder(OrderRequest orderRequest, String id);
+
+    Boolean deleteOrder(String id);
 }

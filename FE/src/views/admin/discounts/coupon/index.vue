@@ -11,40 +11,71 @@ import {
   NInput,
   NInputNumber,
   NPagination,
-  NPopconfirm,
   NRadio,
   NRadioGroup,
   NSpace,
-  NSwitch,
+  NTag,
   NTooltip,
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import AddEditVoucher from './AddEditVoucher.vue'
-
 import {
-  deleteVoucher,
-  deleteVouchers,
   getVouchers,
-  updateVoucherStatus,
 } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
 import formatDate from '@/utils/common.helper'
 
+/* ===================== Utility Functions ===================== */
+// Logic tính toán trạng thái (Hiển thị Tag)
+function getVoucherStatus(row: ADVoucherResponse) {
+  const now = Date.now()
+  const startDate = row.startDate
+  const endDate = row.endDate
+  const remainingQuantity = row.remainingQuantity
+  const targetType = row.targetType // 'ALL_CUSTOMERS' or 'INDIVIDUAL'
+
+  // 1. Chưa bắt đầu
+  if (startDate && startDate > now) {
+    return { text: 'Chưa bắt đầu', type: 'info' }
+  }
+  // 2. Đã hết hạn hoặc Hết hàng
+  const isExpiredByDate = endDate && endDate < now
+  const isExpiredByQuantity = targetType === 'ALL_CUSTOMERS' && (remainingQuantity === null || remainingQuantity <= 0)
+
+  if (isExpiredByDate || isExpiredByQuantity) {
+    return { text: 'Đã hết hạn', type: 'error' }
+  }
+  // 3. Đang diễn ra
+  const isWithinTime = (startDate || 0) <= now && (endDate || Infinity) >= now
+  const hasRemainingQuantity = targetType === 'INDIVIDUAL' || (targetType === 'ALL_CUSTOMERS' && (remainingQuantity || 0) > 0)
+
+  if (isWithinTime && hasRemainingQuantity) {
+    return { text: 'Đang diễn ra', type: 'success' }
+  }
+  // Fallback
+  return { text: 'Không xác định', type: 'default' }
+}
+
+// Logic hiển thị kiểu (Cá nhân/Công khai)
+function getVoucherTypeText(row: ADVoucherResponse) {
+  if (row.targetType === 'INDIVIDUAL')
+    return { text: 'Cá nhân', type: 'info' }
+  if (row.targetType === 'ALL_CUSTOMERS')
+    return { text: 'Công khai', type: 'primary' }
+  return { text: '—', type: 'default' }
+}
+
 /* ===================== State ===================== */
 const message = useMessage()
-const checkedRowKeys = ref<(string | number)[]>([])
 const loading = ref(false)
 const data = ref<ADVoucherResponse[]>([])
-const rowLoading = ref<Record<string, boolean>>({})
-
 const pagination = ref({
   page: 1,
-  pageSize: 5, // ✅ TRẢ LẠI 5
+  pageSize: 5,
   itemCount: 0,
   showSizePicker: true,
 })
-
 const showAddEditForm = ref(false)
 const formMode = ref<'add' | 'edit'>('add')
 const selectedVoucherId = ref<string | null>(null)
@@ -68,84 +99,6 @@ function closeForm() {
   fetchData()
 }
 
-/* ===================== Delete ===================== */
-async function handleDeleteOne(id: string, name: string) {
-  try {
-    await deleteVoucher(id)
-    message.success(`Xoá thành công voucher: ${name}`)
-    await fetchData()
-  }
-  catch (err: any) {
-    message.error(`Lỗi xóa voucher: ${err.message || 'Unknown error'}`)
-  }
-}
-
-async function handleDeleteMany(ids: string[]) {
-  try {
-    await deleteVouchers(ids)
-    message.success('Xoá thành công')
-    checkedRowKeys.value = []
-    await fetchData()
-  }
-  catch (err: any) {
-    message.error(`Lỗi xóa nhiều voucher: ${err.message || 'Unknown error'}`)
-  }
-}
-
-/* ===================== Toggle Status (per row) ===================== */
-async function toggleOne(row: ADVoucherResponse) {
-  const id = String(row.id ?? '')
-  if (!id)
-    return
-  rowLoading.value = { ...rowLoading.value, [id]: true }
-  try {
-    await updateVoucherStatus(id) // ✅ chỉ 1 tham số
-    // FE tự đảo trạng thái
-    row.status = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
-    message.success('Cập nhật trạng thái thành công')
-  }
-  catch (err: any) {
-    message.error(`Lỗi cập nhật trạng thái: ${err.message || 'Unknown error'}`)
-  }
-  finally {
-    rowLoading.value = { ...rowLoading.value, [id]: false }
-  }
-}
-
-/* ===================== Toggle Status for Selected (FIXED) ===================== */
-async function handleConfirmStatusChange() {
-  if (checkedRowKeys.value.length === 0) {
-    message.warning('Vui lòng chọn ít nhất một phiếu giảm giá')
-    return
-  }
-  const newRowLoading = { ...rowLoading.value }
-  checkedRowKeys.value.forEach(k => (newRowLoading[String(k)] = true))
-  rowLoading.value = newRowLoading
-
-  try {
-    await Promise.all(
-      checkedRowKeys.value.map(async (k) => {
-        const id = String(k)
-        await updateVoucherStatus(id) // ✅ chỉ 1 tham số
-        const row = data.value.find(v => String(v.id) === id)
-        if (row)
-          row.status = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
-      }),
-    )
-    message.success('Cập nhật trạng thái thành công cho các phiếu giảm giá đã chọn')
-    checkedRowKeys.value = []
-  }
-  catch (err: any) {
-    message.error(`Lỗi cập nhật trạng thái: ${err.message || 'Unknown error'}`)
-  }
-  finally {
-    const done = { ...rowLoading.value }
-    Object.keys(done).forEach(k => (done[k] = false))
-    rowLoading.value = done
-    // nếu muốn, gọi lại fetchData()
-  }
-}
-
 /* ===================== Filters ===================== */
 const filters = ref({
   q: '',
@@ -163,9 +116,21 @@ function resetFilters() {
 
 /* ===================== Data Table ===================== */
 const columns: DataTableColumns<ADVoucherResponse> = [
-  { type: 'selection' },
+  // 1. Cột STT
+  { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
+  // Đã bỏ cột Selection
   { title: 'Mã', key: 'code', width: 120 },
   { title: 'Tên', key: 'name', width: 180 },
+  // 2. Cột Kiểu
+  {
+    title: 'Kiểu',
+    key: 'targetType',
+    width: 100,
+    render(row) {
+      const typeInfo = getVoucherTypeText(row)
+      return h(NTag, { type: typeInfo.type, size: 'small' }, { default: () => typeInfo.text })
+    },
+  },
   { title: 'Số lượng', key: 'quantity', width: 100 },
   {
     title: 'Giá trị',
@@ -197,64 +162,40 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     key: 'endDate',
     render: row => (row.endDate ? formatDate(row.endDate) : 'N/A'),
   },
+  // 3. Cột Trạng thái (Chỉ hiển thị, không thao tác)
   {
     title: 'Trạng thái',
-    key: 'status',
+    key: 'computedStatus',
     width: 130,
     render(row) {
-      const isActive = (row.status ?? 'INACTIVE') === 'ACTIVE'
-      const id = String(row.id ?? '')
-      return h(
-        NPopconfirm,
-        {
-          onPositiveClick: () => toggleOne(row),
-          positiveText: 'Xác nhận',
-          negativeText: 'Hủy',
-        },
-        {
-          trigger: () =>
-            h(NSwitch, {
-              value: isActive,
-              loading: !!rowLoading.value[id],
-            }),
-          default: () => `Chuyển sang ${isActive ? 'Không hoạt động' : 'Hoạt động'}?`,
-        },
-      )
+      const statusInfo = getVoucherStatus(row)
+      return h(NTag, { type: statusInfo.type, size: 'small' }, { default: () => statusInfo.text })
     },
   },
+  // 4. Cột Thao tác (Chỉ còn nút Sửa)
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 120,
+    width: 80,
     render(row: ADVoucherResponse) {
       const id = row.id
-      return h(NSpace, { size: 8 }, () => [
+      if (!id) {
+        return h('span', { class: 'text-gray-500 text-xs' }, 'Không có ID')
+      }
+      return h(NSpace, { size: 8, justify: 'center' }, () => [
+        // Nút Sửa
         h(
           NButton,
           {
             size: 'small',
             title: 'Sửa',
             text: true,
+            type: 'primary',
             onClick: () => {
-              if (id)
-                openEditPage(id)
-              else message.error('ID không tồn tại')
+              openEditPage(id)
             },
           },
           { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) },
-        ),
-        h(
-          NPopconfirm,
-          { onPositiveClick: () => (id ? handleDeleteOne(id, row.name) : message.error('ID không tồn tại')) },
-          {
-            trigger: () =>
-              h(
-                NButton,
-                { size: 'small', title: 'Xoá', text: true, type: 'error' },
-                { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:trash-can' }) }) },
-              ),
-            default: () => 'Bạn có chắc muốn xóa?',
-          },
         ),
       ])
     },
@@ -267,7 +208,7 @@ async function fetchData() {
   try {
     const query: ADVoucherQuery = {
       page: pagination.value.page,
-      size: pagination.value.pageSize, // ✅ vẫn dùng pageSize ở trên (5)
+      size: pagination.value.pageSize,
       q: filters.value.q || undefined,
       conditions: filters.value.conditions || undefined,
       status: filters.value.status || undefined,
@@ -304,15 +245,7 @@ watch(
 
 <template>
   <div :key="showAddEditForm ? 'form' : 'list'">
-    <!-- Form Thêm/Sửa -->
-    <AddEditVoucher
-      v-if="showAddEditForm"
-      :mode="formMode"
-      :voucher-id="selectedVoucherId"
-      @close="closeForm"
-    />
-
-    <!-- Header -->
+    <AddEditVoucher v-if="showAddEditForm" :mode="formMode" :voucher-id="selectedVoucherId" @close="closeForm" />
     <NCard v-else class="mb-3">
       <NSpace vertical :size="8">
         <NSpace align="center">
@@ -325,7 +258,6 @@ watch(
       </NSpace>
     </NCard>
 
-    <!-- Bộ lọc -->
     <NCard v-if="!showAddEditForm" title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
       <template #header-extra>
         <div class="mr-5">
@@ -347,12 +279,15 @@ watch(
             <NInput v-model:value="filters.q" placeholder="Tên hoặc Mã..." class="w-full" />
           </NFormItem>
           <NFormItem label="Điều kiện áp dụng">
-            <NInputNumber v-model:value="filters.conditions" step="1000" placeholder="Điều kiện áp dụng..." class="w-full" />
+            <NInputNumber
+              v-model:value="filters.conditions" step="1000" placeholder="Điều kiện áp dụng..."
+              class="w-full"
+            />
           </NFormItem>
           <NFormItem label="Trạng thái">
             <NRadioGroup v-model:value="filters.status" name="status">
               <NSpace>
-                <NRadio value=""> 
+                <NRadio value="">
                   Tất cả
                 </NRadio>
                 <NRadio value="ACTIVE">
@@ -368,7 +303,6 @@ watch(
       </NForm>
     </NCard>
 
-    <!-- Table -->
     <NCard v-if="!showAddEditForm" title="Danh sách Phiếu Giảm Giá" class="border rounded-3">
       <template #header-extra>
         <div class="mr-5">
@@ -383,7 +317,6 @@ watch(
               </template>
               Thêm mới
             </NTooltip>
-
             <NTooltip trigger="hover" placement="top">
               <template #trigger>
                 <NButton circle secondary type="primary" title="Làm mới" @click="fetchData">
@@ -394,51 +327,11 @@ watch(
               </template>
               Làm mới
             </NTooltip>
-
-            <NTooltip :disabled="checkedRowKeys.length === 0">
-              <template #trigger>
-                <NPopconfirm @positive-click="handleDeleteMany(checkedRowKeys as string[])">
-                  <template #trigger>
-                    <NTooltip trigger="hover" placement="top">
-                      <template #trigger>
-                        <NButton
-                          circle
-                          secondary
-                          type="error"
-                          :disabled="checkedRowKeys.length === 0"
-                          title="Xóa đã chọn"
-                        >
-                          <NIcon size="24">
-                            <Icon icon="carbon:trash-can" />
-                          </NIcon>
-                        </NButton>
-                      </template>
-                      Xóa mục đã chọn
-                    </NTooltip>
-                  </template>
-                  Bạn có chắc muốn xóa không?
-                </NPopconfirm>
-              </template>
-              Chưa chọn phiếu giảm giá nào
-            </NTooltip>
-
-            <!-- Nút chuyển trạng thái hàng loạt -->
-            <div v-if="checkedRowKeys.length > 0" class="flex items-center">
-              <NPopconfirm @positive-click="handleConfirmStatusChange">
-                <template #trigger>
-                  <NButton type="primary" size="small">
-                    Chuyển đổi trạng thái
-                  </NButton>
-                </template>
-                Bạn có chắc muốn chuyển đổi trạng thái cho các phiếu đã chọn?
-              </NPopconfirm>
-            </div>
           </NSpace>
         </div>
       </template>
 
       <NDataTable
-        v-model:checked-row-keys="checkedRowKeys"
         :columns="columns"
         :data="data"
         :loading="loading"
@@ -446,13 +339,12 @@ watch(
         :pagination="false"
         bordered
       />
+
       <div class="flex justify-center mt-4">
         <NPagination
-          :page="pagination.page"
-          :page-size="pagination.pageSize"
-          :item-count="pagination.itemCount"
+          :page="pagination.page" :page-size="pagination.pageSize" :item-count="pagination.itemCount"
           @update:page="(page) => { pagination.page = page; fetchData(); }"
-          @update:page-size="(size) => { pagination.pageSize = size; fetchData(); }"
+          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; fetchData(); }"
         />
       </div>
     </NCard>

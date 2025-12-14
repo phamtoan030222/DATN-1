@@ -24,8 +24,8 @@ import type { AxiosResponse } from 'axios'
 
 import type { ADVoucherResponse, ADVoucherUpsertPayload } from '@/service/api/admin/discount/api.voucher'
 import { createVoucher, getVoucherById, getVoucherCustomers, updateVoucher } from '@/service/api/admin/discount/api.voucher'
-import type { Customer, CustomerFilterParams } from '@/service/api/admin/users/customer'
-import { getCustomers } from '@/service/api/admin/users/customer'
+import type { Customer, CustomerFilterParams } from '@/service/api/admin/users/customer/customer'
+import { getCustomers } from '@/service/api/admin/users/customer/customer'
 
 /* ===================== Props & Emits ===================== */
 const props = defineProps<{ mode: 'add' | 'edit', voucherId: string | null }>()
