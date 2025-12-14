@@ -183,7 +183,7 @@
         </NGridItem>
 
         <NGridItem :span="4" class="flex items-end" style="padding-bottom: 2px;">
-          <NButton circle type="error" secondary @click="resetFilters" title="Làm mới bộ lọc">
+          <NButton circle type="default" secondary @click="resetFilters" title="Làm mới bộ lọc">
             <template #icon><NIcon size="18"><Icon icon="carbon:rotate-360" /></NIcon></template>
           </NButton>
         </NGridItem>
