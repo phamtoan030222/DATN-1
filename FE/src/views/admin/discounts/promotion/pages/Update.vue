@@ -117,7 +117,7 @@
               v-model:value="productSearchKeyword" 
               placeholder="Tìm tên/mã..." 
               clearable 
-              size="small"
+      
             >
               <template #prefix><NIcon><Icon icon="carbon:search" /></NIcon></template>
             </NInput>
@@ -233,7 +233,7 @@
         <NGridItem :span="3"><div class="filter-label">GPU</div><NSelect v-model:value="filterApplied.gpu" :options="uniqueGpusApplied" placeholder="GPU" clearable size="small" /></NGridItem>
         <NGridItem :span="3"><div class="filter-label">CPU</div><NSelect v-model:value="filterApplied.cpu" :options="uniqueCpusApplied" placeholder="CPU" clearable size="small" /></NGridItem>
         <NGridItem :span="4" class="flex items-end" style="padding-bottom: 2px;">
-          <NButton circle type="error" secondary @click="resetAppliedFilters" size="small"><template #icon><NIcon size="18"><Icon icon="carbon:rotate-360" /></NIcon></template></NButton>
+          <NButton circle type="default" secondary @click="resetAppliedFilters" size="small"><template #icon><NIcon size="18"><Icon icon="carbon:rotate-360" /></NIcon></template></NButton>
         </NGridItem>
       </NGrid>
     </div>
@@ -243,7 +243,7 @@
         <NPopconfirm @positive-click="handleBulkRemove" positive-text="Xóa" negative-text="Hủy">
           <template #trigger>
             <NButton 
-              type="error" secondary size="small" 
+              type="error" secondary 
               :disabled="selectedAppliedKeys.length === 0 || !canUpdateProducts" 
               :loading="bulkRemoving"
             >
@@ -262,7 +262,6 @@
       :row-key="(row) => row.id"
       v-model:checked-row-keys="selectedAppliedKeys"
       :pagination="false"
-      size="small"
       max-height="400px"
     />
 
@@ -272,7 +271,6 @@
         :page-size="appliedPageSize"
         :page-count="Math.ceil(filteredAppliedProducts.length / appliedPageSize)"
         @update:page="(p) => appliedCurrentPage = p"
-        size="small"
       />
     </div>
   </NCard>

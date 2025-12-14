@@ -134,7 +134,7 @@
           :row-key="(row) => row.id"
           v-model:checked-row-keys="checkedProductKeys"
           :pagination="false"
-          size="small"
+   
           max-height="450px"
         />
 
@@ -143,7 +143,6 @@
             v-model:page="productCurrentPage"
             :page-size="productPageSize"
             :page-count="Math.ceil(filteredProducts.length / productPageSize)"
-            size="small"
           />
         </div>
       </NCard>
@@ -203,7 +202,7 @@
       :row-key="(row) => row.id"
       v-model:checked-row-keys="selectedDetailKeys"
       :pagination="false"
-      size="small"
+
     />
 
     <div class="flex justify-center mt-4" v-if="filteredDetails.length > detailPageSize">
@@ -211,7 +210,7 @@
         v-model:page="detailCurrentPage"
         :page-size="detailPageSize"
         :page-count="Math.ceil(filteredDetails.length / detailPageSize)"
-        size="small"
+
       />
     </div>
   </NCard>
