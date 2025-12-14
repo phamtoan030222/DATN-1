@@ -5,6 +5,7 @@ import {
   NButton,
   NCard,
   NDataTable,
+  NDatePicker,
   NForm,
   NFormItem,
   NIcon,
@@ -27,37 +28,34 @@ import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/disc
 import formatDate from '@/utils/common.helper'
 
 /* ===================== Utility Functions ===================== */
-// Logic tính toán trạng thái (Hiển thị Tag)
 function getVoucherStatus(row: ADVoucherResponse) {
   const now = Date.now()
   const startDate = row.startDate
   const endDate = row.endDate
   const remainingQuantity = row.remainingQuantity
-  const targetType = row.targetType // 'ALL_CUSTOMERS' or 'INDIVIDUAL'
+  const targetType = row.targetType
 
-  // 1. Chưa bắt đầu
   if (startDate && startDate > now) {
-    return { text: 'Chưa bắt đầu', type: 'info' }
+    return { text: 'Sắp diễn ra', type: 'info', value: 'UPCOMING' }
   }
-  // 2. Đã hết hạn hoặc Hết hàng
+
   const isExpiredByDate = endDate && endDate < now
   const isExpiredByQuantity = targetType === 'ALL_CUSTOMERS' && (remainingQuantity === null || remainingQuantity <= 0)
 
   if (isExpiredByDate || isExpiredByQuantity) {
-    return { text: 'Đã hết hạn', type: 'error' }
+    return { text: 'Đã kết thúc', type: '', value: 'ENDED' }
   }
-  // 3. Đang diễn ra
+
   const isWithinTime = (startDate || 0) <= now && (endDate || Infinity) >= now
   const hasRemainingQuantity = targetType === 'INDIVIDUAL' || (targetType === 'ALL_CUSTOMERS' && (remainingQuantity || 0) > 0)
 
   if (isWithinTime && hasRemainingQuantity) {
-    return { text: 'Đang diễn ra', type: 'success' }
+    return { text: 'Đang diễn ra', type: 'success', value: 'ONGOING' }
   }
-  // Fallback
-  return { text: 'Không xác định', type: 'default' }
+
+  return { text: 'Không xác định', type: 'default', value: 'UNKNOWN' }
 }
 
-// Logic hiển thị kiểu (Cá nhân/Công khai)
 function getVoucherTypeText(row: ADVoucherResponse) {
   if (row.targetType === 'INDIVIDUAL')
     return { text: 'Cá nhân', type: 'info' }
@@ -69,7 +67,12 @@ function getVoucherTypeText(row: ADVoucherResponse) {
 /* ===================== State ===================== */
 const message = useMessage()
 const loading = ref(false)
-const data = ref<ADVoucherResponse[]>([])
+// Biến lưu trữ toàn bộ dữ liệu gốc từ API
+const allData = ref<ADVoucherResponse[]>([])
+// Biến lưu trữ dữ liệu đang hiển thị (đã phân trang)
+const displayData = ref<ADVoucherResponse[]>([])
+const checkedRowKeys = ref<(string | number)[]>([])
+
 const pagination = ref({
   page: 1,
   pageSize: 5,
@@ -96,7 +99,7 @@ function openEditPage(id: string) {
 function closeForm() {
   showAddEditForm.value = false
   selectedVoucherId.value = null
-  fetchData()
+  fetchData() // Tải lại dữ liệu khi đóng form
 }
 
 /* ===================== Filters ===================== */
@@ -112,16 +115,86 @@ function resetFilters() {
   filters.value.conditions = null
   filters.value.dateRange = null
   filters.value.status = ''
+  pagination.value.page = 1
+  handleClientSideFilter() // Lọc lại
+}
+
+/* ===================== Client Side Logic ===================== */
+// Hàm xử lý lọc và phân trang tại Frontend
+function handleClientSideFilter() {
+  loading.value = true
+
+  // 1. Lọc dữ liệu từ allData
+  let filtered = allData.value.filter((item) => {
+    // Lọc theo Tên/Mã (Backend đã làm tốt, nhưng nếu fetch all thì lọc lại cũng được)
+    // Ở đây ta giả định fetch all vẫn dùng tham số 'q' của BE để giảm tải,
+    // hoặc lọc thủ công nếu muốn chính xác tuyệt đối.
+    // Để đơn giản, ta tin tưởng BE đã lọc theo q, conditions, dateRange rồi.
+    // Ta CHỈ LỌC THÊM STATUS ở đây.
+
+    if (!filters.value.status)
+      return true // Không chọn status -> lấy hết
+
+    // Tính toán trạng thái thời gian thực
+    const statusInfo = getVoucherStatus(item)
+    return statusInfo.value === filters.value.status
+  })
+
+  // 2. Cập nhật tổng số lượng
+  pagination.value.itemCount = filtered.length
+
+  // 3. Cắt trang (Phân trang)
+  const startIndex = (pagination.value.page - 1) * pagination.value.pageSize
+  const endIndex = startIndex + pagination.value.pageSize
+
+  displayData.value = filtered.slice(startIndex, endIndex)
+
+  loading.value = false
+}
+
+/* ===================== Fetch API ===================== */
+async function fetchData() {
+  loading.value = true
+  try {
+    // Mẹo: Request size cực lớn để lấy hết dữ liệu về (Client-side handling)
+    const query: ADVoucherQuery = {
+      page: 1, // Luôn lấy từ trang 1 của BE
+      size: 1000, // Lấy 1000 bản ghi (hoặc số lớn hơn tùy database)
+      q: filters.value.q || undefined,
+      conditions: filters.value.conditions || undefined,
+      startDate: filters.value.dateRange?.[0],
+      endDate: filters.value.dateRange?.[1],
+      // KHÔNG gửi status UPCOMING/ONGOING... lên BE vì BE không hiểu
+      // Chỉ gửi status nếu nó là ACTIVE/INACTIVE (nếu bạn muốn kết hợp)
+      status: undefined,
+    }
+
+    const res = await getVouchers(query)
+
+    // Lưu toàn bộ dữ liệu thô
+    allData.value = (res.content ?? []).map(item => ({ ...item, status: item.status ?? 'INACTIVE' }))
+
+    // Gọi hàm lọc client
+    handleClientSideFilter()
+
+    checkedRowKeys.value = []
+  }
+  catch (err: any) {
+    message.error(`Lỗi tải dữ liệu: ${err.message || 'Unknown error'}`)
+    allData.value = []
+    displayData.value = []
+  }
+  finally {
+    loading.value = false
+  }
 }
 
 /* ===================== Data Table ===================== */
 const columns: DataTableColumns<ADVoucherResponse> = [
-  // 1. Cột STT
+  { type: 'selection' },
   { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
-  // Đã bỏ cột Selection
   { title: 'Mã', key: 'code', width: 120 },
   { title: 'Tên', key: 'name', width: 180 },
-  // 2. Cột Kiểu
   {
     title: 'Kiểu',
     key: 'targetType',
@@ -162,7 +235,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     key: 'endDate',
     render: row => (row.endDate ? formatDate(row.endDate) : 'N/A'),
   },
-  // 3. Cột Trạng thái (Chỉ hiển thị, không thao tác)
   {
     title: 'Trạng thái',
     key: 'computedStatus',
@@ -172,18 +244,15 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       return h(NTag, { type: statusInfo.type, size: 'small' }, { default: () => statusInfo.text })
     },
   },
-  // 4. Cột Thao tác (Chỉ còn nút Sửa)
   {
     title: 'Thao tác',
     key: 'actions',
     width: 80,
     render(row: ADVoucherResponse) {
       const id = row.id
-      if (!id) {
+      if (!id)
         return h('span', { class: 'text-gray-500 text-xs' }, 'Không có ID')
-      }
       return h(NSpace, { size: 8, justify: 'center' }, () => [
-        // Nút Sửa
         h(
           NButton,
           {
@@ -191,9 +260,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
             title: 'Sửa',
             text: true,
             type: 'primary',
-            onClick: () => {
-              openEditPage(id)
-            },
+            onClick: () => openEditPage(id),
           },
           { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) },
         ),
@@ -202,44 +269,27 @@ const columns: DataTableColumns<ADVoucherResponse> = [
   },
 ]
 
-/* ===================== Fetch API ===================== */
-async function fetchData() {
-  loading.value = true
-  try {
-    const query: ADVoucherQuery = {
-      page: pagination.value.page,
-      size: pagination.value.pageSize,
-      q: filters.value.q || undefined,
-      conditions: filters.value.conditions || undefined,
-      status: filters.value.status || undefined,
-      startDate: filters.value.dateRange?.[0],
-      endDate: filters.value.dateRange?.[1],
-    }
-    const res = await getVouchers(query)
-    data.value = (res.content ?? []).map(item => ({ ...item, status: item.status ?? 'INACTIVE' }))
-    pagination.value.itemCount = res.totalElements ?? 0
-  }
-  catch (err: any) {
-    message.error(`Lỗi tải dữ liệu: ${err.message || 'Unknown error'}`)
-    data.value = []
-  }
-  finally {
-    loading.value = false
-  }
-}
-
+/* ===================== Watchers & Hooks ===================== */
 onMounted(() => {
   showAddEditForm.value = false
   fetchData()
 })
 
+// Khi bộ lọc thay đổi, gọi lại API để lấy dữ liệu mới nhất (với các tiêu chí tìm kiếm cơ bản)
 watch(
-  filters,
+  [() => filters.value.q, () => filters.value.conditions, () => filters.value.dateRange],
   () => {
     pagination.value.page = 1
     fetchData()
   },
-  { deep: true },
+)
+
+// Khi thay đổi Status Filter hoặc Pagination -> CHỈ cần lọc lại trên Client, không cần gọi API
+watch(
+  [() => filters.value.status, () => pagination.value.page, () => pagination.value.pageSize],
+  () => {
+    handleClientSideFilter()
+  },
 )
 </script>
 
@@ -273,31 +323,50 @@ watch(
           </NTooltip>
         </div>
       </template>
+
       <NForm label-placement="top">
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4 items-end">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
           <NFormItem label="Tên hoặc mã">
-            <NInput v-model:value="filters.q" placeholder="Tên hoặc Mã..." class="w-full" />
+            <NInput v-model:value="filters.q" placeholder="Nhập tên hoặc mã..." />
           </NFormItem>
-          <NFormItem label="Điều kiện áp dụng">
-            <NInputNumber
-              v-model:value="filters.conditions" step="1000" placeholder="Điều kiện áp dụng..."
-              class="w-full"
-            />
-          </NFormItem>
+
           <NFormItem label="Trạng thái">
             <NRadioGroup v-model:value="filters.status" name="status">
               <NSpace>
                 <NRadio value="">
                   Tất cả
                 </NRadio>
-                <NRadio value="ACTIVE">
-                  Hoạt động
+                <NRadio value="UPCOMING">
+                  Sắp diễn ra
                 </NRadio>
-                <NRadio value="INACTIVE">
-                  Không hoạt động
+                <NRadio value="ONGOING">
+                  Đang diễn ra
+                </NRadio>
+                <NRadio value="ENDED">
+                  Đã kết thúc
                 </NRadio>
               </NSpace>
             </NRadioGroup>
+          </NFormItem>
+
+          <NFormItem label="Điều kiện áp dụng tối thiểu">
+            <NInputNumber
+              v-model:value="filters.conditions"
+              step="1000"
+              placeholder="VD: 100,000..."
+              class="w-full"
+            />
+          </NFormItem>
+
+          <NFormItem label="Thời gian diễn ra">
+            <NDatePicker
+              v-model:value="filters.dateRange"
+              type="daterange"
+              clearable
+              class="w-full"
+              start-placeholder="Bắt đầu"
+              end-placeholder="Kết thúc"
+            />
           </NFormItem>
         </div>
       </NForm>
@@ -332,8 +401,9 @@ watch(
       </template>
 
       <NDataTable
+        v-model:checked-row-keys="checkedRowKeys"
         :columns="columns"
-        :data="data"
+        :data="displayData"
         :loading="loading"
         :row-key="(row) => row.id"
         :pagination="false"
@@ -342,9 +412,11 @@ watch(
 
       <div class="flex justify-center mt-4">
         <NPagination
-          :page="pagination.page" :page-size="pagination.pageSize" :item-count="pagination.itemCount"
-          @update:page="(page) => { pagination.page = page; fetchData(); }"
-          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1; fetchData(); }"
+          :page="pagination.page"
+          :page-size="pagination.pageSize"
+          :item-count="pagination.itemCount"
+          @update:page="(page) => { pagination.page = page }"
+          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1 }"
         />
       </div>
     </NCard>
