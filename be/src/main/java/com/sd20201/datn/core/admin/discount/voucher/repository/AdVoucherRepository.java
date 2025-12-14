@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.discount.voucher.repository;
 
 import com.sd20201.datn.core.admin.discount.voucher.model.request.AdVoucherRequest;
+import com.sd20201.datn.core.admin.discount.voucher.model.response.AdCustomerResponse;
 import com.sd20201.datn.core.admin.discount.voucher.model.response.AdVoucherResponse;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.Voucher;
@@ -87,42 +88,6 @@ public interface AdVoucherRepository extends VoucherRepository {
             """)
     List<Object[]> getVouchersWithCustomers(@Param("onlyUsed") boolean onlyUsed);
 
-    /* --------- KH được gán vào voucher (theo voucherId) --------- */
-    @Query(
-            value = """
-                        select c
-                        from VoucherDetail vd
-                        join vd.customer c
-                        where vd.voucher.id = :voucherId
-                    """,
-            countQuery = """
-                        select count(c)
-                        from VoucherDetail vd
-                        join vd.customer c
-                        where vd.voucher.id = :voucherId
-                    """
-    )
-    Page<Customer> findAssignedCustomersByVoucherId(@Param("voucherId") String voucherId, Pageable pageable);
-
-    /* --------- KH đã sử dụng voucher (theo voucherCode) --------- */
-    @Query(
-            value = """
-                        select c
-                        from VoucherDetail vd
-                        join vd.customer c
-                        where vd.voucher.code = :code
-                          and vd.usageStatus = true
-                    """,
-            countQuery = """
-                        select count(c)
-                        from VoucherDetail vd
-                        join vd.customer c
-                        where vd.voucher.code = :code
-                          and vd.usageStatus = true
-                    """
-    )
-    Page<Customer> findUsedCustomersByVoucherCode(@Param("code") String code, Pageable pageable);
-
     @Query("""
                 select c
                 from VoucherDetail vd
@@ -139,4 +104,52 @@ public interface AdVoucherRepository extends VoucherRepository {
                   and vd.usageStatus = true
             """)
     List<Customer> findUsedCustomersByVoucherCodeRaw(@Param("code") String code);
+
+    @Query(
+            value = """
+                        SELECT
+                            c.id as id,
+                            c.code as customerCode,
+                            c.name as customerName,
+                            c.phone as customerPhone,
+                            c.email as customerEmail,
+                            c.status as customerStatus
+                        FROM VoucherDetail vd
+                        JOIN vd.customer c
+                        WHERE vd.voucher.id = :voucherId
+                    """,
+            countQuery = """
+                        SELECT count(c)
+                        FROM VoucherDetail vd
+                        JOIN vd.customer c
+                        WHERE vd.voucher.id = :voucherId
+                    """
+    )
+    Page<AdCustomerResponse> findAssignedCustomersByVoucherId(@Param("voucherId") String voucherId, Pageable pageable);
+
+    /* Tương tự với hàm findUsedCustomersByVoucherCode nếu cần */
+    @Query(
+            value = """
+                        SELECT
+                            c.id as id,
+                            c.code as customerCode,
+                            c.name as customerName,
+                            c.phone as customerPhone,
+                            c.email as customerEmail,
+                            c.status as customerStatus
+                        FROM VoucherDetail vd
+                        JOIN vd.customer c
+                        WHERE vd.voucher.code = :code
+                          AND vd.usageStatus = true
+                    """,
+            countQuery = """
+                        SELECT count(c)
+                        FROM VoucherDetail vd
+                        JOIN vd.customer c
+                        WHERE vd.voucher.code = :code
+                          AND vd.usageStatus = true
+                    """
+    )
+    Page<AdCustomerResponse> findUsedCustomersByVoucherCode(@Param("code") String code, Pageable pageable);
 }
+

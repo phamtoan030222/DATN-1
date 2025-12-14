@@ -288,6 +288,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
     // Thêm vào AdVoucherService interface:
     // ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, org.springframework.data.domain.Pageable pageable);
 
+    @Override
     public ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, org.springframework.data.domain.Pageable pageable) {
         Optional<Voucher> opt = voucherRepository.findById(voucherId);
         if (opt.isEmpty()) {
@@ -295,7 +296,8 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         }
         Voucher voucher = opt.get();
 
-        Page<Customer> page = onlyUsed
+        // Sửa kiểu biến từ Page<Customer> thành Page<?> hoặc Page<AdCustomerResponse>
+        Page<?> page = onlyUsed
                 ? voucherRepository.findUsedCustomersByVoucherCode(voucher.getCode(), pageable)
                 : voucherRepository.findAssignedCustomersByVoucherId(voucherId, pageable);
 

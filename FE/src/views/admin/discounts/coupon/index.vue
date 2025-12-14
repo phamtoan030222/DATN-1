@@ -1,5 +1,6 @@
 <script lang="ts" setup>
 import { h, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router' // Import Router
 import type { DataTableColumns } from 'naive-ui'
 import {
   NButton,
@@ -20,12 +21,14 @@ import {
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import AddEditVoucher from './AddEditVoucher.vue'
-import {
-  getVouchers,
-} from '@/service/api/admin/discount/api.voucher'
+import { getVouchers } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
 import formatDate from '@/utils/common.helper'
+
+/* ===================== Config & Router ===================== */
+const router = useRouter()
+const route = useRoute()
+const message = useMessage()
 
 /* ===================== Utility Functions ===================== */
 function getVoucherStatus(row: ADVoucherResponse) {
@@ -35,23 +38,20 @@ function getVoucherStatus(row: ADVoucherResponse) {
   const remainingQuantity = row.remainingQuantity
   const targetType = row.targetType
 
-  if (startDate && startDate > now) {
+  if (startDate && startDate > now)
     return { text: 'Sắp diễn ra', type: 'info', value: 'UPCOMING' }
-  }
 
   const isExpiredByDate = endDate && endDate < now
   const isExpiredByQuantity = targetType === 'ALL_CUSTOMERS' && (remainingQuantity === null || remainingQuantity <= 0)
 
-  if (isExpiredByDate || isExpiredByQuantity) {
+  if (isExpiredByDate || isExpiredByQuantity)
     return { text: 'Đã kết thúc', type: '', value: 'ENDED' }
-  }
 
   const isWithinTime = (startDate || 0) <= now && (endDate || Infinity) >= now
   const hasRemainingQuantity = targetType === 'INDIVIDUAL' || (targetType === 'ALL_CUSTOMERS' && (remainingQuantity || 0) > 0)
 
-  if (isWithinTime && hasRemainingQuantity) {
+  if (isWithinTime && hasRemainingQuantity)
     return { text: 'Đang diễn ra', type: 'success', value: 'ONGOING' }
-  }
 
   return { text: 'Không xác định', type: 'default', value: 'UNKNOWN' }
 }
@@ -65,11 +65,8 @@ function getVoucherTypeText(row: ADVoucherResponse) {
 }
 
 /* ===================== State ===================== */
-const message = useMessage()
 const loading = ref(false)
-// Biến lưu trữ toàn bộ dữ liệu gốc từ API
 const allData = ref<ADVoucherResponse[]>([])
-// Biến lưu trữ dữ liệu đang hiển thị (đã phân trang)
 const displayData = ref<ADVoucherResponse[]>([])
 const checkedRowKeys = ref<(string | number)[]>([])
 
@@ -79,27 +76,15 @@ const pagination = ref({
   itemCount: 0,
   showSizePicker: true,
 })
-const showAddEditForm = ref(false)
-const formMode = ref<'add' | 'edit'>('add')
-const selectedVoucherId = ref<string | null>(null)
 
-/* ===================== Methods ===================== */
+/* ===================== Methods (CHUYỂN TRANG) ===================== */
+// Thay vì bật popup, ta chuyển hướng URL
 function openAddPage() {
-  formMode.value = 'add'
-  selectedVoucherId.value = null
-  showAddEditForm.value = true
+  router.push({ name: 'discounts_coupon_add' }) // Phải khớp với name trong router config
 }
 
 function openEditPage(id: string) {
-  formMode.value = 'edit'
-  selectedVoucherId.value = id
-  showAddEditForm.value = true
-}
-
-function closeForm() {
-  showAddEditForm.value = false
-  selectedVoucherId.value = null
-  fetchData() // Tải lại dữ liệu khi đóng form
+  router.push({ name: 'discounts_coupon_edit', params: { id } })
 }
 
 /* ===================== Filters ===================== */
@@ -116,67 +101,41 @@ function resetFilters() {
   filters.value.dateRange = null
   filters.value.status = ''
   pagination.value.page = 1
-  handleClientSideFilter() // Lọc lại
+  handleClientSideFilter()
 }
 
-/* ===================== Client Side Logic ===================== */
-// Hàm xử lý lọc và phân trang tại Frontend
+/* ===================== Logic ===================== */
 function handleClientSideFilter() {
   loading.value = true
-
-  // 1. Lọc dữ liệu từ allData
   let filtered = allData.value.filter((item) => {
-    // Lọc theo Tên/Mã (Backend đã làm tốt, nhưng nếu fetch all thì lọc lại cũng được)
-    // Ở đây ta giả định fetch all vẫn dùng tham số 'q' của BE để giảm tải,
-    // hoặc lọc thủ công nếu muốn chính xác tuyệt đối.
-    // Để đơn giản, ta tin tưởng BE đã lọc theo q, conditions, dateRange rồi.
-    // Ta CHỈ LỌC THÊM STATUS ở đây.
-
     if (!filters.value.status)
-      return true // Không chọn status -> lấy hết
-
-    // Tính toán trạng thái thời gian thực
+      return true
     const statusInfo = getVoucherStatus(item)
     return statusInfo.value === filters.value.status
   })
 
-  // 2. Cập nhật tổng số lượng
   pagination.value.itemCount = filtered.length
-
-  // 3. Cắt trang (Phân trang)
   const startIndex = (pagination.value.page - 1) * pagination.value.pageSize
   const endIndex = startIndex + pagination.value.pageSize
-
   displayData.value = filtered.slice(startIndex, endIndex)
-
   loading.value = false
 }
 
-/* ===================== Fetch API ===================== */
 async function fetchData() {
   loading.value = true
   try {
-    // Mẹo: Request size cực lớn để lấy hết dữ liệu về (Client-side handling)
     const query: ADVoucherQuery = {
-      page: 1, // Luôn lấy từ trang 1 của BE
-      size: 1000, // Lấy 1000 bản ghi (hoặc số lớn hơn tùy database)
+      page: 1,
+      size: 1000,
       q: filters.value.q || undefined,
       conditions: filters.value.conditions || undefined,
       startDate: filters.value.dateRange?.[0],
       endDate: filters.value.dateRange?.[1],
-      // KHÔNG gửi status UPCOMING/ONGOING... lên BE vì BE không hiểu
-      // Chỉ gửi status nếu nó là ACTIVE/INACTIVE (nếu bạn muốn kết hợp)
       status: undefined,
     }
-
     const res = await getVouchers(query)
-
-    // Lưu toàn bộ dữ liệu thô
     allData.value = (res.content ?? []).map(item => ({ ...item, status: item.status ?? 'INACTIVE' }))
-
-    // Gọi hàm lọc client
     handleClientSideFilter()
-
     checkedRowKeys.value = []
   }
   catch (err: any) {
@@ -195,55 +154,20 @@ const columns: DataTableColumns<ADVoucherResponse> = [
   { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
   { title: 'Mã', key: 'code', width: 120 },
   { title: 'Tên', key: 'name', width: 180 },
-  {
-    title: 'Kiểu',
-    key: 'targetType',
-    width: 100,
-    render(row) {
-      const typeInfo = getVoucherTypeText(row)
-      return h(NTag, { type: typeInfo.type, size: 'small' }, { default: () => typeInfo.text })
-    },
-  },
+  { title: 'Kiểu', key: 'targetType', width: 100, render(row) { const typeInfo = getVoucherTypeText(row); return h(NTag, { type: typeInfo.type, size: 'small' }, { default: () => typeInfo.text }) } },
   { title: 'Số lượng', key: 'quantity', width: 100 },
-  {
-    title: 'Giá trị',
-    key: 'discountValue',
-    render(row) {
-      if (row.discountValue === null)
-        return 'N/A'
-      if (row.typeVoucher === 'PERCENTAGE')
-        return `${row.discountValue}%`
-      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.discountValue)
-    },
-  },
-  {
-    title: 'Điều kiện',
-    key: 'conditions',
-    render(row) {
-      if (row.conditions === null)
-        return 'N/A'
-      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.conditions)
-    },
-  },
-  {
-    title: 'Ngày bắt đầu',
-    key: 'startDate',
-    render: row => (row.startDate ? formatDate(row.startDate) : 'N/A'),
-  },
-  {
-    title: 'Ngày kết thúc',
-    key: 'endDate',
-    render: row => (row.endDate ? formatDate(row.endDate) : 'N/A'),
-  },
-  {
-    title: 'Trạng thái',
-    key: 'computedStatus',
-    width: 130,
-    render(row) {
-      const statusInfo = getVoucherStatus(row)
-      return h(NTag, { type: statusInfo.type, size: 'small' }, { default: () => statusInfo.text })
-    },
-  },
+  { title: 'Giá trị', key: 'discountValue', render(row) {
+    if (row.discountValue === null)
+      return 'N/A'; if (row.typeVoucher === 'PERCENTAGE')
+      return `${row.discountValue}%`; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.discountValue)
+  } },
+  { title: 'Điều kiện', key: 'conditions', render(row) {
+    if (row.conditions === null)
+      return 'N/A'; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.conditions)
+  } },
+  { title: 'Ngày bắt đầu', key: 'startDate', render: row => (row.startDate ? formatDate(row.startDate) : 'N/A') },
+  { title: 'Ngày kết thúc', key: 'endDate', render: row => (row.endDate ? formatDate(row.endDate) : 'N/A') },
+  { title: 'Trạng thái', key: 'computedStatus', width: 130, render(row) { const statusInfo = getVoucherStatus(row); return h(NTag, { type: statusInfo.type, size: 'small' }, { default: () => statusInfo.text }) } },
   {
     title: 'Thao tác',
     key: 'actions',
@@ -252,51 +176,36 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       const id = row.id
       if (!id)
         return h('span', { class: 'text-gray-500 text-xs' }, 'Không có ID')
+      const isUpcoming = (row.startDate || 0) > Date.now()
       return h(NSpace, { size: 8, justify: 'center' }, () => [
-        h(
-          NButton,
-          {
-            size: 'small',
-            title: 'Sửa',
-            text: true,
-            type: 'primary',
-            onClick: () => openEditPage(id),
+        h(NButton, {
+          size: 'small',
+          title: isUpcoming ? 'Sửa' : 'Không thể sửa phiếu đang/đã diễn ra',
+          text: true,
+          type: isUpcoming ? 'primary' : 'default',
+          onClick: () => {
+            if (!isUpcoming) { message.warning('Chỉ có thể sửa phiếu giảm giá Sắp diễn ra !!!'); return }
+            openEditPage(id) // Dùng hàm chuyển trang mới
           },
-          { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) },
-        ),
+        }, { icon: () => h(NIcon, { color: isUpcoming ? undefined : '#bfbfbf' }, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
       ])
     },
   },
 ]
 
 /* ===================== Watchers & Hooks ===================== */
+// Khi quay trở lại trang danh sách, load lại dữ liệu
 onMounted(() => {
-  showAddEditForm.value = false
   fetchData()
 })
 
-// Khi bộ lọc thay đổi, gọi lại API để lấy dữ liệu mới nhất (với các tiêu chí tìm kiếm cơ bản)
-watch(
-  [() => filters.value.q, () => filters.value.conditions, () => filters.value.dateRange],
-  () => {
-    pagination.value.page = 1
-    fetchData()
-  },
-)
-
-// Khi thay đổi Status Filter hoặc Pagination -> CHỈ cần lọc lại trên Client, không cần gọi API
-watch(
-  [() => filters.value.status, () => pagination.value.page, () => pagination.value.pageSize],
-  () => {
-    handleClientSideFilter()
-  },
-)
+watch([() => filters.value.q, () => filters.value.conditions, () => filters.value.dateRange], () => { pagination.value.page = 1; fetchData() })
+watch([() => filters.value.status, () => pagination.value.page, () => pagination.value.pageSize], () => { handleClientSideFilter() })
 </script>
 
 <template>
-  <div :key="showAddEditForm ? 'form' : 'list'">
-    <AddEditVoucher v-if="showAddEditForm" :mode="formMode" :voucher-id="selectedVoucherId" @close="closeForm" />
-    <NCard v-else class="mb-3">
+  <div>
+    <NCard class="mb-3">
       <NSpace vertical :size="8">
         <NSpace align="center">
           <NIcon size="24">
@@ -308,7 +217,7 @@ watch(
       </NSpace>
     </NCard>
 
-    <NCard v-if="!showAddEditForm" title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
+    <NCard title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
       <template #header-extra>
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
@@ -329,7 +238,6 @@ watch(
           <NFormItem label="Tên hoặc mã">
             <NInput v-model:value="filters.q" placeholder="Nhập tên hoặc mã..." />
           </NFormItem>
-
           <NFormItem label="Trạng thái">
             <NRadioGroup v-model:value="filters.status" name="status">
               <NSpace>
@@ -348,31 +256,17 @@ watch(
               </NSpace>
             </NRadioGroup>
           </NFormItem>
-
           <NFormItem label="Điều kiện áp dụng tối thiểu">
-            <NInputNumber
-              v-model:value="filters.conditions"
-              step="1000"
-              placeholder="VD: 100,000..."
-              class="w-full"
-            />
+            <NInputNumber v-model:value="filters.conditions" step="1000" placeholder="VD: 100,000..." class="w-full" />
           </NFormItem>
-
           <NFormItem label="Thời gian diễn ra">
-            <NDatePicker
-              v-model:value="filters.dateRange"
-              type="daterange"
-              clearable
-              class="w-full"
-              start-placeholder="Bắt đầu"
-              end-placeholder="Kết thúc"
-            />
+            <NDatePicker v-model:value="filters.dateRange" type="daterange" clearable class="w-full" start-placeholder="Bắt đầu" end-placeholder="Kết thúc" />
           </NFormItem>
         </div>
       </NForm>
     </NCard>
 
-    <NCard v-if="!showAddEditForm" title="Danh sách Phiếu Giảm Giá" class="border rounded-3">
+    <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-3">
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
@@ -412,9 +306,7 @@ watch(
 
       <div class="flex justify-center mt-4">
         <NPagination
-          :page="pagination.page"
-          :page-size="pagination.pageSize"
-          :item-count="pagination.itemCount"
+          :page="pagination.page" :page-size="pagination.pageSize" :item-count="pagination.itemCount"
           @update:page="(page) => { pagination.page = page }"
           @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1 }"
         />
