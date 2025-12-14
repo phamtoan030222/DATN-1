@@ -22,4 +22,16 @@ public interface AdDiscountDetailRespone {
     Long getEndTime();
 
     String getDescription();
+
+    String getColorName();
+
+    String getRamName();
+
+    String getHardDriveName();
+
+    String getMaterialName();
+
+    String getGpuName();
+
+    String getCpuName();
 }
