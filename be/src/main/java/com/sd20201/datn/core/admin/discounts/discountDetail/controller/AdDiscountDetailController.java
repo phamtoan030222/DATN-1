@@ -71,6 +71,7 @@ public class AdDiscountDetailController {
         return Helper.createResponseEntity(adDiscountDetailService.creatDiscount(request));
     }
 
+
     @PostMapping("/applyProducts")
     public ResponseEntity<?> applyProducts(@Valid @RequestBody AdCreateDiscountMultiRequest request) {
         return Helper.createResponseEntity(adDiscountDetailService.creatDiscountMulti(request));

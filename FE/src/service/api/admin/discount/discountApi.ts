@@ -67,6 +67,11 @@ export interface AppliedProductResponse {
   endTime: number
   description?: string
   price: number 
+  colorName?: string
+  ramName?: string
+  hardDriveName?: string
+  gpuName?: string
+  cpuName?: string
 }
 
 
