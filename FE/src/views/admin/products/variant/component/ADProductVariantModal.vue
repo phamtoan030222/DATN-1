@@ -49,6 +49,8 @@
                 </n-form>
             </div>
 
+            <n-data-table v-show="imeisProductDetail && imeisProductDetail.length > 0" :columns="columnsImei" :data="imeisProductDetail"></n-data-table>
+
             <!-- footer -->
             <template #footer>
                 <n-space justify="end">
@@ -69,7 +71,8 @@
 <script setup lang="ts">
 import { Ref, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue';
-import { ADProductDetailDetailResponse, ADPRPropertiesComboboxResponse, getProductDetailById, modifyProductDetail } from '@/service/api/admin/product/productDetail.api';
+import { ADPDImeiResponse, ADProductDetailDetailResponse, ADPRPropertiesComboboxResponse, changeStatusImei, getImeiProductDetail, getProductDetailById, modifyProductDetail } from '@/service/api/admin/product/productDetail.api';
+import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui';
 
 const props = defineProps<{
     isOpen: boolean
@@ -84,16 +87,16 @@ const props = defineProps<{
 
 const emit = defineEmits(['success', 'close'])
 
-const detailProduct: Ref<ADProductDetailDetailResponse> = ref({
-    id: '',
-    code: '',
-    name: '',
-    idCPU: '',
-    idGPU: '',
-    idColor: '',
-    idRAM: '',
-    idHardDrive: '',
-    idMaterial: '',
+const detailProduct: Ref<Partial<ADProductDetailDetailResponse>> = ref({
+    id: undefined,
+    code: undefined,
+    name: undefined,
+    idCPU: undefined,
+    idGPU: undefined,
+    idColor: undefined,
+    idRAM: undefined,
+    idHardDrive: undefined,
+    idMaterial: undefined,
     price: 0,
 })
 
@@ -103,17 +106,25 @@ const fetchDetailProduct = async () => {
     detailProduct.value = res.data
 }
 
+const imeisProductDetail: Ref<ADPDImeiResponse[]> = ref([])
+
+const getImeisProductDetail = async () => {
+    const res = await getImeiProductDetail(props.id as string)
+
+    imeisProductDetail.value = res.data as ADPDImeiResponse[]
+}
+
 const resetField = () => {
     detailProduct.value = {
-        id: '',
-        code: '',
-        name: '',
-        idCPU: '',
-        idGPU: '',
-        idColor: '',
-        idRAM: '',
-        idHardDrive: '',
-        idMaterial: '',
+        id: undefined,
+        code: undefined,
+        name: undefined,
+        idCPU: undefined,
+        idGPU: undefined,
+        idColor: undefined,
+        idRAM: undefined,
+        idHardDrive: undefined,
+        idMaterial: undefined,
         price: 0,
     }
 }
@@ -121,7 +132,10 @@ const resetField = () => {
 watch(
     () => props.id,
     (newId) => {
-        if (newId) fetchDetailProduct()
+        if (newId) {
+            fetchDetailProduct()
+            getImeisProductDetail()
+        }
         else resetField()
     }
 )
@@ -134,7 +148,7 @@ const notification = useNotification()
 
 const handleClickOK = async () => {
     const res = await modifyProductDetail({
-        ...detailProduct.value,
+        ...detailProduct.value as ADProductDetailDetailResponse,
         imei: []
     })
 
@@ -142,6 +156,45 @@ const handleClickOK = async () => {
     else notification.error({ content: props.id ? 'Cập nhật sản phẩm thất bại' : 'Thêm sản phẩm thất bại', duration: 3000 })
     if (!props.id) resetField()
     emit('success')
+}
+
+const columnsImei: DataTableColumns<ADPDImeiResponse> = [
+    { type: 'selection', fixed: 'left' },
+    {
+        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (_, index: number) => {
+            return h('span', { innerText: index + 1 })
+        }
+    },
+    { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
+    { title: 'Tên', key: 'name', width: 100 },
+    {
+        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        render: (data: ADPDImeiResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (_) => { handleChangeStatusImei(data.id as string) } })
+    },
+    // {
+    //     title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
+    //     render: (data: ADPDImeiResponse) => {
+    //         return h(NSpace,
+    //             [
+    //                 h(NButton, {
+    //                     quaternary: true, size: 'small', circle: true,
+    //                     onClick: () => clickOpenModal(data.id, true)
+    //                 },
+    //                     h(Icon, { icon: 'carbon:edit' })
+    //                 ),
+    //             ]
+    //         )
+    //     }
+    // },
+]
+
+
+const handleChangeStatusImei = async (idImei: string) => {
+    const res = await changeStatusImei(idImei)
+    if (res.success) notification.success({ content: 'Thay đổi trạng thái IMEI thành công', duration: 3000 })
+    else notification.error({ content: 'Thay đổi trạng thái IMEI thất bại', duration: 3000 })
+
+    getImeisProductDetail()
 }
 </script>
 

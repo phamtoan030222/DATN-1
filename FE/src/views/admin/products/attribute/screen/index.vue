@@ -136,14 +136,14 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
     },
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
     { title: 'Tên', key: 'name', width: 150, fixed: 'left', },
-    {
-        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductScreenResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
-    },
     { title: 'Đô phân giải', key: 'resolution', width: 150, align: 'center', },
     { title: 'Kích thước vật lý', key: 'physicalSize', width: 150, align: 'center', },
     { title: 'Tấm nền', key: 'panelType', width: 150, align: 'center', },
     { title: 'Công nghệ', key: 'technology', width: 150, align: 'center', },
+    {
+        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        render: (data: ADProductScreenResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+    },
     {
         title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
         render: (data: ADProductScreenResponse) => {
@@ -236,8 +236,8 @@ const notification = useNotification()
 const handleChangeStatus = async (id: string) => {
     const res = await changeScreenStatus(id)
 
-    if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
-    else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
+    if (res.success) notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
+    else notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
 
     fetchScreens();
 }

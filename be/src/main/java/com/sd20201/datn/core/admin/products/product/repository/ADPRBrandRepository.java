@@ -13,6 +13,7 @@ public interface ADPRBrandRepository extends BrandRepository {
         b.id as value
         , b.name as label
     FROM Brand b
+    ORDER BY b.createdDate desc
     """)
     List<ADPRPropertyComboboxResponse> getBrandComboboxResponse();
 

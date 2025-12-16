@@ -1,20 +1,23 @@
 package com.sd20201.datn.core.admin.products.productdetail.controller;
 
-import com.sd20201.datn.core.admin.products.product.model.request.ADProductCreateUpdateRequest;
-import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductCreateRequest;
+import com.sd20201.datn.core.admin.products.product.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.service.ADProductDetailService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -77,13 +80,33 @@ public class ADProductDetailController {
         return Helper.createResponseEntity(productDetailService.modify(request));
     }
 
-    @PostMapping("/variant")
-    ResponseEntity<?> createVariant(@RequestBody ADPDProductCreateRequest request) {
-        return Helper.createResponseEntity(productDetailService.createVariant(request));
+    @PostMapping(value = "/variant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ADPDVariantRequest variant, @RequestPart List<MultipartFile> images) {
+        return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant, images));
     }
 
     @PostMapping("/imei-exists")
     ResponseEntity<?> isIMEIExist(@RequestBody List<String> id) {
         return Helper.createResponseEntity(productDetailService.isIMEIExist(id));
+    }
+
+    @PostMapping("/quick-add")
+    ResponseEntity<?> quickAddPropertiesProduct(@RequestBody ADQuickAddProductRequest request) {
+        return Helper.createResponseEntity(productDetailService.quickAddPropertiesProduct(request));
+    }
+
+    @GetMapping("/min-max-price")
+    ResponseEntity<?> getMinMaxPrice() {
+        return Helper.createResponseEntity(productDetailService.getMinMaxPrice());
+    }
+
+    @GetMapping("/imei/{idProductDetail}")
+    ResponseEntity<?> getImeiProduct(@PathVariable String idProductDetail) {
+        return Helper.createResponseEntity(productDetailService.getImeiProductDetail(idProductDetail));
+    }
+
+    @GetMapping("/imei/change-status/{idImei}")
+    ResponseEntity<?> changeStatusImei(@PathVariable String idImei) {
+        return Helper.createResponseEntity(productDetailService.changeStatusImei(idImei));
     }
 }

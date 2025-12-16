@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDImeiResponse;
 import com.sd20201.datn.entity.IMEI;
 import com.sd20201.datn.repository.IMEIRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +16,13 @@ public interface ADPDImeiRepository extends IMEIRepository {
 
     @Query(value = """
     SELECT i.code FROM IMEI i where i.code in :codes
+    ORDER BY i.createdDate desc
     """)
     List<String> findByCode(List<String> codes);
+
+    @Query(value = """
+    SELECT i.id as id, i.code as code, i.name as name, i.status as status from IMEI i where i.productDetail.id = :idProductDetail
+    """)
+    List<ADPDImeiResponse> findByIdProductDetail(String idProductDetail);
+
 }

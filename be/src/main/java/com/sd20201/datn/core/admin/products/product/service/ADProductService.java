@@ -3,6 +3,9 @@ package com.sd20201.datn.core.admin.products.product.service;
 import com.sd20201.datn.core.admin.products.product.model.request.ADProductCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.product.model.request.ADProductRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 public interface ADProductService {
 
@@ -12,7 +15,7 @@ public interface ADProductService {
 
     ResponseObject<?> changeStatus(String id);
 
-    ResponseObject<?> modify(ADProductCreateUpdateRequest request);
+    ResponseObject<?> modify(ADProductCreateUpdateRequest request, List<MultipartFile> images);
 
     ResponseObject<?> getScreens();
 
@@ -21,5 +24,4 @@ public interface ADProductService {
     ResponseObject<?> getBatteries();
 
     ResponseObject<?> getOperatingSystems();
-
 }

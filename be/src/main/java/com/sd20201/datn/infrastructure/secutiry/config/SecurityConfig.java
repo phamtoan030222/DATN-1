@@ -1,7 +1,6 @@
 package com.sd20201.datn.infrastructure.secutiry.config;
 
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
-import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import com.sd20201.datn.infrastructure.secutiry.exception.RestAuthenticationEntryPoint;
 import com.sd20201.datn.infrastructure.secutiry.filter.TokenAuthenticationFilter;
 import com.sd20201.datn.infrastructure.secutiry.oauth2.CustomOAuth2UserService;
@@ -9,7 +8,6 @@ import com.sd20201.datn.infrastructure.secutiry.oauth2.HttpCookieOAuth2Authoriza
 import com.sd20201.datn.infrastructure.secutiry.oauth2.OAuth2AuthenticationFailureHandler;
 import com.sd20201.datn.infrastructure.secutiry.oauth2.OAuth2AuthenticationSuccessHandler;
 import com.sd20201.datn.infrastructure.secutiry.service.CustomUserDetailsService;
-import com.sd20201.datn.utils.Helper;
 import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,7 +24,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;

@@ -1,65 +1,161 @@
 <template>
     <div>
         <n-card title="Thông tin cơ bản">
-            <n-space justify="center">
+            <n-space >
                 <n-form ref="formRef">
                     <n-grid :span="24" :x-gap="36">
-                        <n-form-item-gi :span="12" label="Mã sản phẩm">
-                            <n-input placeholder="Nhập mã sản phẩm" v-model:value="formDataBasic.code"></n-input>
-                        </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Tên sản phẩm">
+                        <n-form-item-gi :span="24" label="Tên sản phẩm">
                             <n-input placeholder="Nhập tên sản phẩm" v-model:value="formDataBasic.name"></n-input>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Hãng">
-                            <n-select v-model:value="formDataBasic.idBrand"
+                        <n-form-item-gi :span="12" label-placement="top">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Hãng</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.BRAND)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataBasic.idBrand" filterable placeholder="Chọn hãng"
                                 :options="dataProperties.basicInformation.brands"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Pin">
-                            <n-select v-model:value="formDataBasic.idBattery"
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Pin</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.BATTERY)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataBasic.idBattery" filterable placeholder="Chọn pin"
                                 :options="dataProperties.basicInformation.batteries"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Màn hình">
-                            <n-select v-model:value="formDataBasic.idScreen"
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Màn hình</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.SCREEN)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataBasic.idScreen" filterable placeholder="Chọn màn hình"
                                 :options="dataProperties.basicInformation.screens"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Hệ điều hành">
-                            <n-select v-model:value="formDataBasic.idOperatingSystem"
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Hệ điều hành</span>
+                                    <n-button
+                                        @click="clickAddQuickPropertiesHandler(ProductPropertiesType.OPERATING_SYSTEM)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataBasic.idOperatingSystem" filterable
+                                placeholder="Chọn hệ điều hành"
                                 :options="dataProperties.basicInformation.operatingSystems"></n-select>
                         </n-form-item-gi>
                     </n-grid>
                 </n-form>
             </n-space>
+            <div v-if="!idProduct" class="mt-40px">
+                <n-h4>Ảnh sản phẩm</n-h4>
+                <n-upload :default-upload="false" list-type="image-card" multiple style="height: 100px;"
+                    @change="handleChangeImageProduct">
+                    Chọn ảnh
+                </n-upload>
+            </div>
         </n-card>
         <n-card title="Thông tin biến thể" class="mt-20px">
-            <n-space justify="center">
-                <n-form ref="formRef">
+            <n-space >
+                <n-form ref="formRef" style="width: 50%;">
                     <n-grid :span="24" :x-gap="36">
-                        <n-form-item-gi :span="8" label="Màu sắc">
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Màu sắc</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.COLOR)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
                             <n-select v-model:value="formDataVariant.idColor"
-                                :options="dataProperties.variantInformation.colors" multiple
+                                :options="dataProperties.variantInformation.colors" multiple clearable filterable
                                 placeholder="Chọn màu sắc"></n-select> </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="CPU">
-                            <n-select v-model:value="formDataVariant.idCpu"
-                                :options="dataProperties.variantInformation.cpus"></n-select>
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>CPU</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.CPU)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataVariant.idCpu" filterable placeholder="Chọn CPU"
+                                :options="dataProperties.variantInformation.cpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="GPU">
-                            <n-select v-model:value="formDataVariant.idGpu"
-                                :options="dataProperties.variantInformation.gpus"></n-select>
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>GPU</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.GPU)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataVariant.idGpu" filterable placeholder="Chọn GPU"
+                                :options="dataProperties.variantInformation.gpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="Chất liệu">
-                            <n-select v-model:value="formDataVariant.idMaterial"
-                                :options="dataProperties.variantInformation.materials"></n-select>
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Chất liệu</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.MATERIAL)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataVariant.idMaterial" filterable placeholder="Chọn chất liệu"
+                                :options="dataProperties.variantInformation.materials" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="RAM">
-                            <n-select v-model:value="formDataVariant.idRam"
-                                :options="dataProperties.variantInformation.rams"></n-select>
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>RAM</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.RAM)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataVariant.idRam" filterable placeholder="Chọn RAM"
+                                :options="dataProperties.variantInformation.rams" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="8" label="Ổ cứng">
-                            <n-select v-model:value="formDataVariant.idHardDrive"
-                                :options="dataProperties.variantInformation.hardDrives"></n-select>
+                        <n-form-item-gi :span="12">
+                            <template #label>
+                                <n-space class="w-full" justify="space-between">
+                                    <span>Ổ cứng</span>
+                                    <n-button @click="clickAddQuickPropertiesHandler(ProductPropertiesType.HARD_DRIVE)"
+                                        tertiary size="tiny">
+                                        <Icon icon="material-symbols:add" />
+                                    </n-button>
+                                </n-space>
+                            </template>
+                            <n-select v-model:value="formDataVariant.idHardDrive" filterable placeholder="Chọn ổ cứng"
+                                :options="dataProperties.variantInformation.hardDrives" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="24" justify="end">
-                            <n-space justify="end" :style="{ width: '100%' }">
+                        <n-form-item-gi :span="24" >
+                            <n-space  :style="{ width: '100%' }">
                                 <n-button @click="createVariant" type="primary">Tạo biến thể</n-button>
                             </n-space>
                         </n-form-item-gi>
@@ -67,30 +163,50 @@
                 </n-form>
             </n-space>
         </n-card>
-        <n-card title="Danh sách biến thể" class="mt-20px">
-            <n-data-table :data="productDetails" :columns="columns" :bordered="false"></n-data-table>
+        <!-- title="Danh sách biến thể" -->
+        <n-card v-for="productDetailList in partitionProductDetailsByColor" class="mt-20px">
+            <template #header>
+                <n-space justify="space-between" >
+                    <span>Danh sách biến thể màu {{ getNameColorById(productDetailList[0].idColor) }}</span>
 
-            <template #footer>
-                <n-space justify="end">
-                    <n-button>Hủy</n-button>
-                    <n-button @click="submitVariantHandler">Xác nhận</n-button>
+                    <n-space>
+                        <n-input-number v-model:value="priceCommonVariant" placeholder="Nhập giá chung"
+                            clearable></n-input-number>
+                        <n-button type="success"
+                            @click="applyPriceCommonVariantHandler(productDetailList[0].idColor)">Áp dụng</n-button>
+                    </n-space>
                 </n-space>
             </template>
+            <n-data-table :data="productDetailList" :columns="columns" :bordered="false"></n-data-table>
         </n-card>
 
-        <ADImeiProductDetail :is-open="isOpenModalIMEIProduct" :index="indexRowDataImei" @close="handleEmitClose"
+        <n-space class="mt-20px" v-if="productDetails && productDetails.length > 0" >
+            <n-button>Hủy</n-button>
+            <n-popconfirm @positive-click="submitVariantHandler" positive-text="Xác nhận" negative-text="Hủy">
+                <template #trigger>
+                    <n-button :loading="loadingCreateVariant" type="success">Xác nhận</n-button>
+                </template>
+                Bạn chắc chắn muốn thao tác ?
+            </n-popconfirm>
+        </n-space>
+
+        <ADImeiProductDetail :is-open="isOpenModalIMEIProduct" :idColorImei="idColorImei" :index="indexRowDataImei" @close="handleEmitClose"
             @update:imei="handleEmitUpdateImei" />
 
+        <QuickAddModal :is-open="isOpenQuickAddModal" :type="dataQuickAdd.type" @close="closeQuickAddModalHandler"
+            @success="fetchDataProperties" />
     </div>
 </template>
 
 <script lang="ts" setup>
-import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens } from '@/service/api/admin/product/product.api'
+import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens, modifyProduct } from '@/service/api/admin/product/product.api'
 import { ADProductDetailCreateUpdateRequest, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
-import { DataTableColumns, NButton, NImage, NInput, NInputNumber, NSpace } from 'naive-ui'
-import { Reactive, watch } from 'vue'
+import { DataTableColumns, NButton, NInput, NInputNumber, NSpace, NUpload, UploadFileInfo } from 'naive-ui'
+import { Reactive } from 'vue'
 import ADImeiProductDetail from './ADImeiProductDetail.vue'
+import QuickAddModal from './QuickAddModal.vue'
+import { ProductPropertiesType } from '@/constants/ProductPropertiesType'
 
 const route = useRoute()
 
@@ -115,12 +231,12 @@ const dataProperties = reactive({
     },
 })
 
+const isOpenQuickAddModal = ref<boolean>(false)
 
 const fetchProductById = async () => {
     const res = await getProductById(idProduct.value)
 
     formDataBasic.id = res.data.id
-    formDataBasic.code = res.data.code
     formDataBasic.name = res.data.name
     formDataBasic.idBattery = res.data.idBattery
     formDataBasic.idBrand = res.data.idBrand
@@ -170,39 +286,36 @@ const fetchDataProperties = async () => {
     }
 }
 
-const formDataBasic: Reactive<ADProductCreateUpdateRequest> = reactive({
-    code: '',
-    name: '',
-    idBrand: '',
-    idBattery: '',
-    idScreen: '',
-    idOperatingSystem: '',
+const imageProduct: Reactive<any[]> = reactive([])
+
+const formDataBasic: Reactive<Partial<ADProductCreateUpdateRequest>> = reactive({
+    name: undefined as undefined | string,
+    idBrand: undefined as undefined | string,
+    idBattery: undefined as undefined | string,
+    idScreen: undefined as undefined | string,
+    idOperatingSystem: undefined as undefined | string,
 })
 
 const formDataVariant = reactive({
     idColor: undefined as undefined | string[],
-    idMaterial: '',
-    idCpu: '',
-    idGpu: '',
-    idRam: '',
-    idHardDrive: '',
+    idMaterial: undefined as undefined | string[],
+    idCpu: undefined as undefined | string[],
+    idGpu: undefined as undefined | string[],
+    idRam: undefined as undefined | string[],
+    idHardDrive: undefined as undefined | string[],
 })
 
-onMounted(() => {
-    fetchProductById()
-    fetchDataProperties()
+onMounted(async () => {
+    if (idProduct.value) fetchProductById()
+    await fetchDataProperties()
+    initSelectPropertiesProduct()
 })
 
-const file = ref()
-
-const onChange = (_: any, currentFile: any) => {
-    file.value = {
-        ...currentFile,
-        // url: URL.createObjectURL(currentFile.file),
-    }
-}
-const onProgress = (currentFile: any) => {
-    file.value = currentFile
+const initSelectPropertiesProduct = () => {
+    formDataBasic.idBrand = dataProperties.basicInformation.brands[0]?.value
+    formDataBasic.idBattery = dataProperties.basicInformation.batteries[0]?.value
+    formDataBasic.idScreen = dataProperties.basicInformation.screens[0]?.value
+    formDataBasic.idOperatingSystem = dataProperties.basicInformation.operatingSystems[0]?.value
 }
 
 type ADPRTableProductDetail = {
@@ -213,7 +326,7 @@ type ADPRTableProductDetail = {
     idRAM: string
     idHardDrive: string
     price?: number
-    imei?: string[]
+    imei?: string[],
 }
 
 const productDetails: Reactive<ADPRTableProductDetail[]> = reactive([])
@@ -236,13 +349,6 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
                 h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'lets-icons:materials' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.rams.filter(data => data.value == row.idRAM).map(data => data.label) })]),
             ]
         )
-    },
-    {
-        title: 'Ảnh biến thể',
-        key: 'imageProductDetail',
-        width: 100,
-        align: 'center',
-        render: (data: ADPRTableProductDetail) => h(NImage, { lazy: true, alt: 'Ảnh sản phẩm' })
     },
     {
         title: 'Giá bán', key: 'price', width: 200, align: 'center',
@@ -269,16 +375,35 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         }
     },
     {
-        title: 'Tồn kho', key: 'quantity', width: 150, align: 'center',
+        title: 'Số lượng', key: 'quantity', width: 150, align: 'center',
         render: (data: ADPRTableProductDetail) => h('span', data.imei ? data.imei.length + ' sản phẩm' : 'Không có sản phẩm')
     },
     {
         title: 'Thao tác', key: 'action', width: 100, align: 'center',
         render: (data, index) => h(NSpace, { justify: 'center' },
             [
-                h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
+                h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(data.idColor, index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
+                h(NButton, { quaternary: true, circle: true, onClick: () => { productDetails.splice(index, 1) } }, h(Icon, { icon: 'mdi:delete' })),
             ]
         )
+    },
+    {
+        title: 'Ảnh biến thể',
+        key: 'imageProductDetail',
+        className: 'rowspan-top',
+        width: 150,
+        rowSpan: (_) => productDetails.length,
+        render: (dataProduct: ADPRTableProductDetail) => {
+            return h('div',
+                { style: { display: 'flex', justifyContent: 'start' } },
+                h(NUpload, {
+                    max: 1,
+                    defaultUpload: false,
+                    listType: "image-card",
+                    onChange: (data: { fileList: UploadFileInfo[] }) => handleChangeProductDetail(data, dataProduct.idColor)
+                })
+            )
+        },
     },
 ]
 
@@ -292,13 +417,23 @@ const createVariant = () => {
 
     if (formDataVariant.idColor) {
         formDataVariant.idColor.forEach((element) => {
-            productDetails.push({
-                idColor: element,
-                idMaterial: formDataVariant.idMaterial,
-                idCPU: formDataVariant.idCpu,
-                idGPU: formDataVariant.idGpu,
-                idRAM: formDataVariant.idRam,
-                idHardDrive: formDataVariant.idHardDrive,
+            formDataVariant.idCpu?.forEach((cpu) => {
+                formDataVariant.idGpu?.forEach((gpu) => {
+                    formDataVariant.idHardDrive?.forEach((hardDrive) => {
+                        formDataVariant.idMaterial?.forEach((material) => {
+                            formDataVariant.idRam?.forEach((ram) => {
+                                productDetails.push({
+                                    idColor: element,
+                                    idCPU: cpu,
+                                    idGPU: gpu,
+                                    idHardDrive: hardDrive,
+                                    idMaterial: material,
+                                    idRAM: ram,
+                                })
+                            })
+                        })
+                    })
+                })
             })
         })
     }
@@ -321,72 +456,128 @@ const handleEnterPrice = (index: number) => {
 // imei
 const isOpenModalIMEIProduct = ref<boolean>(false)
 
-const openModalIMEIProduct = (index: number) => {
+const openModalIMEIProduct = (idColor: string, index: number) => {
     isOpenModalIMEIProduct.value = true
     indexRowDataImei.value = index
+    idColorImei.value = idColor
 }
 
-const imeiInput = ref<string[]>()
-
 const indexRowDataImei = ref<number>()
+const idColorImei = ref<string>()
 
 const handleEmitClose = () => {
     isOpenModalIMEIProduct.value = false
 }
 
-const handleEmitUpdateImei = (imeis: string[], index: number) => {
-    imeiInput.value = imeis
+const handleEmitUpdateImei = (imeis: string[], idColorImei: string, index: number) => {
+    const indexIdColor = productDetails.map((productDetail, index) => ({idColor: productDetail.idColor, index}))
+                            .filter(productDetail => productDetail.idColor === idColorImei).map((indexObj) => indexObj.index)[0]
 
-    productDetails[index].imei = imeis
+    productDetails[indexIdColor + index].imei = imeis
 
     handleEmitClose()
 }
 
 const notification = useNotification();
 
+const imageProductDetails = reactive<{[key: string]: any}>({});
+
+const loadingCreateVariant = ref(false)
+
 const submitVariantHandler = async () => {
+    loadingCreateVariant.value = true;
+    let idNewProduct: string = "";
+    if (!idProduct.value) {
+        const resCreateProduct = await modifyProduct(formDataBasic as ADProductCreateUpdateRequest, imageProduct);
+        idNewProduct = resCreateProduct.data;
+    } else {
+        idNewProduct = idProduct.value;
+    }
 
-    const dataVariant = productDetails.filter(data => {
-        let isValid = true
-        Object.keys(data).forEach(key => {
-            const value = data[key as keyof ADPRTableProductDetail]
-            if (!value) isValid = false
-        })
+    const requests = productDetails.map((productDetail, index) =>
+        createProductVariant(
+            idNewProduct!,
+            productDetail as ADProductDetailCreateUpdateRequest,
+            imageProductDetails[productDetail.idColor] ? [imageProductDetails[productDetail.idColor]] : []
+        )
+    );
 
-        if (!(data.imei && Array.isArray(data.imei) && data.imei.length != 0)) return false
+    // Gửi đồng thời
+    await Promise.all(requests);
 
-        if (!data.price) return false
-
-        return isValid
-    })
-
-    const res = await createProductVariant(formDataBasic, dataVariant.map(data => ({
-        idColor: data.idColor,
-        idCPU: data.idCPU,
-        idGPU: data.idGPU,
-        idRAM: data.idRAM,
-        idHardDrive: data.idHardDrive,
-        idMaterial: data.idMaterial,
-        imei: data.imei,
-        price: data.price
-    })) as ADProductDetailCreateUpdateRequest[])
-
-    if (res.success) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
+    if (idNewProduct) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
     else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
 
+    loadingCreateVariant.value = false;
     router.push({ name: 'products_list' })
 }
 
-watch(idProduct,
-    (newValue) => {
-        fetchProductById()
-    }
-)
+const handleChangeImageProduct = (data: { fileList: UploadFileInfo[] }) => {
+    imageProduct.push(data.fileList[0].file)
+}
+
+const handleChangeProductDetail = (data: { fileList: UploadFileInfo[] }, idColor: string) => {
+    imageProductDetails[idColor] = (data.fileList[0].file)
+}
+
+const dataQuickAdd = reactive<Partial<{
+    type: ProductPropertiesType
+}>>({
+    type: undefined
+})
+
+const clickAddQuickPropertiesHandler = (typeData: ProductPropertiesType) => {
+    isOpenQuickAddModal.value = true
+    dataQuickAdd.type = typeData
+}
+
+const closeQuickAddModalHandler = () => {
+    isOpenQuickAddModal.value = false
+}
+
+const priceCommonVariant: Ref<number> = ref(0)
+
+const applyPriceCommonVariantHandler = (idColor: string) => {
+    productDetails.filter(item => item.idColor === idColor).forEach(item => {
+        item.price = priceCommonVariant.value
+    })
+    priceCommonVariant.value = 0
+}
+
+const partitionProductDetailsByColor = computed(() => {
+    const partitioned: { [key: string]: ADPRTableProductDetail[] } = {}
+
+    productDetails.forEach((item) => {
+        if (!partitioned[item.idColor]) {
+            partitioned[item.idColor] = []
+        }
+        partitioned[item.idColor].push(item)
+    })
+
+    return partitioned
+})
+
+const getNameColorById = (idColor: string) => {
+    const color = dataProperties.variantInformation.colors.find(color => color.value === idColor)
+    return color ? color.label : 'Không xác định'
+}
+
 </script>
 
 <style scoped>
-.line-configuration {
-    display: flex;
-    align-items: center;
+.mt-40px {
+    margin-top: 40px !important;
+}
+
+:deep(.rowspan-top) {
+    vertical-align: top !important;
+}
+
+:deep(.n-form-item-label__text) {
+    width: 100% !important;
+}
+
+:deep(.n-input-number .n-input-number-control) {
+    display: none !important;
 }
 </style>

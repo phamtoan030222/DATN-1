@@ -8,12 +8,12 @@ import java.util.List;
 
 public interface ADPDOperatingSystemRepository extends OperatingSystemRepository {
 
-//    @Query(value = """
-//    SELECT
-//        o.id as value
-//        , o.name as label
-//    FROM OperatingSystem o
-//    """)
-//    List<ADPRPropertyComboboxResponse> getOperatingSystemComboboxResponse();
+    @Query(value = """
+    SELECT
+        o.id as value
+        , o.name as label
+    FROM OperatingSystem o
+    """)
+    List<ADPRPropertyComboboxResponse> getOperatingSystemComboboxResponse();
 
 }

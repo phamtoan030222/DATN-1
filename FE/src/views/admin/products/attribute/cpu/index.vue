@@ -137,14 +137,14 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
     },
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
     { title: 'Tên CPU', key: 'name', width: 150, fixed: 'left', },
-    {
-        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductCPUResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
-    },
     { title: 'Thế hệ', key: 'generation', width: 150, align: 'center', },
     { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
     { title: 'Năm phát hàng', key: 'releaseYear', width: 150, align: 'center', },
     { title: 'Dòng CPU', key: 'series', width: 150, align: 'center', },
+    {
+        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        render: (data: ADProductCPUResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
+    },
     {
         title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
         render: (data: ADProductCPUResponse, index) => {
@@ -218,8 +218,8 @@ const notification = useNotification();
 const handleChangeStatus = async (id: string) => {
     const res = await changeCPUStatus(id)
 
-    if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
-    else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
+    if (res.success) notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
+    else notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
 
     fetchCPUs();
 }

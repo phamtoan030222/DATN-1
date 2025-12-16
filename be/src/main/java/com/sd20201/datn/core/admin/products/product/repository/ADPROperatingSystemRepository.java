@@ -13,6 +13,7 @@ public interface ADPROperatingSystemRepository extends OperatingSystemRepository
         o.id as value
         , o.name as label
     FROM OperatingSystem o
+    ORDER BY o.createdDate desc
     """)
     List<ADPRPropertyComboboxResponse> getOperatingSystemComboboxResponse();
 

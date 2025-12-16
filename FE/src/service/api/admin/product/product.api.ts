@@ -14,7 +14,6 @@ export type ADProductRequest = PaginationParams & {
 
 export type ADProductCreateUpdateRequest = {
   id?: string
-  code: string
   name: string
   idBrand: string
   idBattery: string
@@ -27,13 +26,14 @@ export type ADProductResponse = {
   code: string
   name: string
   status?: string
-  band: string
+  brand: string
   battery: string
   screen: string
   operatingSystem: string
   minPrice: number,
   maxPrice: number,
   quantity: number
+  urlImage: string
 }
 
 export type ADProductDetailResponse = {
@@ -106,12 +106,23 @@ export const getProductById = async (id: string) => {
   return res.data
 }
 
-export const modifyProduct = async (data: ADProductCreateUpdateRequest) => {
+export const modifyProduct = async (data: ADProductCreateUpdateRequest, images: any) => {
+  const formData = new FormData();
+  formData.append('request', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  if (Array.isArray(images)) {
+    images.forEach((image) => formData.append('images', image));
+  } else {
+    formData.append('images', images);
+  }
+
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}`,
     method: 'POST',
-    data,
-  })) as AxiosResponse<DefaultResponse<ADProductResponse>>
+    data: formData,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  })) as AxiosResponse<DefaultResponse<string>>
 
   return res.data
 }
@@ -120,6 +131,19 @@ export const changeProductStatus = async (id: string) => {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/change-status/${id}`,
     method: 'GET',
+  })) as AxiosResponse<DefaultResponse<null>>
+
+  return res.data
+}
+
+export const uploadImages = async (data: FormData, id: string) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCTS}/upload-images/${id}`,
+    method: 'POST',
+    data,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
   })) as AxiosResponse<DefaultResponse<null>>
 
   return res.data

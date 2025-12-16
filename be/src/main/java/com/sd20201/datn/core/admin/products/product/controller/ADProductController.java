@@ -12,7 +12,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 @RestController
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_PRODUCTS)
@@ -22,7 +26,7 @@ public class ADProductController {
     private final ADProductService productService;
 
     @GetMapping
-    ResponseEntity<?> getScreens(ADProductRequest request) {
+    ResponseEntity<?> getProducts(ADProductRequest request) {
         return Helper.createResponseEntity(productService.getProducts(request));
     }
 
@@ -58,8 +62,7 @@ public class ADProductController {
     }
 
     @PostMapping
-    ResponseEntity<?> modifyScreen(@RequestBody ADProductCreateUpdateRequest request) {
-        return Helper.createResponseEntity(productService.modify(request));
+    ResponseEntity<?> modifyProduct(@RequestPart ADProductCreateUpdateRequest request,@RequestPart List<MultipartFile> images) {
+        return Helper.createResponseEntity(productService.modify(request, images));
     }
-
 }

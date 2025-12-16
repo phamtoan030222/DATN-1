@@ -13,6 +13,7 @@ public interface ADPDScreenRepository extends ScreenRepository {
         s.id as value
         , s.name as label
     FROM Screen s
+    ORDER BY s.createdDate desc
     """)
     List<ADPRPropertyComboboxResponse> getScreenComboboxResponse();
 

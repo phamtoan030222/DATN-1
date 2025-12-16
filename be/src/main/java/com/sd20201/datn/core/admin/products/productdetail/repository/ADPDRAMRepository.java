@@ -10,6 +10,7 @@ public interface ADPDRAMRepository extends RAMRepository {
 
     @Query(value = """ 
     SELECT r.id as value, r.name as label FROM RAM r
+    ORDER BY r.createdDate desc
     """)
     List<ADPDPropertyComboboxResponse> getRAMs();
 
