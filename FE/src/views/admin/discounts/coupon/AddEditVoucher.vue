@@ -137,43 +137,31 @@ async function loadVoucherData() {
 
         // 2. Nếu là INDIVIDUAL -> Lấy danh sách khách
         if (newVoucher.value.targetType === 'INDIVIDUAL') {
-          await fetchCustomers() // Load bảng chọn
+          // Load danh sách khách hàng để hiển thị bảng chọn
+          await fetchCustomers()
 
           try {
-            const assignedRes = await getVoucherCustomers(voucherId.value, false)
-
-            // Xử lý JSON lồng nhau: response.data.data.data (theo Postman của bạn)
-            let rawArr: any[] = []
-            if (assignedRes?.data?.data?.data && Array.isArray(assignedRes.data.data.data)) {
-              rawArr = assignedRes.data.data.data
-            }
-            else if (assignedRes?.data?.data && Array.isArray(assignedRes.data.data)) {
-              rawArr = assignedRes.data.data
-            }
-            else if (Array.isArray(assignedRes?.data)) {
-              rawArr = assignedRes.data
-            }
+            // API đã được chuẩn hoá → trả về Customer[]
+            const customers: Customer[] = await getVoucherCustomers(voucherId.value, false)
 
             const extractedIds: string[] = []
             const loadedObjects: Customer[] = []
 
-            rawArr.forEach((item: any) => {
-              const realCustomer = item.customer || item
-              const cId = String(realCustomer.id || realCustomer.customerCode)
-
-              if (cId && cId !== 'undefined') {
-                extractedIds.push(cId)
-                loadedObjects.push({ ...realCustomer, id: cId })
+            customers.forEach((customer) => {
+              if (customer.id) {
+                extractedIds.push(customer.id)
+                loadedObjects.push(customer)
               }
             })
 
+            // Gán state cho form sửa
             initialAssignedCustomers.value = loadedObjects
             newVoucher.value.voucherUsers = extractedIds
             checkedCustomerKeys.value = extractedIds
           }
           catch (subErr) {
             console.error('Lỗi lấy danh sách khách hàng:', subErr)
-            // Không hiện lỗi chặn form để người dùng vẫn sửa được
+            // Không chặn form, cho phép người dùng tiếp tục sửa voucher
           }
         }
       }

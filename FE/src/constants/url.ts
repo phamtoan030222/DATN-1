@@ -27,10 +27,9 @@ export const API_ADMIN_BATTERY = `${API_ADMIN_PRODUCTS}/battery` as string
 export const API_ADMIN_DISCOUNT
   = `${PREFIX_API_ADMIN}/discounts/discount` as string
 
-export const API_ADMIN_PRODUCT_VOUCHER =
-  `${API_ADMIN_PRODUCTS}/voucher` as string;
-  export const API_ADMIN_CUSTOMERS = `${PREFIX_API_ADMIN}/customers` as string
-
+export const API_ADMIN_PRODUCT_VOUCHER
+  = `${API_ADMIN_PRODUCTS}/voucher` as string
+export const API_ADMIN_CUSTOMERS = `${PREFIX_API_ADMIN}/customers` as string
 
 export const API_ADMIN_CUSTOMER_ADDRESSES = (customerId: string) => `${API_ADMIN_CUSTOMERS}/${customerId}/addresses`
 
@@ -41,3 +40,4 @@ export const API_ADMIN_DISCOUNTS = `${PREFIX_API_ADMIN}/discounts` as string
 export const API_ADMIN_DISCOUNTS_VOUCHER
   = `${API_ADMIN_DISCOUNTS}/voucher` as string
 
+// api/v1/admin/discouts/voucher
