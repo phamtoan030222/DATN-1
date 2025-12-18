@@ -309,7 +309,19 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     pid: 5, // Thay đổi pid từ 502 thành 5 (parent users)
   },
 
-  // ... phần phiếu giảm giá
+  // Quản lý giảm giá
+  {
+    name: 'discounts',
+    path: '/discounts',
+    title: 'Quản lý giảm giá',
+    requiresAuth: true,
+    icon: 'icon-park-outline:coupon',
+    menuType: 'dir',
+    componentPath: null,
+    id: 6,
+    pid: null,
+  },
+
   {
     name: 'discounts_coupon',
     path: '/discounts/coupon',
@@ -318,41 +330,34 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     icon: 'icon-park-outline:ticket',
     menuType: 'page',
     componentPath: '/admin/discounts/coupon/index.vue',
-    id: 602,
+    id: 605,
     pid: 6,
   },
-  // 👇 THÊM MỚI 2 ROUTE NÀY VỚI META ACTIVE MENU 👇
+
   {
     name: 'discounts_coupon_add',
     path: '/discounts/coupon/add',
-    title: 'Thêm phiếu giảm giá',
+    title: 'Thêm Phiếu giảm giá',
     requiresAuth: true,
-    hide: true, // Ẩn khỏi menu sidebar
+    hide: true,
     icon: 'icon-park-outline:add',
     menuType: 'page',
     componentPath: '/admin/discounts/coupon/AddEditVoucher.vue',
-    id: 605,
+    id: 606,
     pid: 6,
-    meta: {
-      activeMenu: 'discounts_coupon', // 🔥 QUAN TRỌNG: Giữ sáng menu cha
-      title: 'Thêm phiếu giảm giá',
-    },
   },
+
   {
     name: 'discounts_coupon_edit',
     path: '/discounts/coupon/edit/:id',
-    title: 'Sửa phiếu giảm giá',
+    title: 'Sửa Phiếu giảm giá',
     requiresAuth: true,
     hide: true,
     icon: 'icon-park-outline:edit',
     menuType: 'page',
     componentPath: '/admin/discounts/coupon/AddEditVoucher.vue',
-    id: 606,
+    id: 607,
     pid: 6,
-    meta: {
-      activeMenu: 'discounts_coupon', // 🔥 QUAN TRỌNG: Giữ sáng menu cha
-      title: 'Sửa phiếu giảm giá',
-    },
   },
 
   {
@@ -388,17 +393,6 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     menuType: 'page',
     componentPath: '/admin/discounts/promotion/pages/Update.vue',
     id: 604,
-    pid: 6,
-  },
-  {
-    name: 'discounts_coupon',
-    path: '/discounts/coupon',
-    title: 'Phiếu giảm giá',
-    requiresAuth: true,
-    icon: 'icon-park-outline:ticket',
-    menuType: 'page',
-    componentPath: '/admin/discounts/coupon/index.vue',
-    id: 602,
     pid: 6,
   },
 
