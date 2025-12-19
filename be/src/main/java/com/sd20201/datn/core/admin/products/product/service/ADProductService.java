@@ -24,4 +24,6 @@ public interface ADProductService {
     ResponseObject<?> getBatteries();
 
     ResponseObject<?> getOperatingSystems();
+
+    ResponseObject<?> update(ADProductCreateUpdateRequest request);
 }

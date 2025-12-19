@@ -1,5 +1,5 @@
 <template>
-    <div class="ml-40px">
+    <div>
         <n-card>
             <NSpace vertical :size="8">
                 <NSpace align="center">
@@ -94,11 +94,24 @@
                 }
             }"
             :ellipsis="true"
-            :bordered="false" :row-key="(row) => row.id" 
+            :bordered="false"
+            :row-key="(row) => row.id" 
             :expanded-row-keys="expandedKeys"
             @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
             />
         </n-card>
+
+        <ADProductModal
+            :isOpen="isOpenModal"
+            :id="productIdSelected"
+            :isDetail="true"
+            :screens="state.data.screens"
+            :batteries="state.data.batteries"
+            :brands="state.data.brands"
+            :operatingSystems="state.data.operatingSystems"
+            @close="handleCloseModal"
+            @success="fetchProducts"
+        />
     </div>
 </template>
 
@@ -115,20 +128,20 @@ import {
 } from '@/service/api/admin/product/product.api'
 import { getMinMaxPrice } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
-import { init } from 'echarts/core'
 import { debounce } from 'lodash'
 import { DataTableColumns, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import { onMounted, reactive, Ref, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import ADProductModal from './component/ADProductModal.vue'
 
 const router = useRouter()
 const state = reactive({
     search: {
-        q: '',
-        brand: undefined as string | undefined,
-        screen: undefined as string | undefined,
-        battery: undefined as string | undefined,
-        operatingSystem: undefined as string | undefined,
+        q: '' as string | undefined | null,
+        brand: undefined as string | undefined | null,
+        screen: undefined as string | undefined | null,
+        battery: undefined as string | undefined | null,
+        operatingSystem: undefined as string | undefined | null,
         price: [10000, 50000000]
     },
     data: {
@@ -147,11 +160,11 @@ const state = reactive({
 
 const expandedKeys = ref<Array<string>>([])
 
-const fetchProducts = async () => {
+const fetchProducts = async () => { 
     const res = await getProducts({
         page: state.pagination.page,
         size: state.pagination.size,
-        q: state.search.q,
+        q: state.search.q as string,
         idBrand: state.search.brand as string,
         idOperatingSystem: state.search.operatingSystem as string,
         idBattery: state.search.battery as string,
@@ -185,25 +198,24 @@ const fetchComboboxProperties = async () => {
 }
 
 const refreshFilter = () => {
-    state.search.q = ''
-    state.search.battery = ''
-    state.search.brand = ''
-    state.search.screen = ''
-    state.search.operatingSystem = ''
-    state.search.price = [10000, 50000000]
+    state.search.q = null
+    state.search.battery = null
+    state.search.brand = null
+    state.search.screen = null
+    state.search.operatingSystem = null
+    state.search.price = [stateMinMaxPrice.priceMin as number, stateMinMaxPrice.priceMax as number]
 }
 
 const columns: DataTableColumns<ADProductResponse> = [
     { type: 'selection' },
     {
         type: 'expand',
-        expandable: rowData => rowData.name !== 'Jim Green',
-        renderExpand: (rowData: ADProductResponse) => h('div', {style: {marginLeft: '80px', display: 'flex', gap: '20px', flexDirection: 'column'}},
+        renderExpand: (rowData: ADProductResponse) => h('div', {style: {margin: '20px 80px'}},
             [
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:tag' }), h('span', { style: { marginLeft: '8px' }, innerText: `Hãng: ${rowData.brand}` })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', { style: { marginLeft: '8px' }, innerText: `Pin: ${rowData.battery}` })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'carbon:carbon-for-ibm-dotcom' }), h('span', { style: { marginLeft: '8px' }, innerText: `Hệ điều hành: ${rowData.operatingSystem}` })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:monitor' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màn hình: ${rowData.screen}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'carbon:tag' }), h('span', { style: { marginLeft: '8px' }, innerText: `Hãng: ${rowData.brand}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', { style: { marginLeft: '8px' }, innerText: `Pin: ${rowData.battery}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'carbon:carbon-for-ibm-dotcom' }), h('span', { style: { marginLeft: '8px' }, innerText: `Hệ điều hành: ${rowData.operatingSystem}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:monitor' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màn hình : ${rowData.screen}` })]),
             ]
         )
     },
@@ -212,39 +224,39 @@ const columns: DataTableColumns<ADProductResponse> = [
             return h('span', { innerText: index + 1 })
         }
     },
-    { title: 'Mã', key: 'code', width: 100, },
-    { title: 'Tên', key: 'name', width: 200, },
+    { title: 'Mã', key: 'code',  },
+    { title: 'Tên', key: 'name',  },
     {
-        title: 'Ảnh sản phẩm', key: 'brand', width: 150, align: 'center',
+        title: 'Ảnh sản phẩm', key: 'brand', width: 100, align: 'center',
         render: (data: ADProductResponse) => {
-            return h(NImage, { width: 200, src: data.urlImage })
+            return h(NImage, { src: data.urlImage })
         }
     },
     {
-        title: 'Giá thấp nhất', key: 'minPrice', width: 150, align: 'center',
+        title: 'Giá thấp nhất', key: 'minPrice', align: 'center',
         render: (data: ADProductResponse) => h('span', (data.minPrice + '').split('').reduce((prev, curr, index, arr) => {
-            if ((arr.length - index) % 3 == 0) return prev + '.' + curr
+            if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
             return prev + curr
         }, '') + ' vnđ')
     },
     {
-        title: 'Giá lớn nhất', key: 'maxPrice', width: 150, align: 'center',
+        title: 'Giá lớn nhất', key: 'maxPrice', align: 'center',
         render: (data: ADProductResponse) => h('span', (data.maxPrice + '').split('').reduce((prev, curr, index, arr) => {
-            if ((arr.length - index) % 3 == 0) return prev + '.' + curr
+            if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
             return prev + curr
         }, '') + ' vnđ')
     },
     {
-        title: 'Số lượng', key: 'quantity', width: 150, align: 'center',
+        title: 'Số lượng', key: 'quantity', align: 'center',
         render: (data: ADProductResponse) => h('span', data.quantity + ' sản phẩm')
 
     },
     {
-        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
+        title: 'Trạng thái', key: 'status', align: 'center',
         render: (data: ADProductResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
     },
     {
-        title: 'Thao tác', key: 'action', width: 150,
+        title: 'Thao tác', key: 'action',
         render: (data: ADProductResponse) => {
             return h(NSpace,
                 [
@@ -256,7 +268,7 @@ const columns: DataTableColumns<ADProductResponse> = [
                     ),
                     h(NButton, {
                         quaternary: true, size: 'small', circle: true,
-                        onClick: () => clickOpenModal(data.id, true)
+                        onClick: () => clickOpenModal(data.id, false)
                     },
                         h(Icon, { icon: 'carbon:edit' })
                     ),
@@ -293,6 +305,11 @@ const clickOpenModal = (id?: string, isDetail?: boolean) => {
     productIdSelected.value = id
     isOpenModal.value = true
     isDetailModal.value = isDetail ?? false
+}
+
+const handleCloseModal = () => {
+    isOpenModal.value = false
+    productIdSelected.value = undefined
 }
 
 const debounceFetchProducts = debounce(fetchProducts, 300)

@@ -131,8 +131,35 @@ public class ADProductServiceImpl implements ADProductService {
         return ResponseObject.successForward(product.getId(), "Create product success");
     }
 
-    public ResponseObject<?> update(ADProductCreateUpdateRequest request) {
+    @Override
+    public ResponseObject<?> getScreens() {
+        return ResponseObject.successForward(screenRepository.getScreenComboboxResponse(), "Get screens success");
+    }
 
+    @Override
+    public ResponseObject<?> getBrands() {
+        return ResponseObject.successForward(brandRepository.getBrandComboboxResponse(), "Get brands success");
+    }
+
+    @Override
+    public ResponseObject<?> getBatteries() {
+        return ResponseObject.successForward(batteryRepository.getBatteryComboboxResponse(), "Get batteries success");
+    }
+
+    @Override
+    public ResponseObject<?> getOperatingSystems() {
+        return ResponseObject.successForward(operatingSystemRepository.getOperatingSystemComboboxResponse(), "Get operating_systems success");
+    }
+
+    private CloudinaryResponse uploadImage(MultipartFile image) {
+        FileUploadUtil.assertAllowed(image, FileUploadUtil.IMAGE_PATTERN);
+        String filename = FileUploadUtil.getFilename(image.getOriginalFilename());
+
+        return cloudinaryService.upload(image, filename);
+    }
+
+    @Override
+    public ResponseObject<?> update(ADProductCreateUpdateRequest request) {
         Optional<Product> optionalProduct = productRepository.findById(request.getId());
         if (optionalProduct.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND);
 
@@ -168,33 +195,8 @@ public class ADProductServiceImpl implements ADProductService {
             product.setBrand(optionalBrand.get());
         }
 
+        product.setName(request.getName());
+
         return ResponseObject.successForward(productRepository.save(product).getId(), "Update product success");
-    }
-
-    @Override
-    public ResponseObject<?> getScreens() {
-        return ResponseObject.successForward(screenRepository.getScreenComboboxResponse(), "Get screens success");
-    }
-
-    @Override
-    public ResponseObject<?> getBrands() {
-        return ResponseObject.successForward(brandRepository.getBrandComboboxResponse(), "Get brands success");
-    }
-
-    @Override
-    public ResponseObject<?> getBatteries() {
-        return ResponseObject.successForward(batteryRepository.getBatteryComboboxResponse(), "Get batteries success");
-    }
-
-    @Override
-    public ResponseObject<?> getOperatingSystems() {
-        return ResponseObject.successForward(operatingSystemRepository.getOperatingSystemComboboxResponse(), "Get operating_systems success");
-    }
-
-    private CloudinaryResponse uploadImage(MultipartFile image) {
-        FileUploadUtil.assertAllowed(image, FileUploadUtil.IMAGE_PATTERN);
-        String filename = FileUploadUtil.getFilename(image.getOriginalFilename());
-
-        return cloudinaryService.upload(image, filename);
     }
 }

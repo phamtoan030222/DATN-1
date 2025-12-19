@@ -25,3 +25,7 @@ export type ResponseList = {
   id?: string;
   orderNumber?: number;
 };
+
+export type NullableOptional<T> = {
+  [K in keyof T]?: T[K] | null
+}

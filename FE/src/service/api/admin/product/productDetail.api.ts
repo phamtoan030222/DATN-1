@@ -5,13 +5,13 @@ import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings
 import { AxiosResponse } from 'axios'
 
 export type ADProductDetailRequest = PaginationParams & {
-  idProduct?: string,
-  idCPU?: string
-  idGPU?: string
-  idColor?: string
-  idRAM?: string
-  idHardDrive?: string
-  idMaterial?: string
+  idProduct?: string | null,
+  idCPU?: string | null,
+  idGPU?: string | null,
+  idColor?: string | null,
+  idRAM?: string | null,
+  idHardDrive?: string | null,
+  idMaterial?: string | null,
   minPrice: number,
   maxPrice: number
 }

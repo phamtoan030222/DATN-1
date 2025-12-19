@@ -22,7 +22,15 @@
                     <n-upload :custom-request="handleUploadImportExcel" accept=".xls,.xlsx" :show-file-list="false">
                         <n-button> Upload File </n-button>
                     </n-upload>
+                    <n-button @click="() => isScanQrCode = !isScanQrCode">Quét QR Code</n-button>
                 </n-space>
+                <div v-if="isScanQrCode" class="qrcode-container qr-card">
+                    <h2 class="qr-title">Scan QR Code</h2>
+                    <div class="qr-box">
+                        <QrcodeStream :constraints="{ facingMode: 'environment' }" @detect="onDetect" />
+                    </div>
+                </div>
+
                 <n-data-table class="mt-20px" :columns="columns" :data="data">
 
                 </n-data-table>
@@ -51,6 +59,7 @@ import { checkIMEIExist, downloadTemplateImei, importIMEIExcel } from '@/service
 import { Icon } from '@iconify/vue';
 import { DataTableColumns, NButton, NTag, UploadCustomRequestOptions } from 'naive-ui';
 import { Reactive, Ref } from 'vue';
+import { QrcodeStream } from 'vue-qrcode-reader';
 
 const props = defineProps<{
     isOpen: boolean,
@@ -109,8 +118,8 @@ const clickAddIMEIHandler = async () => {
 }
 
 const handleClickOK = () => {
-    if(data.some(ele => !ele.isValid)) {
-        notification.error({content: 'Không thể thêm IMEI không hợp lệ', duration: 3000})
+    if (data.some(ele => !ele.isValid)) {
+        notification.error({ content: 'Không thể thêm IMEI không hợp lệ', duration: 3000 })
         return false;
     }
 
@@ -138,9 +147,9 @@ const columns: DataTableColumns<IMEITableType> = [
     },
     {
         title: 'Thao tác', key: 'status', width: 50, align: 'center',
-        render: (rowData, index) => h(NButton, { quaternary: true, onClick: () => { data.splice(index, 1)} },
+        render: (rowData, index) => h(NButton, { quaternary: true, onClick: () => { data.splice(index, 1) } },
             {
-                default:() => h(Icon, { icon: 'tabler:trash' })
+                default: () => h(Icon, { icon: 'tabler:trash' })
             }
         )
     },
@@ -182,7 +191,7 @@ const handleUploadImportExcel = async ({ file }: UploadCustomRequestOptions) => 
             note: ele.isExist ? 'Đã tồn tại' : undefined,
         })));
     } catch (error) {
-        notification.error({ content: 'Xảy ra lỗi khi import excel. Vui lòng thử lại !!!', duration: 3000})
+        notification.error({ content: 'Xảy ra lỗi khi import excel. Vui lòng thử lại !!!', duration: 3000 })
     }
 }
 
@@ -190,10 +199,51 @@ const validateSerialNumber = (serialNumber: string): boolean => {
     const regex = new RegExp(Regex.SerialNumber);
     return regex.test(serialNumber);
 }
+
+const isScanQrCode = ref<boolean>(false);
+
+function onDetect(detectedCodes: any) {
+    console.log(detectedCodes)
+    imei.value = detectedCodes.map((code: any) => code.rawValue)[0];
+    clickAddIMEIHandler();
+}
+
 </script>
 
 <style scoped>
 .mt-20px {
     margin-top: 20px;
+}
+
+.qr-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 28px 32px;
+    width: 300px;
+    height: 300px;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 128, 0, 0.15);
+    border: 2px solid #a5d6a7;
+    margin: 16px auto;
+}
+
+/* Title */
+.qr-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 600;
+    color: #2e7d32;
+}
+
+.qr-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    border-radius: 16px;
+    background: linear-gradient(145deg, #e8f5e9, #c8e6c9);
+    border: 2px dashed #66bb6a;
+    box-shadow: inset 0 0 12px rgba(76, 175, 80, 0.3);
+    margin: 12px 0;
 }
 </style>

@@ -75,7 +75,11 @@
             </div>
         </n-card>
         <n-card class="mt-20px" title="Danh sách biến thể">
-            <n-data-table :columns="columns" :data="state.data.productDetails"></n-data-table>
+            <n-data-table :columns="columns" :data="state.data.productDetails"
+            :expanded-row-keys="expandedKeys"
+            @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
+            :row-key="(row) => row.id" 
+            ></n-data-table>
 
             <n-space justify="center" class="mt-20px">
                 <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
@@ -106,13 +110,13 @@ const idProduct: Ref<string> = ref(route.query.idProduct as string)
 
 const state = reactive({
     search: {
-        q: undefined as string | undefined,
-        cpu: undefined as string | undefined,
-        gpu: undefined as string | undefined,
-        hardDrive: undefined as string | undefined,
-        ram: undefined as string | undefined,
-        color: undefined as string | undefined,
-        material: undefined as string | undefined,
+        q: undefined as string | undefined | null,
+        cpu: undefined as string | undefined | null,
+        gpu: undefined as string | undefined | null,
+        hardDrive: undefined as string | undefined | null,
+        ram: undefined as string | undefined | null,
+        color: undefined as string | undefined | null,
+        material: undefined as string | undefined | null,
         price: [10000, 50000000]
     },
     data: {
@@ -143,7 +147,7 @@ const fetchProductDetails = async () => {
     const res = await getProductDetails({
         page: state.pagination.page,
         size: state.pagination.size,
-        q: state.search.q,
+        q: state.search.q as string,
         idProduct: idProduct.value,
         idCPU: state.search.cpu,
         idGPU: state.search.gpu,
@@ -184,17 +188,40 @@ const fetchComboboxProperties = async () => {
 }
 
 const refreshFilter = () => {
-    state.search.q = undefined
-    state.search.cpu = undefined
-    state.search.gpu = undefined
-    state.search.material = undefined
-    state.search.ram = undefined
-    state.search.color = undefined
-    state.search.hardDrive = undefined
+    state.search.q = null
+    state.search.cpu = null
+    state.search.gpu = null
+    state.search.material = null
+    state.search.ram = null
+    state.search.color = null
+    state.search.hardDrive = null
 }
+
+const expandedKeys = ref<Array<string>>([])
 
 const columns: DataTableColumns<ADProductDetailResponse> = [
     { type: 'selection', fixed: 'left' },
+    {
+        type: 'expand',
+        renderExpand: (rowData: ADProductDetailResponse) => h('div', { style: { margin: '20px 80px', display: 'flex', gap: '100px' } },
+            [
+                h('div', 
+                    [
+                        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
+                        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
+                        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
+                    ]
+                ),
+                h('div',
+                    [
+                        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
+                        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
+                        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
+                    ]
+                ),
+            ]
+        )
+    },
     {
         title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data: ADProductDetailResponse, index: number) => {
             return h('span', { innerText: index + 1 })
@@ -203,7 +230,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
     { title: 'Tên', key: 'name', width: 100 },
     {
-        title: 'Ảnh sản phẩm', key: 'brand', width: 150, align: 'center',
+        title: 'Ảnh sản phẩm', key: 'brand', width: 100, align: 'center',
         render: (data: ADProductDetailResponse) => {
             return h(NImage, { width: 200, src: data.urlImage })
         }
@@ -211,7 +238,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     {
         title: 'Giá', key: 'price', width: 150, align: 'center',
         render: (data: ADProductDetailResponse) => h('span', (data.price + '').split('').reduce((prev, curr, index, arr) => {
-            if ((arr.length - index) % 3 == 0) return prev + '.' + curr
+            if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
             return prev + curr
         }, '') + ' vnđ')
     },
@@ -219,12 +246,6 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
         title: 'Tồn kho', key: 'quantity', width: 150, align: 'center',
         render: (data: ADProductDetailResponse) => h('span', data.quantity + ' sản phẩm')
     },
-    { title: 'CPU', key: 'cpu', width: 150, align: 'center', },
-    { title: 'GPU', key: 'gpu', width: 150, align: 'center', },
-    { title: 'RAM', key: 'ram', width: 200, align: 'center', },
-    { title: 'Ổ cứng', key: 'hardDrive', width: 200, align: 'center', },
-    { title: 'Màu', key: 'color', width: 150, align: 'center', },
-    { title: 'Chất liệu', key: 'material', width: 150, align: 'center', },
     {
         title: 'Trạng thái', key: 'status', width: 70, align: 'center',
         render: (data: ADProductDetailResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })

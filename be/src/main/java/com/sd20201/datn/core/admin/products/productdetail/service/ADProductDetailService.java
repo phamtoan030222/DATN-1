@@ -45,4 +45,6 @@ public interface ADProductDetailService {
     ResponseObject<?> getImeiProductDetail(String idProductDetail);
 
     ResponseObject<?> changeStatusImei(String idImei);
+
+    ResponseObject<?> update(ADPDProductDetailCreateUpdateRequest request);
 }

@@ -146,11 +146,6 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
     @Override
     public ResponseObject<?> modify(ADPDProductDetailCreateUpdateRequest request) {
-        return request.getId() == null || request.getId().isEmpty() ? create(request) : update(request);
-    }
-
-    private ResponseObject<?> create(ADPDProductDetailCreateUpdateRequest request) {
-
         Optional<ProductDetail> productDetailOptional = productDetailRepository.findByCode(request.getCode());
         if (productDetailOptional.isPresent())
             return ResponseObject.errorForward("Product detail code already exist", HttpStatus.CONFLICT);
@@ -194,7 +189,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         return ResponseObject.successForward(productDetailRepository.save(productDetail), "Create product success");
     }
 
-    private ResponseObject<?> update(ADPDProductDetailCreateUpdateRequest request) {
+    @Override
+    public ResponseObject<?> update(ADPDProductDetailCreateUpdateRequest request) {
         Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getId());
         if (productDetailOptional.isEmpty())
             return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
