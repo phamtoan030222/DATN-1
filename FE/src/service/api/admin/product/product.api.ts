@@ -148,3 +148,16 @@ export const uploadImages = async (data: FormData, id: string) => {
 
   return res.data
 }
+
+export const updateProduct = async (data: ADProductCreateUpdateRequest) => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCTS}`,
+    method: 'PUT',
+    data: JSON.stringify(data),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  })) as AxiosResponse<DefaultResponse<string>>
+
+  return res.data
+}

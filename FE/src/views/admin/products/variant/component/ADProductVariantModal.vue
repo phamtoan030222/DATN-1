@@ -9,7 +9,7 @@
             </template>
 
             <!-- content -->
-            <div :style="{  }">
+            <div :style="{ overflowY: 'auto', maxHeight: '500px' }">
                 <n-form>
                     <n-grid :span="24" :x-gap="24">
                         <n-form-item-gi :span="12" label="Mã">
@@ -47,9 +47,11 @@
                         </n-form-item-gi>
                     </n-grid>
                 </n-form>
+
+                <span>Danh sách IMEI</span>
+                <n-data-table v-show="imeisProductDetail && imeisProductDetail.length > 0" :columns="columnsImei" :data="imeisProductDetail"></n-data-table>
             </div>
 
-            <n-data-table v-show="imeisProductDetail && imeisProductDetail.length > 0" :columns="columnsImei" :data="imeisProductDetail"></n-data-table>
 
             <!-- footer -->
             <template #footer>

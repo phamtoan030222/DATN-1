@@ -1,7 +1,7 @@
 <template>
     <div>
         <n-card title="Thông tin cơ bản">
-            <n-space >
+            <n-space>
                 <n-form ref="formRef">
                     <n-grid :span="24" :x-gap="36">
                         <n-form-item-gi :span="24" label="Tên sản phẩm">
@@ -73,7 +73,7 @@
             </div>
         </n-card>
         <n-card title="Thông tin biến thể" class="mt-20px">
-            <n-space >
+            <n-space>
                 <n-form ref="formRef" style="width: 50%;">
                     <n-grid :span="24" :x-gap="36">
                         <n-form-item-gi :span="12">
@@ -154,8 +154,8 @@
                             <n-select v-model:value="formDataVariant.idHardDrive" filterable placeholder="Chọn ổ cứng"
                                 :options="dataProperties.variantInformation.hardDrives" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="24" >
-                            <n-space  :style="{ width: '100%' }">
+                        <n-form-item-gi :span="24">
+                            <n-space>
                                 <n-button @click="createVariant" type="primary">Tạo biến thể</n-button>
                             </n-space>
                         </n-form-item-gi>
@@ -164,23 +164,45 @@
             </n-space>
         </n-card>
         <!-- title="Danh sách biến thể" -->
-        <n-card v-for="productDetailList in partitionProductDetailsByColor" class="mt-20px">
+        <n-card v-if="productDetails && productDetails.length > 0"
+            v-for="productDetailList in partitionProductDetailsByColor" class="mt-20px">
             <template #header>
-                <n-space justify="space-between" >
+                <n-space justify="space-between">
                     <span>Danh sách biến thể màu {{ getNameColorById(productDetailList[0].idColor) }}</span>
 
                     <n-space>
-                        <n-input-number v-model:value="priceCommonVariant" placeholder="Nhập giá chung"
-                            clearable></n-input-number>
+                        <n-input-number
+                        :value="statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor)?.priceCommonVariant || 0"
+                        placeholder="Nhập giá chung"
+                        clearable
+                        @update:value="val => {
+                            const state = statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor);
+                            console.log('val', val);
+                            console.log('state', state);
+                            if (state) {
+                                state.priceCommonVariant = val as number;
+                            }
+                        }"
+                        />
                         <n-button type="success"
                             @click="applyPriceCommonVariantHandler(productDetailList[0].idColor)">Áp dụng</n-button>
                     </n-space>
                 </n-space>
             </template>
-            <n-data-table :data="productDetailList" :columns="columns" :bordered="false"></n-data-table>
+            <n-data-table :data="productDetailList" :columns="columns" :bordered="false" :max-height="400" :pagination="{
+                page: statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor)?.currentPage || 1,
+                pageSize: 10,
+                itemCount: productDetailList.length,
+                onChange: (page: number) => {
+                    const state = statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor);
+                    if (state) {
+                        state.currentPage = page;
+                    }
+                },
+            }"></n-data-table>
         </n-card>
 
-        <n-space class="mt-20px" v-if="productDetails && productDetails.length > 0" >
+        <n-space class="mt-20px" v-if="productDetails && productDetails.length > 0">
             <n-button>Hủy</n-button>
             <n-popconfirm @positive-click="submitVariantHandler" positive-text="Xác nhận" negative-text="Hủy">
                 <template #trigger>
@@ -190,8 +212,8 @@
             </n-popconfirm>
         </n-space>
 
-        <ADImeiProductDetail :is-open="isOpenModalIMEIProduct" :idColorImei="idColorImei" :index="indexRowDataImei" @close="handleEmitClose"
-            @update:imei="handleEmitUpdateImei" />
+        <ADImeiProductDetail :is-open="isOpenModalIMEIProduct" :idColorImei="idColorImei" :index="indexRowDataImei"
+            @close="handleEmitClose" @update:imei="handleEmitUpdateImei" />
 
         <QuickAddModal :is-open="isOpenQuickAddModal" :type="dataQuickAdd.type" @close="closeQuickAddModalHandler"
             @success="fetchDataProperties" />
@@ -213,6 +235,15 @@ const route = useRoute()
 const router = useRouter()
 
 const idProduct: Ref<string> = ref(route.params.id as string)
+const isOpenQuickAddModal = ref<boolean>(false)
+const isEditPriceInputTable: Ref<number> = ref(-1)
+const priceTableValue: Ref<number> = ref(0)
+const isOpenModalIMEIProduct = ref<boolean>(false)
+const indexRowDataImei = ref<number>()
+const idColorImei = ref<string>()
+const loadingCreateVariant = ref(false)
+const priceCommonVariant: Ref<number> = ref(0)
+const statePaginationVariantByColor: Reactive<{ idColor: string, currentPage: number, priceCommonVariant: Ref<number> }[]> = reactive([]);
 
 const dataProperties = reactive({
     basicInformation: {
@@ -231,7 +262,6 @@ const dataProperties = reactive({
     },
 })
 
-const isOpenQuickAddModal = ref<boolean>(false)
 
 const fetchProductById = async () => {
     const res = await getProductById(idProduct.value)
@@ -346,7 +376,7 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
                 h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'gravity-ui:gpu' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.gpus.filter(data => data.value == row.idGPU).map(data => data.label) })]),
                 h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'material-symbols:hard-drive-outline-sharp' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.hardDrives.filter(data => data.value == row.idHardDrive).map(data => data.label) })]),
                 h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'lets-icons:materials' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.materials.filter(data => data.value == row.idMaterial).map(data => data.label) })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'lets-icons:materials' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.rams.filter(data => data.value == row.idRAM).map(data => data.label) })]),
+                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.rams.filter(data => data.value == row.idRAM).map(data => data.label) })]),
             ]
         )
     },
@@ -408,22 +438,16 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
 ]
 
 const createVariant = () => {
-    // formDataVariant.idColor = [...dataProperties.variantInformation.colors.map(data => data.value)]
-    // formDataVariant.idCpu = dataProperties.variantInformation.cpus[0].value
-    // formDataVariant.idGpu = dataProperties.variantInformation.gpus[0].value
-    // formDataVariant.idHardDrive = dataProperties.variantInformation.hardDrives[0].value
-    // formDataVariant.idMaterial = dataProperties.variantInformation.materials[0].value
-    // formDataVariant.idRam = dataProperties.variantInformation.rams[0].value
-
     if (formDataVariant.idColor) {
-        formDataVariant.idColor.forEach((element) => {
+        formDataVariant.idColor.forEach((idColor) => {
+            statePaginationVariantByColor.push({ idColor: idColor, currentPage: 1, priceCommonVariant: ref(0).value });
             formDataVariant.idCpu?.forEach((cpu) => {
                 formDataVariant.idGpu?.forEach((gpu) => {
                     formDataVariant.idHardDrive?.forEach((hardDrive) => {
                         formDataVariant.idMaterial?.forEach((material) => {
                             formDataVariant.idRam?.forEach((ram) => {
                                 productDetails.push({
-                                    idColor: element,
+                                    idColor: idColor,
                                     idCPU: cpu,
                                     idGPU: gpu,
                                     idHardDrive: hardDrive,
@@ -439,13 +463,11 @@ const createVariant = () => {
     }
 }
 
-const isEditPriceInputTable: Ref<number> = ref(-1)
 
 const handleClickPriceTable = (index: number) => {
     isEditPriceInputTable.value = index
 }
 
-const priceTableValue: Ref<number> = ref(0)
 
 const handleEnterPrice = (index: number) => {
     productDetails[index].price = priceTableValue.value
@@ -454,7 +476,6 @@ const handleEnterPrice = (index: number) => {
 }
 
 // imei
-const isOpenModalIMEIProduct = ref<boolean>(false)
 
 const openModalIMEIProduct = (idColor: string, index: number) => {
     isOpenModalIMEIProduct.value = true
@@ -462,16 +483,14 @@ const openModalIMEIProduct = (idColor: string, index: number) => {
     idColorImei.value = idColor
 }
 
-const indexRowDataImei = ref<number>()
-const idColorImei = ref<string>()
 
 const handleEmitClose = () => {
     isOpenModalIMEIProduct.value = false
 }
 
 const handleEmitUpdateImei = (imeis: string[], idColorImei: string, index: number) => {
-    const indexIdColor = productDetails.map((productDetail, index) => ({idColor: productDetail.idColor, index}))
-                            .filter(productDetail => productDetail.idColor === idColorImei).map((indexObj) => indexObj.index)[0]
+    const indexIdColor = productDetails.map((productDetail, index) => ({ idColor: productDetail.idColor, index }))
+        .filter(productDetail => productDetail.idColor === idColorImei).map((indexObj) => indexObj.index)[0]
 
     productDetails[indexIdColor + index].imei = imeis
 
@@ -480,36 +499,40 @@ const handleEmitUpdateImei = (imeis: string[], idColorImei: string, index: numbe
 
 const notification = useNotification();
 
-const imageProductDetails = reactive<{[key: string]: any}>({});
+const imageProductDetails = reactive<{ [key: string]: any }>({});
 
-const loadingCreateVariant = ref(false)
 
 const submitVariantHandler = async () => {
     loadingCreateVariant.value = true;
-    let idNewProduct: string = "";
-    if (!idProduct.value) {
-        const resCreateProduct = await modifyProduct(formDataBasic as ADProductCreateUpdateRequest, imageProduct);
-        idNewProduct = resCreateProduct.data;
-    } else {
-        idNewProduct = idProduct.value;
+    try {
+        let idNewProduct: string = "";
+        if (!idProduct.value) {
+            const resCreateProduct = await modifyProduct(formDataBasic as ADProductCreateUpdateRequest, imageProduct);
+            idNewProduct = resCreateProduct.data;
+        } else {
+            idNewProduct = idProduct.value;
+        }
+
+        const requests = productDetails.map((productDetail, index) =>
+            createProductVariant(
+                idNewProduct!,
+                productDetail as ADProductDetailCreateUpdateRequest,
+                imageProductDetails[productDetail.idColor] ? [imageProductDetails[productDetail.idColor]] : []
+            )
+        );
+
+        // Gửi đồng thời
+        await Promise.all(requests);
+
+        if (idNewProduct) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
+        else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
+
+        router.push({ name: 'products_list' })
+    } catch (e) {
+        notification.error({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
+    } finally {
+        loadingCreateVariant.value = false;
     }
-
-    const requests = productDetails.map((productDetail, index) =>
-        createProductVariant(
-            idNewProduct!,
-            productDetail as ADProductDetailCreateUpdateRequest,
-            imageProductDetails[productDetail.idColor] ? [imageProductDetails[productDetail.idColor]] : []
-        )
-    );
-
-    // Gửi đồng thời
-    await Promise.all(requests);
-
-    if (idNewProduct) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
-    else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
-
-    loadingCreateVariant.value = false;
-    router.push({ name: 'products_list' })
 }
 
 const handleChangeImageProduct = (data: { fileList: UploadFileInfo[] }) => {
@@ -535,11 +558,10 @@ const closeQuickAddModalHandler = () => {
     isOpenQuickAddModal.value = false
 }
 
-const priceCommonVariant: Ref<number> = ref(0)
 
 const applyPriceCommonVariantHandler = (idColor: string) => {
     productDetails.filter(item => item.idColor === idColor).forEach(item => {
-        item.price = priceCommonVariant.value
+        item.price = statePaginationVariantByColor.find(state => state.idColor === idColor)?.priceCommonVariant
     })
     priceCommonVariant.value = 0
 }
@@ -561,7 +583,6 @@ const getNameColorById = (idColor: string) => {
     const color = dataProperties.variantInformation.colors.find(color => color.value === idColor)
     return color ? color.label : 'Không xác định'
 }
-
 </script>
 
 <style scoped>
