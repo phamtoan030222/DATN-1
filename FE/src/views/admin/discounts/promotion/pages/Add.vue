@@ -134,11 +134,11 @@
           :row-key="(row) => row.id"
           v-model:checked-row-keys="checkedProductKeys"
           :pagination="false"
-   
-          max-height="450px"
+          striped
+          max-height="400px"
         />
 
-        <div class="flex justify-center mt-4" v-if="filteredProducts.length > 0">
+        <div class="flex justify-end mt-4" v-if="filteredProducts.length > 0">
           <NPagination
             v-model:page="productCurrentPage"
             :page-size="productPageSize"
@@ -202,10 +202,13 @@
       :row-key="(row) => row.id"
       v-model:checked-row-keys="selectedDetailKeys"
       :pagination="false"
+      striped
+      size="small"
+      max-height="400"
 
     />
 
-    <div class="flex justify-center mt-4" v-if="filteredDetails.length > detailPageSize">
+    <div class="flex justify-end mt-4" v-if="filteredDetails.length > detailPageSize">
       <NPagination
         v-model:page="detailCurrentPage"
         :page-size="detailPageSize"
