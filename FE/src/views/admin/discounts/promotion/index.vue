@@ -124,10 +124,13 @@
       :loading="loading"
       :row-key="(row) => row.id"
       :pagination="false"
-      bordered
+      size="small"
+      :bordered="false"
+      striped
+      max-height="400"
     />
 
-    <div class="flex justify-center mt-4">
+    <div class="flex justify-end mt-4">
       <NPagination
         v-if="totalFilteredPages > 1"
         :page="currentPage"
@@ -141,6 +144,7 @@
 </template>
 
 <script setup lang="tsx">
+  
 import { onMounted, ref, reactive, computed, h } from "vue";
 import {
   NButton, NSpace, NCard, NDataTable, NForm, NFormItem,
