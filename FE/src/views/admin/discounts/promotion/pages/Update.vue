@@ -133,17 +133,16 @@
             v-model:checked-row-keys="checkedProductKeys" 
             :pagination="false"
             size="small"
-            max-height="450px"
+            max-height="400px"
           />
         </div>
 
-        <div class="flex justify-center mt-4" v-if="filteredRawProducts.length > productPageSize">
+        <div class="flex justify-end mt-4" v-if="filteredRawProducts.length > productPageSize">
           <NPagination
             :page="productCurrentPage"
             :page-size="productPageSize"
             :page-count="Math.ceil(filteredRawProducts.length / productPageSize)"
             @update:page="(p) => productCurrentPage = p"
-            size="small"
           />
         </div>
       </NCard>
@@ -210,15 +209,15 @@
       v-model:checked-row-keys="selectedUnappliedKeys"
       :pagination="false"
       size="small"
+      max-height="400"
     />
 
-    <div class="flex justify-center mt-4" v-if="filteredUnapplied.length > unappliedPageSize">
+    <div class="flex justify-end mt-4" v-if="filteredUnapplied.length > unappliedPageSize">
       <NPagination
         :page="unappliedCurrentPage"
         :page-size="unappliedPageSize"
         :page-count="Math.ceil(filteredUnapplied.length / unappliedPageSize)"
         @update:page="(p) => unappliedCurrentPage = p"
-        size="small"
       />
     </div>
   </NCard>
@@ -265,7 +264,7 @@
       max-height="400px"
     />
 
-    <div class="flex justify-center mt-4" v-if="filteredAppliedProducts.length > appliedPageSize">
+    <div class="flex justify-end mt-4" v-if="filteredAppliedProducts.length > appliedPageSize">
       <NPagination
         :page="appliedCurrentPage"
         :page-size="appliedPageSize"
