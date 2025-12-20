@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { h, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router' // Import Router
+import { useRouter } from 'vue-router' // Import Router
 import type { DataTableColumns } from 'naive-ui'
 import {
   NButton,
@@ -27,7 +27,7 @@ import formatDate from '@/utils/common.helper'
 
 /* ===================== Config & Router ===================== */
 const router = useRouter()
-const route = useRoute()
+// const route = useRoute()
 const message = useMessage()
 
 /* ===================== Utility Functions ===================== */
@@ -80,11 +80,11 @@ const pagination = ref({
 /* ===================== Methods (CHUYỂN TRANG) ===================== */
 // Thay vì bật popup, ta chuyển hướng URL
 function openAddPage() {
-  router.push({ name: 'discounts_coupon_add' }) // Phải khớp với name trong router config
+  router.push({ name: 'discounts_voucher_add' }) // Phải khớp với name trong router config
 }
 
 function openEditPage(id: string) {
-  router.push({ name: 'discounts_coupon_edit', params: { id } })
+  router.push({ name: 'discounts_voucher_edit', params: { id } })
 }
 
 /* ===================== Filters ===================== */
@@ -156,15 +156,23 @@ const columns: DataTableColumns<ADVoucherResponse> = [
   { title: 'Tên', key: 'name', width: 180 },
   { title: 'Kiểu', key: 'targetType', width: 100, render(row) { const typeInfo = getVoucherTypeText(row); return h(NTag, { type: typeInfo.type, size: 'small' }, { default: () => typeInfo.text }) } },
   { title: 'Số lượng', key: 'quantity', width: 100 },
-  { title: 'Giá trị', key: 'discountValue', render(row) {
-    if (row.discountValue === null)
-      return 'N/A'; if (row.typeVoucher === 'PERCENTAGE')
-      return `${row.discountValue}%`; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.discountValue)
-  } },
-  { title: 'Điều kiện', key: 'conditions', render(row) {
-    if (row.conditions === null)
-      return 'N/A'; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.conditions)
-  } },
+  {
+    title: 'Giá trị',
+    key: 'discountValue',
+    render(row) {
+      if (row.discountValue === null)
+        return 'N/A'; if (row.typeVoucher === 'PERCENTAGE')
+        return `${row.discountValue}%`; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.discountValue)
+    },
+  },
+  {
+    title: 'Điều kiện',
+    key: 'conditions',
+    render(row) {
+      if (row.conditions === null)
+        return 'N/A'; return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.conditions)
+    },
+  },
   { title: 'Ngày bắt đầu', key: 'startDate', render: row => (row.startDate ? formatDate(row.startDate) : 'N/A') },
   { title: 'Ngày kết thúc', key: 'endDate', render: row => (row.endDate ? formatDate(row.endDate) : 'N/A') },
   { title: 'Trạng thái', key: 'computedStatus', width: 130, render(row) { const statusInfo = getVoucherStatus(row); return h(NTag, { type: statusInfo.type, size: 'small' }, { default: () => statusInfo.text }) } },
@@ -260,7 +268,10 @@ watch([() => filters.value.status, () => pagination.value.page, () => pagination
             <NInputNumber v-model:value="filters.conditions" step="1000" placeholder="VD: 100,000..." class="w-full" />
           </NFormItem>
           <NFormItem label="Thời gian diễn ra">
-            <NDatePicker v-model:value="filters.dateRange" type="daterange" clearable class="w-full" start-placeholder="Bắt đầu" end-placeholder="Kết thúc" />
+            <NDatePicker
+              v-model:value="filters.dateRange" type="daterange" clearable class="w-full"
+              start-placeholder="Bắt đầu" end-placeholder="Kết thúc"
+            />
           </NFormItem>
         </div>
       </NForm>
@@ -295,13 +306,8 @@ watch([() => filters.value.status, () => pagination.value.page, () => pagination
       </template>
 
       <NDataTable
-        v-model:checked-row-keys="checkedRowKeys"
-        :columns="columns"
-        :data="displayData"
-        :loading="loading"
-        :row-key="(row) => row.id"
-        :pagination="false"
-        bordered
+        v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading"
+        :row-key="(row) => row.id" :pagination="false" bordered
       />
 
       <div class="flex justify-center mt-4">

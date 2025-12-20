@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.admin.orders.order.model.response;
+package com.sd20201.datn.core.admin.orders.salses.model.response;
 
 import java.math.BigDecimal;
 

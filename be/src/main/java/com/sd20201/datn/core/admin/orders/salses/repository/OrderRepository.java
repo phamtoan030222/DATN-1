@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.admin.orders.order.repository;
+package com.sd20201.datn.core.admin.orders.salses.repository;
 
 import com.sd20201.datn.repository.InvoiceRepository;
 

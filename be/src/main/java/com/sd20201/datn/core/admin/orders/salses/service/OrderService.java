@@ -1,6 +1,6 @@
-package com.sd20201.datn.core.admin.orders.order.service;
+package com.sd20201.datn.core.admin.orders.salses.service;
 
-import com.sd20201.datn.core.admin.orders.order.model.request.OrderRequest;
+import com.sd20201.datn.core.admin.orders.salses.model.request.OrderRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
 
 public interface OrderService {

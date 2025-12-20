@@ -115,7 +115,7 @@ const addVoucherRules: FormRules = {
 /* ===================== Methods ===================== */
 function handleCancel() {
   // Quay về trang danh sách
-  router.push('/discounts/coupon')
+  router.push('/discounts/voucher')
 }
 
 async function loadVoucherData() {

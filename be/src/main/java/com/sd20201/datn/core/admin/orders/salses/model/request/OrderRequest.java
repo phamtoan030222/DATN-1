@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.admin.orders.order.model.request;
+package com.sd20201.datn.core.admin.orders.salses.model.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
