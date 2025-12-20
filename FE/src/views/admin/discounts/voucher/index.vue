@@ -150,7 +150,6 @@ async function fetchData() {
 
 /* ===================== Data Table ===================== */
 const columns: DataTableColumns<ADVoucherResponse> = [
-  { type: 'selection' },
   { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
   { title: 'Mã', key: 'code', width: 120 },
   { title: 'Tên', key: 'name', width: 180 },

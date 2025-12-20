@@ -311,6 +311,7 @@ async function handleSaveVoucher() {
 /* ====== Table ====== */
 const customerColumns: DataTableColumns<Customer> = [
   { type: 'selection', disabled: row => !row.id },
+  { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
   { title: 'Mã', key: 'customerCode', width: 100 },
   { title: 'Tên', key: 'customerName', width: 180 },
   { title: 'SĐT', key: 'customerPhone', width: 120 },
