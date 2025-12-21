@@ -161,3 +161,12 @@ export const updateProduct = async (data: ADProductCreateUpdateRequest) => {
 
   return res.data
 }
+
+export const getProductsCombobox = async () => {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCTS}/combobox`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>;
+
+  return res.data
+}

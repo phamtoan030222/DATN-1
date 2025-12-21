@@ -2,7 +2,7 @@
     <div>
         <n-card>
             <NSpace vertical :size="8">
-                <NSpace align="center">
+                <NSpace align="center" justify="space-between">
                     <div>
                         <NIcon size="24">
                             <Icon icon="icon-park-outline:list" />
@@ -12,7 +12,8 @@
                         </span>
                     </div>
                     <div>
-                        <!-- // chọn sản phẩm -->
+                        <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct" placeholder="Chọn sản phẩm"
+                            style="width: 300px;" @update:value="() => { fetchProductDetails(); fetchProduct(); }" :options="state.data.productsCombobox" />
                     </div>
                 </NSpace>
                 <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
@@ -96,7 +97,7 @@
 
 <script lang="ts" setup>
 import { ADProductDetailResponse, ADPRPropertiesComboboxResponse, changeProductDetailStatus, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getMinMaxPrice, getProductDetails, getRAMs } from '@/service/api/admin/product/productDetail.api'
-import { ADProductDetailResponse as ADProductResponse } from '@/service/api/admin/product/product.api'
+import { ADProductDetailResponse as ADProductResponse, getProductsCombobox } from '@/service/api/admin/product/product.api'
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 import { DataTableColumns, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
@@ -127,6 +128,7 @@ const state = reactive({
         hardDrives: [] as ADPRPropertiesComboboxResponse[],
         cpus: [] as ADPRPropertiesComboboxResponse[],
         gpus: [] as ADPRPropertiesComboboxResponse[],
+        productsCombobox: [] as ADPRPropertiesComboboxResponse[],
     },
     pagination: {
         page: 1,
@@ -275,6 +277,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
 
 onMounted(() => {
     fetchProductDetails()
+    fetchProductsCombobox()
     if (idProduct.value) {
         fetchProduct()
     }
@@ -348,6 +351,12 @@ const formatTooltipRangePrice = (value: number) => (value + '').split('').reduce
     if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
     return prev + curr
 }, '') + ' vnđ'
+
+const fetchProductsCombobox = async () => {
+    const res = await getProductsCombobox()
+
+    state.data.productsCombobox = res.data
+}
 </script>
 
 <style scoped>
