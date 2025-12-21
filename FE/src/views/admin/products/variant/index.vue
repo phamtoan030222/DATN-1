@@ -13,7 +13,7 @@
                     </div>
                     <div>
                         <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct" placeholder="Chọn sản phẩm"
-                            style="width: 300px;" @update:value="() => { fetchProductDetails(); fetchProduct(); }" :options="state.data.productsCombobox" />
+                            style="width: 300px;" clearable @update:value="() => { fetchProductDetails(); fetchProduct(); }" :options="state.data.productsCombobox" />
                     </div>
                 </NSpace>
                 <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
