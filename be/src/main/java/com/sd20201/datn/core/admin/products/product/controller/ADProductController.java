@@ -71,4 +71,9 @@ public class ADProductController {
     ResponseEntity<?> updateProduct(@RequestBody ADProductCreateUpdateRequest request) {
         return Helper.createResponseEntity(productService.update(request));
     }
+
+    @GetMapping("/combobox")
+    ResponseEntity<?> getProductCombobox() {
+        return Helper.createResponseEntity(productService.getProductsCombobox());
+    }
 }

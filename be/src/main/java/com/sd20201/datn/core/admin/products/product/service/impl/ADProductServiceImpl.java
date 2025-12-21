@@ -199,4 +199,9 @@ public class ADProductServiceImpl implements ADProductService {
 
         return ResponseObject.successForward(productRepository.save(product).getId(), "Update product success");
     }
+
+    @Override
+    public ResponseObject<?> getProductsCombobox() {
+        return ResponseObject.successForward(productRepository.getPropertyCombobox(), "OKE");
+    }
 }

@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.product.repository;
 
 import com.sd20201.datn.core.admin.products.product.model.request.ADProductRequest;
+import com.sd20201.datn.core.admin.products.product.model.response.ADPRPropertyComboboxResponse;
 import com.sd20201.datn.core.admin.products.product.model.response.ADProductDetailResponse;
 import com.sd20201.datn.core.admin.products.product.model.response.ADProductResponse;
 import com.sd20201.datn.entity.Product;
@@ -10,6 +11,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface ADProductRepository extends ProductRepository {
@@ -96,4 +98,10 @@ public interface ADProductRepository extends ProductRepository {
     Optional<ADProductDetailResponse> getProductById(@Param("id") String id);
 
     Optional<Product> findByCode(String code);
+
+    @Query(value = """
+    SELECT p.id as value, p.code as label FROM Product p
+    ORDER BY p.createdDate DESC
+    """)
+    List<ADPRPropertyComboboxResponse> getPropertyCombobox();
 }

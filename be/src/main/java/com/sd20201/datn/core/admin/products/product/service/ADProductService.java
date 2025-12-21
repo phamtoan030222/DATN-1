@@ -26,4 +26,6 @@ public interface ADProductService {
     ResponseObject<?> getOperatingSystems();
 
     ResponseObject<?> update(ADProductCreateUpdateRequest request);
+
+    ResponseObject<?> getProductsCombobox();
 }
