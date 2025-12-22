@@ -1,90 +1,10 @@
-<template>
-  <div class="p-6">
-    <!-- Header Section -->
-    <n-card>
-      <NSpace vertical :size="8">
-        <NSpace align="center">
-          <NIcon size="24">
-            <Icon :icon="'carbon:events'" />
-          </NIcon>
-          <span style="font-weight: 600; font-size: 24px">
-            Quản lý Khách hàng
-          </span>
-        </NSpace>
-        <span>Quản lý khách hàng trên toàn hệ thống cửa hàng</span>
-      </NSpace>
-    </n-card>
-
-    <!-- Filter Card -->
-    <NCard title="Bộ lọc" class="mb-4 mt-3">
-      <NForm label-placement="top" :model="formSearch" :label-style="{ fontWeight: 'bold' }">
-        <div class="space-y-3">
-          <div class="flex gap-4 items-end">
-            <!-- Tên khách hàng -->
-            <NFormItem label="Tên khách hàng:" class="flex-1">
-              <NInput v-model:value="formSearch.customerName" placeholder="Nhập tên khách hàng..."
-                @input="handleAutoFilter" clearable />
-            </NFormItem>
-
-            <!-- Giới tính - Thu hẹp width -->
-            <NFormItem label="Giới tính:" style="width: 200px;">
-              <NSelect v-model:value="formSearch.customerGender" :options="GENDER_FILTER_OPTIONS"
-                placeholder="Chọn giới tính" clearable @update:value="handleAutoFilter" />
-            </NFormItem>
-
-            <!-- Trạng thái -->
-            <NFormItem label="Trạng thái:" class="flex-1">
-              <NRadioGroup v-model:value="formSearch.customerStatus" @update:value="handleAutoFilter">
-                <NRadio :value="STATUS_OPTIONS.ALL">Tất cả</NRadio>
-                <NRadio :value="STATUS_OPTIONS.ACTIVE">Hoạt động</NRadio>
-                <NRadio :value="STATUS_OPTIONS.INACTIVE">Ngưng</NRadio>
-              </NRadioGroup>
-            </NFormItem>
-
-            <!-- Actions -->
-            <div class="pb-6 flex gap-2">
-              <NButton type="primary" secondary circle title="Làm mới" @click="refreshTable">
-                <NIcon size="20">
-                  <Icon :icon="'icon-park-outline:refresh'" />
-                </NIcon>
-              </NButton>
-            </div>
-          </div>
-        </div>
-      </NForm>
-    </NCard>
-
-    <!-- Main Table Card -->
-    <NCard title="Danh sách khách hàng">
-      <template #header-extra>
-        <NSpace>
-          <NButton @click="navigateToAdd" type="primary" circle title="Thêm khách hàng">
-            <NIcon size="20">
-              <Icon :icon="'icon-park-outline:add-one'" />
-            </NIcon>
-          </NButton>
-        </NSpace>
-      </template>
-
-      <NDataTable :row-key="getRowKey" :columns="columns" :data="customers"
-        :loading="loading" size="medium" :scroll-x="1200" :pagination="false" bordered />
-
-      <!-- Pagination -->
-      <div class="flex justify-center mt-4">
-        <NPagination :page="currentPage" :page-size="pageSize" :page-count="pageCount"
-          @update:page="handlePageChange" />
-      </div>
-    </NCard>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import type { DataTableColumns, SelectOption } from 'naive-ui'
 import { NButton, NIcon, NPagination, NPopconfirm, NRadio, NRadioGroup, NSpace, NSwitch, useMessage } from 'naive-ui'
 import type { Customer } from '@/service/api/admin/users/customer/customer'
 import type { Address } from '@/service/api/admin/users/customer/address'
-import { Icon } from "@iconify/vue"
+import { Icon } from '@iconify/vue'
 import {
   deleteCustomer as deleteCustomerApi,
   getCustomers,
@@ -94,7 +14,7 @@ import {
   getAddressesByCustomer,
 } from '@/service/api/admin/users/customer/address'
 import { useRouter } from 'vue-router'
-import { getDistrictName,getProvinceName,getWardName,initLocationData } from '@/service/api/admin/users/customer/location-service'
+import { getDistrictName, getProvinceName, getWardName, initLocationData } from '@/service/api/admin/users/customer/location-service'
 
 // =============================================================================
 // CONSTANTS
@@ -113,7 +33,7 @@ const DEFAULT_PAGE_SIZE = 10
 const GENDER_FILTER_OPTIONS: SelectOption[] = [
   { label: 'Tất cả', value: null },
   { label: 'Nam', value: 1 },
-  { label: 'Nữ', value: 0 }
+  { label: 'Nữ', value: 0 },
 ]
 
 // =============================================================================
@@ -138,7 +58,7 @@ const loading = ref(false)
 
 // Form search state
 const formSearch = reactive({
-  customerName: "",
+  keyword: '',
   customerGender: null as number | null,
   customerStatus: STATUS_OPTIONS.ALL as number,
 })
@@ -151,7 +71,7 @@ let searchTimer: NodeJS.Timeout | null = null
 // =============================================================================
 
 const pageCount = computed(() =>
-  Math.ceil(totalElements.value / pageSize.value)
+  Math.ceil(totalElements.value / pageSize.value),
 )
 
 // =============================================================================
@@ -160,15 +80,16 @@ const pageCount = computed(() =>
 
 const getRowKey = (row: Customer) => row.id as string | number
 
-const formatDate = (timestamp?: number): string => {
-  if (!timestamp) return '-'
+function formatDate(timestamp?: number): string {
+  if (!timestamp)
+    return '-'
   const d = new Date(timestamp)
   return d.toLocaleDateString('vi-VN')
 }
 
 const DEFAULT_AVATAR = 'https://www.svgrepo.com/show/452030/avatar-default.svg'
 
-const createCustomerInfoCell = (row: Customer) => {
+function createCustomerInfoCell(row: Customer) {
   return h('div', { class: 'flex items-center' }, [
     h('img', {
       src: row.customerAvatar || DEFAULT_AVATAR,
@@ -176,31 +97,32 @@ const createCustomerInfoCell = (row: Customer) => {
       alt: row.customerName || 'Avatar',
       onError: (e: Event) => {
         const img = e.target as HTMLImageElement
-        if (!img) return
+        if (!img)
+          return
         img.onerror = null
         img.src = DEFAULT_AVATAR
-      }
+      },
     }),
 
     h('div', [
       h('div', { class: 'font-medium text-gray-800' }, row.customerName),
-      h('div', { class: 'text-sm text-gray-500' },
-        `${row.customerCode || 'Chưa có mã'} • ${row.customerGender ? 'Nam' : 'Nữ'}`
+      h('div', { class: 'text-sm text-gray-500' }, `${row.customerCode || 'Chưa có mã'} • ${row.customerGender ? 'Nam' : 'Nữ'}`,
       ),
-      h('div', { class: 'text-xs text-gray-400' },
-        `Ngày sinh: ${formatDate(row.customerBirthday)}`
-      )
-    ])
+      h('div', { class: 'text-xs text-gray-400' }, `Ngày sinh: ${formatDate(row.customerBirthday)}`,
+      ),
+    ]),
   ])
 }
 
-const createEmailCell = (row: Customer) =>
-  h('div', { class: 'text-sm' }, row.customerEmail || '-')
+function createEmailCell(row: Customer) {
+  return h('div', { class: 'text-sm' }, row.customerEmail || '-')
+}
 
-const createPhoneCell = (row: Customer) =>
-  h('div', { class: 'text-sm' }, row.customerPhone || '-')
+function createPhoneCell(row: Customer) {
+  return h('div', { class: 'text-sm' }, row.customerPhone || '-')
+}
 
-const createAddressCell = (row: Customer) => {
+function createAddressCell(row: Customer) {
   const addresses = customerAddresses.value[row.id as string] || []
   const defaultAddress = addresses.find(addr => addr.isDefault)
   const extraCount = addresses.length - 1 // số địa chỉ khác
@@ -213,8 +135,8 @@ const createAddressCell = (row: Customer) => {
     h(
       'div',
       { class: 'text-xs text-sm' },
-      resolveAddress(defaultAddress) // địa chỉ mặc định
-    )
+      resolveAddress(defaultAddress), // địa chỉ mặc định
+    ),
   ]
 
   if (extraCount > 0) {
@@ -222,47 +144,49 @@ const createAddressCell = (row: Customer) => {
       h(
         'div',
         { class: 'text-xs text-gray-400 italic' },
-        `+ ${extraCount} địa chỉ khác`
-      )
+        `+ ${extraCount} địa chỉ khác`,
+      ),
     )
   }
 
   return h('div', children)
 }
 
-const createDateCell = (row: Customer) =>
-  h('div', [
+function createDateCell(row: Customer) {
+  return h('div', [
     h('div', { class: 'font-sm' }, formatDate(row.customerCreatedDate)),
-    h('div', { class: 'text-xs text-gray-400' },
-      `Cập nhật: ${formatDate(row.customerModifiedDate)}`
-    )
+    h('div', { class: 'text-xs text-gray-400' }, `Cập nhật: ${formatDate(row.customerModifiedDate)}`,
+    ),
   ])
+}
 
-const createStatusCell = (row: Customer) =>
-  h('div', { class: 'flex flex-col items-center space' }, [
+function createStatusCell(row: Customer) {
+  return h('div', { class: 'flex flex-col items-center space' }, [
     h(NPopconfirm, {
-      onPositiveClick: () => toggleStatus(row)
+      onPositiveClick: () => toggleStatus(row),
     }, {
       default: () => `Bạn có chắc chắn muốn ${row.customerStatus === STATUS_OPTIONS.ACTIVE ? 'tắt' : 'bật'} trạng thái khách hàng này?`,
       trigger: () => h(NSwitch, {
         value: row.customerStatus === STATUS_OPTIONS.ACTIVE,
-        disabled: loading.value
-      })
-    })
+        disabled: loading.value,
+      }),
+    }),
   ])
+}
 
-const createActionsCell = (row: Customer) =>
-  h(NSpace, { justify: 'center', size: 12 }, {
+function createActionsCell(row: Customer) {
+  return h(NSpace, { justify: 'center', size: 12 }, {
     default: () => [
       // Nút edit - navigate to edit page
       h(NIcon, {
         size: 18,
         class: 'cursor-pointer text-blue-500 hover:text-blue-700',
         onClick: () => navigateToEdit(row.id as string),
-        title: 'Sửa khách hàng'
-      }, { default: () => h(Icon, { icon: 'mdi:pencil' }) })
-    ]
+        title: 'Sửa khách hàng',
+      }, { default: () => h(Icon, { icon: 'mdi:pencil' }) }),
+    ],
   })
+}
 
 // =============================================================================
 // TABLE COLUMNS
@@ -273,52 +197,52 @@ const columns: DataTableColumns<Customer> = [
     title: 'STT',
     key: 'stt',
     width: 60,
-    render: (_row, index) => (currentPage.value - 1) * pageSize.value + index + 1
+    render: (_row, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
     title: 'Thông tin',
     key: 'info',
     width: 250,
-    render: createCustomerInfoCell
+    render: createCustomerInfoCell,
   },
   {
     title: 'Email',
     key: 'email',
     width: 200,
-    render: createEmailCell
+    render: createEmailCell,
   },
   {
     title: 'Số điện thoại',
     key: 'phone',
     width: 150,
-    render: createPhoneCell
+    render: createPhoneCell,
   },
   {
     title: 'Địa chỉ',
     key: 'address',
     width: 250,
-    render: createAddressCell
+    render: createAddressCell,
   },
   {
     title: 'Ngày tạo',
     key: 'dates',
     width: 150,
-    render: createDateCell
+    render: createDateCell,
   },
   {
     title: 'Trạng thái',
     key: 'status',
     align: 'center',
     width: 100,
-    render: createStatusCell
+    render: createStatusCell,
   },
   {
     title: 'Hành động',
     key: 'actions',
     align: 'center',
     width: 100,
-    render: createActionsCell
-  }
+    render: createActionsCell,
+  },
 ]
 
 // =============================================================================
@@ -328,21 +252,21 @@ const columns: DataTableColumns<Customer> = [
 watch(
   () => formSearch,
   () => handleAutoFilter(),
-  { deep: true }
+  { deep: true },
 )
 
 // =============================================================================
 // API FUNCTIONS
 // =============================================================================
 
-const buildSearchParams = () => {
+function buildSearchParams() {
   const page = Math.max(1, Number(currentPage.value) || 1)
   const size = Math.max(1, Number(pageSize.value) || DEFAULT_PAGE_SIZE)
 
   return {
     page,
     size,
-    ...(formSearch.customerName && { customerName: formSearch.customerName }),
+    ...(formSearch.keyword && { keyword: formSearch.keyword }),
     ...(formSearch.customerGender !== null && { customerGender: formSearch.customerGender }),
     ...(formSearch.customerStatus !== STATUS_OPTIONS.ALL && { customerStatus: formSearch.customerStatus }),
   }
@@ -355,11 +279,12 @@ async function loadCustomers() {
     const response = await getCustomers(params)
 
     const payload = response?.data?.data
-    if (!payload) throw new Error('Không có dữ liệu trả về')
+    if (!payload)
+      throw new Error('Không có dữ liệu trả về')
 
     customers.value = (payload.data || []).map((c: Customer) => ({
       ...c,
-      customerAvatar: c.customerAvatar || DEFAULT_AVATAR
+      customerAvatar: c.customerAvatar || DEFAULT_AVATAR,
     }))
 
     pageSize.value = Number(payload.size ?? params.size)
@@ -368,13 +293,15 @@ async function loadCustomers() {
 
     // Load addresses for all customers
     await loadCustomerAddresses()
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Lỗi khi tải danh sách khách hàng:', error)
     customers.value = []
     totalElements.value = 0
     totalPages.value = 1
     message.error('Có lỗi xảy ra khi tải dữ liệu khách hàng')
-  } finally {
+  }
+  finally {
     loading.value = false
   }
 }
@@ -382,27 +309,29 @@ async function loadCustomers() {
 async function loadCustomerAddresses() {
   try {
     const addressPromises = customers.value.map(async (customer) => {
-      if (!customer.id) return
+      if (!customer.id)
+        return
       try {
         const response = await getAddressesByCustomer(customer.id as string)
         const rawAddrs: Address[] = response.data.data || []
         // map and add displayAddress
         customerAddresses.value[customer.id as string] = rawAddrs.map(a => ({
           ...a,
-          displayAddress: resolveAddress(a) // add computed field
+          displayAddress: resolveAddress(a), // add computed field
         }))
-      } catch (error) {
+      }
+      catch (error) {
         console.error(`Lỗi khi tải địa chỉ cho khách hàng ${customer.id}:`, error)
         customerAddresses.value[customer.id as string] = []
       }
     })
 
     await Promise.all(addressPromises)
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Lỗi khi tải địa chỉ khách hàng:', error)
   }
 }
-
 
 // =============================================================================
 // NAVIGATION FUNCTIONS
@@ -438,7 +367,7 @@ function refreshTable() {
   }
 
   Object.assign(formSearch, {
-    customerName: "",
+    keyword: '',
     customerGender: null,
     customerStatus: STATUS_OPTIONS.ALL,
   })
@@ -462,7 +391,8 @@ async function toggleStatus(customer: Customer) {
   try {
     // Optimistic UI update
     const idx = customers.value.findIndex(c => c.id === customer.id)
-    if (idx !== -1) customers.value[idx].customerStatus = newStatus
+    if (idx !== -1)
+      customers.value[idx].customerStatus = newStatus
 
     const updatedCustomer: Customer = {
       ...customer,
@@ -471,10 +401,12 @@ async function toggleStatus(customer: Customer) {
 
     await updateCustomer(customer.id!, updatedCustomer)
     message.success('Cập nhật trạng thái thành công!')
-  } catch (error) {
+  }
+  catch (error) {
     // Rollback on error
     const idx = customers.value.findIndex(c => c.id === customer.id)
-    if (idx !== -1) customers.value[idx].customerStatus = originalStatus
+    if (idx !== -1)
+      customers.value[idx].customerStatus = originalStatus
 
     console.error('Lỗi khi cập nhật trạng thái:', error)
     message.error('Có lỗi khi cập nhật trạng thái!')
@@ -493,14 +425,16 @@ async function handleDeleteCustomer(id: string | number) {
       currentPage.value = currentPage.value - 1
       await loadCustomers()
     }
-  } catch (error) {
+  }
+  catch (error) {
     console.error('Lỗi khi xóa khách hàng:', error)
     message.error('Có lỗi xảy ra khi xóa khách hàng!')
   }
 }
 
 function resolveAddress(address: Address): string {
-  if (!address) return ''
+  if (!address)
+    return ''
 
   const addrDetail = address.addressDetail ? String(address.addressDetail).trim() : ''
 
@@ -511,20 +445,28 @@ function resolveAddress(address: Address): string {
 
   // build pieces, filter empty ones
   const parts = []
-  if (addrDetail) parts.push(addrDetail)
-  if (wardLabel) parts.push(wardLabel)
-  if (districtLabel) parts.push(districtLabel)
-  if (provinceLabel) parts.push(provinceLabel)
+  if (addrDetail)
+    parts.push(addrDetail)
+  if (wardLabel)
+    parts.push(wardLabel)
+  if (districtLabel)
+    parts.push(districtLabel)
+  if (provinceLabel)
+    parts.push(provinceLabel)
 
   // if none of ward/district/province resolved (all empty),
   // try fallback: if values exist but not resolvable, show them tidied
   if (parts.length === 0) {
     // try to fallback to raw values (tidy codename)
     const rawParts = []
-    if (addrDetail) rawParts.push(addrDetail)
-    if (address.wardCommune) rawParts.push(String(address.wardCommune))
-    if (address.district) rawParts.push(String(address.district))
-    if (address.provinceCity) rawParts.push(String(address.provinceCity))
+    if (addrDetail)
+      rawParts.push(addrDetail)
+    if (address.wardCommune)
+      rawParts.push(String(address.wardCommune))
+    if (address.district)
+      rawParts.push(String(address.district))
+    if (address.provinceCity)
+      rawParts.push(String(address.provinceCity))
     return rawParts.filter(Boolean).join(', ')
   }
 
@@ -536,8 +478,101 @@ function resolveAddress(address: Address): string {
 // =============================================================================
 
 onMounted(async () => {
-  await initLocationData()   // đợi load dữ liệu địa giới xong
-  await loadCustomers()      // sau đó mới load danh sách khách hàng
+  await initLocationData() // đợi load dữ liệu địa giới xong
+  await loadCustomers() // sau đó mới load danh sách khách hàng
 })
-
 </script>
+
+<template>
+  <div class="p-6">
+    <!-- Header Section -->
+    <n-card>
+      <NSpace vertical :size="8">
+        <NSpace align="center">
+          <NIcon size="24">
+            <Icon icon="carbon:events" />
+          </NIcon>
+          <span style="font-weight: 600; font-size: 24px">
+            Quản lý Khách hàng
+          </span>
+        </NSpace>
+        <span>Quản lý khách hàng trên toàn hệ thống cửa hàng</span>
+      </NSpace>
+    </n-card>
+
+    <!-- Filter Card -->
+    <NCard title="Bộ lọc" class="mb-4 mt-3">
+      <NForm label-placement="top" :model="formSearch" :label-style="{ fontWeight: 'bold' }">
+        <div class="space-y-3">
+          <div class="flex gap-4 items-end">
+            <!-- Tên khách hàng -->
+            <NFormItem label="Tên khách hàng:" class="flex-1">
+              <NInput
+                v-model:value="formSearch.keyword" placeholder="Nhập tên, mã, số điện thoại khách hàng..." clearable
+                @input="handleAutoFilter"
+              />
+            </NFormItem>
+
+            <!-- Giới tính - Thu hẹp width -->
+            <NFormItem label="Giới tính:" style="width: 200px;">
+              <NSelect
+                v-model:value="formSearch.customerGender" :options="GENDER_FILTER_OPTIONS"
+                placeholder="Chọn giới tính" clearable @update:value="handleAutoFilter"
+              />
+            </NFormItem>
+
+            <!-- Trạng thái -->
+            <NFormItem label="Trạng thái:" class="flex-1">
+              <NRadioGroup v-model:value="formSearch.customerStatus" @update:value="handleAutoFilter">
+                <NRadio :value="STATUS_OPTIONS.ALL">
+                  Tất cả
+                </NRadio>
+                <NRadio :value="STATUS_OPTIONS.ACTIVE">
+                  Hoạt động
+                </NRadio>
+                <NRadio :value="STATUS_OPTIONS.INACTIVE">
+                  Ngưng
+                </NRadio>
+              </NRadioGroup>
+            </NFormItem>
+
+            <!-- Actions -->
+            <div class="pb-6 flex gap-2">
+              <NButton type="primary" secondary circle title="Làm mới" @click="refreshTable">
+                <NIcon size="20">
+                  <Icon icon="icon-park-outline:refresh" />
+                </NIcon>
+              </NButton>
+            </div>
+          </div>
+        </div>
+      </NForm>
+    </NCard>
+
+    <!-- Main Table Card -->
+    <NCard title="Danh sách khách hàng">
+      <template #header-extra>
+        <NSpace>
+          <NButton type="primary" circle title="Thêm khách hàng" @click="navigateToAdd">
+            <NIcon size="20">
+              <Icon icon="icon-park-outline:add-one" />
+            </NIcon>
+          </NButton>
+        </NSpace>
+      </template>
+
+      <NDataTable
+        :row-key="getRowKey" :columns="columns" :data="customers" :loading="loading" size="medium"
+        :scroll-x="1200" :pagination="false" bordered
+      />
+
+      <!-- Pagination -->
+      <div class="flex justify-center mt-4">
+        <NPagination
+          :page="currentPage" :page-size="pageSize" :page-count="pageCount"
+          @update:page="handlePageChange"
+        />
+      </div>
+    </NCard>
+  </div>
+</template>

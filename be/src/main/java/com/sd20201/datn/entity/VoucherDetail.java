@@ -30,9 +30,13 @@ public class VoucherDetail extends PrimaryEntity implements Serializable {
     @JoinColumn(name = "id_customer", referencedColumnName = "id")
     private Customer customer;
 
+    private Long usedDate;
+
     private Boolean usageStatus;
 
     @Column(length = EntityProperties.LENGTH_DESCRIPTION)
     private String description;
 
+    @Column(name = "id_invoice")
+    private String invoiceId;
 }

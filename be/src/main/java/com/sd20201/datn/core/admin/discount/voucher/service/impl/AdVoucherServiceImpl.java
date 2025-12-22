@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -103,6 +104,21 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             // lưu voucher
             voucher = voucherRepository.save(voucher);
 
+            List<Customer> customers = customerRepository.findAll();
+            List<VoucherDetail> details = new ArrayList<>(customers.size());
+            for (Customer c : customers) {
+                VoucherDetail vd = new VoucherDetail();
+                vd.setVoucher(voucher);
+                vd.setCode(Helper.generateCodeProductDetail());
+                vd.setName("Dành cho " + c.getName());
+                vd.setCustomer(c);
+                vd.setUsageStatus(false);
+                vd.setDescription("Assigned to customer " + c.getId());
+                details.add(vd);
+            }
+            voucherDetailRepository.saveAll(details);
+
+
         } else if (request.getTargetType() == TargetType.INDIVIDUAL) {
             if (request.getVoucherUsers() == null || request.getVoucherUsers().isEmpty()) {
                 throw new IllegalArgumentException("Danh sách khách hàng cá nhân không được để trống cho Khách Hàng Riêng");
@@ -132,6 +148,8 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             for (Customer c : customers) {
                 VoucherDetail vd = new VoucherDetail();
                 vd.setVoucher(voucher);
+                vd.setCode(Helper.generateCodeProductDetail());
+                vd.setName("Dành cho " + c.getName());
                 vd.setCustomer(c);
                 vd.setUsageStatus(false);
                 vd.setDescription("Assigned to customer " + c.getId());
@@ -141,8 +159,9 @@ public class AdVoucherServiceImpl implements AdVoucherService {
 
             // 3) gửi mail
             for (Customer c : customers) {
-                try { sendVoucherEmail(c, voucher); }
-                catch (MailException e) {
+                try {
+                    sendVoucherEmail(c, voucher);
+                } catch (MailException e) {
                     logger.error("❌ Failed to send email to {}: {}", c.getEmail(), e.getMessage());
                     failedEmails.add(c.getEmail());
                 }
@@ -228,8 +247,9 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             voucherDetailRepository.saveAll(details);
 
             for (Customer c : customers) {
-                try { sendVoucherEmail(c, voucher); }
-                catch (MailException e) {
+                try {
+                    sendVoucherEmail(c, voucher);
+                } catch (MailException e) {
                     logger.error("❌ Failed to send email to {}: {}", c.getEmail(), e.getMessage());
                     failedEmails.add(c.getEmail());
                 }
@@ -289,7 +309,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
     // ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, org.springframework.data.domain.Pageable pageable);
 
     @Override
-    public ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, org.springframework.data.domain.Pageable pageable) {
+    public ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, Pageable pageable) {
         Optional<Voucher> opt = voucherRepository.findById(voucherId);
         if (opt.isEmpty()) {
             return ResponseObject.errorForward("Không tìm thấy voucher", HttpStatus.NOT_FOUND);
@@ -342,58 +362,58 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         try {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
             LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
-            LocalDateTime end   = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
+            LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
 
             String discount = voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE
                     ? voucher.getDiscountValue() + "%"
                     : voucher.getDiscountValue() + " VND";
 
             String htmlTemplate = """
-                <html>
-                  <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
-                    <div style="max-width: 600px; margin: auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                      <div style="background: #ff6600; padding: 20px; text-align: center; color: white;">
-                        <h1 style="margin: 0;">🎁 Ưu Đãi Đặc Biệt Dành Cho Bạn</h1>
-                      </div>
-                      <div style="padding: 20px; color: #333;">
-                        <p>Xin chào, {6}</p>
-                        <p>Chúng tôi gửi tặng bạn một <b>phiếu giảm giá đặc biệt</b>. Hãy sử dụng ngay để nhận ưu đãi hấp dẫn!</p>
-                        <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-                          <tr style="background: #f2f2f2;">
-                            <td style="padding: 10px; font-weight: bold;">Mã Voucher</td>
-                            <td style="padding: 10px; color: #ff6600; font-size: 18px; font-weight: bold;">{0}</td>
-                          </tr>
-                          <tr>
-                            <td style="padding: 10px; font-weight: bold;">Giá trị giảm</td>
-                            <td style="padding: 10px;">{1}</td>
-                          </tr>
-                          <tr style="background: #f2f2f2;">
-                            <td style="padding: 10px; font-weight: bold;">Giảm tối đa</td>
-                            <td style="padding: 10px;">{2} VND</td>
-                          </tr>
-                          <tr>
-                            <td style="padding: 10px; font-weight: bold;">Thời gian áp dụng</td>
-                            <td style="padding: 10px;">Từ {3} đến {4}</td>
-                          </tr>
-                          <tr style="background: #f2f2f2;">
-                            <td style="padding: 10px; font-weight: bold;">Điều kiện</td>
-                            <td style="padding: 10px;">Đơn hàng từ {5} VND</td>
-                          </tr>
-                        </table>
-                        <div style="text-align: center; margin-top: 30px;">
-                          <a href="https://your-shop.com"
-                             style="background: #ff6600; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">
-                            Mua sắm ngay
-                          </a>
-                        </div>
-                      </div>
-                      <div style="background: #eee; text-align: center; padding: 15px; font-size: 12px; color: #777;">
-                        © 2025 YourShop. Mọi quyền được bảo lưu.
-                      </div>
-                    </div>
-                  </body>
-                </html>
-            """;
+                        <html>
+                          <body style="font-family: Arial, sans-serif; background-color: #f9f9f9; padding: 20px;">
+                            <div style="max-width: 600px; margin: auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                              <div style="background: #ff6600; padding: 20px; text-align: center; color: white;">
+                                <h1 style="margin: 0;">🎁 Ưu Đãi Đặc Biệt Dành Cho Bạn</h1>
+                              </div>
+                              <div style="padding: 20px; color: #333;">
+                                <p>Xin chào, {6}</p>
+                                <p>Chúng tôi gửi tặng bạn một <b>phiếu giảm giá đặc biệt</b>. Hãy sử dụng ngay để nhận ưu đãi hấp dẫn!</p>
+                                <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                                  <tr style="background: #f2f2f2;">
+                                    <td style="padding: 10px; font-weight: bold;">Mã Voucher</td>
+                                    <td style="padding: 10px; color: #ff6600; font-size: 18px; font-weight: bold;">{0}</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 10px; font-weight: bold;">Giá trị giảm</td>
+                                    <td style="padding: 10px;">{1}</td>
+                                  </tr>
+                                  <tr style="background: #f2f2f2;">
+                                    <td style="padding: 10px; font-weight: bold;">Giảm tối đa</td>
+                                    <td style="padding: 10px;">{2} VND</td>
+                                  </tr>
+                                  <tr>
+                                    <td style="padding: 10px; font-weight: bold;">Thời gian áp dụng</td>
+                                    <td style="padding: 10px;">Từ {3} đến {4}</td>
+                                  </tr>
+                                  <tr style="background: #f2f2f2;">
+                                    <td style="padding: 10px; font-weight: bold;">Điều kiện</td>
+                                    <td style="padding: 10px;">Đơn hàng từ {5} VND</td>
+                                  </tr>
+                                </table>
+                                <div style="text-align: center; margin-top: 30px;">
+                                  <a href="https://your-shop.com"
+                                     style="background: #ff6600; color: white; padding: 12px 24px; border-radius: 5px; text-decoration: none; font-weight: bold;">
+                                    Mua sắm ngay
+                                  </a>
+                                </div>
+                              </div>
+                              <div style="background: #eee; text-align: center; padding: 15px; font-size: 12px; color: #777;">
+                                © 2025 YourShop. Mọi quyền được bảo lưu.
+                              </div>
+                            </div>
+                          </body>
+                        </html>
+                    """;
 
             String htmlBody = MessageFormat.format(
                     htmlTemplate,
@@ -419,4 +439,5 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             logger.error("❌ Error sending voucher email: {}", e.getMessage(), e);
         }
     }
+
 }
