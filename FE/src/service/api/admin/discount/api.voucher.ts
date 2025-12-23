@@ -127,28 +127,21 @@ export function updateVoucher(id: string, data: ADVoucherUpsertPayload) {
 
 /* ====== Lấy khách hàng của một voucher (cho màn sửa) ====== */
 // Trả về mảng Customer chuẩn hoá để FE hiển thị
-export async function getVoucherCustomers(
-  voucherId: string,
-  onlyUsed = false,
-): Promise<Customer[]> {
-  const res = await request({
-    url: `${API_ADMIN_DISCOUNTS_VOUCHER}/${voucherId}/customers`,
+export async function getVoucherCustomers(voucherId: string, onlyUsed = false): Promise<Customer[]> {
+  const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}/${voucherId}/customers`, {
     method: 'GET',
     params: { onlyUsed },
   })
-
-  // THEO ĐÚNG RESPONSE BE
-  const raw = res.data?.data?.data
-
-  if (!Array.isArray(raw))
-    return []
-
-  return raw.map((x: any) => ({
-    id: String(x.id),
-    customerName: x.customerName ?? '',
-    customerEmail: x.customerEmail ?? '',
-    customerPhone: x.customerPhone ?? '',
-    customerCode: x.customerCode ?? '',
-    customerStatus: x.customerStatus ?? '',
-  }))
+  const root = res.data
+  const raw = Array.isArray(root?.data) ? root.data : (Array.isArray(root) ? root : [])
+  return raw
+    .map((x: any) => ({
+      id: String(x.id ?? x.customerId ?? x.code ?? ''),
+      customerName: x.customerName ?? x.name ?? 'Khách hàng',
+      customerEmail: x.customerEmail ?? x.email ?? '',
+      customerPhone: x.customerPhone ?? x.phone ?? '',
+      customerCode: x.customerCode ?? x.code ?? '',
+      customerStatus: x.customerStatus ?? x.status ?? 1,
+    }))
+    .filter((c: { id: string }) => c.id !== '')
 }

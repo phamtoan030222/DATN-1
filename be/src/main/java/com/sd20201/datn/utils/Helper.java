@@ -34,10 +34,10 @@ public class Helper {
                 Sort.by(
                         (Sort.Direction.fromString(
                                 request.getOrderBy()) == Sort.Direction.DESC ||
-                                request.getOrderBy() == null
+                         request.getOrderBy() == null
                         ) ? Sort.Direction.DESC : Sort.Direction.ASC,
                         (request.getSortBy() == null
-                                || request.getSortBy().isEmpty()
+                         || request.getSortBy().isEmpty()
                         ) ? defaultSortBy : request.getSortBy()
                 ));
     }
@@ -154,7 +154,11 @@ public class Helper {
         return "VC" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
     }
 
-    public static String  buildEmailContent(Discount discount) {
+    public static String generateCodeVoucherDetail() {
+        return "VD" + UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+    }
+
+    public static String buildEmailContent(Discount discount) {
         SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
         StringBuilder content = new StringBuilder();

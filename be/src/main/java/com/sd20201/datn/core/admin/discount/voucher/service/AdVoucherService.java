@@ -36,5 +36,6 @@ public interface AdVoucherService {
        - onlyUsed = false: khách được gán theo voucherId
        Trả về Page<...> bọc trong ResponseObject (dùng PageableObject.of(...) ở service impl)
     */
+
     ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, Pageable pageable);
 }
