@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router' // Import router
+import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, FormInst, FormItemInst, FormRules } from 'naive-ui'
 import {
   NButton,
@@ -33,7 +33,6 @@ const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 
-// Tự xác định chế độ dựa trên URL
 const mode = computed(() => route.path.includes('/add') ? 'add' : 'edit')
 const voucherId = computed(() => route.params.id as string | null)
 
@@ -47,6 +46,9 @@ const isLoadingData = ref(false)
 const loading = ref(false)
 const loadingCustomers = ref(false)
 const showConfirm = ref(false)
+
+// Biến lưu trạng thái ban đầu để kiểm tra logic chặn sửa
+const originalTargetType = ref<string>('')
 
 const newVoucher = ref<Partial<ADVoucherResponse>>({
   id: '',
@@ -71,12 +73,20 @@ const newVoucher = ref<Partial<ADVoucherResponse>>({
 const customers = ref<Customer[]>([])
 const checkedCustomerKeys = ref<(string | number)[]>([])
 const pagination = ref({ page: 1, pageSize: 5, itemCount: 0 })
-const customerFilters = ref({ customerName: '', customerStatus: null as number | null })
+const customerFilters = ref({ keyword: '', customerStatus: null as number | null })
 const customerMap = ref<Record<string, Customer>>({})
 const initialAssignedCustomers = ref<Customer[]>([])
 
 /* ===================== Computed ===================== */
 const showQuantity = computed(() => newVoucher.value.targetType === 'ALL_CUSTOMERS')
+
+// Kiểm tra xem khách hàng này có phải là khách cũ (đã lưu DB) không để chặn xoá
+function isFixedCustomer(id: string | number) {
+  if (mode.value !== 'edit')
+    return false
+  const idStr = String(id)
+  return initialAssignedCustomers.value.some(c => String(c.id) === idStr)
+}
 
 const selectedCustomers = computed(() => {
   const ids = newVoucher.value.voucherUsers || []
@@ -107,14 +117,13 @@ const addVoucherRules: FormRules = {
   startDate: { type: 'number', required: true, message: 'Chọn ngày bắt đầu', trigger: ['change'] },
   endDate: { type: 'number', required: true, validator: (_r, v) => v == null || v <= (newVoucher.value.startDate || 0) ? new Error('Ngày kết thúc sai') : true, trigger: ['change'] },
   targetType: { required: true, message: 'Chọn đối tượng', trigger: ['change'] },
-  quantity: [{ required: true, validator: (_r, v) => newVoucher.value.targetType === 'ALL_CUSTOMERS' && (!v || v <= 0) ? new Error('Nhập SL') : true, trigger: ['blur', 'change'] }],
+  quantity: [{ required: true, validator: (_r, v) => newVoucher.value.targetType === 'ALL_CUSTOMERS' && (!v || v <= 0) ? new Error('Nhập số lượng') : true, trigger: ['blur', 'change'] }],
   conditions: [{ required: true, validator: (_r, v) => (!v || v <= 0) ? new Error('Nhập điều kiện') : true, trigger: ['blur', 'change'] }],
   voucherUsers: [{ required: true, validator: (_r, v: any[]) => newVoucher.value.targetType === 'INDIVIDUAL' && (!v || v.length === 0) ? new Error('Chọn khách hàng') : true, trigger: ['change'] }],
 }
 
 /* ===================== Methods ===================== */
 function handleCancel() {
-  // Quay về trang danh sách
   router.push('/discounts/voucher')
 }
 
@@ -122,11 +131,13 @@ async function loadVoucherData() {
   if (mode.value === 'edit' && voucherId.value) {
     isLoadingData.value = true
     try {
-      // 1. Lấy thông tin Voucher
       const res = await getVoucherById(voucherId.value)
       if (res?.data) {
         const v = res.data
         const validType = (['PERCENTAGE', 'FIXED_AMOUNT'] as const).includes(v.typeVoucher) ? v.typeVoucher : 'PERCENTAGE'
+
+        // Lưu lại type gốc để disable radio nếu cần
+        originalTargetType.value = v.targetType ?? 'ALL_CUSTOMERS'
 
         newVoucher.value = {
           ...v,
@@ -135,15 +146,10 @@ async function loadVoucherData() {
           voucherUsers: [],
         }
 
-        // 2. Nếu là INDIVIDUAL -> Lấy danh sách khách
         if (newVoucher.value.targetType === 'INDIVIDUAL') {
-          // Load danh sách khách hàng để hiển thị bảng chọn
           await fetchCustomers()
-
           try {
-            // API đã được chuẩn hoá → trả về Customer[]
             const customers: Customer[] = await getVoucherCustomers(voucherId.value, false)
-
             const extractedIds: string[] = []
             const loadedObjects: Customer[] = []
 
@@ -154,14 +160,12 @@ async function loadVoucherData() {
               }
             })
 
-            // Gán state cho form sửa
             initialAssignedCustomers.value = loadedObjects
             newVoucher.value.voucherUsers = extractedIds
             checkedCustomerKeys.value = extractedIds
           }
           catch (subErr) {
             console.error('Lỗi lấy danh sách khách hàng:', subErr)
-            // Không chặn form, cho phép người dùng tiếp tục sửa voucher
           }
         }
       }
@@ -181,7 +185,7 @@ async function fetchCustomers() {
     const query: CustomerFilterParams = {
       page: pagination.value.page,
       size: pagination.value.pageSize,
-      customerName: customerFilters.value.customerName.trim() || undefined,
+      keyword: customerFilters.value.keyword.trim() || undefined,
       customerStatus: customerFilters.value.customerStatus ?? undefined,
     }
     const res: AxiosResponse<any, any> = await getCustomers(query)
@@ -215,12 +219,34 @@ async function fetchCustomers() {
 }
 
 function onSelectionChange(keys: (string | number)[]) {
+  // Logic chặn bỏ chọn khách cũ
+  if (mode.value === 'edit' && initialAssignedCustomers.value.length > 0) {
+    const fixedIds = initialAssignedCustomers.value.map(c => String(c.id))
+    const keysStr = keys.map(String)
+
+    // Tìm xem có id nào trong fixedIds bị thiếu trong keys mới không
+    const isMissingFixed = fixedIds.some(fixedId => !keysStr.includes(fixedId))
+
+    if (isMissingFixed) {
+      message.warning('Không thể bỏ chọn khách hàng đã được gán voucher!')
+      // Restore lại các fixed keys + các keys mới hợp lệ
+      const mergedKeys = Array.from(new Set([...fixedIds, ...keysStr]))
+      checkedCustomerKeys.value = mergedKeys
+      newVoucher.value.voucherUsers = mergedKeys
+      return
+    }
+  }
+
   checkedCustomerKeys.value = keys
   newVoucher.value.voucherUsers = keys.map(String)
   voucherUsersFormItemRef.value?.restoreValidation()
 }
 
 function unselectCustomer(id: string) {
+  if (isFixedCustomer(id)) {
+    message.warning('Không thể huỷ khách hàng cũ')
+    return
+  }
   const currentKeys = checkedCustomerKeys.value.map(String)
   const nextKeys = currentKeys.filter(k => k !== String(id))
   onSelectionChange(nextKeys)
@@ -293,11 +319,13 @@ async function handleSaveVoucher() {
       ? await updateVoucher(voucherId.value, base)
       : await createVoucher(base)
 
-    if (!res.data?.success)
+    const isSuccess = res.data?.success || res.data?.isSuccess
+    if (!res.data || !isSuccess) {
       throw new Error(res.data?.message || 'Thất bại')
+    }
 
     message.success('Thành công')
-    handleCancel() // Quay về trang danh sách
+    handleCancel()
   }
   catch (err: any) {
     message.error(err.response?.data?.message || err.message || 'Lỗi hệ thống')
@@ -310,7 +338,10 @@ async function handleSaveVoucher() {
 
 /* ====== Table ====== */
 const customerColumns: DataTableColumns<Customer> = [
-  { type: 'selection', disabled: row => !row.id },
+  {
+    type: 'selection',
+    disabled: row => !row.id || isFixedCustomer(row.id), // Disable checkbox khách cũ
+  },
   { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
   { title: 'Mã', key: 'customerCode', width: 100 },
   { title: 'Tên', key: 'customerName', width: 180 },
@@ -323,7 +354,10 @@ const customerColumns: DataTableColumns<Customer> = [
   <NCard :title="mode === 'edit' ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm giá'" class="mt-6">
     <NSpin :show="loading || isLoadingData">
       <div class="grid grid-cols-12 gap-6">
-        <div class="col-span-12 lg:col-span-7">
+        <div
+          class="col-span-12 transition-all duration-300"
+          :class="newVoucher.targetType === 'INDIVIDUAL' ? 'lg:col-span-7' : 'lg:col-start-3 lg:col-span-8'"
+        >
           <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top">
             <NFormItem label="Tên" path="name">
               <NInput v-model:value="newVoucher.name" placeholder="Nhập tên ..." />
@@ -345,7 +379,10 @@ const customerColumns: DataTableColumns<Customer> = [
               <NFormItem label="Đối tượng" path="targetType">
                 <NRadioGroup v-model:value="newVoucher.targetType">
                   <NSpace>
-                    <NRadio value="ALL_CUSTOMERS">
+                    <NRadio
+                      value="ALL_CUSTOMERS"
+                      :disabled="mode === 'edit' && originalTargetType === 'INDIVIDUAL'"
+                    >
                       Tất cả
                     </NRadio>
                     <NRadio value="INDIVIDUAL">
@@ -358,14 +395,20 @@ const customerColumns: DataTableColumns<Customer> = [
 
             <div class="grid grid-cols-2 gap-4">
               <NFormItem label="Giá trị" path="discountValue">
-                <NInputNumber v-model:value="newVoucher.discountValue" :min="0" :step="1000" placeholder="Nhập giá trị ...">
+                <NInputNumber
+                  v-model:value="newVoucher.discountValue" :min="0"
+                  :step="newVoucher.typeVoucher === 'PERCENTAGE' ? 5 : 50000" placeholder="Nhập giá trị ..."
+                >
                   <template #suffix>
                     {{ newVoucher.typeVoucher === 'PERCENTAGE' ? '%' : 'VND' }}
                   </template>
                 </NInputNumber>
               </NFormItem>
-              <NFormItem label="Tối đa" path="maxValue">
-                <NInputNumber v-model:value="newVoucher.maxValue" :min="0" :step="1000" :disabled="newVoucher.typeVoucher === 'FIXED_AMOUNT'" placeholder="giá trị ...">
+              <NFormItem label="Giảm tối đa" path="maxValue">
+                <NInputNumber
+                  v-model:value="newVoucher.maxValue" :min="0" :step="1000"
+                  :disabled="newVoucher.typeVoucher === 'FIXED_AMOUNT'" placeholder="giá trị ..."
+                >
                   <template #suffix>
                     VND
                   </template>
@@ -375,16 +418,25 @@ const customerColumns: DataTableColumns<Customer> = [
 
             <div class="grid grid-cols-2 gap-4">
               <NFormItem label="Ngày bắt đầu" path="startDate">
-                <NDatePicker v-model:value="newVoucher.startDate" type="datetime" style="width: 100%" placeholder="Ngày bắt đầu ..." />
+                <NDatePicker
+                  v-model:value="newVoucher.startDate" type="datetime" style="width: 100%"
+                  placeholder="Ngày bắt đầu ..."
+                />
               </NFormItem>
               <NFormItem label="Ngày kết thúc" path="endDate">
-                <NDatePicker v-model:value="newVoucher.endDate" type="datetime" style="width: 100%" placeholder="Ngày kết thúc ..." />
+                <NDatePicker
+                  v-model:value="newVoucher.endDate" type="datetime" style="width: 100%"
+                  placeholder="Ngày kết thúc ..."
+                />
               </NFormItem>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
               <NFormItem ref="conditionsFormItemRef" label="Đơn tối thiểu" path="conditions">
-                <NInputNumber v-model:value="newVoucher.conditions" :min="1" :step="10000" placeholder="Điều kiện áp dụng ..." />
+                <NInputNumber
+                  v-model:value="newVoucher.conditions" :min="1" :step="10000"
+                  placeholder="Điều kiện áp dụng ..."
+                />
               </NFormItem>
               <NFormItem v-if="showQuantity" ref="quantityFormItemRef" label="Số lượng" path="quantity">
                 <NInputNumber v-model:value="newVoucher.quantity" :min="1" placeholder="Số lượng ..." />
@@ -399,7 +451,10 @@ const customerColumns: DataTableColumns<Customer> = [
               <NButton @click="handleCancel">
                 Quay lại
               </NButton>
-              <NPopconfirm :show="showConfirm" :on-positive-click="handleSaveVoucher" @update:show="(v) => showConfirm = v">
+              <NPopconfirm
+                :show="showConfirm" :on-positive-click="handleSaveVoucher"
+                @update:show="(v) => showConfirm = v"
+              >
                 <template #trigger>
                   <NButton type="primary" :loading="loading" @click="handleValidateAndConfirm">
                     Lưu
@@ -414,21 +469,16 @@ const customerColumns: DataTableColumns<Customer> = [
         <div v-if="newVoucher.targetType === 'INDIVIDUAL'" class="col-span-12 lg:col-span-5">
           <NCard title="Chọn khách hàng" size="small" class="mb-3">
             <NSpin :show="loadingCustomers">
-              <NInput v-model:value="customerFilters.customerName" placeholder="Tìm tên..." class="mb-2" />
+              <NInput v-model:value="customerFilters.keyword" placeholder="Tìm tên, mã, số điện thoại" class="mb-2" />
 
               <NDataTable
-                v-model:checked-row-keys="checkedCustomerKeys"
-                :columns="customerColumns"
-                :data="customers"
-                :row-key="(row: Customer) => row.id"
-                :pagination="false"
-                size="small"
+                v-model:checked-row-keys="checkedCustomerKeys" :columns="customerColumns" :data="customers"
+                :row-key="(row: Customer) => row.id" :pagination="false" size="small" striped shadow
                 @update:checked-row-keys="onSelectionChange"
               />
-              <div class="flex justify-center mt-2">
+              <div class="flex justify-end mt-2">
                 <NPagination
-                  v-model:page="pagination.page"
-                  :page-size="pagination.pageSize"
+                  v-model:page="pagination.page" :page-size="pagination.pageSize"
                   :item-count="pagination.itemCount"
                   @update:page-size="(s) => { pagination.pageSize = s; pagination.page = 1 }"
                 />
@@ -439,7 +489,12 @@ const customerColumns: DataTableColumns<Customer> = [
           <NCard title="Đã chọn" size="small">
             <div v-if="(newVoucher.voucherUsers?.length || 0) > 0" class="max-h-48 overflow-y-auto">
               <NSpace wrap>
-                <NTag v-for="c in selectedCustomers" :key="c.id" type="success" closable @close="unselectCustomer(c.id)">
+                <NTag
+                  v-for="c in selectedCustomers" :key="c.id"
+                  type="success"
+                  :closable="!isFixedCustomer(c.id)"
+                  @close="unselectCustomer(c.id)"
+                >
                   {{ c.customerName || c.id }}
                 </NTag>
               </NSpace>

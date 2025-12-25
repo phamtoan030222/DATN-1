@@ -12,8 +12,10 @@
                         </span>
                     </div>
                     <div>
-                        <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct" placeholder="Chọn sản phẩm"
-                            style="width: 300px;" clearable @update:value="() => { fetchProductDetails(); fetchProduct(); }" :options="state.data.productsCombobox" />
+                        <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
+                            placeholder="Chọn sản phẩm" style="width: 500px;" clearable
+                            @update:value="() => { fetchProductDetails(); fetchProduct(); }"
+                            :options="state.data.productsCombobox" />
                     </div>
                 </NSpace>
                 <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
@@ -28,39 +30,29 @@
                 </n-flex>
             </template>
             <n-row gutter="12">
-                <n-col :span="6">
+                <n-col :span="8">
                     <span>Tìm kiếm</span>
                     <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" clearable />
                 </n-col>
-                <n-col :span="3">
+                <n-col :span="4">
                     <span>CPU</span>
-                    <n-select v-model:value="state.search.cpu" placeholder="Tìm kiếm" :options="state.data.cpus"
+                    <n-select v-model:value="state.search.cpu" placeholder="Tìm kiếm CPU" :options="state.data.cpus"
                         clearable />
                 </n-col>
-                <n-col :span="3">
+                <n-col :span="4">
                     <span>GPU</span>
-                    <n-select v-model:value="state.search.gpu" placeholder="Tìm kiếm" :options="state.data.gpus"
+                    <n-select v-model:value="state.search.gpu" placeholder="Tìm kiếm GPU" :options="state.data.gpus"
                         clearable />
                 </n-col>
-                <n-col :span="3">
+                <n-col :span="4">
                     <span>Màu sắc</span>
-                    <n-select v-model:value="state.search.color" placeholder="Tìm kiếm" :options="state.data.colors"
-                        clearable />
+                    <n-select v-model:value="state.search.color" placeholder="Tìm kiếm màu sắc"
+                        :options="state.data.colors" clearable />
                 </n-col>
-                <n-col :span="3">
+                <n-col :span="4">
                     <span>ổ cứng</span>
-                    <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm"
+                    <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm ổ cứng"
                         :options="state.data.hardDrives" clearable />
-                </n-col>
-                <n-col :span="3">
-                    <span>Chất liệu</span>
-                    <n-select v-model:value="state.search.material" placeholder="Tìm kiếm"
-                        :options="state.data.materials" clearable />
-                </n-col>
-                <n-col :span="3">
-                    <span>RAM</span>
-                    <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm" :options="state.data.rams"
-                        clearable />
                 </n-col>
             </n-row>
             <div class="mt-20px">
@@ -71,16 +63,24 @@
                             :step="1000" :min="stateMinMaxPrice.priceMin ?? 0"
                             :max="stateMinMaxPrice.priceMax ?? 50000000" />
                     </n-col>
+                    <n-col :span="4">
+                        <span>Chất liệu</span>
+                        <n-select v-model:value="state.search.material" placeholder="Tìm kiếm chất liệu"
+                            :options="state.data.materials" clearable />
+                    </n-col>
+                    <n-col :span="4">
+                        <span>RAM</span>
+                        <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm RAM" :options="state.data.rams"
+                            clearable />
+                    </n-col>
                 </n-row>
 
             </div>
         </n-card>
         <n-card class="mt-20px" title="Danh sách biến thể">
-            <n-data-table :columns="columns" :data="state.data.productDetails"
-            :expanded-row-keys="expandedKeys"
-            @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
-            :row-key="(row) => row.id" 
-            ></n-data-table>
+            <n-data-table :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
+                @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
+                :row-key="(row) => row.id"></n-data-table>
 
             <n-space justify="center" class="mt-20px">
                 <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
@@ -207,7 +207,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
         type: 'expand',
         renderExpand: (rowData: ADProductDetailResponse) => h('div', { style: { margin: '20px 80px', display: 'flex', gap: '100px' } },
             [
-                h('div', 
+                h('div',
                     [
                         h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
                         h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
