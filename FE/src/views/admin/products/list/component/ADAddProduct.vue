@@ -2,12 +2,12 @@
     <div>
         <n-card title="Thông tin cơ bản">
             <n-space>
-                <n-form ref="formRef">
-                    <n-grid :span="24" :x-gap="36">
-                        <n-form-item-gi :span="24" label="Tên sản phẩm">
+                <n-form ref="formDataBasicRef" :rules="rulesDataBasic" :model="formDataBasic">
+                    <n-grid :span="24" :x-gap="36" :y-gap="8">
+                        <n-form-item-gi :span="24" label="Tên sản phẩm" path="name">
                             <n-input placeholder="Nhập tên sản phẩm" v-model:value="formDataBasic.name"></n-input>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label-placement="top">
+                        <n-form-item-gi :span="12" >
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Hãng</span>
@@ -20,7 +20,7 @@
                             <n-select v-model:value="formDataBasic.idBrand" filterable placeholder="Chọn hãng"
                                 :options="dataProperties.basicInformation.brands"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" >
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Pin</span>
@@ -33,7 +33,7 @@
                             <n-select v-model:value="formDataBasic.idBattery" filterable placeholder="Chọn pin"
                                 :options="dataProperties.basicInformation.batteries"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" >
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Màn hình</span>
@@ -46,7 +46,7 @@
                             <n-select v-model:value="formDataBasic.idScreen" filterable placeholder="Chọn màn hình"
                                 :options="dataProperties.basicInformation.screens"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" >
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Hệ điều hành</span>
@@ -74,9 +74,9 @@
         </n-card>
         <n-card title="Thông tin biến thể" class="mt-20px">
             <n-space>
-                <n-form ref="formRef" style="width: 50%;">
-                    <n-grid :span="24" :x-gap="36">
-                        <n-form-item-gi :span="12">
+                <n-form ref="formDataVariantRef" :model="formDataVariant" :rules="rulesDataVariant" style="width: 50%;">
+                    <n-grid :span="24" :x-gap="36" :y-gap="8">
+                        <n-form-item-gi :span="12" path="idColor">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Màu sắc</span>
@@ -89,7 +89,7 @@
                             <n-select v-model:value="formDataVariant.idColor"
                                 :options="dataProperties.variantInformation.colors" multiple clearable filterable
                                 placeholder="Chọn màu sắc"></n-select> </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" path="idCpu">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>CPU</span>
@@ -102,7 +102,7 @@
                             <n-select v-model:value="formDataVariant.idCpu" filterable placeholder="Chọn CPU"
                                 :options="dataProperties.variantInformation.cpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" path="idGpu">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>GPU</span>
@@ -115,7 +115,7 @@
                             <n-select v-model:value="formDataVariant.idGpu" filterable placeholder="Chọn GPU"
                                 :options="dataProperties.variantInformation.gpus" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" path="idMaterial">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Chất liệu</span>
@@ -128,7 +128,7 @@
                             <n-select v-model:value="formDataVariant.idMaterial" filterable placeholder="Chọn chất liệu"
                                 :options="dataProperties.variantInformation.materials" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" path="idRam">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>RAM</span>
@@ -141,7 +141,7 @@
                             <n-select v-model:value="formDataVariant.idRam" filterable placeholder="Chọn RAM"
                                 :options="dataProperties.variantInformation.rams" multiple clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12">
+                        <n-form-item-gi :span="12" path="idHardDrive">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Ổ cứng</span>
@@ -172,18 +172,15 @@
 
                     <n-space>
                         <n-input-number
-                        :value="statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor)?.priceCommonVariant || 0"
-                        placeholder="Nhập giá chung"
-                        clearable
-                        @update:value="val => {
-                            const state = statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor);
-                            console.log('val', val);
-                            console.log('state', state);
-                            if (state) {
-                                state.priceCommonVariant = val as number;
-                            }
-                        }"
-                        />
+                            :value="statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor)?.priceCommonVariant || 0"
+                            placeholder="Nhập giá chung" clearable @update:value="val => {
+                                const state = statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor);
+                                console.log('val', val);
+                                console.log('state', state);
+                                if (state) {
+                                    state.priceCommonVariant = val as number;
+                                }
+                            }" />
                         <n-button type="success"
                             @click="applyPriceCommonVariantHandler(productDetailList[0].idColor)">Áp dụng</n-button>
                     </n-space>
@@ -224,7 +221,7 @@
 import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens, modifyProduct } from '@/service/api/admin/product/product.api'
 import { ADProductDetailCreateUpdateRequest, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
-import { DataTableColumns, NButton, NInput, NInputNumber, NSpace, NUpload, UploadFileInfo } from 'naive-ui'
+import { DataTableColumns, FormInst, FormRules, NButton, NInput, NInputNumber, NSpace, NUpload, UploadFileInfo } from 'naive-ui'
 import { Reactive } from 'vue'
 import ADImeiProductDetail from './ADImeiProductDetail.vue'
 import QuickAddModal from './QuickAddModal.vue'
@@ -236,14 +233,16 @@ const router = useRouter()
 
 const idProduct: Ref<string> = ref(route.params.id as string)
 const isOpenQuickAddModal = ref<boolean>(false)
-const isEditPriceInputTable: Ref<number> = ref(-1)
-const priceTableValue: Ref<number> = ref(0)
+const isEditPriceInputTable: Ref<{idColor: string | undefined, index: number}> = ref({idColor: '', index: -1})
+const priceTableValue: Ref<{idColor: string, value: number}[]> = ref([])
 const isOpenModalIMEIProduct = ref<boolean>(false)
 const indexRowDataImei = ref<number>()
 const idColorImei = ref<string>()
 const loadingCreateVariant = ref(false)
 const priceCommonVariant: Ref<number> = ref(0)
 const statePaginationVariantByColor: Reactive<{ idColor: string, currentPage: number, priceCommonVariant: Ref<number> }[]> = reactive([]);
+const formDataBasicRef = ref<FormInst | null>(null)
+const formDataVariantRef = ref<FormInst | null>(null)
 
 const dataProperties = reactive({
     basicInformation: {
@@ -383,22 +382,28 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     {
         title: 'Giá bán', key: 'price', width: 200, align: 'center',
         render: (data: ADPRTableProductDetail, index: number) => {
-            return !(isEditPriceInputTable.value == index) ?
+            return !(isEditPriceInputTable.value.idColor === data.idColor && isEditPriceInputTable.value.index === index) ?
                 h('span', {
                     innerText: data.price ? (data.price + '').split('').reduce((prev, curr, index, arr) => {
                         if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
                         return prev + curr
-                    }, '') + ' vnđ' : 'Chưa có giá cho biến thể này', onClick: () => { handleClickPriceTable(index) }
+                    }, '') + ' vnđ' : 'Chưa có giá cho biến thể này', onClick: () => { handleClickPriceTable(data.idColor, index) }
                 }) :
                 h(NInputNumber, {
                     style: { width: '100%' },
                     placeholder: 'Nhập giá',
-                    value: priceTableValue.value,
+                    value: priceTableValue.value.find(item => item.idColor === data.idColor)?.value,
                     onUpdateValue: (val) => {
-                        priceTableValue.value = val as number
+                        const existingItem = priceTableValue.value.find(item => item.idColor === data.idColor)
+                        if (existingItem) {
+                            priceTableValue.value = priceTableValue.value.map(item => item.idColor === data.idColor ? { ...item, value: val as number } : item)
+                            return
+                        }
+
+                        priceTableValue.value.push({ idColor: data.idColor, value: val as number })
                     },
                     onBlur: () => {
-                        handleEnterPrice(index)
+                        handleEnterPrice(data.idColor, index)
                     },
                 },
                 )
@@ -438,9 +443,19 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
 ]
 
 const createVariant = () => {
+    if (productDetails.length > 0) {
+        productDetails.splice(0, productDetails.length)
+        statePaginationVariantByColor.splice(0, statePaginationVariantByColor.length)
+    }
+
+    if (!formDataVariantRef.value?.validate(
+        error => !!( error && error?.length > 0)
+    )) return;
+
     if (formDataVariant.idColor) {
         formDataVariant.idColor.forEach((idColor) => {
             statePaginationVariantByColor.push({ idColor: idColor, currentPage: 1, priceCommonVariant: ref(0).value });
+
             formDataVariant.idCpu?.forEach((cpu) => {
                 formDataVariant.idGpu?.forEach((gpu) => {
                     formDataVariant.idHardDrive?.forEach((hardDrive) => {
@@ -464,15 +479,21 @@ const createVariant = () => {
 }
 
 
-const handleClickPriceTable = (index: number) => {
-    isEditPriceInputTable.value = index
+const handleClickPriceTable = (idColor: string, index: number) => {
+    isEditPriceInputTable.value = { idColor, index }
 }
 
 
-const handleEnterPrice = (index: number) => {
-    productDetails[index].price = priceTableValue.value
-    isEditPriceInputTable.value = -1
-    priceTableValue.value = 0
+const handleEnterPrice = (idColor: string, idx: number) => {
+    const price = priceTableValue.value.find(item => item.idColor === idColor)?.value
+
+    const indexIdColor = productDetails.map((productDetail, index) => ({ idColor: productDetail.idColor, index }))
+        .filter(productDetail => productDetail.idColor === idColor).map((indexObj) => indexObj.index)[0]
+
+    productDetails[indexIdColor + idx].price = price
+
+    isEditPriceInputTable.value = { idColor: undefined, index: -1 }
+    priceTableValue.value = priceTableValue.value.filter(item => item.idColor !== idColor)
 }
 
 // imei
@@ -501,8 +522,10 @@ const notification = useNotification();
 
 const imageProductDetails = reactive<{ [key: string]: any }>({});
 
-
 const submitVariantHandler = async () => {
+
+    if (!validateSubmitVariantHandler()) return;
+
     loadingCreateVariant.value = true;
     try {
         let idNewProduct: string = "";
@@ -535,6 +558,56 @@ const submitVariantHandler = async () => {
     }
 }
 
+const validateSubmitVariantHandler: () => boolean = () => {
+    if (!formDataVariantRef?.value?.validate(error => {
+        if (error) notification.error({ content: error[0][0]?.message ?? 'Vui lòng điền đầy đủ thông tin biến thể', duration: 3000 })
+        return !!error
+    })) return false;
+
+    if (productDetails.length === 0) {
+
+        notification.error({ content: 'Vui lòng tạo biến thể cho sản phẩm', duration: 3000 })
+        return false;
+    }
+
+    if (productDetails.some(productDetail => !productDetail.price)) {
+        notification.error({ content: 'Vui lòng nhập giá cho tất cả biến thể', duration: 3000 })
+        return false;
+    }
+
+    if(productDetails.some(productDetail => !productDetail.imei || productDetail.imei.length === 0)) {
+        notification.error({ content: 'Vui lòng thêm IMEI cho tất cả biến thể', duration: 3000 })
+        return false;
+    }
+
+    if (!idProduct.value && imageProduct.length === 0) {
+        notification.error({ content: 'Vui lòng thêm ảnh sản phẩm', duration: 3000 })
+        return false;
+    }
+
+    if (Object.keys(imageProductDetails).length < productDetails.length) {
+        notification.error({ content: 'Vui lòng thêm ảnh cho tất cả biến thể', duration: 3000 })
+        return false;
+    }
+
+    if (Object.values(imageProductDetails).some(image => !image)) {
+        notification.error({ content: 'Vui lòng thêm ảnh cho tất cả biến thể', duration: 3000 })
+        return false;
+    }
+
+    if (new Set(productDetails.map(pd => pd.imei?.join(','))).size !== productDetails.length) {
+        notification.error({ content: 'Mỗi biến thể phải có dãy IMEI riêng biệt', duration: 3000 })
+        return false;
+    }
+
+    if (productDetails.some(pd => pd.imei && pd.imei.length !== new Set(pd.imei).size)) {
+        notification.error({ content: 'Dãy IMEI trong cùng một biến thể không được trùng lặp', duration: 3000 })
+        return false;
+    }
+
+    return true;
+}
+
 const handleChangeImageProduct = (data: { fileList: UploadFileInfo[] }) => {
     imageProduct.push(data.fileList[0].file)
 }
@@ -561,6 +634,7 @@ const closeQuickAddModalHandler = () => {
 
 const applyPriceCommonVariantHandler = (idColor: string) => {
     productDetails.filter(item => item.idColor === idColor).forEach(item => {
+        if (item.price) return
         item.price = statePaginationVariantByColor.find(state => state.idColor === idColor)?.priceCommonVariant
     })
     priceCommonVariant.value = 0
@@ -582,6 +656,46 @@ const partitionProductDetailsByColor = computed(() => {
 const getNameColorById = (idColor: string) => {
     const color = dataProperties.variantInformation.colors.find(color => color.value === idColor)
     return color ? color.label : 'Không xác định'
+}
+
+const rulesDataBasic: FormRules = {
+    name: [
+        { required: true, message: 'Vui lòng nhập tên sản phẩm', trigger: 'blur' },
+        { min: 3, max: 100, message: 'Tên sản phẩm từ 3 đến 100 ký tự', trigger: 'blur' },
+    ],
+    // idBrand: [
+    //     { type: 'array', required: true, message: 'Vui lòng chọn hãng', trigger: 'change' },
+    // ],
+    // idBattery: [
+    //     { type: 'array', required: true, message: 'Vui lòng chọn pin', trigger: 'change' },
+    // ],
+    // idScreen: [
+    //     { type: 'array', required: true, message: 'Vui lòng chọn màn hình', trigger: 'change' },
+    // ],
+    // idOperatingSystem: [
+    //     { type: 'array', required: true, message: 'Vui lòng chọn hệ điều hành', trigger: 'change' },
+    // ],
+}
+
+const rulesDataVariant: FormRules = {
+    idColor: [
+        { type: 'array', required: true, message: 'Vui lòng chọn màu sắc', trigger: 'change' },
+    ],
+    idCpu: [
+        { type: 'array', required: true, message: 'Vui lòng chọn CPU', trigger: 'change' },
+    ],
+    idGpu: [
+        { type: 'array', required: true, message: 'Vui lòng chọn GPU', trigger: 'change' },
+    ],
+    idMaterial: [
+        { type: 'array', required: true, message: 'Vui lòng chọn chất liệu', trigger: 'change' },
+    ],
+    idRam: [
+        { type: 'array', required: true, message: 'Vui lòng chọn RAM', trigger: 'change' },
+    ],
+    idHardDrive: [
+        { type: 'array', required: true, message: 'Vui lòng chọn ổ cứng', trigger: 'change' },
+    ],
 }
 </script>
 
