@@ -28,7 +28,7 @@ export interface Customer {
 export interface CustomerFilterParams {
   page?: number
   size?: number
-  customerName?: string
+  keyword?: string
   customerGender?: number | null
   customerStatus?: number | null
 }
@@ -42,8 +42,8 @@ export async function getCustomers(params: CustomerFilterParams = {}) {
 
   const query: Record<string, any> = { page, size }
 
-  if (params.customerName?.trim())
-    query.customerName = params.customerName.trim()
+  if (params.keyword?.trim())
+    query.keyword = params.keyword.trim()
   if (params.customerGender != null)
     query.customerGender = Number(params.customerGender)
   if (params.customerStatus != null)

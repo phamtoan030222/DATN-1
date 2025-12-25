@@ -34,13 +34,14 @@ public class CustomerServiceImpl implements CustomerService {
         return new ResponseObject<>(
                 PageableObject.of(adCustomerRepository.getAllCustomers(
                         pageable,
-                        request.getCustomerName(),
+                        request.getKeyword(),
                         request.getCustomerStatus(),
                         request.getCustomerGender()
                 )),
                 HttpStatus.OK,
                 "Lấy thành công danh sách khách hàng"
         );
+
     }
 
     @Override
