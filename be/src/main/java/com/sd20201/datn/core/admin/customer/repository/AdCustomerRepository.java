@@ -13,44 +13,53 @@ import java.util.Optional;
 public interface AdCustomerRepository extends com.sd20201.datn.repository.CustomerRepository {
     @Query(
             value = """
-                SELECT c.id AS id,
-                       c.name AS customerName,
-                       c.phone AS customerPhone,
-                       c.email AS customerEmail,
-                       c.avatarUrl AS customerAvatar,
-                       c.account.id AS customerIdAccount,
-                       c.code AS customerCode,
-                       c.description AS customerDescription,
-                       c.gender AS customerGender,
-                       CASE WHEN c.status = 0 THEN 1 ELSE 0 END AS customerStatus,  
-                       c.birthday AS customerBirthday,
-                       c.createdBy AS customerCreatedBy,
-                       c.createdDate AS customerCreatedDate,
-                       c.lastModifiedBy AS customerModifiedBy,
-                       c.lastModifiedDate AS customerModifiedDate
-                FROM Customer c
-                WHERE (:customerName IS NULL OR c.name LIKE CONCAT('%', :customerName, '%'))
-                  AND (:customerStatus IS NULL 
-                       OR (:customerStatus = 1 AND c.status = 0) 
-                       OR (:customerStatus = 0 AND c.status = 1))
-                  AND (:customerGender IS NULL OR c.gender = :customerGender)
-                ORDER BY c.createdDate DESC
-                """,
+                    SELECT c.id AS id,
+                           c.name AS customerName,
+                           c.phone AS customerPhone,
+                           c.email AS customerEmail,
+                           c.avatarUrl AS customerAvatar,
+                           c.account.id AS customerIdAccount,
+                           c.code AS customerCode,
+                           c.description AS customerDescription,
+                           c.gender AS customerGender,
+                           CASE WHEN c.status = 0 THEN 1 ELSE 0 END AS customerStatus,
+                           c.birthday AS customerBirthday,
+                           c.createdBy AS customerCreatedBy,
+                           c.createdDate AS customerCreatedDate,
+                           c.lastModifiedBy AS customerModifiedBy,
+                           c.lastModifiedDate AS customerModifiedDate
+                    FROM Customer c
+                    WHERE
+                      (:keyword IS NULL OR (
+                                          c.name LIKE CONCAT('%', :keyword, '%')
+                                          OR c.phone LIKE CONCAT('%', :keyword, '%')
+                                          OR c.code LIKE CONCAT('%', :keyword, '%')
+                                            ))
+                      AND (:customerStatus IS NULL
+                           OR (:customerStatus = 1 AND c.status = 0)
+                           OR (:customerStatus = 0 AND c.status = 1))
+                      AND (:customerGender IS NULL OR c.gender = :customerGender)
+                    ORDER BY c.createdDate DESC
+                    """,
             countQuery = """
-                SELECT COUNT(c.id)
-                FROM Customer c
-                WHERE (:customerName IS NULL OR c.name LIKE CONCAT('%', :customerName, '%'))
-                  AND (:customerStatus IS NULL 
-                       OR (:customerStatus = 1 AND c.status = 0) 
-                       OR (:customerStatus = 0 AND c.status = 1))
-                  AND (:customerGender IS NULL OR c.gender = :customerGender)
-                """
+                    SELECT COUNT(c.id)
+                    FROM Customer c
+                    WHERE 
+                     (:keyword IS NULL OR (
+                                          c.name LIKE CONCAT('%', :keyword, '%')
+                                          OR c.phone LIKE CONCAT('%', :keyword, '%')
+                                          OR c.code LIKE CONCAT('%', :keyword, '%')
+                                            ))
+                      AND (:customerStatus IS NULL 
+                           OR (:customerStatus = 1 AND c.status = 0) 
+                           OR (:customerStatus = 0 AND c.status = 1))
+                      AND (:customerGender IS NULL OR c.gender = :customerGender)
+                    """
     )
     Page<CustomerResponse> getAllCustomers(Pageable pageable,
-                                           @Param("customerName") String customerName,
+                                           @Param("keyword") String keyword, // Gộp vào 1 biến này
                                            @Param("customerStatus") Integer customerStatus,
                                            @Param("customerGender") Boolean customerGender);
-
     // =========================
     // 🎯 Query tìm kiếm chính xác
     // =========================
@@ -86,11 +95,11 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
      * Ví dụ: baseCode = "longvv" sẽ tìm mã lớn nhất như longvv001, longvv002...
      */
     @Query(value = """
-        SELECT c.code FROM customer c 
-        WHERE c.code REGEXP CONCAT('^', :baseCode, '[0-9]{3}$') 
-        ORDER BY c.code DESC 
-        LIMIT 1
-        """, nativeQuery = true)
+            SELECT c.code FROM customer c 
+            WHERE c.code REGEXP CONCAT('^', :baseCode, '[0-9]{3}$') 
+            ORDER BY c.code DESC 
+            LIMIT 1
+            """, nativeQuery = true)
     String findLatestCodeByBase(@Param("baseCode") String baseCode);
 
     // =========================
@@ -101,24 +110,24 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
     List<Customer> findAllNameContaining(@Param("name") String name);
 
     @Query("""
-    SELECT c.id AS id,
-           c.name AS customerName,
-           c.phone AS customerPhone,
-           c.email AS customerEmail,
-           c.avatarUrl AS customerAvatar,
-           c.account.id AS customerIdAccount,
-           c.code AS customerCode,
-           c.description AS customerDescription,
-           c.gender AS customerGender,
-           CASE WHEN c.status = 0 THEN 1 ELSE 0 END AS customerStatus,
-           c.birthday AS customerBirthday,
-           c.createdBy AS customerCreatedBy,
-           c.createdDate AS customerCreatedDate,
-           c.lastModifiedBy AS customerModifiedBy,
-           c.lastModifiedDate AS customerModifiedDate
-    FROM Customer c
-    WHERE c.id = :id
-    """)
+            SELECT c.id AS id,
+                   c.name AS customerName,
+                   c.phone AS customerPhone,
+                   c.email AS customerEmail,
+                   c.avatarUrl AS customerAvatar,
+                   c.account.id AS customerIdAccount,
+                   c.code AS customerCode,
+                   c.description AS customerDescription,
+                   c.gender AS customerGender,
+                   CASE WHEN c.status = 0 THEN 1 ELSE 0 END AS customerStatus,
+                   c.birthday AS customerBirthday,
+                   c.createdBy AS customerCreatedBy,
+                   c.createdDate AS customerCreatedDate,
+                   c.lastModifiedBy AS customerModifiedBy,
+                   c.lastModifiedDate AS customerModifiedDate
+            FROM Customer c
+            WHERE c.id = :id
+            """)
     CustomerResponse findCustomerById(@Param("id") String id);
 
     List<Customer> findByEmail(String email);

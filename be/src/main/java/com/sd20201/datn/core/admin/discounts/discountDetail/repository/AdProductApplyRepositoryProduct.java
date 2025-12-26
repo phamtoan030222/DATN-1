@@ -18,11 +18,23 @@ public interface AdProductApplyRepositoryProduct extends ProductDiscountDetailRe
                    d.startDate AS startTime,
                    d.endDate AS endTime,
                    pd.price AS price,
-                   c.description AS description
+                   c.description AS description,
+                   co.name AS colorName,
+                                  r.name AS ramName,
+                                  h.name AS hardDriveName,
+                                  m.name AS materialName,
+                                  g.name AS gpuName,
+                                  cpu.name AS cpuName
             FROM ProductDetailDiscount c
                      JOIN c.productDetail pd
                      JOIN pd.product p
                      JOIN c.discount d
+                     LEFT JOIN pd.color co
+                                      LEFT JOIN pd.ram r
+                                      LEFT JOIN pd.hardDrive h
+                                      LEFT JOIN pd.material m
+                                      LEFT JOIN pd.gpu g
+                                      LEFT JOIN pd.cpu cpu
             WHERE d.id = :discountId
             AND c.status =0 
             AND pd.status =0 

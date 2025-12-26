@@ -27,4 +27,6 @@ public interface ADPDProductDetailResponse extends IsIdentify, IsEntityStatus {
 
     Integer getQuantity();
 
+    String getUrlImage();
+
 }

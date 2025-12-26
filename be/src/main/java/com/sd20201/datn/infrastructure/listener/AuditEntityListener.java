@@ -10,15 +10,12 @@ public class AuditEntityListener {
 
     @PrePersist
     private void onCreate(AuditEntity entity) {
-//        entity.setCreatedBy();
         entity.setCreatedDate(getCurrentTime());
-//        entity.setLastModifiedBy();
         entity.setLastModifiedDate(getCurrentTime());
     }
 
     @PreUpdate
     private void onUpdate(AuditEntity entity) {
-//        entity.setLastModifiedBy();
         entity.setLastModifiedDate(getCurrentTime());
     }
 
