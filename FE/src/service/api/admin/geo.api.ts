@@ -1,7 +1,6 @@
-import { AxiosResponse } from "axios";
 import { API_ADMIN_GEO } from "@/constants/url";
 import request from "@/service/request";
-import { DefaultResponse } from "@/typings/api/api.common";
+import { AxiosResponse } from "axios";
 
 // ---- Province ----
 export interface Province {

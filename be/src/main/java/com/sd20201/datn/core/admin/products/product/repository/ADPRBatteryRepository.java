@@ -13,6 +13,7 @@ public interface ADPRBatteryRepository extends BatteryRepository {
         b.id as value
         , b.name as label
     FROM Battery b
+    ORDER BY b.createdDate desc
     """)
     List<ADPRPropertyComboboxResponse> getBatteryComboboxResponse();
 

@@ -1,119 +1,107 @@
 <template>
-  <!-- Header -->
-  <n-card>
+  <n-card class="mb-4">
     <NSpace vertical :size="8">
       <NSpace :align="'center'">
-        <NButton 
-          @click="$router.back()" 
-          quaternary 
-          circle
-        >
-          <NIcon size="20">
-            <Icon :icon="'carbon:arrow-left'" />
-          </NIcon>
+        <NButton @click="$router.back()" quaternary circle>
+          <template #icon><NIcon size="20"><Icon icon="carbon:arrow-left" /></NIcon></template>
         </NButton>
-        <NIcon size="24">
-          <Icon :icon="'carbon:edit'" />
-        </NIcon>
-        <span style="font-weight: 600; font-size: 24px">
-          Sửa đợt giảm giá
-        </span>
+        <NIcon size="24"><Icon icon="carbon:edit" /></NIcon>
+        <span class="header-title">Sửa đợt giảm giá</span>
       </NSpace>
-      <span>Chỉnh sửa thông tin đợt giảm giá</span>
+      <span class="sub-title">Chỉnh sửa thông tin và quản lý sản phẩm áp dụng</span>
     </NSpace>
   </n-card>
 
-  <!-- Main Content Layout -->
-  <div style="display: grid; grid-template-columns: 630px 610px; gap: 16px; margin-top: 16px;">
-    <!-- Left Side - Form -->
-    <div>
+  <div class="main-layout">
+    <div class="form-section">
       <NCard title="Thông tin đợt giảm giá">
         <NSkeleton v-if="loadingDiscount" text :repeat="6" />
-        <NForm v-else ref="formRef" :model="formData">
+        <NForm v-else ref="formRef" :model="formData" :rules="formRules">
           <NSpace vertical :size="16">
-            <div class="form-row">
-              <NFormItem label="Tên đợt giảm giá" required>
-              <NInput 
-                v-model:value="formData.discountName" 
-                placeholder="Nhập tên đợt giảm giá"
-                maxlength="100"
-                show-count
-              />
-            </NFormItem>
             
-            <NFormItem label="Mã giảm giá" required>
-              <NInput 
-                v-model:value="formData.discountCode" 
-                placeholder="Nhập mã giảm giá"
-                maxlength="50"
-                :disabled="true"
-              />
+            <NFormItem label="Trạng thái hiện tại">
+              <NTag :type="getStatusType()" :bordered="false" style="font-weight: 600;">
+                {{ getStatusText() }}
+              </NTag>
+              <span v-if="!canUpdateInfo && getDiscountStatus() === 'active'" style="margin-left: 10px; color: #d03050; font-size: 12px;">
+                * Đang diễn ra: Chỉ được sửa danh sách sản phẩm.
+              </span>
             </NFormItem>
+
+            <div class="form-row">
+              <NFormItem label="Tên đợt giảm giá" path="discountName" required>
+                <NInput 
+                  v-model:value="formData.discountName" 
+                  placeholder="Nhập tên" 
+                  maxlength="100" 
+                  show-count 
+                  :disabled="!canUpdateInfo" 
+                />
+              </NFormItem>
+              <NFormItem label="Mã giảm giá" required>
+                <NInput v-model:value="formData.discountCode" placeholder="Mã giảm giá" disabled />
+              </NFormItem>
             </div>
 
             <div class="form-row">
-                 <NFormItem label="Ngày bắt đầu" required>
-              <NDatePicker
-                v-model:value="formData.startDate"
-                type="datetime"
-                placeholder="Chọn ngày bắt đầu"
-                style="width: 100%"
-                :disabled="getDiscountStatus() === 'active'"
-              />
-            </NFormItem>
-
-            <NFormItem label="Ngày kết thúc" required>
-              <NDatePicker
-                v-model:value="formData.endDate"
-                type="datetime"
-                placeholder="Chọn ngày kết thúc"
-                style="width: 100%"
-                :is-date-disabled="(ts: number) => ts <= formData.startDate"
-              />
-            </NFormItem>
+              <NFormItem label="Ngày bắt đầu" path="startDate" required>
+                <NDatePicker 
+                  v-model:value="formData.startDate" 
+                  type="datetime" 
+                  style="width: 100%" 
+                  :disabled="!canUpdateInfo" 
+                />
+              </NFormItem>
+              <NFormItem label="Ngày kết thúc" path="endDate" required>
+                <NDatePicker 
+                  v-model:value="formData.endDate" 
+                  type="datetime" 
+                  style="width: 100%" 
+                  :is-date-disabled="(ts) => ts <= formData.startDate" 
+                  :disabled="!canUpdateInfo" 
+                />
+              </NFormItem>
             </div>
-         
 
-            <NFormItem label="Phần trăm giảm giá (%)" required>
-              <NInputNumber
-                v-model:value="formData.percentage"
-                :min="1"
-                :max="100"
-                :precision="0"
-                placeholder="Nhập % giảm giá"
-                style="width: 100%"
+            <NFormItem label="Phần trăm giảm giá (%)" path="percentage" required>
+              <NInputNumber 
+                v-model:value="formData.percentage" 
+                :min="1" :max="100" 
+                style="width: 100%" 
+                :disabled="!canUpdateInfo" 
               />
             </NFormItem>
 
             <NFormItem label="Mô tả">
-              <NInput
-                v-model:value="formData.description"
-                type="textarea"
-                placeholder="Nhập mô tả cho đợt giảm giá"
-                maxlength="500"
-                show-count
-                :rows="3"
+              <NInput 
+                v-model:value="formData.description" 
+                type="textarea" 
+                placeholder="Mô tả..." 
+                :rows="3" 
+                :disabled="!canUpdateInfo" 
               />
             </NFormItem>
 
-            <!-- Status Info -->
-            <NFormItem label="Trạng thái">
-              <NTag :type="getStatusType()">
-                {{ getStatusText() }}
-              </NTag>
-            </NFormItem>
-
-            <NSpace justify="space-between" style="margin-top: 24px;">
-              <NButton @click="$router.back()">
-                Hủy
-              </NButton>
-              <NButton 
-                type="primary" 
-                @click="handleSubmit"
-                :loading="submitting"
-                :disabled="getDiscountStatus() === 'expired'"
+            <NSpace justify="space-between" style="margin-top: 12px;">
+              <NButton @click="$router.back()">Thoát</NButton>
+              
+              <NPopconfirm 
+                v-if="canUpdateInfo"
+                @positive-click="handleSubmit" 
+                positive-text="Đồng ý" 
+                negative-text="Hủy"
               >
-                Cập nhật
+                <template #trigger>
+                  <NButton type="primary" :loading="submitting">
+                    <template #icon><NIcon><Icon icon="carbon:save" /></NIcon></template> Cập nhật thông tin
+                  </NButton>
+                </template>
+                Bạn có chắc chắn muốn cập nhật thông tin này?
+              </NPopconfirm>
+              
+              <NButton v-else disabled secondary type="warning">
+                <template #icon><NIcon><Icon icon="carbon:locked" /></NIcon></template>
+                {{ getDiscountStatus() === 'active' ? 'Đã khóa thông tin' : 'Đã kết thúc' }}
               </NButton>
             </NSpace>
           </NSpace>
@@ -121,172 +109,167 @@
       </NCard>
     </div>
 
-    <!-- Right Side - Products Table -->
-    <div>
-      <NCard title="Danh sách sản phẩm">
+    <div class="products-section">
+      <NCard title="Danh sách Sản Phẩm">
         <template #header-extra>
-          <NSpace>
-            <NInput
-              v-model:value="productSearchKeyword"
-              placeholder="Tìm sản phẩm..."
-              clearable
-              style="width: 250px"
-              @input="debouncedProductSearch"
+          <div style="width: 200px">
+            <NInput 
+              v-model:value="productSearchKeyword" 
+              placeholder="Tìm tên/mã..." 
+              clearable 
+      
             >
-              <template #prefix>
-                <NIcon size="18">
-                  <Icon :icon="'carbon:search'" />
-                </NIcon>
-              </template>
+              <template #prefix><NIcon><Icon icon="carbon:search" /></NIcon></template>
             </NInput>
-            <NTag type="info" size="small">
-              {{ productTotal }} sản phẩm
-            </NTag>
-          </NSpace>
+          </div>
         </template>
 
-        <NDataTable
-          :columns="productColumns"
-          :data="products"
-          :loading="loadingProducts"
-          :row-key="(row) => row.id"
-          :pagination="false"
-          size="small"
-          max-height="500px"
-        />
+        <div :style="!canUpdateProducts ? 'opacity: 0.6; pointer-events: none;' : ''">
+          <NDataTable
+            :columns="productColumns"
+            :data="paginatedRawProducts" 
+            :loading="loadingProducts"
+            :row-key="(row) => row.id"
+            v-model:checked-row-keys="checkedProductKeys" 
+            :pagination="false"
+            size="small"
+            max-height="400px"
+          />
+        </div>
 
-        <div class="flex justify-center mt-4" v-if="productTotal > productPageSize">
+        <div class="flex justify-end mt-4" v-if="filteredRawProducts.length > productPageSize">
           <NPagination
             :page="productCurrentPage"
             :page-size="productPageSize"
-            :page-count="Math.ceil(productTotal / productPageSize)"
-            @update:page="handleProductPageChange"
-            size="small"
+            :page-count="Math.ceil(filteredRawProducts.length / productPageSize)"
+            @update:page="(p) => productCurrentPage = p"
           />
         </div>
       </NCard>
     </div>
   </div>
 
-  <!-- Product Details Not Applied Table - Show when product is selected -->
   <NCard 
-    v-if="selectedProduct" 
-    :title="`Sản phẩm chi tiết chưa áp dụng - ${selectedProduct.productName}`" 
+    v-if="unappliedProducts.length > 0" 
+    title="Danh sách Sản Phẩm Chi Tiết chưa áp dụng" 
     style="margin-top: 16px;"
   >
-    <template #header-extra>
+    <div class="filter-container mb-4">
+      <NGrid :x-gap="12" :y-gap="8" :cols="24">
+        <NGridItem :span="5"><div class="filter-label">Tên SPCT</div><NInput v-model:value="filterUnapplied.name" placeholder="Tìm tên..." size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">Màu</div><NSelect v-model:value="filterUnapplied.color" :options="uniqueColorsUnapplied" placeholder="Màu" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">RAM</div><NSelect v-model:value="filterUnapplied.ram" :options="uniqueRamsUnapplied" placeholder="RAM" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">Ổ cứng</div><NSelect v-model:value="filterUnapplied.hardDrive" :options="uniqueHardDrivesUnapplied" placeholder="HDD" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">GPU</div><NSelect v-model:value="filterUnapplied.gpu" :options="uniqueGpusUnapplied" placeholder="GPU" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">CPU</div><NSelect v-model:value="filterUnapplied.cpu" :options="uniqueCpusUnapplied" placeholder="CPU" clearable size="small" /></NGridItem>
+        <NGridItem :span="4" class="flex items-end" style="padding-bottom: 2px;">
+          <NButton circle type="default" secondary @click="resetUnappliedFilters" size="small"><template #icon><NIcon size="18"><Icon icon="carbon:rotate-360" /></NIcon></template></NButton>
+        </NGridItem>
+      </NGrid>
+    </div>
+
+    <div class="flex justify-between items-center mb-2">
       <NSpace>
-        <NTag type="warning" size="small">
-          {{ unappliedTotal }} sản phẩm chi tiết
-        </NTag>
-        <NButton
-          type="primary"
-          size="small"
-          @click="handleBulkApply"
-          :disabled="selectedUnappliedKeys.length === 0"
-          :loading="bulkApplying"
-        >
-          <template #icon>
-            <NIcon><Icon icon="carbon:checkmark" /></NIcon>
+        <NTag type="warning" size="small">Hiển thị: {{ filteredUnapplied.length }} | Đang chọn: {{ selectedUnappliedKeys.length }}</NTag>
+        
+        <NPopconfirm @positive-click="handleBulkApply" positive-text="Đồng ý" negative-text="Hủy">
+          <template #trigger>
+            <NButton 
+              type="primary" size="small" 
+              :disabled="selectedUnappliedKeys.length === 0 || !canUpdateProducts" 
+              :loading="bulkApplying"
+            >
+              <template #icon><NIcon><Icon icon="carbon:checkmark-outline" /></NIcon></template> Áp dụng ngay ({{ selectedUnappliedKeys.length }})
+            </NButton>
           </template>
-          Áp dụng đã chọn ({{ selectedUnappliedKeys.length }})
-        </NButton>
-        <NButton
-          quaternary
-          size="small"
-          @click="selectedProduct = null"
-        >
-          <template #icon>
-            <NIcon><Icon icon="carbon:close" /></NIcon>
-          </template>
-          Đóng
-        </NButton>
+          Áp dụng giảm giá cho các sản phẩm đã chọn?
+        </NPopconfirm>
       </NSpace>
-    </template>
+
+
+<NPopconfirm 
+  @positive-click="clearUnapplied" 
+  positive-text="Xóa" 
+  negative-text="Hủy"
+>
+  <template #trigger>
+    <NButton quaternary size="small">
+      <template #icon><NIcon><Icon icon="carbon:close" /></NIcon></template>
+      Xóa hết danh sách này
+    </NButton>
+  </template>
+  Bạn có chắc chắn muốn xóa toàn bộ danh sách chờ này không?
+</NPopconfirm>
+    </div>
 
     <NDataTable
       :columns="unappliedProductColumns"
-      :data="unappliedProducts"
-      :loading="loadingUnapplied"
+      :data="paginatedUnapplied"
       :row-key="(row) => row.id"
       v-model:checked-row-keys="selectedUnappliedKeys"
       :pagination="false"
       size="small"
-      max-height="400px"
-      :scroll-x="1200"
+      max-height="400"
     />
 
-    <div class="flex justify-center mt-4" v-if="unappliedTotal > unappliedPageSize">
+    <div class="flex justify-end mt-4" v-if="filteredUnapplied.length > unappliedPageSize">
       <NPagination
         :page="unappliedCurrentPage"
         :page-size="unappliedPageSize"
-        :page-count="Math.ceil(unappliedTotal / unappliedPageSize)"
-        @update:page="handleUnappliedPageChange"
-        size="small"
+        :page-count="Math.ceil(filteredUnapplied.length / unappliedPageSize)"
+        @update:page="(p) => unappliedCurrentPage = p"
       />
     </div>
   </NCard>
 
-  <!-- Bottom - Applied Products Table -->
-  <NCard title="Sản phẩm chi tiết đã áp dụng giảm giá" style="margin-top: 16px;">
+  <NCard title="Danh sách Sản Phẩm Chi Tiết đã áp dụng" style="margin-top: 16px;">
+    <div class="filter-container mb-4">
+      <NGrid :x-gap="12" :y-gap="8" :cols="24">
+        <NGridItem :span="5"><div class="filter-label">Tên sản phẩm</div><NInput v-model:value="filterApplied.name" placeholder="Tìm tên ...." size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">Màu</div><NSelect v-model:value="filterApplied.color" :options="uniqueColorsApplied" placeholder="Màu" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">RAM</div><NSelect v-model:value="filterApplied.ram" :options="uniqueRamsApplied" placeholder="RAM" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">Ổ cứng</div><NSelect v-model:value="filterApplied.hardDrive" :options="uniqueHardDrivesApplied" placeholder="HDD" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">GPU</div><NSelect v-model:value="filterApplied.gpu" :options="uniqueGpusApplied" placeholder="GPU" clearable size="small" /></NGridItem>
+        <NGridItem :span="3"><div class="filter-label">CPU</div><NSelect v-model:value="filterApplied.cpu" :options="uniqueCpusApplied" placeholder="CPU" clearable size="small" /></NGridItem>
+        <NGridItem :span="4" class="flex items-end" style="padding-bottom: 2px;">
+          <NButton circle type="default" secondary @click="resetAppliedFilters" size="small"><template #icon><NIcon size="18"><Icon icon="carbon:rotate-360" /></NIcon></template></NButton>
+        </NGridItem>
+      </NGrid>
+    </div>
+
     <template #header-extra>
       <NSpace>
-        <NTag type="success" size="small">
-          <template #icon>
-            <NIcon>
-              <Icon icon="carbon:checkmark-filled" />
-            </NIcon>
+        <NPopconfirm @positive-click="handleBulkRemove" positive-text="Xóa" negative-text="Hủy">
+          <template #trigger>
+            <NButton 
+              type="error" secondary 
+              :disabled="selectedAppliedKeys.length === 0 || !canUpdateProducts" 
+              :loading="bulkRemoving"
+            >
+              <template #icon><NIcon><Icon icon="carbon:trash-can" /></NIcon></template> Gỡ bỏ ({{ selectedAppliedKeys.length }})
+            </NButton>
           </template>
-          {{ appliedTotal }} sản phẩm đã áp dụng
-        </NTag>
-        <NInput
-          v-model:value="appliedSearchKeyword"
-          placeholder="Tìm sản phẩm đã áp dụng..."
-          clearable
-          style="width: 250px"
-          @input="debouncedAppliedSearch"
-        >
-          <template #prefix>
-            <NIcon size="18">
-              <Icon :icon="'carbon:search'" />
-            </NIcon>
-          </template>
-        </NInput>
-        <NButton
-          type="error"
-          secondary
-          size="small"
-          @click="handleBulkRemove"
-          :disabled="selectedAppliedKeys.length === 0"
-          :loading="bulkRemoving"
-        >
-          <template #icon>
-            <NIcon><Icon icon="carbon:trash-can" /></NIcon>
-          </template>
-          Xóa đã chọn ({{ selectedAppliedKeys.length }})
-        </NButton>
+          Bạn có chắc chắn muốn gỡ bỏ giảm giá cho các sản phẩm đã chọn?
+        </NPopconfirm>
       </NSpace>
     </template>
 
     <NDataTable
       :columns="appliedProductColumns"
-      :data="appliedProducts"
+      :data="paginatedApplied"
       :loading="loadingApplied"
       :row-key="(row) => row.id"
       v-model:checked-row-keys="selectedAppliedKeys"
       :pagination="false"
-      size="small"
       max-height="400px"
-      :scroll-x="1200"
     />
 
-    <div class="flex justify-center mt-4" v-if="appliedTotal > appliedPageSize">
+    <div class="flex justify-end mt-4" v-if="filteredAppliedProducts.length > appliedPageSize">
       <NPagination
         :page="appliedCurrentPage"
         :page-size="appliedPageSize"
-        :page-count="Math.ceil(appliedTotal / appliedPageSize)"
-        @update:page="handleAppliedPageChange"
-        size="small"
+        :page-count="Math.ceil(filteredAppliedProducts.length / appliedPageSize)"
+        @update:page="(p) => appliedCurrentPage = p"
       />
     </div>
   </NCard>
@@ -296,39 +279,25 @@
 import { ref, reactive, computed, onMounted, watch, h } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import {
-  NButton,
-  NSpace,
-  NCard,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NIcon,
-  NDatePicker,
-  NDataTable,
-  NTag,
-  NPagination,
-  NSkeleton,
-  NPopconfirm,
-  useMessage,
-  FormInst,
-  DataTableColumns
+  NButton, NSpace, NCard, NForm, NFormItem, NInput, NInputNumber,
+  NIcon, NDatePicker, NDataTable, NTag, NPagination, NSkeleton,
+  NPopconfirm, NGrid, NGridItem, NSelect, useMessage,
+  type FormInst, type FormRules, type DataTableColumns
 } from "naive-ui";
 import { Icon } from "@iconify/vue";
 import {
-  updateDiscount,
-  getAppliedProducts,
+  updateDiscount, 
+  getAppliedProducts, 
   getUnappliedProducts,
   getAllDiscounts,
-  getAllProducts,
-  applyMultipleProducts,
+  getAllProducts, 
+  applyMultipleProducts, 
   removeProductsFromDiscount,
-  type UpdateDiscountRequest,
-  type DiscountResponse,
-  type ProductDetailResponse,
-  type AppliedProductResponse,
-  type ProductResponse,
+  type UpdateDiscountRequest, type DiscountResponse,
+  type ProductDetailResponse, type AppliedProductResponse, type ProductResponse,
 } from '@/service/api/admin/discount/discountApi';
+
+interface ExtendedProductDetail extends ProductDetailResponse { _parentId?: string | number; }
 
 const router = useRouter();
 const route = useRoute();
@@ -339,645 +308,344 @@ const discountId = route.params.id as string;
 const submitting = ref(false);
 const loadingDiscount = ref(false);
 const bulkRemoving = ref(false);
-
-// Original discount data
-const originalDiscount = ref<DiscountResponse | null>(null);
-
-// Applied products states
-const appliedProducts = ref<AppliedProductResponse[]>([]);
-const selectedAppliedKeys = ref<(string | number)[]>([]);
-const loadingApplied = ref(false);
-const appliedSearchKeyword = ref('');
-const appliedCurrentPage = ref(1);
-const appliedPageSize = ref(10);
-const appliedTotal = ref(0);
-
-// Products states (main products)
-const products = ref<ProductResponse[]>([]);
-const loadingProducts = ref(false);
-const productSearchKeyword = ref('');
-const productCurrentPage = ref(1);
-const productPageSize = ref(10);
-const productTotal = ref(0);
-const selectedProduct = ref<ProductResponse | null>(null);
-
-// Unapplied products states (product details)
-const unappliedProducts = ref<ProductDetailResponse[]>([]);
-const selectedUnappliedKeys = ref<(string | number)[]>([]);
-const loadingUnapplied = ref(false);
-const unappliedCurrentPage = ref(1);
-const unappliedPageSize = ref(10);
-const unappliedTotal = ref(0);
 const bulkApplying = ref(false);
 
-let appliedSearchTimeout: ReturnType<typeof setTimeout>;
-let productSearchTimeout: ReturnType<typeof setTimeout>;
 
-const formData = reactive<UpdateDiscountRequest>({
-  discountName: "",
-  discountCode: "",
-  percentage: 1,
-  startDate: Date.now(),
-  endDate: Date.now() + 24 * 60 * 60 * 1000,
-  description: ""
-});
+const originalDiscount = ref<DiscountResponse | null>(null);
+const appliedProducts = ref<AppliedProductResponse[]>([]);
+const allRawProducts = ref<ProductResponse[]>([]); // Chứa toàn bộ SP cha
+const unappliedProducts = ref<ExtendedProductDetail[]>([]);
 
-// Format price
-const formatPrice = (price: number) => {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND'
-  }).format(price);
-};
 
-// Format date time
-const formatDateTime = (timestamp: number) => {
-  if (!timestamp) return ''
-  return new Date(timestamp).toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-};
+const checkedProductKeys = ref<(string | number)[]>([]); 
+const selectedAppliedKeys = ref<(string | number)[]>([]);
+const selectedUnappliedKeys = ref<(string | number)[]>([]);
 
-// Status helpers
+
+const unappliedCurrentPage = ref(1);
+const unappliedPageSize = ref(10);
+
+const appliedCurrentPage = ref(1);
+const appliedPageSize = ref(10);
+const loadingApplied = ref(false);
+
+const productCurrentPage = ref(1);
+const productPageSize = ref(10);
+const loadingProducts = ref(false);
+
+
 const getDiscountStatus = () => {
   if (!originalDiscount.value) return 'unknown';
   const now = Date.now();
-  const start = originalDiscount.value.startTime;
-  const end = originalDiscount.value.endTime;
+  const start = Number(originalDiscount.value.startTime);
+  const end = Number(originalDiscount.value.endTime);
   
   if (now < start) return 'upcoming';
   if (now >= start && now <= end) return 'active';
   return 'expired';
 };
 
-const getStatusType = () => {
-  const status = getDiscountStatus();
-  switch (status) {
-    case 'upcoming': return 'info';
-    case 'active': return 'success';
-    case 'expired': return 'default';
-    default: return 'default';
-  }
+const getStatusType = () => { const s = getDiscountStatus(); return s === 'active' ? 'success' : s === 'upcoming' ? 'info' : 'default'; };
+const getStatusText = () => { const s = getDiscountStatus(); return s === 'active' ? 'Đang diễn ra' : s === 'upcoming' ? 'Sắp diễn ra' : 'Đã kết thúc'; };
+
+const canUpdateInfo = computed(() => getDiscountStatus() === 'upcoming');
+const canUpdateProducts = computed(() => getDiscountStatus() === 'upcoming' || getDiscountStatus() === 'active');
+
+
+const productSearchKeyword = ref('');
+
+const filteredRawProducts = computed(() => {
+  if (!productSearchKeyword.value) return allRawProducts.value;
+  const kw = productSearchKeyword.value.toLowerCase();
+
+  return allRawProducts.value.filter(p => 
+    p.productName.toLowerCase().includes(kw) || 
+    p.productCode.toLowerCase().includes(kw)
+  );
+});
+
+watch(filteredRawProducts, () => productCurrentPage.value = 1);
+
+const paginatedRawProducts = computed(() => {
+  const start = (productCurrentPage.value - 1) * productPageSize.value;
+  return filteredRawProducts.value.slice(start, start + productPageSize.value);
+});
+
+const fetchProducts = async () => {
+  loadingProducts.value = true;
+  try {
+    const res = await getAllProducts({ page: 1, size: 2000, q: '' });
+    allRawProducts.value = res.items; 
+  } catch (e) { message.error('Lỗi tải danh sách SP'); } finally { loadingProducts.value = false; }
 };
 
-const getStatusText = () => {
-  const status = getDiscountStatus();
-  switch (status) {
-    case 'upcoming': return 'Sắp diễn ra';
-    case 'active': return 'Đang diễn ra';
-    case 'expired': return 'Đã hết hạn';
-    default: return 'Không xác định';
-  }
+
+const filterUnapplied = reactive({ name: '', color: null, ram: null, hardDrive: null, gpu: null, cpu: null });
+const uniqueColorsUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.colorName).filter(Boolean))].map(c => ({ label: c, value: c })));
+const uniqueRamsUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.ramName).filter(Boolean))].map(r => ({ label: r, value: r })));
+const uniqueHardDrivesUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.hardDriveName).filter(Boolean))].map(h => ({ label: h, value: h })));
+const uniqueGpusUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.gpuName).filter(Boolean))].map(g => ({ label: g, value: g })));
+const uniqueCpusUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.cpuName).filter(Boolean))].map(c => ({ label: c, value: c })));
+
+const resetUnappliedFilters = () => {
+  filterUnapplied.name = ''; filterUnapplied.color = null; filterUnapplied.ram = null;
+  filterUnapplied.hardDrive = null; filterUnapplied.gpu = null; filterUnapplied.cpu = null;
 };
 
-// Fetch discount data
+const filteredUnapplied = computed(() => {
+  return unappliedProducts.value.filter(item => {
+    const matchName = !filterUnapplied.name || item.productName.toLowerCase().includes(filterUnapplied.name.toLowerCase());
+    const matchColor = !filterUnapplied.color || item.colorName === filterUnapplied.color;
+    const matchRam = !filterUnapplied.ram || item.ramName === filterUnapplied.ram;
+    const matchHDD = !filterUnapplied.hardDrive || item.hardDriveName === filterUnapplied.hardDrive;
+    const matchGPU = !filterUnapplied.gpu || item.gpuName === filterUnapplied.gpu;
+    const matchCPU = !filterUnapplied.cpu || item.cpuName === filterUnapplied.cpu;
+    return matchName && matchColor && matchRam && matchHDD && matchGPU && matchCPU;
+  });
+});
+watch(filteredUnapplied, () => unappliedCurrentPage.value = 1);
+const paginatedUnapplied = computed(() => {
+  const start = (unappliedCurrentPage.value - 1) * unappliedPageSize.value;
+  return filteredUnapplied.value.slice(start, start + unappliedPageSize.value);
+});
+
+const filterApplied = reactive({ name: '', color: null, ram: null, hardDrive: null, gpu: null, cpu: null });
+const uniqueColorsApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.colorName).filter(Boolean))].map(c => ({ label: c, value: c })));
+const uniqueRamsApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.ramName).filter(Boolean))].map(r => ({ label: r, value: r })));
+const uniqueHardDrivesApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.hardDriveName).filter(Boolean))].map(h => ({ label: h, value: h })));
+const uniqueGpusApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.gpuName).filter(Boolean))].map(g => ({ label: g, value: g })));
+const uniqueCpusApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.cpuName).filter(Boolean))].map(c => ({ label: c, value: c })));
+
+const resetAppliedFilters = () => {
+  filterApplied.name = ''; filterApplied.color = null; filterApplied.ram = null;
+  filterApplied.hardDrive = null; filterApplied.gpu = null; filterApplied.cpu = null;
+};
+
+const filteredAppliedProducts = computed(() => {
+  return appliedProducts.value.filter(item => {
+    const matchName = !filterApplied.name || 
+                      item.productName.toLowerCase().includes(filterApplied.name.toLowerCase()) ||
+                      item.productCode.toLowerCase().includes(filterApplied.name.toLowerCase());
+    const matchColor = !filterApplied.color || item.colorName === filterApplied.color;
+    const matchRam = !filterApplied.ram || item.ramName === filterApplied.ram;
+    const matchHDD = !filterApplied.hardDrive || item.hardDriveName === filterApplied.hardDrive;
+    const matchGPU = !filterApplied.gpu || item.gpuName === filterApplied.gpu;
+    const matchCPU = !filterApplied.cpu || item.cpuName === filterApplied.cpu;
+    return matchName && matchColor && matchRam && matchHDD && matchGPU && matchCPU;
+  });
+});
+watch(filteredAppliedProducts, () => appliedCurrentPage.value = 1);
+const paginatedApplied = computed(() => {
+  const start = (appliedCurrentPage.value - 1) * appliedPageSize.value;
+  return filteredAppliedProducts.value.slice(start, start + appliedPageSize.value);
+});
+
+
+watch(checkedProductKeys, async (newKeys, oldKeys) => {
+  const addedIds = newKeys.filter(id => !oldKeys.includes(id));
+  const removedIds = oldKeys.filter(id => !newKeys.includes(id));
+
+  for (const id of addedIds) {
+    await fetchAndAddUnappliedDetails(id.toString());
+  }
+
+  if (removedIds.length > 0) {
+    unappliedProducts.value = unappliedProducts.value.filter(d => 
+      !d._parentId || !removedIds.includes(d._parentId)
+    );
+    selectedUnappliedKeys.value = selectedUnappliedKeys.value.filter(k => 
+      unappliedProducts.value.some(d => d.id === k)
+    );
+  }
+});
+
+const fetchAndAddUnappliedDetails = async (productId: string) => {
+  const parentProduct = allRawProducts.value.find(p => p.id == productId);
+  if (!parentProduct) return;
+
+  try {
+    const res = await getUnappliedProducts(discountId, { page: 1, size: 500, q: parentProduct.productCode });
+    const details = res.items || [];
+    if (details.length > 0) {
+      const correctDetails = details.filter((d: any) => d.productCode === parentProduct.productCode);
+      const detailsWithParent: ExtendedProductDetail[] = correctDetails.map((d: any) => ({...d, _parentId: productId}));
+      const newDetails = detailsWithParent.filter(d => !unappliedProducts.value.some(ex => ex.id === d.id));
+      unappliedProducts.value = [...unappliedProducts.value, ...newDetails];
+      selectedUnappliedKeys.value = [...selectedUnappliedKeys.value, ...newDetails.map(d => d.id)];
+    }
+  } catch (e) { message.error('Lỗi tải biến thể'); }
+};
+
+const clearUnapplied = () => {
+  unappliedProducts.value = [];
+  selectedUnappliedKeys.value = [];
+  checkedProductKeys.value = [];
+};
+
+
+const formData = reactive<UpdateDiscountRequest>({
+  discountName: "", discountCode: "", percentage: 0,
+  startDate: Date.now(), endDate: Date.now() + 86400000, description: ""
+});
+
+const formRules: FormRules = {
+  discountName: [{ required: true, message: "Nhập tên đợt", trigger: "blur" }],
+  startDate: [{ required: true, type: 'number', message: "Chọn ngày bắt đầu", trigger: "blur" }],
+  endDate: [{ required: true, type: 'number', message: "Chọn ngày kết thúc", trigger: "blur" }, { validator: (_r, v) => v > formData.startDate || new Error("Phải sau ngày bắt đầu"), trigger: "blur" }],
+  percentage: [{ required: true, type: 'number', message: "Nhập % giảm", trigger: "blur" }]
+};
+
+
+const formatPrice = (p: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
+
+
 const fetchDiscount = async () => {
-  if (!discountId) {
-    message.error('ID đợt giảm giá không hợp lệ');
-    router.back();
-    return;
-  }
-
+  if (!discountId) return router.back();
   loadingDiscount.value = true;
   try {
     const res = await getAllDiscounts({ page: 1, size: 1000 });
     const discount = res.items.find((item: any) => item.id === discountId);
-    
-    if (!discount) {
-      message.error('Không tìm thấy đợt giảm giá');
-      router.back();
-      return;
-    }
-
+    if (!discount) throw new Error("Not found");
     originalDiscount.value = discount;
-    
-    // Fill form data
-    formData.discountName = discount.discountName;
-    formData.discountCode = discount.discountCode;
-    formData.percentage = discount.percentage;
-    formData.startDate = discount.startTime;
-    formData.endDate = discount.endTime;
-    formData.description = discount.description || '';
-    
-  } catch (error) {
-    console.error('Error fetching discount:', error);
-    message.error('Không thể tải thông tin đợt giảm giá');
-    router.back();
-  } finally {
-    loadingDiscount.value = false;
-  }
+    Object.assign(formData, {
+      discountName: discount.discountName, discountCode: discount.discountCode,
+      percentage: discount.percentage, startDate: discount.startTime,
+      endDate: discount.endTime, description: discount.description || ''
+    });
+  } catch (e) { message.error('Không tìm thấy mã'); router.back(); }
+  finally { loadingDiscount.value = false; }
 };
 
-// Fetch applied products
 const fetchAppliedProducts = async () => {
   loadingApplied.value = true;
   try {
-    const params = {
-      page: appliedCurrentPage.value,
-      size: appliedPageSize.value,
-      q: appliedSearchKeyword.value.trim()
-    };
-    
-    const res = await getAppliedProducts(discountId, params);
-    appliedProducts.value = res.items;
-    appliedTotal.value = res.totalItems;
-  } catch (error) {
-    console.error('Error fetching applied products:', error);
-    message.error('Không thể tải danh sách sản phẩm đã áp dụng');
-    appliedProducts.value = [];
-    appliedTotal.value = 0;
-  } finally {
-    loadingApplied.value = false;
-  }
+    const res = await getAppliedProducts(discountId, { page: 1, size: 2000, q: '' });
+    appliedProducts.value = res.items; 
+  } catch (e) { message.error('Lỗi tải SP đã áp dụng'); } finally { loadingApplied.value = false; }
 };
 
-// Fetch main products
-const fetchProducts = async () => {
-  loadingProducts.value = true;
-  try {
-    const params = {
-      page: productCurrentPage.value,
-      size: productPageSize.value,
-      q: productSearchKeyword.value.trim()
-    };
-    
-    const res = await getAllProducts(params);
-    products.value = res.items;
-    productTotal.value = res.totalItems;
-  } catch (error) {
-    console.error('Error fetching products:', error);
-    message.error('Không thể tải danh sách sản phẩm');
-    products.value = [];
-    productTotal.value = 0;
-  } finally {
-    loadingProducts.value = false;
-  }
-};
 
-// Fetch product details for selected product
-const fetchUnappliedProducts = async () => {
-  if (!selectedProduct.value) return;
-  
-  loadingUnapplied.value = true;
-  try {
-    const params = {
-      page: unappliedCurrentPage.value,
-      size: unappliedPageSize.value,
-      q: ''
-    };
-    
-    const res = await getUnappliedProducts(discountId, params);
-    // Filter by selected product
-    const filteredProducts = res.items.filter((item:any) => 
-      item.productCode === selectedProduct.value?.productCode
-    );
-    
-    unappliedProducts.value = filteredProducts;
-    unappliedTotal.value = filteredProducts.length;
-  } catch (error) {
-    console.error('Error fetching unapplied products:', error);
-    message.error('Không thể tải danh sách sản phẩm chi tiết');
-    unappliedProducts.value = [];
-    unappliedTotal.value = 0;
-  } finally {
-    loadingUnapplied.value = false;
-  }
-};
-
-// Search functions
-const debouncedAppliedSearch = () => {
-  clearTimeout(appliedSearchTimeout);
-  appliedSearchTimeout = setTimeout(() => {
-    appliedCurrentPage.value = 1;
-    fetchAppliedProducts();
-  }, 500);
-};
-
-const debouncedProductSearch = () => {
-  clearTimeout(productSearchTimeout);
-  productSearchTimeout = setTimeout(() => {
-    productCurrentPage.value = 1;
-    fetchProducts();
-  }, 500);
-};
-
-// Page change handlers
-const handleAppliedPageChange = (page: number) => {
-  appliedCurrentPage.value = page;
-  fetchAppliedProducts();
-};
-
-const handleProductPageChange = (page: number) => {
-  productCurrentPage.value = page;
-  fetchProducts();
-};
-
-const handleUnappliedPageChange = (page: number) => {
-  unappliedCurrentPage.value = page;
-  fetchUnappliedProducts();
-};
-
-// Handle product selection
-const handleProductSelect = async (product: ProductResponse) => {
-  selectedProduct.value = product;
-  selectedUnappliedKeys.value = [];
-  unappliedCurrentPage.value = 1;
-  await fetchUnappliedProducts();
-};
-
-// Bulk apply selected products
 const handleBulkApply = async () => {
-  if (selectedUnappliedKeys.value.length === 0) {
-    message.warning('Chưa chọn sản phẩm nào để áp dụng');
-    return;
-  }
-
+  if (!canUpdateProducts.value) return; 
   bulkApplying.value = true;
   try {
-    const productsToApply: Array<{
-      productDetailId: string;
-      originalPrice: number;
-      salePrice: number;
-      description: string;
-    }> = [];
+    const items = selectedUnappliedKeys.value.map(id => {
+      const p = unappliedProducts.value.find(x => x.id.toString() === id.toString());
+      return p ? {
+        productDetailId: p.id.toString(), originalPrice: p.price,
+        salePrice: Math.round(p.price * (100 - formData.percentage) / 100),
+        description: 'Update apply'
+      } : null;
+    }).filter(Boolean);
 
-    selectedUnappliedKeys.value.forEach(id => {
-      const product = unappliedProducts.value.find(p => p.id.toString() === id.toString());
-      if (product) {
-        const salePrice = Math.round(product.price * (100 - formData.percentage) / 100);
-        productsToApply.push({
-          productDetailId: product.id.toString(),
-          originalPrice: product.price,
-          salePrice: salePrice,
-          description: 'Áp dụng từ trang cập nhật'
-        });
-      }
-    });
-
-    if (productsToApply.length > 0) {
-      await applyMultipleProducts(discountId, productsToApply);
-      message.success(`Đã áp dụng giảm giá cho ${productsToApply.length} sản phẩm`);
-      
-      selectedUnappliedKeys.value = [];
-      fetchAppliedProducts();
-      fetchUnappliedProducts();
-    }
-  } catch (error) {
-    console.error('Error bulk applying products:', error);
-    message.error('Có lỗi xảy ra khi áp dụng giảm giá');
-  } finally {
-    bulkApplying.value = false;
-  }
+    await applyMultipleProducts(discountId, items as any);
+    message.success(`Đã thêm ${items.length} sản phẩm`);
+    clearUnapplied(); 
+    fetchAppliedProducts(); 
+  } catch (e) { message.error('Lỗi khi áp dụng'); }
+  finally { bulkApplying.value = false; }
 };
 
-// Remove products from discount
-const handleRemoveProduct = async (productId: string) => {
-  try {
-    await removeProductsFromDiscount(productId);
-    message.success('Đã xóa sản phẩm khỏi đợt giảm giá');
-    
-    // Refresh both tables
-    fetchAppliedProducts();
-    if (selectedProduct.value) {
-      fetchUnappliedProducts();
-    }
-  } catch (error) {
-    console.error('Error removing product:', error);
-    message.error('Không thể xóa sản phẩm khỏi đợt giảm giá');
-  }
-};
-
-// Bulk remove applied products
 const handleBulkRemove = async () => {
-  if (selectedAppliedKeys.value.length === 0) {
-    message.warning('Chưa chọn sản phẩm nào để xóa');
-    return;
-  }
-
+  if (!canUpdateProducts.value) return;
   bulkRemoving.value = true;
   try {
-    const promises = selectedAppliedKeys.value.map(id => 
-      removeProductsFromDiscount(id.toString())
-    );
-    
-    await Promise.all(promises);
-    message.success(`Đã xóa ${selectedAppliedKeys.value.length} sản phẩm khỏi đợt giảm giá`);
-    
+    await Promise.all(selectedAppliedKeys.value.map(id => removeProductsFromDiscount(id.toString())));
+    message.success(`Đã gỡ ${selectedAppliedKeys.value.length} sản phẩm`);
     selectedAppliedKeys.value = [];
     fetchAppliedProducts();
-    if (selectedProduct.value) {
-      fetchUnappliedProducts();
-    }
-  } catch (error) {
-    console.error('Error bulk removing products:', error);
-    message.error('Có lỗi xảy ra khi xóa sản phẩm');
-  } finally {
-    bulkRemoving.value = false;
-  }
+  } catch (e) { message.error('Lỗi khi gỡ nhiều'); } finally { bulkRemoving.value = false; }
 };
 
-// Table columns for main products
+const handleRemoveProduct = async (id: string) => {
+  if (!canUpdateProducts.value) return;
+  try { await removeProductsFromDiscount(id); message.success('Đã gỡ sản phẩm'); fetchAppliedProducts(); } catch (e) { message.error('Lỗi khi gỡ'); }
+};
+
+const handleSubmit = async () => {
+  if (!canUpdateInfo.value) return;
+  try { await formRef.value?.validate(); } catch(e) { return; }
+  submitting.value = true;
+  try {
+    await updateDiscount(discountId, formData);
+    message.success('Cập nhật thành công!');
+    router.back();
+  } catch (e: any) { if(!e.errorFields) message.error(e.message || "Lỗi cập nhật"); }
+  finally { submitting.value = false; }
+};
+
+const handleAppliedPageChange = (p: number) => { appliedCurrentPage.value = p; };
+
 const productColumns: DataTableColumns<ProductResponse> = [
-  {
-    title: "STT",
-    key: "stt",
-    width: 40,
-    align: "center",
-    render(_: ProductResponse, index: number) {
-      return (productCurrentPage.value - 1) * productPageSize.value + index + 1;
-    }
-  },
-  {
-    title: 'Mã sản phẩm',
-    key: 'productCode',
-    width: 120,
-    render(row) {
-      return h('strong', row.productCode);
-    }
-  },
-  {
-    title: 'Tên sản phẩm',
-    key: 'productName',
-    width: 130,
-    ellipsis: { tooltip: true }
-  },
-  {
-    title: 'Thương hiệu',
-    key: 'productBrand',
-    width: 120
-  },
-  {
-    title: 'Thao tác',
-    key: 'actions',
-    width: 60,
-    render(row) {
-      return h(NButton, {
-        size: 'small',
-        type: 'info',
-        secondary: true,
-        onClick: () => handleProductSelect(row)
-      }, {
-        default: () => 'Chọn'
-      });
-    }
-  }
+  { type: 'selection', disabled: () => !canUpdateProducts.value }, 
+   { title: "STT", key: "stt", width: 50, align: "center", render: (_, i) => (productCurrentPage.value - 1) * productPageSize.value + i + 1 },
+  { title: 'Mã', key: 'productCode', width: 100, render: r => h('strong', r.productCode) },
+  { title: 'Tên', key: 'productName', ellipsis: { tooltip: true } },
+  { title: 'Thương hiệu', key: 'productBrand', width: 100 }
 ];
 
-// Table columns for unapplied product details
-const unappliedProductColumns: DataTableColumns<ProductDetailResponse> = [
+const unappliedProductColumns: DataTableColumns<ExtendedProductDetail> = [
   { type: 'selection' },
-  {
-    title: "STT",
-    key: "stt",
-    width: 60,
-    align: "center",
-    render(_: ProductDetailResponse, index: number) {
-      return (unappliedCurrentPage.value - 1) * unappliedPageSize.value + index + 1;
-    }
-  },
-  {
-    title: 'Mã sản phẩm',
-    key: 'productCode',
-    width: 120,
-    render(row) {
-      return h('strong', row.productCode);
-    }
-  },
-  {
-    title: 'Tên sản phẩm',
-    key: 'productName',
-    width: 200,
-    ellipsis: { tooltip: true }
-  },
-  {
-    title: 'Giá hiện tại',
-    key: 'price',
-    width: 120,
-    render(row) {
-      return formatPrice(row.price);
-    }
-  },
-  {
-    title: 'Giá sau giảm',
-    key: 'salePrice',
-    width: 120,
-    render(row) {
-      const salePrice = Math.round(row.price * (100 - formData.percentage) / 100);
-      return h('div', { style: 'color: #f56565; font-weight: 600;' }, formatPrice(salePrice));
-    }
-  },
-  {
-    title: 'Cấu hình',
-    key: 'specs',
-    width: 200,
-    render(row) {
-      const specs = [];
-      if (row.colorName) specs.push(`Màu: ${row.colorName}`);
-      if (row.ramName) specs.push(`RAM: ${row.ramName}`);
-      if (row.hardDriveName) specs.push(`Ổ cứng: ${row.hardDriveName}`);
-      
-      return h('div', { style: 'font-size: 12px; line-height: 1.4' },
-        specs.length > 0 
-          ? specs.slice(0, 2).map(spec => h('div', spec))
-          : '-'
-      );
-    }
-  },
-  {
-    title: 'Thao tác',
-    key: 'actions',
-    width: 100,
-    render(row) {
-      return h(NButton, {
-        size: 'small',
-        type: 'primary',
-        secondary: true,
-        onClick: async () => {
-          try {
-            const salePrice = Math.round(row.price * (100 - formData.percentage) / 100);
-            const productsToApply = [{
-              productDetailId: row.id.toString(),
-              originalPrice: row.price,
-              salePrice: salePrice,
-              description: 'Áp dụng từ trang cập nhật'
-            }];
-
-            await applyMultipleProducts(discountId, productsToApply);
-            message.success('Đã áp dụng giảm giá cho sản phẩm');
-            
-            fetchAppliedProducts();
-            fetchUnappliedProducts();
-          } catch (error) {
-            console.error('Error applying product:', error);
-            message.error('Không thể áp dụng giảm giá cho sản phẩm');
-          }
-        }
-      }, {
-        default: () => 'Áp dụng'
-      });
-    }
+  { title: "STT", width: 50, align: "center", render: (_, i) => (unappliedCurrentPage.value - 1) * unappliedPageSize.value + i + 1 },
+   { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
+  
+  { title: 'Màu', key: 'colorName', align: 'center', render: r => r.colorName || '-' },
+  { title: 'RAM', key: 'ramName', align: 'center', render: r => r.ramName || '-' },
+  { title: 'Ổ cứng', key: 'hardDriveName', align: 'center', render: r => r.hardDriveName || '-' },
+  { title: 'GPU', key: 'gpuName', align: 'center', render: r => r.gpuName || '-' },
+  { title: 'CPU', key: 'cpuName', align: 'center', render: r => r.cpuName || '-' },
+  { title: 'Giá giảm', key: 'salePrice', width: 120, align: 'right', render: r => 
+    h('div', { class: 'price-cell' }, [
+      h('div', { style: 'text-decoration:line-through;color:#999;font-size:11px' }, formatPrice(r.price)),
+      h('div', { style: 'color:#d03050;font-weight:bold' }, formatPrice(Math.round(r.price * (100 - formData.percentage) / 100)))
+    ]) 
   }
 ];
 
 const appliedProductColumns: DataTableColumns<AppliedProductResponse> = [
-  { type: 'selection' },
-  {
-    title: "STT",
-    key: "stt",
-    width: 60,
-    align: "center",
-    render(_: AppliedProductResponse, index: number) {
-      return (appliedCurrentPage.value - 1) * appliedPageSize.value + index + 1;
-    }
+  { type: 'selection', disabled: () => !canUpdateProducts.value },
+  { title: "STT", key: "stt", width: 50, align: "center", render: (_, i) => (appliedCurrentPage.value - 1) * appliedPageSize.value + i + 1 },
+  { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
+  
+
+  { title: 'Màu', key: 'colorName', align: 'center', render: r => r.colorName || '-' },
+  { title: 'RAM', key: 'ramName', align: 'center', render: r => r.ramName || '-' },
+  { title: 'Ổ cứng', key: 'hardDriveName', align: 'center', render: r => r.hardDriveName || '-' },
+  { title: 'GPU', key: 'gpuName', align: 'center', render: r => r.gpuName || '-' },
+  { title: 'CPU', key: 'cpuName', align: 'center', render: r => r.cpuName || '-' },
+  { title: 'Giá giảm', key: 'salePrice', width: 120, align: 'right', render: r => 
+    h('div', [
+      h('div', { style: 'color:#d03050;font-weight:bold' }, formatPrice(Math.round(r.price * (100 - r.percentageDiscount) / 100))),
+      h('div', { style: 'font-size:10px;color:#666' }, `-${r.percentageDiscount}%`)
+    ]) 
   },
-  {
-    title: 'Mã sản phẩm',
-    key: 'productCode',
-    width: 120,
-    render(row) {
-      return h('strong', row.productCode);
-    }
-  },
-  {
-    title: 'Tên sản phẩm',
-    key: 'productName',
-    width: 200,
-    ellipsis: { tooltip: true }
-  },
-  {
-    title: 'Giá gốc',
-    key: 'price',
-    width: 120,
-    render(row) {
-      return h('div', { style: 'text-decoration: line-through; color: #999;' }, formatPrice(row.price));
-    }
-  },
-  {
-    title: 'Giảm giá',
-    key: 'discount',
-    width: 100,
-    render(row) {
-      return `${row.percentageDiscount}%`;
-    }
-  },
-  {
-    title: 'Giá sau giảm',
-    key: 'salePrice',
-    width: 120,
-    render(row) {
-      const salePrice = Math.round(row.price * (100 - row.percentageDiscount) / 100);
-      return h('div', { style: 'color: #f56565; font-weight: 600;' }, formatPrice(salePrice));
-    }
-  },
-  {
-    title: 'Thời gian áp dụng',
-    key: 'timeRange',
-    width: 200,
-    render(row) {
-      return h('div', { style: 'font-size: 12px; line-height: 1.4;' }, [
-        h('div', `${formatDateTime(row.startTime)}`),
-        h('div', `đến ${formatDateTime(row.endTime)}`)
-      ]);
-    }
-  },
-  {
-    title: 'Thao tác',
-    key: 'actions',
-    width: 100,
-    render(row) {
-      return h(NPopconfirm, {
-        onPositiveClick: () => handleRemoveProduct(row.id),
-        positiveText: 'Xác nhận',
-        negativeText: 'Hủy'
-      }, {
-        trigger: () => h(NButton, {
-          size: 'small',
-          type: 'error',
-          quaternary: true
-        }, {
-          default: () => h(Icon, { icon: 'carbon:trash-can', width: '16' })
-        }),
-        default: () => 'Xác nhận xóa sản phẩm khỏi đợt giảm giá?'
-      });
+  { 
+    title: '', 
+    key: 'actions', 
+    width: 60, 
+    render: r => {
+
+      if (!canUpdateProducts.value) return null;
+      return h(NPopconfirm, { onPositiveClick: () => handleRemoveProduct(r.id), positiveText: 'Xóa', negativeText: 'Hủy' }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true, circle: true }, { icon: () => h(Icon, { icon: 'carbon:trash-can' }) }), default: () => 'Gỡ sản phẩm này?' });
     }
   }
 ];
 
-// Submit form
-const handleSubmit = async () => {
-  submitting.value = true;
-  
-  try {
-    await updateDiscount(discountId, formData);
-    message.success('Đã cập nhật đợt giảm giá thành công');
-    router.back();
-    
-  } catch (error: any) {
-    console.error('Update error:', error);
-    message.error(error?.message || "Có lỗi xảy ra khi cập nhật đợt giảm giá");
-  } finally {
-    submitting.value = false;
-  }
-};
-
-// Watch percentage changes to update sale prices
 watch(() => formData.percentage, () => {
-  // Force re-render of unapplied products table to show updated sale prices
-  if (unappliedProducts.value.length > 0) {
-    unappliedProducts.value = [...unappliedProducts.value];
-  }
+  if (unappliedProducts.value.length > 0) unappliedProducts.value = [...unappliedProducts.value];
 });
 
-onMounted(() => {
-  fetchDiscount();
-  fetchAppliedProducts();
-  fetchProducts();
-});
+onMounted(() => { fetchDiscount(); fetchAppliedProducts(); fetchProducts(); });
 </script>
 
 <style scoped>
-/* Form row layout */
-.form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-:deep(.n-card .n-card__content) {
-  padding: 20px;
-}
-
-:deep(.n-form-item-label) {
-  font-weight: 500;
-}
-
-:deep(.n-input-number) {
-  width: 100%;
-}
-
-:deep(.n-date-picker) {
-  width: 100%;
-}
-
-.flex {
-  display: flex;
-}
-
-.justify-center {
-  justify-content: center;
-}
-
-.mt-4 {
-  margin-top: 16px;
-}
-
-@media (max-width: 1200px) {
-  div[style*="grid-template-columns: 400px 1fr"] {
-    grid-template-columns: 1fr !important;
-  }
-}
+.mb-4 { margin-bottom: 16px; } .mb-2 { margin-bottom: 8px; }
+.header-title { font-weight: 600; font-size: 20px; margin-left: 8px; }
+.sub-title { color: #666; font-size: 13px; }
+.main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }
+.filter-label { font-size: 11px; color: #666; margin-bottom: 2px; font-weight: 500; }
+:deep(.n-card .n-card__content) { padding: 20px; } :deep(.n-form-item-label) { font-weight: 500; }
+@media (max-width: 1024px) { .main-layout { grid-template-columns: 1fr; } }
 </style>

@@ -1,15 +1,20 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
+import com.sd20201.datn.core.admin.products.product.model.response.ADPRPropertyComboboxResponse;
 import com.sd20201.datn.repository.BrandRepository;
+import org.springframework.data.jpa.repository.Query;
+
+import java.util.List;
 
 public interface ADPDBrandRepository extends BrandRepository {
 
-//    @Query(value = """
-//    SELECT
-//        b.id as value
-//        , b.name as label
-//    FROM Brand b
-//    """)
-//    List<ADPRPropertyComboboxResponse> getBrandComboboxResponse();
+    @Query(value = """
+    SELECT
+        b.id as value
+        , b.name as label
+    FROM Brand b
+    ORDER BY b.createdDate desc
+    """)
+    List<ADPRPropertyComboboxResponse> getBrandComboboxResponse();
 
 }

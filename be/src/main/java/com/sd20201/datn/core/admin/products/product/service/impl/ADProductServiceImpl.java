@@ -10,21 +10,33 @@ import com.sd20201.datn.core.admin.products.product.repository.ADProductReposito
 import com.sd20201.datn.core.admin.products.product.service.ADProductService;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import com.sd20201.datn.core.common.cloudinary.model.response.CloudinaryResponse;
+import com.sd20201.datn.core.common.cloudinary.service.CloudinaryService;
 import com.sd20201.datn.entity.Battery;
 import com.sd20201.datn.entity.Brand;
+import com.sd20201.datn.entity.ImageProduct;
 import com.sd20201.datn.entity.OperatingSystem;
 import com.sd20201.datn.entity.Product;
 import com.sd20201.datn.entity.Screen;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
+import com.sd20201.datn.repository.ImageProductRepository;
+import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ADProductServiceImpl implements ADProductService {
 
     private final ADProductRepository productRepository;
@@ -36,6 +48,10 @@ public class ADProductServiceImpl implements ADProductService {
     private final ADPROperatingSystemRepository operatingSystemRepository;
 
     private final ADPRBatteryRepository batteryRepository;
+
+    private final CloudinaryService cloudinaryService;
+
+    private final ImageProductRepository imageProductRepository;
 
     @Override
     public ResponseObject<?> getProducts(ADProductRequest request) {
@@ -64,26 +80,27 @@ public class ADProductServiceImpl implements ADProductService {
     }
 
     @Override
-    public ResponseObject<?> modify(ADProductCreateUpdateRequest request) {
-        return request.getId() == null || request.getId().isEmpty()   ? create(request) : update(request);
+    public ResponseObject<?> modify(ADProductCreateUpdateRequest request, List<MultipartFile> images) {
+        return request.getId() == null || request.getId().isEmpty() ? create(request, images) : update(request);
     }
 
-    public ResponseObject<?> create(ADProductCreateUpdateRequest request) {
+    public ResponseObject<?> create(ADProductCreateUpdateRequest request, List<MultipartFile> images) {
 
         Optional<Product> optionalProduct = productRepository.findByCode(request.getCode());
-        if (optionalProduct.isPresent()) return ResponseObject.errorForward("Create product failure !!! Duplicate code", HttpStatus.CONFLICT);
+        if (optionalProduct.isPresent())
+            return ResponseObject.errorForward("Create product failure !!! Duplicate code", HttpStatus.CONFLICT);
 
         Optional<Screen> optionalScreen = screenRepository.findById(request.getIdScreen());
-        if(optionalScreen.isEmpty()) return ResponseObject.errorForward("Screen not found", HttpStatus.NOT_FOUND);
+        if (optionalScreen.isEmpty()) return ResponseObject.errorForward("Screen not found", HttpStatus.NOT_FOUND);
 
         Optional<Battery> optionalBattery = batteryRepository.findById(request.getIdBattery());
-        if(optionalBattery.isEmpty()) return ResponseObject.errorForward("Battery not found", HttpStatus.NOT_FOUND);
+        if (optionalBattery.isEmpty()) return ResponseObject.errorForward("Battery not found", HttpStatus.NOT_FOUND);
 
         Optional<OperatingSystem> optionalOS = operatingSystemRepository.findById(request.getIdOperatingSystem());
-        if(optionalOS.isEmpty()) return ResponseObject.errorForward("OperatingSystem not found", HttpStatus.NOT_FOUND);
+        if (optionalOS.isEmpty()) return ResponseObject.errorForward("OperatingSystem not found", HttpStatus.NOT_FOUND);
 
         Optional<Brand> optionalBrand = brandRepository.findById(request.getIdBrand());
-        if(optionalBrand.isEmpty()) return ResponseObject.errorForward("Brand not found", HttpStatus.NOT_FOUND);
+        if (optionalBrand.isEmpty()) return ResponseObject.errorForward("Brand not found", HttpStatus.NOT_FOUND);
 
         Product product = new Product();
 
@@ -94,47 +111,24 @@ public class ADProductServiceImpl implements ADProductService {
         product.setOperatingSystem(optionalOS.get());
         product.setBattery(optionalBattery.get());
 
-        return ResponseObject.successForward(productRepository.save(product), "Create product success");
-    }
+        final Product productEntity = productRepository.save(product);
 
-    public ResponseObject<?> update(ADProductCreateUpdateRequest request) {
+        AtomicInteger count = new AtomicInteger(1);
+        for (MultipartFile imageProduct : images) {
+            CloudinaryResponse uploadImageMain = uploadImage(imageProduct);
 
-        Optional<Product> optionalProduct = productRepository.findById(request.getId());
-        if(optionalProduct.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND);
+            ImageProduct imageMainProduct = new ImageProduct();
 
-        Product product = optionalProduct.get();
+            imageMainProduct.setProduct(productEntity);
+            imageMainProduct.setIndex(count.getAndIncrement());
+            imageMainProduct.setCloudinaryImageId(uploadImageMain.getPublicId());
+            imageMainProduct.setUrl(uploadImageMain.getUrl());
 
-        if(!product.getScreen().getId().equals(request.getIdScreen())) {
-            Optional<Screen> optionalScreen = screenRepository.findById(request.getIdScreen());
-            if (optionalScreen.isEmpty()) return ResponseObject.errorForward("Screen not found", HttpStatus.NOT_FOUND);
-
-            product.setScreen(optionalScreen.get());
+            imageProductRepository.save(imageMainProduct);
+            log.info("save image product: {}", uploadImageMain);
         }
 
-        if(!product.getBattery().getId().equals(request.getIdBattery())) {
-            Optional<Battery> optionalBattery = batteryRepository.findById(request.getIdBattery());
-            if (optionalBattery.isEmpty())
-                return ResponseObject.errorForward("Battery not found", HttpStatus.NOT_FOUND);
-
-            product.setBattery(optionalBattery.get());
-        }
-
-        if(!product.getOperatingSystem().getId().equals(request.getIdOperatingSystem())) {
-            Optional<OperatingSystem> optionalOS = operatingSystemRepository.findById(request.getIdOperatingSystem());
-            if (optionalOS.isEmpty())
-                return ResponseObject.errorForward("OperatingSystem not found", HttpStatus.NOT_FOUND);
-
-            product.setOperatingSystem(optionalOS.get());
-        }
-
-        if(!product.getBrand().getId().equals(request.getIdBrand())) {
-            Optional<Brand> optionalBrand = brandRepository.findById(request.getIdBrand());
-            if (optionalBrand.isEmpty()) return ResponseObject.errorForward("Brand not found", HttpStatus.NOT_FOUND);
-
-            product.setBrand(optionalBrand.get());
-        }
-
-        return ResponseObject.successForward(productRepository.save(product), "Update product success");
+        return ResponseObject.successForward(product.getId(), "Create product success");
     }
 
     @Override
@@ -155,5 +149,59 @@ public class ADProductServiceImpl implements ADProductService {
     @Override
     public ResponseObject<?> getOperatingSystems() {
         return ResponseObject.successForward(operatingSystemRepository.getOperatingSystemComboboxResponse(), "Get operating_systems success");
+    }
+
+    private CloudinaryResponse uploadImage(MultipartFile image) {
+        FileUploadUtil.assertAllowed(image, FileUploadUtil.IMAGE_PATTERN);
+        String filename = FileUploadUtil.getFilename(image.getOriginalFilename());
+
+        return cloudinaryService.upload(image, filename);
+    }
+
+    @Override
+    public ResponseObject<?> update(ADProductCreateUpdateRequest request) {
+        Optional<Product> optionalProduct = productRepository.findById(request.getId());
+        if (optionalProduct.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND);
+
+        Product product = optionalProduct.get();
+
+        if (!product.getScreen().getId().equals(request.getIdScreen())) {
+            Optional<Screen> optionalScreen = screenRepository.findById(request.getIdScreen());
+            if (optionalScreen.isEmpty()) return ResponseObject.errorForward("Screen not found", HttpStatus.NOT_FOUND);
+
+            product.setScreen(optionalScreen.get());
+        }
+
+        if (!product.getBattery().getId().equals(request.getIdBattery())) {
+            Optional<Battery> optionalBattery = batteryRepository.findById(request.getIdBattery());
+            if (optionalBattery.isEmpty())
+                return ResponseObject.errorForward("Battery not found", HttpStatus.NOT_FOUND);
+
+            product.setBattery(optionalBattery.get());
+        }
+
+        if (!product.getOperatingSystem().getId().equals(request.getIdOperatingSystem())) {
+            Optional<OperatingSystem> optionalOS = operatingSystemRepository.findById(request.getIdOperatingSystem());
+            if (optionalOS.isEmpty())
+                return ResponseObject.errorForward("OperatingSystem not found", HttpStatus.NOT_FOUND);
+
+            product.setOperatingSystem(optionalOS.get());
+        }
+
+        if (!product.getBrand().getId().equals(request.getIdBrand())) {
+            Optional<Brand> optionalBrand = brandRepository.findById(request.getIdBrand());
+            if (optionalBrand.isEmpty()) return ResponseObject.errorForward("Brand not found", HttpStatus.NOT_FOUND);
+
+            product.setBrand(optionalBrand.get());
+        }
+
+        product.setName(request.getName());
+
+        return ResponseObject.successForward(productRepository.save(product).getId(), "Update product success");
+    }
+
+    @Override
+    public ResponseObject<?> getProductsCombobox() {
+        return ResponseObject.successForward(productRepository.getPropertyCombobox(), "OKE");
     }
 }
