@@ -18,16 +18,16 @@ import org.springframework.web.multipart.MultipartFile;
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_PRODUCTS_DETAIL + "/imei")
 @RequiredArgsConstructor
 public class ImeiController {
-
-    private final IMEIExcelService imeiExcelService;
-
-    @GetMapping("/download-template")
-    public ResponseEntity<?> downloadTemplate(EXDataRequest request) {
-        return imeiExcelService.downloadTemplate(request);
-    }
-
-    @PostMapping("/import")
-    public ResponseEntity<?> importTemplate(@RequestParam("file") MultipartFile file) {
-        return Helper.createResponseEntity(imeiExcelService.importExcelIMEI(file));
-    }
+//
+//    private final IMEIExcelService imeiExcelService;
+//
+//    @GetMapping("/download-template")
+//    public ResponseEntity<?> downloadTemplate(EXDataRequest request) {
+//        return imeiExcelService.downloadTemplate(request);
+//    }
+//
+//    @PostMapping("/import")
+//    public ResponseEntity<?> importTemplate(@RequestParam("file") MultipartFile file) {
+//        return Helper.createResponseEntity(imeiExcelService.importExcelIMEI(file));
+//    }
 }
