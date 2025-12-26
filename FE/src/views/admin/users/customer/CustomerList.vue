@@ -157,7 +157,7 @@ function printDataToWindow(dataList: Customer[]) {
 
 const exportOptions = [
   { label: `Xuất trang hiện tại`, key: 'current' },
-  { label: 'Xuất theo bộ lọ', key: 'filtered' },
+  { label: 'Xuất theo bộ lọc', key: 'filtered' },
   { label: 'Xuất TOÀN BỘ DỮ LIỆU', key: 'all', props: { style: { color: '#d03050', fontWeight: 'bold' } } },
 ]
 
