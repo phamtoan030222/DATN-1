@@ -14,6 +14,8 @@ export const API_ADMIN_RAM = `${API_ADMIN_PRODUCTS}/ram` as string
 export const API_ADMIN_HARD_DRIVE = `${API_ADMIN_PRODUCTS}/harddrive` as string
 export const API_ADMIN_MATERIAL = `${API_ADMIN_PRODUCTS}/material` as string
 
+export const API_ADMIN_SALES = `${PREFIX_API_ADMIN}/sales` as string
+
 export const API_ADMIN_PRODUCT_CPU = `${API_ADMIN_PRODUCTS}/cpu` as string
 export const API_ADMIN_PRODUCT_GPU = `${API_ADMIN_PRODUCTS}/gpu` as string
 export const API_ADMIN_PRODUCT_SCREEN
@@ -27,10 +29,10 @@ export const API_ADMIN_BATTERY = `${API_ADMIN_PRODUCTS}/battery` as string
 export const API_ADMIN_DISCOUNT
   = `${PREFIX_API_ADMIN}/discounts/discount` as string
 
-export const API_ADMIN_PRODUCT_VOUCHER =
-  `${API_ADMIN_PRODUCTS}/voucher` as string;
-  export const API_ADMIN_CUSTOMERS = `${PREFIX_API_ADMIN}/customers` as string
+export const API_ADMIN_PRODUCT_VOUCHER
+  = `${API_ADMIN_PRODUCTS}/voucher` as string
 
+export const API_ADMIN_CUSTOMERS = `${PREFIX_API_ADMIN}/customers` as string
 
 export const API_ADMIN_CUSTOMER_ADDRESSES = (customerId: string) => `${API_ADMIN_CUSTOMERS}/${customerId}/addresses`
 
@@ -40,4 +42,6 @@ export const API_ADMIN_DISCOUNTS = `${PREFIX_API_ADMIN}/discounts` as string
 
 export const API_ADMIN_DISCOUNTS_VOUCHER
   = `${API_ADMIN_DISCOUNTS}/voucher` as string
+
+// export const API_ADMIN_SALES = `${}`
 

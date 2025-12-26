@@ -46,7 +46,7 @@ public class Voucher extends PrimaryEntity implements Serializable {
     private BigDecimal conditions; //điều kiện nhận
 
     @Enumerated(EnumType.ORDINAL)
-    private TargetType targetType; // Enum: LIMITED_BY_CONDITION, INDIVIDUAL, ALL_CUSTOMERS
+    private TargetType targetType; // Enum: INDIVIDUAL, ALL_CUSTOMERS
 
     private String note;
 

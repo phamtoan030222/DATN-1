@@ -11,6 +11,7 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import net.minidev.json.annotate.JsonIgnore;
 
 import java.io.Serializable;
 
@@ -24,15 +25,20 @@ public class VoucherDetail extends PrimaryEntity implements Serializable {
 
     @ManyToOne
     @JoinColumn(name = "id_voucher", referencedColumnName = "id")
+    @JsonIgnore
     private Voucher voucher;
 
     @ManyToOne
     @JoinColumn(name = "id_customer", referencedColumnName = "id")
     private Customer customer;
 
+    private Long usedDate;
+
     private Boolean usageStatus;
 
     @Column(length = EntityProperties.LENGTH_DESCRIPTION)
     private String description;
 
+    @Column(name = "id_invoice")
+    private String invoiceId;
 }

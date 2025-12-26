@@ -127,7 +127,7 @@ function printDataToWindow(dataList: Customer[]) {
           th, td { border: 1px solid #000; padding: 6px 8px; text-align: left; vertical-align: top; }
           th { background-color: #f0f0f0; text-align: center; font-weight: bold; }
           .footer { margin-top: 20px; text-align: right; font-style: italic; font-size: 11px; }
-          th:first-child, td:first-child { width: 40px; text-align: center; } 
+          th:first-child, td:first-child { width: 40px; text-align: center; }
         </style>
       </head>
       <body>

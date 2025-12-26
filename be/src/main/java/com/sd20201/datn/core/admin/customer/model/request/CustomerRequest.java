@@ -7,9 +7,16 @@ import lombok.Setter;
 @Getter
 @Setter
 public class CustomerRequest extends PageableRequest {
-private String customerName;
+    private String keyword;
 
-private Integer  customerStatus;
+    private Integer customerStatus;
 
-private Boolean customerGender;
+    private Boolean customerGender;
+
+    public String getKeyword() {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return null;
+        }
+        return keyword.trim();
+    }
 }

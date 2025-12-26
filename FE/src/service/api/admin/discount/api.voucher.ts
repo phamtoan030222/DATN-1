@@ -16,7 +16,7 @@ export interface ADVoucherQuery {
   endDate?: number
 }
 
-// Dữ liệu dùng cho UI (voucherUsers là mảng id KH để bind selection)
+// Dữ liệu dùng cho UI
 export interface ADVoucherResponse {
   id?: string
   code: string
@@ -33,10 +33,10 @@ export interface ADVoucherResponse {
   conditions: number | null
   note: string | null
   status: string | null
-  voucherUsers?: string[] | null // <-- chỉ id KH cho UI
+  voucherUsers?: string[] | null
 }
 
-// Payload gửi BE khi tạo/sửa
+// Payload gửi BE
 export interface ADVoucherUpsertPayload {
   name: string
   typeVoucher: 'PERCENTAGE' | 'FIXED_AMOUNT'
@@ -47,20 +47,19 @@ export interface ADVoucherUpsertPayload {
   startDate: number
   endDate: number
   note?: string | null
-  quantity?: number | null // ALL_CUSTOMERS
-  voucherUsers?: { customer: { id: string } }[] // INDIVIDUAL
+  quantity?: number | null
+  voucherUsers?: { customer: { id: string } }[]
 }
 
 /* ===================== API ===================== */
 
-// List vouchers (trả {content, totalElements} cho table)
 export async function getVouchers(params: ADVoucherQuery) {
   try {
     const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}`, {
       method: 'GET',
       params,
     })
-    const apiResponse = res.data // { status, data: { data, totalElements, ... }, message }
+    const apiResponse = res.data
     const innerData = apiResponse?.data || {}
 
     let content: ADVoucherResponse[] = []
@@ -71,13 +70,8 @@ export async function getVouchers(params: ADVoucherQuery) {
 
     const totalElements = innerData.totalElements ?? content.length ?? 0
 
-    // có thể map thêm field nếu BE khác tên:
     content = content.map(item => ({
       ...item,
-      // ví dụ alias nếu FE cũ dùng tên khác:
-      // conditionOfUse: item.conditions,
-      // startTime: item.startDate,
-      // endTime: item.endDate,
     }))
 
     return { content, totalElements }
@@ -88,7 +82,6 @@ export async function getVouchers(params: ADVoucherQuery) {
   }
 }
 
-// Detail
 export async function getVoucherById(id: string) {
   const res = await request<DefaultResponse<ADVoucherResponse>>({
     url: `${API_ADMIN_DISCOUNTS_VOUCHER}/${id}`,
@@ -97,7 +90,6 @@ export async function getVoucherById(id: string) {
   return res.data
 }
 
-// Toggle status (BE của bạn PATCH /{id}/status tự đảo trạng thái → không cần body)
 export async function updateVoucherStatus(id: string) {
   const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}/status`, {
     method: 'PATCH',
@@ -105,38 +97,62 @@ export async function updateVoucherStatus(id: string) {
   return res.data
 }
 
-// Xoá 1
 export async function deleteVoucher(id: string) {
   return axios.delete(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}`)
 }
 
-// Xoá nhiều
 export async function deleteVouchers(ids: string[]) {
   return axios.delete(`${API_ADMIN_DISCOUNTS_VOUCHER}`, { data: ids })
 }
 
-// Thêm
 export function createVoucher(data: ADVoucherUpsertPayload) {
   return request.post(`${API_ADMIN_DISCOUNTS_VOUCHER}`, data)
 }
 
-// Sửa
 export function updateVoucher(id: string, data: ADVoucherUpsertPayload) {
   return request.put(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}`, data)
 }
 
+// 2 API Start/End
+export async function updateVoucherToStart(id: string) {
+  const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}/start`, { method: 'PATCH' })
+  return res.data
+}
+
+export async function updateVoucherToEnd(id: string) {
+  const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}/end`, { method: 'PATCH' })
+  return res.data
+}
+
 /* ====== Lấy khách hàng của một voucher (cho màn sửa) ====== */
-// Trả về mảng Customer chuẩn hoá để FE hiển thị
 export async function getVoucherCustomers(voucherId: string, onlyUsed = false): Promise<Customer[]> {
   const res = await request(`${API_ADMIN_DISCOUNTS_VOUCHER}/${voucherId}/customers`, {
     method: 'GET',
     params: { onlyUsed },
   })
   const root = res.data
-  const raw = Array.isArray(root?.data) ? root.data : (Array.isArray(root) ? root : [])
+
+  // --- SỬA LOGIC LẤY DỮ LIỆU TẠI ĐÂY ---
+  let raw: any[] = []
+
+  // Trường hợp 1: Backend trả về PageableObject (có data.data là mảng)
+  if (root?.data?.data && Array.isArray(root.data.data)) {
+    raw = root.data.data
+  }
+  // Trường hợp 2: Backend trả về List trực tiếp trong data
+  else if (Array.isArray(root?.data)) {
+    raw = root.data
+  }
+  // Trường hợp 3: Backend trả về mảng ngay root (ít gặp với format response của bạn)
+  else if (Array.isArray(root)) {
+    raw = root
+  }
+
   return raw
     .map((x: any) => ({
+      // Map linh hoạt các trường ID
       id: String(x.id ?? x.customerId ?? x.code ?? ''),
+      // Map linh hoạt tên
       customerName: x.customerName ?? x.name ?? 'Khách hàng',
       customerEmail: x.customerEmail ?? x.email ?? '',
       customerPhone: x.customerPhone ?? x.phone ?? '',

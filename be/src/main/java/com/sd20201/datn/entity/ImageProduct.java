@@ -23,12 +23,15 @@ import java.io.Serializable;
 public class ImageProduct extends PrimaryEntity implements Serializable {
 
     @ManyToOne
-    @JoinColumn(name = "id_product_detail")
-    private ProductDetail productDetail;
+    @JoinColumn(name = "id_product", referencedColumnName = "id")
+    private Product product;
 
     private Integer index;
 
     @Column(length = EntityProperties.LENGTH_URL)
     private String url;
+
+    @Column(length = 255)
+    private String cloudinaryImageId;
 
 }

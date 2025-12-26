@@ -10,6 +10,7 @@ public interface ADPDColorRepository extends ColorRepository {
 
     @Query(value = """ 
     SELECT c.id as value, c.name as label FROM Color c
+    ORDER BY c.createdDate desc
     """)
     List<ADPDPropertyComboboxResponse> getColors();
 
