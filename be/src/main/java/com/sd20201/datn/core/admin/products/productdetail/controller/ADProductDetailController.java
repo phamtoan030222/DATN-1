@@ -86,9 +86,14 @@ public class ADProductDetailController {
         return Helper.createResponseEntity(productDetailService.update(request));
     }
 
+//    @PostMapping(value = "/variant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+//    ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ADPDVariantRequest variant, @RequestPart List<MultipartFile> images) {
+//        return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant, images));
+//    }
+
     @PostMapping(value = "/variant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ADPDVariantRequest variant, @RequestPart List<MultipartFile> images) {
-        return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant, images));
+    ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ADPDVariantRequest variant) {
+        return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant));
     }
 
     @PostMapping("/imei-exists")
@@ -114,5 +119,10 @@ public class ADProductDetailController {
     @GetMapping("/imei/change-status/{idImei}")
     ResponseEntity<?> changeStatusImei(@PathVariable String idImei) {
         return Helper.createResponseEntity(productDetailService.changeStatusImei(idImei));
+    }
+
+    @PostMapping("/save-image")
+    ResponseEntity<?> saveImage(@RequestPart MultipartFile file) {
+        return Helper.createResponseEntity(productDetailService.saveImage(file));
     }
 }

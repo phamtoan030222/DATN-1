@@ -34,7 +34,8 @@ public interface ADProductDetailService {
 
     ResponseObject<?> modify(ADPDProductDetailCreateUpdateRequest request);
 
-    ResponseObject<?> createVariant(String idProduct,ADPDVariantRequest variant,List<MultipartFile> images);
+//    ResponseObject<?> createVariant(String idProduct,ADPDVariantRequest variant,List<MultipartFile> images);
+    ResponseObject<?> createVariant(String idProduct,ADPDVariantRequest variant);
 
     ResponseObject<?> isIMEIExist(List<String> ids);
 
@@ -47,4 +48,6 @@ public interface ADProductDetailService {
     ResponseObject<?> changeStatusImei(String idImei);
 
     ResponseObject<?> update(ADPDProductDetailCreateUpdateRequest request);
+
+    ResponseObject<?> saveImage(MultipartFile file);
 }

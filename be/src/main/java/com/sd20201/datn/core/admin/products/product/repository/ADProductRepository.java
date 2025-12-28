@@ -100,7 +100,7 @@ public interface ADProductRepository extends ProductRepository {
     Optional<Product> findByCode(String code);
 
     @Query(value = """
-    SELECT p.id as value, p.code as label FROM Product p
+    SELECT p.id as value, p.name as label FROM Product p
     ORDER BY p.createdDate DESC
     """)
     List<ADPRPropertyComboboxResponse> getPropertyCombobox();

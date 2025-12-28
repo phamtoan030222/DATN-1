@@ -219,13 +219,14 @@
 
 <script lang="ts" setup>
 import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens, modifyProduct } from '@/service/api/admin/product/product.api'
-import { ADProductDetailCreateUpdateRequest, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs } from '@/service/api/admin/product/productDetail.api'
+import { ADProductDetailCreateUpdateRequest, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs, saveImage } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
 import { DataTableColumns, FormInst, FormRules, NButton, NInput, NInputNumber, NSpace, NUpload, UploadFileInfo } from 'naive-ui'
 import { Reactive } from 'vue'
 import ADImeiProductDetail from './ADImeiProductDetail.vue'
 import QuickAddModal from './QuickAddModal.vue'
 import { ProductPropertiesType } from '@/constants/ProductPropertiesType'
+import _ from 'lodash'
 
 const route = useRoute()
 
@@ -356,6 +357,8 @@ type ADPRTableProductDetail = {
     idHardDrive: string
     price?: number
     imei?: string[],
+    urlImage?: string,
+    publicId?: string,
 }
 
 const productDetails: Reactive<ADPRTableProductDetail[]> = reactive([])
@@ -418,7 +421,7 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         render: (data, index) => h(NSpace, { justify: 'center' },
             [
                 h(NButton, { quaternary: true, circle: true, onClick: () => { openModalIMEIProduct(data.idColor, index) } }, h(Icon, { icon: 'mdi:barcode-scan' })),
-                h(NButton, { quaternary: true, circle: true, onClick: () => { productDetails.splice(index, 1) } }, h(Icon, { icon: 'mdi:delete' })),
+                h(NButton, { quaternary: true, circle: true, onClick: () => { deleteProductDetail(data.idColor, index) } }, h(Icon, { icon: 'mdi:delete' })),
             ]
         )
     },
@@ -536,11 +539,24 @@ const submitVariantHandler = async () => {
             idNewProduct = idProduct.value;
         }
 
+        const requestImages = Object.entries(imageProductDetails).map(([idColor, image]) => saveImage(image));
+        const imagesResponses = await Promise.all(requestImages);
+
+        imagesResponses.forEach((res, index) => {
+            const idColor = Object.keys(imageProductDetails)[index];
+            const cloudirayResponse = res.data;
+            productDetails.forEach(productDetail => {
+                if (productDetail.idColor === idColor) {
+                    productDetail.urlImage = cloudirayResponse.url;
+                    productDetail.publicId = cloudirayResponse.publicId;
+                }
+            });
+        });
+
         const requests = productDetails.map((productDetail, index) =>
             createProductVariant(
                 idNewProduct!,
                 productDetail as ADProductDetailCreateUpdateRequest,
-                imageProductDetails[productDetail.idColor] ? [imageProductDetails[productDetail.idColor]] : []
             )
         );
 
@@ -585,12 +601,12 @@ const validateSubmitVariantHandler: () => boolean = () => {
         return false;
     }
 
-    if (Object.keys(imageProductDetails).length < productDetails.length) {
+    if (Object.values(imageProductDetails).some(image => !image)) {
         notification.error({ content: 'Vui lòng thêm ảnh cho tất cả biến thể', duration: 3000 })
         return false;
     }
 
-    if (Object.values(imageProductDetails).some(image => !image)) {
+    if (Object.values(imageProductDetails).length != _.uniq(productDetails.map(pd => pd.idColor)).length) {
         notification.error({ content: 'Vui lòng thêm ảnh cho tất cả biến thể', duration: 3000 })
         return false;
     }
@@ -696,6 +712,18 @@ const rulesDataVariant: FormRules = {
     idHardDrive: [
         { type: 'array', required: true, message: 'Vui lòng chọn ổ cứng', trigger: 'change' },
     ],
+}
+
+const deleteProductDetail = (idColor: string, index: number) => {
+    const indexIdColor = productDetails.map((productDetail, index) => ({ idColor: productDetail.idColor, index }))
+        .filter(productDetail => productDetail.idColor === idColor).map((indexObj) => indexObj.index)[0]
+
+    productDetails.splice(indexIdColor + index, 1)
+
+    const stateIndex = statePaginationVariantByColor.findIndex(state => state.idColor === idColor)
+    if (stateIndex !== -1) {
+        statePaginationVariantByColor.splice(stateIndex, 1)
+    }
 }
 </script>
 

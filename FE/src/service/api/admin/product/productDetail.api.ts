@@ -29,6 +29,8 @@ export type ADProductDetailCreateUpdateRequest = {
   idCPU: string;
   price: number;
   description?: string;
+  publicId?: string;
+  urlImage?: string;
 }
 
 export type ADProductDetailResponse = {
@@ -161,12 +163,11 @@ export const modifyProductDetail = async (data: ADProductDetailCreateUpdateReque
   return res.data
 }
 
-export const createProductVariant = async (idProduct: string, variant: ADProductDetailCreateUpdateRequest, images: any[]) => {
-
+export const createProductVariant = async (idProduct: string, variant: ADProductDetailCreateUpdateRequest) => {
   const formData = new FormData();
   formData.append('variant', new Blob([JSON.stringify(variant)], { type: 'application/json' }));
   formData.append('idProduct', new Blob([idProduct], { type: 'application/json' }));
-  images.forEach(image => formData.append('images', image))
+  // images.forEach(image => formData.append('images', image))
 
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_DETAIL}/variant`,
@@ -258,6 +259,23 @@ export const changeStatusImei = async (idProductDetail: string) => {
     url: `${API_ADMIN_PRODUCT_DETAIL}/imei/change-status/${idProductDetail}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<string>>
+
+  return res.data
+}
+
+export const saveImage = async (file: any) => {
+  const formData = new FormData();
+
+  formData.append('file', file);
+
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/save-image`,
+    method: 'POST',
+    data: formData,
+    headers: {
+      "Content-Type": "multipart/form-data"
+    }
+  })) as AxiosResponse<DefaultResponse<{publicId: string, url: string}>>
 
   return res.data
 }
