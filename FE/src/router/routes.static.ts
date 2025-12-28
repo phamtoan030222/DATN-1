@@ -1,51 +1,17 @@
 export const staticRoutes: AppRoute.RowRoute[] = [
   // Bàn làm việc
   {
-    name: 'dashboard',
-    path: '/dashboard',
-    title: 'Bàn làm việc',
-    requiresAuth: true,
-    icon: 'icon-park-outline:database-network-point', // icon tổng quan
-    menuType: 'dir',
-    componentPath: null,
-    id: 1,
-    pid: null,
-  },
-  {
-    name: 'dashboard_board',
-    path: '/dashboard/workbench',
-    title: 'Bảng điều khiển',
-    requiresAuth: true,
-    icon: 'icon-park-outline:dashboard',
-    menuType: 'page',
-    componentPath: '/admin/dashboard/workbench/index.vue',
-    id: 101,
-    pid: 1,
-  },
-  {
     name: 'dashboard_sales',
     path: '/dashboard/sales',
     title: 'Bán hàng tại quầy',
     requiresAuth: true,
     icon: 'icon-park-outline:shopping-cart',
     menuType: 'page',
-    componentPath: '/admin/dashboard/sales/index.vue',
-    id: 102,
-    pid: 1,
-  },
-
-  // Thống kê
-  {
-    name: 'monitor',
-    path: '/monitor',
-    title: 'Thống kê',
-    requiresAuth: true,
-    icon: 'icon-park-outline:alignment-bottom-center', // thống kê
-    menuType: 'dir',
-    componentPath: null,
-    id: 2,
+    componentPath: '/admin/banhang/index.vue',
+    id: 1,
     pid: null,
   },
+
   {
     name: 'monitor_stats',
     path: '/monitor/stats',
@@ -54,8 +20,8 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     icon: 'icon-park-outline:analysis',
     menuType: 'page',
     componentPath: '/admin/dashboard/monitor/index.vue',
-    id: 201,
-    pid: 2,
+    id: 2,
+    pid: null,
   },
 
   // Quản lý sản phẩm
@@ -225,19 +191,6 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     id: 30310,
     pid: 303,
   },
-
-  // Quản lý đơn hàng
-  {
-    name: 'orders',
-    path: '/orders',
-    title: 'Quản lý đơn hàng',
-    requiresAuth: true,
-    icon: 'icon-park-outline:shopping-bag',
-    menuType: 'dir',
-    componentPath: null,
-    id: 4,
-    pid: null,
-  },
   {
     name: 'orders_list',
     path: '/orders/list',
@@ -246,8 +199,8 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     icon: 'icon-park-outline:list',
     menuType: 'page',
     componentPath: '/admin/orders/list/index.vue',
-    id: 401,
-    pid: 4,
+    id: 4,
+    pid: null,
   },
 
   // Quản lý người dùng
