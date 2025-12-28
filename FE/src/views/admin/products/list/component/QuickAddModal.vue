@@ -42,7 +42,10 @@ const props = defineProps<{
 
 const emit = defineEmits(['close', 'success'])
 
-const handleClickCancel = () => emit('close')
+const handleClickCancel = () => {
+    clearData();
+    emit('close');
+}
 
 const notification = useNotification();
 
