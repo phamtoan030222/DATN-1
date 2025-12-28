@@ -29,4 +29,8 @@ public class ADPDVariantRequest {
 
     private Double price;
 
+    private String urlImage;
+
+    private String publicId;
+
 }

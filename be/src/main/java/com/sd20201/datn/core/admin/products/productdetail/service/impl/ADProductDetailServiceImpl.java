@@ -248,7 +248,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public ResponseObject<?> createVariant(String idProduct, ADPDVariantRequest variant, List<MultipartFile> images) {
+//    public ResponseObject<?> createVariant(String idProduct, ADPDVariantRequest variant, List<MultipartFile> images) {
+    public ResponseObject<?> createVariant(String idProduct, ADPDVariantRequest variant) {
         Optional<Product> optionalProduct = productRepository.findById(idProduct);
 
         if (optionalProduct.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND);
@@ -287,6 +288,7 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         productDetail.setGpu(gpuOptional.get());
         productDetail.setPrice(BigDecimal.valueOf(variant.getPrice()));
         productDetail.setColor(colorOptional.get());
+        productDetail.setUrlImage(variant.getUrlImage());
 
         productDetailRepository.save(productDetail);
 
@@ -307,21 +309,21 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
         productDetail = productDetailRepository.save(productDetail);
 
-        MultipartFile image = images.get(0);
         final String idProductDetail = productDetail.getId();
-        CloudinaryResponse cloudinaryResponse = uploadImage(image);
-        log.info("{}", cloudinaryResponse);
-        Optional<ProductDetail> optionalProductDetail = productDetailRepository.findById(idProductDetail);
-
-        if (optionalProductDetail.isPresent()) {
-            ProductDetail productDetailEntity = optionalProductDetail.get();
-
-            productDetailEntity.setCloudinaryImageId(cloudinaryResponse.getPublicId());
-            productDetailEntity.setUrlImage(cloudinaryResponse.getUrl());
-
-            productDetailRepository.save(productDetailEntity);
-            log.info("save image product detail");
-        }
+//        MultipartFile image = images.get(0);
+//        CloudinaryResponse cloudinaryResponse = uploadImage(image);
+//        log.info("{}", cloudinaryResponse);
+//        Optional<ProductDetail> optionalProductDetail = productDetailRepository.findById(idProductDetail);
+//
+//        if (optionalProductDetail.isPresent()) {
+//            ProductDetail productDetailEntity = optionalProductDetail.get();
+//
+//            productDetailEntity.setCloudinaryImageId(cloudinaryResponse.getPublicId());
+//            productDetailEntity.setUrlImage(cloudinaryResponse.getUrl());
+//
+//            productDetailRepository.save(productDetailEntity);
+//            log.info("save image product detail");
+//        }
 
         return ResponseObject.successForward(idProductDetail, "Create variant success");
     }
@@ -449,5 +451,12 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
                     return ResponseObject.successForward(imei.getId(), "Update imei success");
                 })
                 .orElse(ResponseObject.errorForward("Update imei failure", HttpStatus.NOT_FOUND));
+    }
+
+    @Override
+    public ResponseObject<?> saveImage(MultipartFile file) {
+        CloudinaryResponse cloudinaryResponse = uploadImage(file);
+
+        return ResponseObject.successForward(cloudinaryResponse, "Save image success");
     }
 }
