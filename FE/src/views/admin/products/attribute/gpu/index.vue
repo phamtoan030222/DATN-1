@@ -1,264 +1,437 @@
-<template>
-    <div>
-        <n-card>
-            <NSpace vertical :size="8">
-                <NSpace align="center">
-                    <NIcon size="24">
-                        <Icon icon="icon-park-outline:full-screen-play" />
-                    </NIcon>
-                    <span style="font-weight: 600; font-size: 24px">
-                        Quản lý GPU
-                    </span>
-                </NSpace>
-                <span>Quản lý thuộc tính GPU của sản phẩm</span>
-            </NSpace>
-        </n-card>
-        <n-card title="Bô lọc" class="mt-20px">
-            <n-grid x-gap="12" :cols="11">
-                <n-grid-item span="2">
-                    <span>Tìm kiếm</span>
-                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Hãng</span>
-                    <n-select v-model:value="state.search.brand" :options="brandOptionsSelect"></n-select>
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Thế hệ</span>
-                    <n-input v-model:value="state.search.generation" placeholder="Nhập thế hệ" />
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Năm phát hành</span>
-                    <n-date-picker v-model:value="state.search.releaseYear" type="year" clearable />
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Dòng sản phẩm</span>
-                    <n-input v-model:value="state.search.series" placeholder="Nhập thế hệ" />
-                </n-grid-item>
-                <n-grid-item span="1">
-                    <n-flex vertical justify="end" style="height: 100%;">
-                        <n-button @click="refreshFilter" strong secondary circle type="success">
-                            <template #icon>
-                                <n-icon>
-                                    <svg version="1.1" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512"
-                                        enable-background="new 0 0 512 512" xml:space="preserve">
-                                        <path d="M433,288.8c-7.7,0-14.3,5.9-14.9,13.6c-6.9,83.1-76.8,147.9-161.8,147.9c-89.5,0-162.4-72.4-162.4-161.4
-                                    c0-87.6,70.6-159.2,158.2-161.4c2.3-0.1,4.1,1.7,4.1,4v50.3c0,12.6,13.9,20.2,24.6,13.5L377,128c10-6.3,10-20.8,0-27.1l-96.1-66.4
-                                    c-10.7-6.7-24.6,0.9-24.6,13.5v45.7c0,2.2-1.7,4-3.9,4C148,99.8,64,184.6,64,288.9C64,394.5,150.1,480,256.3,480
-                                    c100.8,0,183.4-76.7,191.6-175.1C448.7,296.2,441.7,288.8,433,288.8L433,288.8z">
-                                        </path>
-                                    </svg>
-                                </n-icon>
-                            </template>
-                        </n-button>
-                    </n-flex>
-                </n-grid-item>
-            </n-grid>
-        </n-card>
-        <n-card title="Danh sách GPU" class="mt-20px">
-            <template #header-extra>
-                <n-space justify="end">
-                    <n-button circle type="primary" @click="clickOpenModal()">
-                        <Icon icon="material-symbols:add" />
-                    </n-button>
-                </n-space>
-            </template>
-            <n-data-table :columns="columns" :data="state.data.GPUs" :bordered="false" />
-
-            <n-space justify="center" class="mt-20px">
-                <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
-                    :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
-            </n-space>
-        </n-card>
-
-        <ADProductGPUModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
-            :id="GPUIDSelected" @close="closeModal" />
-    </div>
-</template>
-
-<script lang="ts" setup>
-import { onMounted, reactive, Ref, ref, watch } from 'vue'
-import { debounce } from 'lodash'
-import ADProductGPUModal from './component/ADProductGPUModal.vue'
-import { ADProductGPUResponse, changeGPUStatus, getGPUs } from '@/service/api/admin/product/gpu.api'
-import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
+<script setup lang="tsx">
+import { h, onMounted, reactive, ref, watch } from 'vue'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NDatePicker,
+  NForm,
+  NFormItem,
+  NGrid,
+  NGridItem,
+  NIcon,
+  NInput,
+  NPagination,
+  NRadio,
+  NRadioGroup,
+  NSelect,
+  NSpace,
+  NSwitch,
+  NTooltip,
+  useMessage,
+  useNotification,
+} from 'naive-ui'
 import { Icon } from '@iconify/vue'
+import type { DataTableColumns } from 'naive-ui'
+import { debounce } from 'lodash'
+import {
+  changeGPUStatus,
+  getGPUs,
+} from '@/service/api/admin/product/gpu.api'
+import type { ADProductGPUResponse } from '@/service/api/admin/product/gpu.api'
+import ADProductGPUModal from './component/ADProductGPUModal.vue'
+
+// ================= STATE =================
+const message = useMessage()
+const notification = useNotification()
+const loading = ref(false)
 
 const state = reactive({
-    search: {
-        q: '',
-        brand: '',
-        generation: '',
-        series: '',
-        releaseYear: undefined as number | undefined,
-    },
-    data: {
-        GPUs: [] as ADProductGPUResponse[],
-    },
-    pagination: {
-        page: 1,
-        size: 10,
-        totalPages: undefined as number | undefined,
-    },
+  search: {
+    q: '',
+    brand: null as string | null,
+    generation: '',
+    series: '',
+    releaseYear: null as number | null,
+    status: null as string | null, // <--- Thêm state status
+  },
+  data: {
+    GPUs: [] as ADProductGPUResponse[],
+  },
+  pagination: {
+    page: 1,
+    size: 10,
+    totalPages: 0,
+    totalElements: 0,
+  },
 })
 
-const fetchGPUs = async () => {
+// Options
+const brandOptionsSelect = [
+  { label: 'NVIDIA', value: 'NVIDIA' },
+  { label: 'AMD', value: 'AMD' },
+  { label: 'Intel', value: 'Intel' },
+  { label: 'Apple', value: 'Apple' },
+]
+
+// ================= API CALL =================
+async function fetchGPUs() {
+  loading.value = true
+  try {
+    const yearToSend = state.search.releaseYear
+      ? new Date(state.search.releaseYear).getFullYear()
+      : null
+
     const res = await getGPUs({
-        page: state.pagination.page,
-        size: state.pagination.size,
-        q: state.search.q,
-        brand: state.search.brand,
-        releaseYear: state.search.releaseYear,
-        series: state.search.series,
-        generation: state.search.generation,
+      page: state.pagination.page,
+      size: state.pagination.size,
+      q: state.search.q || undefined, // Backend có thể dùng 'q' hoặc 'name'
+      name: state.search.q || undefined,
+      brand: state.search.brand || undefined,
+      generation: state.search.generation || undefined,
+      series: state.search.series || undefined,
+      releaseYear: yearToSend,
+      status: state.search.status || undefined, // <--- Gửi status
     })
 
-    console.table(res.data.data)
-
-    state.data.GPUs = res.data.data
-    state.pagination.totalPages = res.data.totalPages
+    state.data.GPUs = res.data.data || []
+    state.pagination.totalPages = res.data.totalPages || 0
+    state.pagination.totalElements = res.data.totalElements || 0
+  }
+  catch (error) {
+    message.error('Lỗi tải dữ liệu GPU')
+  }
+  finally {
+    loading.value = false
+  }
 }
 
-const refreshFilter = () => {
-    state.search.q = ''
-    state.search.brand = ''
-    state.search.generation = ''
-    state.search.series = ''
-    state.search.releaseYear = undefined
+const debouncedFetch = debounce(() => {
+  state.pagination.page = 1
+  fetchGPUs()
+}, 500)
+
+function refreshFilter() {
+  state.search.q = ''
+  state.search.brand = null
+  state.search.generation = ''
+  state.search.series = ''
+  state.search.releaseYear = null
+  state.search.status = null // <--- Reset status
+  state.pagination.page = 1
+  fetchGPUs()
 }
 
-const columns: DataTableColumns<ADProductGPUResponse> = [
-    { type: 'selection', fixed: 'left' },
-    {
-        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data, index) => {
-            return h('span', { innerText: index + 1 })
-        }
-    },
-    { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
-    { title: 'Tên GPU', key: 'name', width: 150, fixed: 'left', },
-    {
-        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductGPUResponse) => h(NSwitch, {value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => {handleChangeStatus(data.id as string)}})
-    },
-    { title: 'Thế hệ', key: 'generation', width: 150, align: 'center', },
-    { title: 'Hãng', key: 'brand', width: 150, align: 'center', },
-    { title: 'Năm phát hàng', key: 'releaseYear', width: 150, align: 'center', },
-    { title: 'Dòng GPU', key: 'series', width: 150, align: 'center', },
-    {
-        title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
-        render: (data: ADProductGPUResponse) => {
-            return h(NSpace,
-                [
-                    h(NButton, {
-                        quaternary: true, size: 'small', circle: true,
-                        onClick: () => clickOpenModal(data.id, true)
-                    },
-                        h(Icon, { icon: 'carbon:edit' })
-                    ),
-                    // h(NButton, {
-                    //     strong: true, circle: true, type: 'warning',
-                    //     onClick: () => clickOpenModal(data.id)
-                    // },
-                    //     h(Icon, { icon: 'carbon:edit' })
-                    // )
-                ]
-            )
-        }
-    },
-]
-
-onMounted(() => {
-    fetchGPUs()
-})
-
-const isOpenModal = ref<boolean>(false)
-
-const isDetailModal: Ref<boolean> = ref(true)
-
-const GPUIDSelected = ref<string>()
-
-const clickOpenModal = (id?: string, isDetail?: boolean) => {
-    console.log(id)
-    GPUIDSelected.value = id
-    isOpenModal.value = true
-    isDetailModal.value = isDetail ?? false
-}
-
-const closeModal = () => {
-    isOpenModal.value = false
-}
-
-const handleSuccessModifyModal = () => {
-    fetchGPUs()
-    closeModal()
-}
-
-const debounceFetchGPUs = debounce(fetchGPUs, 300)
-
+// Watch filters
 watch(
-    () => [state.search.q, state.search.brand, state.search.releaseYear, state.search.generation, state.search.releaseYear, state.pagination.size, state.pagination.page],
-    () => {
-        console.log('here')
-        debounceFetchGPUs()
-    }
+  () => [state.search.brand, state.search.releaseYear, state.search.status], // <--- Watch status
+  () => {
+    state.pagination.page = 1
+    fetchGPUs()
+  },
 )
 
-// select options
-const brandOptionsSelect = [
-    {
-        value: 'AMD',
-        label: 'AMD'
-    },
-    {
-        value: 'NVIDIA',
-        label: 'NVIDIA'
-    },
-]
+onMounted(fetchGPUs)
 
-const handlePageChange = (page: number) => {
-    state.pagination.page = page
+// ================= CRUD =================
+const isOpenModal = ref(false)
+const isDetailModal = ref(true)
+const GPUIDSelected = ref<string | undefined>()
+
+function clickOpenModal(id?: string, isDetail?: boolean) {
+  GPUIDSelected.value = id
+  isOpenModal.value = true
+  isDetailModal.value = isDetail ?? false
 }
 
-const notification = useNotification()
+function closeModal() {
+  isOpenModal.value = false
+  GPUIDSelected.value = undefined
+}
 
-const handleChangeStatus = async (id: string) => {
+function handleSuccessModifyModal() {
+  fetchGPUs()
+  closeModal()
+}
+
+async function handleChangeStatus(id: string) {
+  try {
+    loading.value = true
     const res = await changeGPUStatus(id)
+    if (res.success) {
+      notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
+      fetchGPUs()
+    }
+    else {
+      notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
+    }
+  }
+  catch (e) {
+    notification.error({ content: 'Lỗi hệ thống', duration: 3000 })
+  }
+  finally {
+    loading.value = false
+  }
+}
 
-    if(res.success) notification.success({content: 'Thay đổi trạng thái thành công', duration: 3000})
-    else notification.error({content: 'Thay đổi trạng thái thất bại', duration: 3000})
+// ================= COLUMNS =================
+const columns: DataTableColumns<ADProductGPUResponse> = [
+  {
+    title: 'STT',
+    key: 'orderNumber',
+    width: 60,
+    align: 'center',
+    render: (_, index) => (state.pagination.page - 1) * state.pagination.size + index + 1,
+  },
+  {
+    title: 'Mã GPU',
+    key: 'code',
+    width: 150,
+    render: row => h('strong', { class: 'text-primary' }, row.code),
+  },
+  {
+    title: 'Tên GPU',
+    key: 'name',
+    minWidth: 200,
+    ellipsis: { tooltip: true },
+  },
+  { title: 'Hãng', key: 'brand', width: 120, align: 'center' },
+  { title: 'Thế hệ', key: 'generation', width: 120, align: 'center' },
+  { title: 'Dòng', key: 'series', width: 120, align: 'center' },
+  { title: 'Năm SX', key: 'releaseYear', width: 100, align: 'center' },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 100,
+    align: 'center',
+    render: (row) => {
+      return h(
+        NSwitch,
+        {
+          value: row.status === 'ACTIVE',
+          size: 'small',
+          disabled: loading.value,
+          onUpdateValue: () => handleChangeStatus(row.id as string),
+        },
+      )
+    },
+  },
+  {
+    title: 'Thao tác',
+    key: 'action',
+    width: 100,
+    align: 'center',
+    fixed: 'right',
+    render: (row) => {
+      return h('div', { class: 'flex justify-center gap-2' }, [
+        h(NTooltip, { trigger: 'hover' }, {
+          trigger: () => h(NButton, {
+            size: 'small',
+            secondary: true,
+            type: 'warning',
+            circle: true,
+            class: 'transition-all duration-200 hover:scale-125 hover:shadow-md',
+            onClick: () => clickOpenModal(row.id, true),
+          }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
+          default: () => 'Sửa thông tin',
+        }),
+      ])
+    },
+  },
+]
 
-    fetchGPUs();
+// ================= PAGINATION =================
+function handlePageChange(page: number) {
+  state.pagination.page = page
+  fetchGPUs()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  state.pagination.size = pageSize
+  state.pagination.page = 1
+  fetchGPUs()
 }
 </script>
 
-<style scoped>
-.container {
-    padding: 0 20px 20px 20px;
-}
+<template>
+  <div>
+    <NCard class="mb-3">
+      <NSpace vertical :size="8">
+        <NSpace align="center">
+          <NIcon size="24" class="text-green-600">
+            <Icon icon="icon-park-outline:graphic-design" />
+          </NIcon>
+          <span style="font-weight: 600; font-size: 24px">
+            Quản lý GPU
+          </span>
+        </NSpace>
+        <span>Quản lý danh sách card đồ họa (GPU) và thông số kỹ thuật</span>
+      </NSpace>
+    </NCard>
 
-.mt-20px {
-    margin-top: 20px;
-}
+    <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-md mb-4">
+      <template #header-extra>
+        <div class="mr-5">
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                @click="refreshFilter"
+              >
+                <NIcon size="24">
+                  <Icon icon="carbon:filter-reset" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới bộ lọc
+          </NTooltip>
+        </div>
+      </template>
 
-.mb-20px {
-    margin-bottom: 20px;
-}
+      <NForm label-placement="top">
+        <NGrid :x-gap="24" :y-gap="12" cols="1 600:2 800:4">
+          <NGridItem span="2">
+            <NFormItem label="Tìm kiếm chung">
+              <NInput
+                v-model:value="state.search.q"
+                placeholder="Tên GPU, mã..."
+                clearable
+                @input="debouncedFetch"
+                @keydown.enter="fetchGPUs"
+              >
+                <template #prefix>
+                  <Icon icon="carbon:search" />
+                </template>
+              </NInput>
+            </NFormItem>
+          </NGridItem>
 
-.pt-20px {
-    padding-top: 20px;
-}
+          <NGridItem>
+            <NFormItem label="Hãng sản xuất">
+              <NSelect
+                v-model:value="state.search.brand"
+                :options="brandOptionsSelect"
+                placeholder="Chọn hãng"
+                clearable
+              />
+            </NFormItem>
+          </NGridItem>
 
-.p-20px {
-    padding: 20px;
-}
+          <NGridItem>
+            <NFormItem label="Năm phát hành">
+              <NDatePicker
+                v-model:value="state.search.releaseYear"
+                type="year"
+                placeholder="Chọn năm"
+                clearable
+                class="w-full"
+              />
+            </NFormItem>
+          </NGridItem>
 
-.line {
-    margin: 32px 0;
-    border-top: 1px solid #a4a5a8;
-}
+          <NGridItem>
+            <NFormItem label="Thế hệ">
+              <NInput
+                v-model:value="state.search.generation"
+                placeholder="VD: RTX 40 Series..."
+                clearable
+                @input="debouncedFetch"
+              />
+            </NFormItem>
+          </NGridItem>
 
-.d-inline {
-    display: inline;
-}
-</style>
+          <NGridItem>
+            <NFormItem label="Dòng GPU">
+              <NInput
+                v-model:value="state.search.series"
+                placeholder="VD: GeForce, Radeon..."
+                clearable
+                @input="debouncedFetch"
+              />
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem span="2">
+            <NFormItem label="Trạng thái">
+              <NRadioGroup v-model:value="state.search.status" name="radiogroup">
+                <NSpace>
+                  <NRadio :value="null">
+                    Tất cả
+                  </NRadio>
+                  <NRadio value="ACTIVE">
+                    Hoạt động
+                  </NRadio>
+                  <NRadio value="INACTIVE">
+                    Ngưng
+                  </NRadio>
+                </NSpace>
+              </NRadioGroup>
+            </NFormItem>
+          </NGridItem>
+        </NGrid>
+      </NForm>
+    </NCard>
+
+    <NCard title="Danh sách GPU" class="border rounded-3">
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
+            <NButton
+              type="primary"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="clickOpenModal()"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Thêm mới
+              </span>
+            </NButton>
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="fetchGPUs"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại
+              </span>
+            </NButton>
+          </NSpace>
+        </div>
+      </template>
+
+      <NDataTable
+        :columns="columns"
+        :data="state.data.GPUs"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        striped
+      />
+
+      <div class="flex justify-end mt-4">
+        <NPagination
+          v-model:page="state.pagination.page"
+          v-model:page-size="state.pagination.size"
+          :item-count="state.pagination.totalElements"
+          :page-sizes="[5, 10, 20, 50]"
+          show-size-picker
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </NCard>
+
+    <ADProductGPUModal
+      :id="GPUIDSelected"
+      :is-detail="isDetailModal"
+      :is-open="isOpenModal"
+      @success="handleSuccessModifyModal"
+      @close="closeModal"
+    />
+  </div>
+</template>

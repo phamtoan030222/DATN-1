@@ -7,35 +7,42 @@ import com.sd20201.datn.repository.CPURepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository; // Thêm annotation này cho chuẩn
 
-import java.util.List;
 import java.util.Optional;
 
+@Repository
 public interface ADProductCPURepository extends CPURepository {
 
     @Query(value = """
     SELECT c
     FROM CPU c
-    where
+    WHERE
         (
-            :#{#request.q} is null or c.name like concat('%',:#{#request.q},'%')
-            OR :#{#request.q} is null or c.code like concat('%',:#{#request.q},'%')
-        ) AND (:#{#request.brand} is NULL OR c.brand like concat('%',:#{#request.brand},'%'))
-          AND (:#{#request.releaseYear} is NULL OR c.releaseYear = :#{#request.releaseYear})
-          AND (:#{#request.series} is NULL OR c.series like concat('%',:#{#request.series},'%'))
-          AND (:#{#request.generation} is NULL OR c.generation like concat('%',:#{#request.generation},'%'))
+            :#{#request.q} IS NULL OR :#{#request.q} = ''
+            OR LOWER(c.name) LIKE LOWER(CONCAT('%', :#{#request.q}, '%'))
+            OR LOWER(c.code) LIKE LOWER(CONCAT('%', :#{#request.q}, '%'))
+        )
+        AND (:#{#request.brand} IS NULL OR :#{#request.brand} = '' OR c.brand LIKE CONCAT('%', :#{#request.brand}, '%'))
+        AND (:#{#request.releaseYear} IS NULL OR c.releaseYear = :#{#request.releaseYear})
+        AND (:#{#request.series} IS NULL OR :#{#request.series} = '' OR c.series LIKE CONCAT('%', :#{#request.series}, '%'))
+        AND (:#{#request.generation} IS NULL OR :#{#request.generation} = '' OR c.generation LIKE CONCAT('%', :#{#request.generation}, '%'))
+        AND (:#{#request.status} IS NULL OR c.status = :#{#request.status})
     ORDER BY c.createdDate DESC
     """, countQuery = """
-    SELECT COUNT(1)
+    SELECT COUNT(c)
     FROM CPU c
-    where
+    WHERE
         (
-            :#{#request.q} is null or c.name like concat('%',:#{#request.q},'%')
-            OR :#{#request.q} is null or c.code like concat('%',:#{#request.q},'%')
-        ) AND (:#{#request.brand} is NULL OR c.brand like concat('%',:#{#request.brand},'%'))
-          AND (:#{#request.releaseYear} is NULL OR c.releaseYear = :#{#request.releaseYear})
-          AND (:#{#request.series} is NULL OR c.series like concat('%',:#{#request.series},'%'))
-          AND (:#{#request.generation} is NULL OR c.generation like concat('%',:#{#request.generation},'%'))
+            :#{#request.q} IS NULL OR :#{#request.q} = ''
+            OR LOWER(c.name) LIKE LOWER(CONCAT('%', :#{#request.q}, '%'))
+            OR LOWER(c.code) LIKE LOWER(CONCAT('%', :#{#request.q}, '%'))
+        )
+        AND (:#{#request.brand} IS NULL OR :#{#request.brand} = '' OR c.brand LIKE CONCAT('%', :#{#request.brand}, '%'))
+        AND (:#{#request.releaseYear} IS NULL OR c.releaseYear = :#{#request.releaseYear})
+        AND (:#{#request.series} IS NULL OR :#{#request.series} = '' OR c.series LIKE CONCAT('%', :#{#request.series}, '%'))
+        AND (:#{#request.generation} IS NULL OR :#{#request.generation} = '' OR c.generation LIKE CONCAT('%', :#{#request.generation}, '%'))
+        AND (:#{#request.status} IS NULL OR c.status = :#{#request.status})
     """)
     Page<ADProductCPUResponse> getCPUs(Pageable pageable, ADProductCPURequest request);
 

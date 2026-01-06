@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.material.repository;
 
 import com.sd20201.datn.core.admin.products.material.model.response.ADMaterialResponse;
+import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.repository.HardDriveRepository;
 import com.sd20201.datn.repository.MaterialRepository;
 import org.springframework.data.domain.Page;
@@ -24,6 +25,7 @@ public interface ADMaterialRepository extends MaterialRepository {
             WHERE (:key IS NULL OR m.topCaseMaterial LIKE CONCAT('%', :key, '%')
                 OR m.bottomCaseMaterial LIKE CONCAT('%', :key, '%')
                 OR m.keyboardMaterial LIKE CONCAT('%', :key, '%'))
+                 AND (:status IS NULL OR :status = m.status)
             ORDER BY m.createdDate DESC
         """,
             countQuery = """
@@ -32,10 +34,12 @@ public interface ADMaterialRepository extends MaterialRepository {
             WHERE (:key IS NULL OR m.topCaseMaterial LIKE CONCAT('%', :key, '%')
                 OR m.bottomCaseMaterial LIKE CONCAT('%', :key, '%')
                 OR m.keyboardMaterial LIKE CONCAT('%', :key, '%'))
+                AND (:status IS NULL OR :status = m.status)
         """
     )
     Page<ADMaterialResponse> getAllMaterials(
             Pageable pageable,
-            @Param("key") String key
+            @Param("key") String key,
+            @Param("status") EntityStatus status
     );
 }

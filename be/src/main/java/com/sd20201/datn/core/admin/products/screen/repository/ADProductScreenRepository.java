@@ -34,6 +34,7 @@ public interface ADProductScreenRepository extends ScreenRepository {
           AND (:#{#request.resolution} is NULL OR s.resolution = :#{#request.resolution})
           AND (:#{#request.physicalSize} is NULL OR s.physicalSize = :#{#request.physicalSize})
           AND (:#{#request.panelType} is NULL OR s.panelType like concat('%',:#{#request.panelType},'%'))
+          AND (:#{#request.status} IS NULL OR s.status = :#{#request.status})
     ORDER BY s.createdDate DESC
     """, countQuery = """
     SELECT COUNT(1)
@@ -46,6 +47,7 @@ public interface ADProductScreenRepository extends ScreenRepository {
           AND (:#{#request.resolution} is NULL OR s.resolution = :#{#request.resolution})
           AND (:#{#request.physicalSize} is NULL OR s.physicalSize = :#{#request.physicalSize})
           AND (:#{#request.panelType} is NULL OR s.panelType like concat('%',:#{#request.panelType},'%'))
+           AND (:#{#request.status} IS NULL OR s.status = :#{#request.status})
     """)
     Page<ADProductScreenResponse> getScreens(Pageable pageable, ADProductScreenRequest request);
 

@@ -1,70 +1,70 @@
-import { API_ADMIN_COLOR } from "@/constants/url";
-import { AxiosResponse } from "axios";
-import {
+import { API_ADMIN_COLOR } from '@/constants/url'
+import type { AxiosResponse } from 'axios'
+import type {
   DefaultResponse,
   PaginationParams,
   ResponseList,
-} from "@/typings/api/api.common";
-import request from "@/service/request";
+} from '@/typings/api/api.common'
+import request from '@/service/request'
 
 export interface ParamsGetColor extends PaginationParams {
-  q?: string | "";
-  colorName?: string;
-  colorStatus?: string;
+  q?: string | ''
+  colorName?: string
+  colorStatus?: string
 }
 
 export type ColorResponse = ResponseList & {
-  colorName: string;
-  colorCode: string;
-  colorStatus: string;
-  createdDate: number;
-};
+  colorName: string
+  colorCode: string
+  colorStatus: string
+  createdDate: number
+}
 
 export interface ColorRequest {
-  colorName: string;
+  colorName: string
 }
 
 export interface CreateColorRequest {
-  colorName: string;
-  colorCode: string;
+  colorName: string
+  colorCode: string
 }
 
-export const getAllColors = async (params: ParamsGetColor) => {
+export async function getAllColors(params: ParamsGetColor) {
   const queryParams = {
     ...params,
     colorName: params.q, // map q → colorName
-  };
+  }
 
   const res = (await request({
     url: API_ADMIN_COLOR,
-    method: "GET",
+    method: 'GET',
     params: queryParams,
   })) as AxiosResponse<
     DefaultResponse<{
-      data: ColorResponse[];
-      totalPages: number;
-      currentPage: number;
-      totalElements: number;
+      data: ColorResponse[]
+      totalPages: number
+      currentPage: number
+      totalElements: number
     }>
-  >;
+  >
 
   return {
     items: res.data.data.data || [],
     totalItems: res.data.data.totalElements || 0,
     totalPages: res.data.data.totalPages || 0,
     currentPage: res.data.data.currentPage || 1,
-  };
-};
+  }
+}
 
-export const createColor = async (data: CreateColorRequest) => {
+export async function createColor(data: CreateColorRequest) {
   const res = await request({
     url: `${API_ADMIN_COLOR}/add`,
-    method: "POST",
+    method: 'POST',
     data,
-  });
-  return res.data.data;
-};
+  })
+  return res.data.data
+}
 
-export const updateColor = async () => {};
+export async function updateColor() {}
 
-export const updateColorStatus = async () => {};
+export async function updateColorStatus() {}

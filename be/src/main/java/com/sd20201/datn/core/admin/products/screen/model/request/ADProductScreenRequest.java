@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.screen.model.request;
 
 import com.sd20201.datn.core.common.base.PageableRequest;
+import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.TypeScreenResolution;
 import lombok.Getter;
 import lombok.Setter;
@@ -16,6 +17,8 @@ public class ADProductScreenRequest extends PageableRequest {
     private String panelType;
 
     private String technology;
+
+    private EntityStatus status;
 
 
 }

@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { onMounted, reactive, ref } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import {
   NButton,
   NCard,
@@ -8,20 +8,22 @@ import {
   NFormItem,
   NGrid,
   NGridItem,
+  NIcon,
   NInput,
   NModal,
   NPagination,
-  NPopconfirm,
+  NRadio,
+  NRadioGroup,
   NSpace,
   NSwitch,
+  NTooltip,
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
+import type { DataTableColumns } from 'naive-ui'
+import { debounce } from 'lodash'
 import {
-
   createBrand,
-
-  deleteBrand,
   getAllBrands,
   updateBrand,
   updateBrandStatus,
@@ -33,9 +35,13 @@ const message = useMessage()
 const tableData = ref<BrandResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(5)
+const pageSize = ref(10)
 const loading = ref(false)
-const searchKeyword = ref('')
+
+const filter = reactive({
+  name: '',
+  status: null as string | null, // null = Tất cả, 'ACTIVE', 'INACTIVE'
+})
 
 const checkedRowKeys = ref<(string | number)[]>([])
 
@@ -56,10 +62,11 @@ async function fetchBrands() {
     const res = await getAllBrands({
       page: currentPage.value,
       size: pageSize.value,
-      name: searchKeyword.value || undefined,
+      name: filter.name || undefined,
+      status: filter.status || undefined, // Truyền trạng thái lọc xuống API
     })
-    tableData.value = res.items
-    total.value = res.totalItems
+    tableData.value = res.items || []
+    total.value = res.totalItems || 0
   }
   catch (e) {
     message.error('Không thể tải dữ liệu thương hiệu')
@@ -68,6 +75,25 @@ async function fetchBrands() {
     loading.value = false
   }
 }
+
+// Tìm kiếm tự động khi gõ chữ (Debounce 500ms)
+const debouncedFetch = debounce(() => {
+  currentPage.value = 1
+  fetchBrands()
+}, 500)
+
+function resetFilters() {
+  filter.name = ''
+  filter.status = null
+  currentPage.value = 1
+  fetchBrands()
+}
+
+// Tự động tải lại khi đổi trạng thái (Radio)
+watch(() => filter.status, () => {
+  currentPage.value = 1
+  fetchBrands()
+})
 
 onMounted(fetchBrands)
 
@@ -121,99 +147,84 @@ async function saveBrand() {
   }
 }
 
-async function handleDelete(id: string) {
-  try {
-    await deleteBrand(id)
-    message.success('Xóa thương hiệu thành công')
-    fetchBrands()
-  }
-  catch {
-    message.error('Xóa thất bại')
-  }
-}
-
-async function handleDeleteSelected() {
-  if (checkedRowKeys.value.length === 0) {
-    message.warning('Chưa chọn thương hiệu nào')
-    return
-  }
-  try {
-    await Promise.all(
-      checkedRowKeys.value.map(id => deleteBrand(id.toString())),
-    )
-    message.success('Đã xóa các thương hiệu đã chọn')
-    checkedRowKeys.value = []
-    fetchBrands()
-  }
-  catch {
-    message.error('Xóa hàng loạt thất bại')
-  }
-}
-
 async function handleStatusChange(row: BrandResponse, value: boolean) {
   try {
+    loading.value = true
     await updateBrandStatus(row.id, value ? 'ACTIVE' : 'INACTIVE')
     message.success(`Cập nhật trạng thái ${row.name} thành công`)
-    fetchBrands()
+    row.status = value ? 'ACTIVE' : 'INACTIVE'
   }
   catch {
     message.error('Cập nhật trạng thái thất bại')
   }
+  finally {
+    loading.value = false
+  }
 }
 
 // ================= TABLE COLUMNS =================
-const columns = [
-  { type: 'selection' as const },
-  { title: 'Mã', key: 'code' },
-  { title: 'Tên thương hiệu', key: 'name' },
+const columns: DataTableColumns<BrandResponse> = [
+  {
+    title: 'STT',
+    key: 'stt',
+    width: 60,
+    align: 'center',
+    render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
+  },
+  {
+    title: 'Mã',
+    key: 'code',
+    width: 150,
+    render: row => h('strong', { class: 'text-primary' }, row.code),
+  },
+  {
+    title: 'Tên thương hiệu',
+    key: 'name',
+    minWidth: 200,
+    ellipsis: { tooltip: true },
+  },
   {
     title: 'Trạng thái',
     key: 'status',
+    width: 120,
+    align: 'center',
     render(row: BrandResponse) {
-      return (
-        <NSwitch
-          value={row.status === 'ACTIVE'}
-          onUpdateValue={(val: boolean) => handleStatusChange(row, val)}
-        />
+      return h(
+        NSwitch,
+        {
+          value: row.status === 'ACTIVE',
+          size: 'small',
+          onUpdateValue: (val: boolean) => handleStatusChange(row, val),
+        },
       )
     },
   },
   {
     title: 'Thao tác',
     key: 'actions',
+    width: 80,
+    align: 'center',
+    fixed: 'right',
     render(row: BrandResponse) {
-      return (
-        <NSpace>
-          <NButton
-            size="small"
-            quaternary
-            circle
-            onClick={() => openModal('edit', row)}
-          >
-            <Icon icon="carbon:edit" width="18" />
-          </NButton>
-          <NPopconfirm onPositiveClick={() => handleDelete(row.id)}>
-            {{
-              trigger: () => (
-                <NButton size="small" quaternary circle type="error">
-                  <Icon icon="carbon:trash-can" width="18" />
-                </NButton>
-              ),
-              default: () => 'Bạn có chắc muốn xóa?',
-            }}
-          </NPopconfirm>
-        </NSpace>
-      )
+      return h('div', { class: 'flex justify-center' }, [
+        // Nút Sửa (Màu Cam - Warning)
+        h(NTooltip, { trigger: 'hover' }, {
+          trigger: () => h(NButton, {
+            size: 'small',
+            secondary: true,
+            type: 'warning', // Màu cam
+            circle: true,
+            class: 'transition-all duration-200 hover:scale-125 hover:shadow-md',
+            onClick: () => openModal('edit', row),
+          }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
+          default: () => 'Sửa thông tin',
+        }),
+      ])
     },
   },
 ]
 
-// ================= SEARCH & PAGINATION =================
-function handleSearch() {
-  currentPage.value = 1
-  fetchBrands()
-}
-
+// ================= PAGINATION =================
 function handlePageChange(page: number) {
   currentPage.value = page
   fetchBrands()
@@ -221,123 +232,173 @@ function handlePageChange(page: number) {
 </script>
 
 <template>
-  <!-- Header -->
-  <NCard>
-    <NSpace vertical :size="8">
-      <NSpace align="center">
-        <NIcon size="24">
-          <Icon icon="carbon:carbon-ui-builder" />
-        </NIcon>
-        <span style="font-weight: 600; font-size: 24px">
-          Quản lý Thương hiệu
-        </span>
+  <div>
+    <NCard class="mb-3">
+      <NSpace vertical :size="8">
+        <NSpace align="center">
+          <NIcon size="24" class="text-green-600">
+            <Icon icon="carbon:carbon-ui-builder" />
+          </NIcon>
+          <span style="font-weight: 600; font-size: 24px">
+            Quản lý Thương hiệu
+          </span>
+        </NSpace>
+        <span>Quản lý danh sách thương hiệu sản phẩm có mặt tại cửa hàng</span>
       </NSpace>
-      <span>Quản lý danh sách thương hiệu có mặt tại cửa hàng</span>
-    </NSpace>
-  </NCard>
-  <NCard title="Danh sách thương hiệu" style="margin-top: 16px">
-    <template #header-extra>
-      <NSpace>
-        <NInput
-          v-model:value="searchKeyword"
-          placeholder="Tìm kiếm thương hiệu..."
-          clearable
-          style="width: 220px"
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <NIcon size="18">
-              <Icon icon="carbon:search" />
-            </NIcon>
-          </template>
-        </NInput>
-        <NButton
-          type="primary"
-          circle
-          title="Thêm mới"
-          @click="openModal('add')"
-        >
-          <NIcon size="24">
-            <Icon icon="carbon:add" />
-          </NIcon>
-        </NButton>
-        <NButton
-          type="primary"
-          secondary
-          circle
-          title="Làm mới"
-          @click="refreshTable"
-        >
-          <NIcon size="24">
-            <Icon icon="carbon:rotate" />
-          </NIcon>
-        </NButton>
-        <NPopconfirm @positive-click="handleDeleteSelected">
-          <template #trigger>
-            <NButton type="error" secondary circle title="Xóa hàng loạt">
-              <NIcon size="24">
-                <Icon icon="icon-park-outline:delete" />
-              </NIcon>
+    </NCard>
+
+    <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-md mb-4">
+      <template #header-extra>
+        <div class="mr-5">
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                @click="resetFilters"
+              >
+                <NIcon size="24">
+                  <Icon icon="carbon:filter-reset" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới bộ lọc
+          </NTooltip>
+        </div>
+      </template>
+
+      <NForm label-placement="top">
+        <NGrid :x-gap="24" :cols="2">
+          <NGridItem>
+            <NFormItem label="Tìm kiếm chung">
+              <NInput
+                v-model:value="filter.name"
+                placeholder="Nhập tên thương hiệu, mã..."
+                clearable
+                @input="debouncedFetch"
+                @keydown.enter="fetchBrands"
+              >
+                <template #prefix>
+                  <Icon icon="carbon:search" />
+                </template>
+              </NInput>
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem>
+            <NFormItem label="Trạng thái">
+              <NRadioGroup v-model:value="filter.status" name="radiogroup">
+                <NSpace>
+                  <NRadio :value="null">
+                    Tất cả
+                  </NRadio>
+                  <NRadio value="ACTIVE">
+                    Hoạt động
+                  </NRadio>
+                  <NRadio value="INACTIVE">
+                    Ngưng
+                  </NRadio>
+                </NSpace>
+              </NRadioGroup>
+            </NFormItem>
+          </NGridItem>
+        </NGrid>
+      </NForm>
+    </NCard>
+
+    <NCard title="Danh sách thương hiệu" class="border rounded-3">
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
+            <NButton
+              type="primary"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="openModal('add')"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Thêm mới
+              </span>
             </NButton>
-          </template>
-          Xác nhận xóa tất cả thương hiệu đã chọn?
-        </NPopconfirm>
-      </NSpace>
-    </template>
 
-    <NDataTable
-      v-model:checked-row-keys="checkedRowKeys"
-      :columns="columns"
-      :data="tableData"
-      :loading="loading"
-      :row-key="(row) => row.id"
-      :pagination="false"
-      bordered
-    />
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="fetchBrands"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại
+              </span>
+            </NButton>
+          </NSpace>
+        </div>
+      </template>
 
-    <div class="flex justify-center mt-4">
-      <NPagination
-        :page="currentPage"
-        :page-size="pageSize"
-        :page-count="Math.ceil(total / pageSize)"
-        @update:page="handlePageChange"
+      <NDataTable
+        v-model:checked-row-keys="checkedRowKeys"
+        :columns="columns"
+        :data="tableData"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        striped
       />
-    </div>
-  </NCard>
 
-  <!-- Modal thêm/sửa -->
-  <NModal
-    v-model:show="showModal"
-    preset="card"
-    style="width: 500px"
-    title="Thương hiệu"
-  >
-    <NForm>
-      <NGrid cols="1" x-gap="12">
-        <NGridItem>
-          <NFormItem label="Mã" required>
-            <NInput v-model:value="formData.code" placeholder="Nhập mã" />
-          </NFormItem>
-        </NGridItem>
-        <NGridItem>
-          <NFormItem label="Tên thương hiệu" required>
-            <NInput
-              v-model:value="formData.name"
-              placeholder="Nhập tên thương hiệu"
-            />
-          </NFormItem>
-        </NGridItem>
-      </NGrid>
-    </NForm>
-    <template #footer>
-      <NSpace justify="end">
-        <NButton on-click="closeModal">
-          Hủy
-        </NButton>
-        <NButton type="primary" @click="saveBrand">
-          Lưu
-        </NButton>
-      </NSpace>
-    </template>
-  </NModal>
+      <div class="flex justify-end mt-4">
+        <NPagination
+          v-model:page="currentPage"
+          v-model:page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[5, 10, 20, 50]"
+          show-size-picker
+          @update:page="handlePageChange"
+          @update:page-size="(val) => { pageSize = val; currentPage = 1; fetchBrands() }"
+        />
+      </div>
+    </NCard>
+
+    <NModal
+      v-model:show="showModal"
+      preset="card"
+      style="width: 500px"
+      :title="modalMode === 'add' ? 'Thêm thương hiệu mới' : 'Cập nhật thương hiệu'"
+    >
+      <NForm size="large">
+        <NGrid cols="1" x-gap="12">
+          <NGridItem>
+            <NFormItem label="Tên thương hiệu" required>
+              <NInput v-model:value="formData.name" placeholder="VD: Samsung, Apple..." />
+            </NFormItem>
+          </NGridItem>
+        </NGrid>
+      </NForm>
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="closeModal">
+            Đóng
+          </NButton>
+          <NButton type="primary" icon-placement="right" @click="saveBrand">
+            Lưu thay đổi
+            <template #icon>
+              <Icon icon="carbon:save" />
+            </template>
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+  </div>
 </template>

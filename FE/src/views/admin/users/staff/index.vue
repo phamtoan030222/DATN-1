@@ -1,656 +1,740 @@
 <script setup lang="tsx">
-import { onMounted, ref, reactive, watch, h } from "vue";
-import { NSwitch, UploadFileInfo, useMessage } from "naive-ui";
-import { Icon } from "@iconify/vue";
+import { h, onMounted, reactive, ref, watch } from 'vue'
+import type { UploadFileInfo } from 'naive-ui'
 import {
-  getAllStaff,
-  createStaff,
-  updateStaffStatus,
-  deleteStaff,
-  deleteManyStaff,
-  type StaffResponse,
-  type CreateStaffRequest,
-  type ParamGetStaff,
-} from "@/service/api/admin/users/staff.api";
-import {
-  getProvinces,
-  getDistricts,
-  getCommunes,
-} from "@/service/api/admin/geo.api";
-import {
-  NCard,
-  NSpace,
+  NAvatar,
   NButton,
-  NInput,
+  NCard,
   NDataTable,
-  NPagination,
-  NModal,
+  NDatePicker,
   NForm,
   NFormItem,
-  NSelect,
-  NDatePicker,
-  NUpload,
-  NAvatar,
-  NRadioGroup,
-  NRadio,
-  NPopconfirm,
   NIcon,
-} from "naive-ui";
+  NInput,
+  NModal,
+  NPagination,
+  NRadio,
+  NRadioGroup,
+  NSelect,
+  NSpace,
+  NSwitch,
+  NTag,
+  NTooltip,
+  NUpload,
+  useMessage,
+} from 'naive-ui'
+import { Icon } from '@iconify/vue'
+import {
+  createStaff,
+  getAllStaff,
+  updateStaffStatus,
+} from '@/service/api/admin/users/staff.api'
+import type { CreateStaffRequest, ParamGetStaff, StaffResponse } from '@/service/api/admin/users/staff.api'
+import {
+  getCommunes,
+  getDistricts,
+  getProvinces,
+} from '@/service/api/admin/geo.api'
+
+// --- QUAN TRỌNG: Import bộ dịch Mã -> Tên ---
+import {
+  getDistrictName,
+  getProvinceName,
+  getWardName,
+  initLocationData,
+} from '@/service/api/admin/users/location-service'
 
 // ================= STATE =================
-const message = useMessage();
-const tableData = ref<StaffResponse[]>([]);
-const total = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(5);
-const loading = ref(false);
+const message = useMessage()
+const tableData = ref<StaffResponse[]>([])
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
+const loading = ref(false)
 
 const filter = reactive<ParamGetStaff>({
-  fullName: "",
-  role: "",
-  email: "",
-  phone: "",
+  code: '',
+  fullName: '',
+  role: '',
+  email: '',
+  phone: '',
   status: null,
-});
+})
 
-const checkedRowKeys = ref<(string | number)[]>([]);
+const checkedRowKeys = ref<(string | number)[]>([])
 
 // ================= MODAL =================
-const showModal = ref(false);
-const modalMode = ref<"add" | "edit">("add");
-const modalRow = ref<StaffResponse | null>(null);
-
-const formSearch = reactive<ParamGetStaff>({
-  code: "",
-  fullName: "",
-  email: "",
-  phone: "",
-  status: null,
-});
+const showModal = ref(false)
+const modalMode = ref<'add' | 'edit'>('add')
+const modalRow = ref<StaffResponse | null>(null)
 
 const formData = reactive<CreateStaffRequest>({
-  fullName: "",
-  role: "",
-  birthday: 0,
-  citizenIdentifyCard: "",
-  hometown: "",
-  avatarUrl: "",
-  phone: "",
-  email: "",
+  fullName: '',
+  role: undefined as any,
+  birthday: null as any,
+  citizenIdentifyCard: '',
+  hometown: '',
+  avatarUrl: '',
+  phone: '',
+  email: '',
   gender: true,
-  provinceCode: "",
-  districtCode: "",
-  communeCode: "",
-});
+  provinceCode: null as any,
+  districtCode: null as any,
+  communeCode: null as any,
+})
+
+const avatarFile = ref<File | null>(null)
 
 // ================= GEO =================
-const provinces = ref<{ label: string; value: string }[]>([]);
-const districts = ref<{ label: string; value: string }[]>([]);
-const communes = ref<{ label: string; value: string }[]>([]);
+const provinces = ref<{ label: string, value: string }[]>([])
+const districts = ref<{ label: string, value: string }[]>([])
+const communes = ref<{ label: string, value: string }[]>([])
 
 async function loadProvinces() {
-  const data = await getProvinces();
+  const data = await getProvinces()
   provinces.value = data.map((p: any) => ({
     label: p.name,
     value: p.code,
-  }));
+  }))
 }
 
 watch(
   () => formData.provinceCode,
   async (newCode) => {
-    formData.districtCode = "";
-    formData.communeCode = "";
+    formData.districtCode = null as any
+    formData.communeCode = null as any
+    districts.value = []
+    communes.value = []
     if (newCode) {
-      const data = await getDistricts(newCode);
+      const data = await getDistricts(newCode)
       districts.value = data.map((d: any) => ({
         label: d.name,
         value: d.code,
-      }));
-    } else {
-      districts.value = [];
+      }))
     }
-    communes.value = [];
-  }
-);
+  },
+)
 
 watch(
   () => formData.districtCode,
   async (newCode) => {
-    formData.communeCode = "";
+    formData.communeCode = null as any
+    communes.value = []
     if (newCode) {
-      const data = await getCommunes(newCode);
+      const data = await getCommunes(newCode)
       communes.value = data.map((c: any) => ({
         label: c.name,
         value: c.code,
-      }));
-    } else {
-      communes.value = [];
+      }))
     }
-  }
-);
+  },
+)
 
 // ================= API =================
 async function fetchStaff() {
-  loading.value = true;
+  loading.value = true
   try {
     const params = {
       page: currentPage.value,
       size: pageSize.value,
       ...filter,
-      status:
-        filter.status === null || filter.status === ""
-          ? undefined
-          : filter.status,
-    };
-    const res = await getAllStaff(params);
-    tableData.value = res.items;
-    total.value = res.totalItems;
-  } finally {
-    loading.value = false;
+      status: (filter.status === null || filter.status === '') ? undefined : filter.status,
+    }
+    const res = await getAllStaff(params)
+    tableData.value = res.items || []
+    total.value = res.totalItems || 0
+  }
+  catch (err) {
+    // message.error('Lỗi tải danh sách nhân viên')
+  }
+  finally {
+    loading.value = false
   }
 }
 
-onMounted(() => {
-  loadProvinces();
-  fetchStaff();
-});
+function resetFilters() {
+  filter.code = ''
+  filter.fullName = ''
+  filter.status = null
+  filter.phone = ''
+  filter.email = ''
+  currentPage.value = 1
+  fetchStaff()
+}
+
+// === QUAN TRỌNG: Load dữ liệu địa chính khi vào trang ===
+onMounted(async () => {
+  await initLocationData() // Tải bộ từ điển Mã -> Tên
+  loadProvinces()
+  fetchStaff()
+})
+
+// === HÀM CHUYỂN ĐỔI: Mã -> Tên ===
+function resolveFullAddress(row: StaffResponse) {
+  // Hàm lấy tên từ mã code (được import từ location-service)
+  const province = getProvinceName(row.provinceCode)
+  const district = getDistrictName(row.districtCode)
+  const ward = getWardName(row.communeCode)
+  const detail = row.hometown
+
+  // Ghép lại thành chuỗi: "Số 1, Phường A, Quận B, Tỉnh C"
+  return [detail, ward, district, province]
+    .filter(Boolean) // Loại bỏ các giá trị null/rỗng
+    .join(', ')
+}
 
 // ================= CRUD =================
-function openModal(mode: "add" | "edit", row?: StaffResponse) {
-  modalMode.value = mode;
-  if (mode === "edit" && row) {
-    modalRow.value = row;
+function openModal(mode: 'add' | 'edit', row?: StaffResponse) {
+  modalMode.value = mode
+  if (mode === 'edit' && row) {
+    modalRow.value = row
     Object.assign(formData, {
       ...row,
-      birthday: row.birthday ? new Date(row.birthday).getTime() : 0,
-    });
-  } else {
-    modalRow.value = null;
-    Object.assign(formData, {
-      fullName: "",
-      role: "",
-      birthday: 0,
-      citizenIdentifyCard: "",
-      hometown: "",
-      avatarUrl: "",
-      phone: "",
-      email: "",
-      gender: true,
-      provinceCode: "",
-      districtCode: "",
-      communeCode: "",
-    });
+      birthday: row.birthday ? new Date(row.birthday).getTime() : null,
+    })
+
+    // Load lại dữ liệu quận/huyện cho dropdown khi sửa
+    if (row.provinceCode) {
+      getDistricts(row.provinceCode).then((data) => {
+        districts.value = data.map((d: any) => ({ label: d.name, value: d.code }))
+      })
+    }
+    if (row.districtCode) {
+      getCommunes(row.districtCode).then((data) => {
+        communes.value = data.map((c: any) => ({ label: c.name, value: c.code }))
+      })
+    }
   }
-  showModal.value = true;
-  loadProvinces();
+  else {
+    modalRow.value = null
+    Object.assign(formData, {
+      fullName: '',
+      role: null,
+      birthday: null,
+      citizenIdentifyCard: '',
+      hometown: '',
+      avatarUrl: '',
+      phone: '',
+      email: '',
+      gender: true,
+      provinceCode: null,
+      districtCode: null,
+      communeCode: null,
+    })
+  }
+  showModal.value = true
 }
 
 function closeModal() {
-  showModal.value = false;
+  showModal.value = false
 }
 
 async function saveStaff() {
   try {
-    await createStaff(formData);
-    message.success("Lưu nhân viên thành công");
-    closeModal();
-    fetchStaff();
-  } catch {
-    message.error("Lưu thất bại");
+    await createStaff(formData)
+    message.success(modalMode.value === 'add' ? 'Thêm nhân viên thành công' : 'Cập nhật thành công')
+    closeModal()
+    fetchStaff()
+  }
+  catch (e: any) {
+    message.error(e.message || 'Lưu thất bại')
   }
 }
 
 function handlePageChange(page: number) {
-  currentPage.value = page;
-  fetchStaff();
+  currentPage.value = page
+  fetchStaff()
 }
 
-// ================= UPLOAD =================
-function handleUploadChange({
-  file,
-}: {
-  file: UploadFileInfo;
-  fileList: UploadFileInfo[];
-}) {
-  if (file.file) {
-    const rawFile = file.file as File;
-    const previewUrl = URL.createObjectURL(rawFile);
-    formData.avatarUrl = previewUrl;
-    // TODO: upload rawFile lên server và gán lại avatarUrl thực tế
+function handleUploadChange(data: { file: UploadFileInfo }) {
+  if (data.file.status === 'removed')
+    return
+
+  if (data.file.file) {
+    const rawFile = data.file.file as File
+    if (!rawFile.type.startsWith('image/')) {
+      message.error('Vui lòng chỉ chọn file ảnh!')
+      return
+    }
+    const previewUrl = URL.createObjectURL(rawFile)
+    formData.avatarUrl = previewUrl
+    avatarFile.value = rawFile
+    message.success('Đã chọn ảnh thành công')
   }
+}
+
+function removeAvatar() {
+  formData.avatarUrl = ''
+  avatarFile.value = null
+  message.info('Đã gỡ ảnh đại diện')
 }
 
 // ================= ACTIONS =================
 async function handleStatusChange(row: StaffResponse, val: boolean) {
   try {
-    await updateStaffStatus(row.id, val ? "ACTIVE" : "INACTIVE");
-    message.success("Cập nhật trạng thái thành công");
-    fetchStaff();
-  } catch {
-    message.error("Cập nhật trạng thái thất bại");
+    loading.value = true
+    await updateStaffStatus(row.id, val ? 'ACTIVE' : 'INACTIVE')
+    message.success('Cập nhật trạng thái thành công')
+    row.status = val ? 'ACTIVE' : 'INACTIVE'
   }
-}
-
-async function handleDelete(id: number) {
-  try {
-    await deleteStaff(id);
-    message.success("Xóa thành công");
-    fetchStaff();
-  } catch {
-    message.error("Xóa thất bại");
+  catch {
+    message.error('Cập nhật trạng thái thất bại')
+    fetchStaff()
   }
-}
-
-async function handleDeleteSelected() {
-  if (!checkedRowKeys.value.length) {
-    message.warning("Chưa chọn nhân viên nào");
-    return;
+  finally {
+    loading.value = false
   }
-  try {
-    await deleteManyStaff(checkedRowKeys.value as number[]);
-    message.success("Xóa hàng loạt thành công");
-    checkedRowKeys.value = [];
-    fetchStaff();
-  } catch {
-    message.error("Xóa hàng loạt thất bại");
-  }
-}
-
-function refreshTable() {
-  Object.assign(filter, {
-    fullName: "",
-    role: "",
-    email: "",
-    phone: "",
-    status: null,
-  });
-  currentPage.value = 1;
-  fetchStaff();
 }
 
 function openCamera() {
-  message.info("Tính năng quét CCCD chưa được triển khai");
+  message.info('Tính năng quét CCCD đang phát triển')
 }
 
 // ================= TABLE COLUMNS =================
 const columns = [
-  { type: "selection" },
   {
-    title: "Họ và tên",
-    key: "fullName",
+    title: 'STT',
+    key: 'stt',
+    width: 60,
+    render: (_, index) => index + 1 + (currentPage.value - 1) * pageSize.value,
+  },
+  {
+    title: 'Nhân viên',
+    key: 'fullName',
+    width: 250,
     render: (row: StaffResponse) =>
       h(
         NSpace,
-        { align: "center" },
+        { align: 'center', justify: 'start' },
         {
           default: () => [
-            h(NAvatar, { size: "small", src: row.avatarUrl }),
-            h("span", row.fullName),
+            h(NAvatar, { size: 'small', round: true, src: row.avatarUrl || undefined, fallbackSrc: 'https://via.placeholder.com/150' }),
+            h('div', [
+              h('div', { style: 'font-weight: 500' }, row.fullName),
+              h('div', { style: 'font-size: 12px; color: #888' }, row.code),
+            ]),
           ],
-        }
+        },
       ),
   },
-  { title: "Chức vụ", key: "role" },
   {
-    title: "Giới tính",
-    key: "gender",
-    render: (row: StaffResponse) => (row.gender ? "Nam" : "Nữ"),
-  },
-  { title: "Email", key: "email" },
-  { title: "Số điện thoại", key: "phone" },
-  {
-    title: "Địa chỉ",
-    key: "address",
-    render(row: StaffResponse) {
-      const parts = [
-        row.hometown,
-        row.communeName,
-        row.districtName,
-        row.provinceName,
-      ].filter(Boolean);
-      return parts.join(", ");
+    title: 'Chức vụ',
+    key: 'role',
+    align: 'center',
+    width: 120,
+    render: (row) => {
+      const type = row.role === 'QUAN_LY' ? 'warning' : 'info'
+      const text = row.role === 'QUAN_LY' ? 'Quản lý' : 'Nhân viên'
+      return h(NTag, { type, size: 'small', bordered: false }, { default: () => text })
     },
   },
   {
-    title: "Trạng thái",
-    key: "status",
+    title: 'Giới tính',
+    key: 'gender',
+    width: 100,
+    align: 'center',
+    render: (row: StaffResponse) => h(NTag, {
+      type: row.gender ? 'success' : 'error',
+      size: 'small',
+      bordered: false,
+    }, {
+      default: () => (row.gender ? 'Nam' : 'Nữ'),
+    }),
+  },
+  {
+    title: 'Thông tin liên hệ',
+    key: 'contact',
+    width: 250,
+    render: row =>
+      h('div', [
+        h('div', { class: 'flex items-center gap-1' }, [
+          h(Icon, { icon: 'carbon:phone', class: 'text-gray-400' }),
+          h('span', row.phone),
+        ]),
+        h('div', { class: 'flex items-center gap-1' }, [
+          h(Icon, { icon: 'carbon:email', class: 'text-gray-400' }),
+          h('span', row.email),
+        ]),
+      ]),
+  },
+  // --- CỘT ĐỊA CHỈ: Sử dụng hàm resolveFullAddress để hiển thị Tên ---
+  {
+    title: 'Địa chỉ',
+    key: 'address',
+    width: 250,
+    render: (row: StaffResponse) => {
+      const fullAddress = resolveFullAddress(row)
+
+      if (!fullAddress)
+        return h('span', { class: 'text-gray-400 italic text-xs' }, 'Chưa cập nhật')
+
+      return h(
+        NTooltip,
+        { trigger: 'hover', style: { maxWidth: '400px' } },
+        {
+          trigger: () => h(
+            'div',
+            { class: 'truncate cursor-help' },
+            fullAddress,
+          ),
+          default: () => fullAddress,
+        },
+      )
+    },
+  },
+  // -------------------------------------------------------------------
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    align: 'center',
+    width: 120,
     render(row: StaffResponse) {
       return (
         <NSwitch
-          value={row.status === "ACTIVE"}
+          size="small"
+          value={row.status === 'ACTIVE'}
           onUpdateValue={(val: boolean) => handleStatusChange(row, val)}
-        />
-      );
+        >
+        </NSwitch>
+      )
     },
   },
   {
-    title: "Thao tác",
-    key: "actions",
+    title: 'Thao tác',
+    key: 'actions',
+    align: 'center',
+    width: 100,
+    fixed: 'right',
     render(row: StaffResponse) {
       return (
-        <NSpace>
-          <NButton
-            size="small"
-            quaternary
-            circle
-            onClick={() => openModal("edit", row)}
-          >
-            <Icon icon="carbon:edit" width="18" />
-          </NButton>
-          <NPopconfirm onPositiveClick={() => handleDelete(row.id)}>
-            {{
-              trigger: () => (
-                <NButton size="small" quaternary circle type="error">
-                  <Icon icon="carbon:trash-can" width="18" />
-                </NButton>
-              ),
-              default: () => "Bạn có chắc muốn xóa?",
-            }}
-          </NPopconfirm>
-        </NSpace>
-      );
+        <NTooltip trigger="hover">
+          {{
+            trigger: () => (
+              <NButton
+                size="small"
+                secondary
+                type="warning"
+                circle
+                onClick={() => openModal('edit', row)}
+              >
+                <NIcon><Icon icon="carbon:edit" /></NIcon>
+              </NButton>
+            ),
+            default: () => 'Sửa thông tin',
+          }}
+        </NTooltip>
+      )
     },
   },
-];
+]
 </script>
 
 <template>
-  <!-- Header -->
-  <n-card>
-    <NSpace vertical :size="8">
-      <NSpace align="center">
-        <NIcon size="24">
-          <Icon :icon="'icon-park-outline:address-book'" />
-        </NIcon>
-        <span style="font-weight: 600; font-size: 24px">
-          Quản lý Nhân viên
-        </span>
+  <div>
+    <NCard class="mb-3">
+      <NSpace vertical :size="8">
+        <NSpace align="center">
+          <NIcon size="24" class="text-red-500">
+            <Icon icon="icon-park-outline:address-book" />
+          </NIcon>
+          <span style="font-weight: 600; font-size: 24px">
+            Quản lý Nhân viên
+          </span>
+        </NSpace>
+        <span>Quản lý danh sách nhân viên và phân quyền hệ thống</span>
       </NSpace>
-      <span>Quản lý nhân viên làm việc tại cửa hàng</span>
-    </NSpace>
-  </n-card>
+    </NCard>
 
-  <n-card title="Bộ lọc" style="margin-top: 16px">
-    <n-form
-      label-placement="top"
-      :model="formSearch"
-      :label-style="{ fontWeight: 'bold' }"
-    >
-      <div class="space-y-3">
-        <div class="flex gap-4 items-end">
-          <!-- Mã nhân viên -->
-          <NFormItem label="Mã nhân viên:" class="flex-1">
-            <NInput
-              v-model:value="formSearch.code"
-              placeholder="Nhập mã nhân viên..."
-            />
+    <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-md mb-4">
+      <template #header-extra>
+        <div class="mr-5">
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton
+                size="large" circle secondary type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="resetFilters"
+              >
+                <NIcon size="24">
+                  <Icon icon="carbon:filter-reset" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới bộ lọc
+          </NTooltip>
+        </div>
+      </template>
+
+      <NForm label-placement="top" :model="filter">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+          <NFormItem label="Tìm kiếm chung">
+            <NInput v-model:value="filter.fullName" placeholder="Nhập tên hoặc mã nhân viên..." clearable>
+              <template #prefix>
+                <Icon icon="carbon:search" />
+              </template>
+            </NInput>
           </NFormItem>
 
-          <!-- Tên nhân viên -->
-          <NFormItem label="Tên nhân viên:" class="flex-1">
-            <NInput
-              v-model:value="formSearch.fullName"
-              placeholder="Nhập tên nhân viên..."
-            />
+          <NFormItem label="Số điện thoại / Email">
+            <NInput v-model:value="filter.phone" placeholder="Nhập SĐT hoặc Email..." clearable />
           </NFormItem>
 
-          <!-- Trạng thái -->
-          <NFormItem label="Trạng thái:" class="flex-1">
-            <NRadioGroup v-model:value="formSearch.status">
-              <NRadio :value="null">Tất cả</NRadio>
-              <NRadio :value="true">Đang làm</NRadio>
-              <NRadio :value="false">Đã nghỉ</NRadio>
+          <NFormItem label="Trạng thái">
+            <NRadioGroup v-model:value="filter.status" name="radiogroup">
+              <NSpace>
+                <NRadio value="">
+                  Tất cả
+                </NRadio>
+                <NRadio value="ACTIVE">
+                  Đang làm việc
+                </NRadio>
+                <NRadio value="INACTIVE">
+                  Đã nghỉ
+                </NRadio>
+              </NSpace>
             </NRadioGroup>
           </NFormItem>
+        </div>
+      </NForm>
+    </NCard>
 
-          <!-- Nút reset -->
-          <div class="pb-6">
+    <NCard title="Danh sách nhân viên" class="border rounded-3">
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
             <NButton
-              type="primary"
-              secondary
-              circle
-              title="Làm mới"
-              @click="refreshTable"
+              type="primary" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="openModal('add')"
             >
-              <NIcon size="20">
-                <Icon icon="carbon:filter-reset" />
-              </NIcon>
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
+                Thêm mới
+              </span>
             </NButton>
-          </div>
+
+            <NButton type="info" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:layers-external" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
+                Nhập Excel
+              </span>
+            </NButton>
+
+            <NButton type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="file-icons:microsoft-excel" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
+                Xuất danh sách
+              </span>
+            </NButton>
+
+            <NButton type="warning" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="icon-park-outline:align-text-bottom" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
+                Tải mẫu nhập
+              </span>
+            </NButton>
+
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="fetchStaff"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại
+              </span>
+            </NButton>
+          </NSpace>
         </div>
-      </div>
-    </n-form>
-  </n-card>
+      </template>
 
-  <n-card title="Danh sách nhân viên" style="margin-top: 16px">
-    <template #header-extra>
-      <NSpace>
-        <NButton
-          type="primary"
-          circle
-          title="Thêm mới"
-          @click="openModal('add')"
-        >
-          <NIcon size="24">
-            <Icon :icon="'carbon:add'" />
-          </NIcon>
-        </NButton>
-        <NButton
-          type="primary"
-          secondary
-          circle
-          title="Xuất Excel"
-          @click="refreshTable"
-        >
-          <NIcon size="24">
-            <Icon :icon="'icon-park-outline:download'" />
-          </NIcon>
-        </NButton>
-        <NButton
-          type="primary"
-          secondary
-          circle
-          title="Nhập từ Excel"
-          @click="refreshTable"
-        >
-          <NIcon size="24">
-            <Icon :icon="'carbon:layers-external'" />
-          </NIcon>
-        </NButton>
-        <NButton
-          type="primary"
-          secondary
-          circle
-          title="Tải mẫu templete"
-          @click="refreshTable"
-        >
-          <NIcon size="24">
-            <Icon :icon="'icon-park-outline:align-text-bottom'" />
-          </NIcon>
-        </NButton>
-        <NPopconfirm @positive-click="handleDeleteSelected">
-          <template #trigger>
-            <NButton type="error" secondary circle title="Xóa hàng loạt">
-              <NIcon size="24">
-                <Icon :icon="'icon-park-outline:delete'" />
-              </NIcon>
-            </NButton>
-          </template>
-          Xác nhận xóa tất cả nhân viên đã chọn?
-        </NPopconfirm>
-      </NSpace>
-    </template>
-
-    <NDataTable
-      :columns="columns"
-      :data="tableData"
-      :row-key="(row) => row.id"
-      :loading="loading"
-      v-model:checked-row-keys="checkedRowKeys"
-      :pagination="false"
-      bordered
-    />
-
-    <div class="flex justify-center mt-4">
-      <NPagination
-        :page="currentPage"
-        :page-size="pageSize"
-        :page-count="Math.ceil(total / pageSize)"
-        @update:page="handlePageChange"
+      <NDataTable
+        v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="tableData"
+        :row-key="(row) => row.id" :loading="loading" :pagination="false" striped
       />
-    </div>
-  </n-card>
 
-  <!-- Modal -->
-  <n-modal
-    v-model:show="showModal"
-    :title="modalMode === 'add' ? 'Thêm nhân viên' : 'Sửa nhân viên'"
-    preset="card"
-    style="width: 800px"
-  >
-    <n-form
-      label-placement="left"
-      :model="formData"
-      label-width="130"
-      class="p-4 space-y-4"
+      <div class="flex justify-end mt-4">
+        <NPagination
+          v-model:page="currentPage" v-model:page-size="pageSize" :item-count="total"
+          :page-sizes="[5, 10, 20, 50]" show-size-picker @update:page="handlePageChange"
+          @update:page-size="(val) => { pageSize = val; currentPage = 1; fetchStaff() }"
+        />
+      </div>
+    </NCard>
+
+    <NModal
+      v-model:show="showModal"
+      :title="modalMode === 'add' ? 'Thêm nhân viên mới' : 'Cập nhật thông tin nhân viên'" preset="card"
+      class="w-[90%] md:w-[800px]"
     >
-      <!-- Avatar ở giữa -->
-      <div class="flex justify-center">
-        <div class="flex flex-col items-center">
-          <NUpload
-            :max="1"
-            accept="image/*"
-            :on-change="handleUploadChange"
-            list-type="image-card"
-            class="mb-2"
-          >
-            <img
-              :src="
-                formData.avatarUrl ||
-                'https://via.placeholder.com/120x120.png?text=Avatar'
-              "
-              class="w-36 h-36 rounded-full object-cover"
-            />
-          </NUpload>
-          <span class="text-xs text-gray-500">Chọn ảnh đại diện</span>
-        </div>
-      </div>
+      <NForm
+        label-placement="left" :model="formData" label-width="140" require-mark-placement="right-hanging"
+        size="large"
+      >
+        <div class="flex justify-center mb-6">
+          <div class="flex flex-col items-center gap-3">
+            <NUpload
+              accept="image/*"
+              :show-file-list="false"
+              :default-upload="false"
+              @change="handleUploadChange"
+            >
+              <div class="group relative cursor-pointer overflow-hidden rounded-full border-4 border-white shadow-lg transition-transform hover:scale-105">
+                <NAvatar
+                  :key="formData.avatarUrl"
+                  :size="120"
+                  class="bg-gray-100 flex items-center justify-center object-cover"
+                  :src="formData.avatarUrl || undefined"
+                >
+                  <template #default>
+                    <NIcon v-if="!formData.avatarUrl" size="60" class="text-gray-300">
+                      <Icon icon="carbon:user-avatar-filled-alt" />
+                    </NIcon>
+                  </template>
+                </NAvatar>
 
-      <!-- Thông tin -->
-      <div class="space-y-3">
-        <!-- Họ tên + Giới tính -->
-        <div class="flex gap-4">
-          <NFormItem label="Họ và tên" required class="flex-1">
-            <NInput
-              v-model:value="formData.fullName"
-              placeholder="Nhập họ và tên"
-            />
-          </NFormItem>
-          <NFormItem label="Giới tính" class="flex w-1/3">
-            <NRadioGroup v-model:value="formData.gender">
-              <NRadio :value="true">Nam</NRadio>
-              <NRadio :value="false">Nữ</NRadio>
-            </NRadioGroup>
-          </NFormItem>
-        </div>
+                <div class="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                  <div class="flex flex-col items-center text-white">
+                    <NIcon size="24">
+                      <Icon icon="carbon:camera" />
+                    </NIcon>
+                    <span class="text-[10px] font-medium uppercase tracking-wider mt-1">Đổi ảnh</span>
+                  </div>
+                </div>
+              </div>
+            </NUpload>
 
-        <!-- Chức vụ + Ngày sinh -->
-        <div class="flex gap-4">
-          <NFormItem label="Chức vụ" required class="flex-1">
-            <NSelect
-              v-model:value="formData.role"
-              :options="[
-                { label: 'Quản lý', value: 'QUAN_LY' },
-                { label: 'Nhân viên', value: 'NHAN_VIEN' },
-              ]"
-              placeholder="Chọn chức vụ"
-              filterable
-              clearable
-            />
-          </NFormItem>
-          <NFormItem label="Ngày sinh" class="flex-1">
-            <NDatePicker
-              v-model:value="formData.birthday"
-              type="date"
-              placeholder="Chọn ngày sinh"
-              clearable
-            />
-          </NFormItem>
-        </div>
+            <div v-if="formData.avatarUrl" class="flex gap-2">
+              <NButton size="tiny" type="error" secondary class="rounded-full px-3" @click="removeAvatar">
+                <template #icon>
+                  <Icon icon="carbon:trash-can" />
+                </template>
+                Gỡ ảnh
+              </NButton>
+            </div>
 
-        <!-- Điện thoại + Email -->
-        <div class="flex gap-4">
-          <NFormItem label="Điện thoại" required class="flex-1">
-            <NInput
-              v-model:value="formData.phone"
-              placeholder="Nhập số điện thoại"
-            />
-          </NFormItem>
-          <NFormItem label="Email" required class="flex-1">
-            <NInput v-model:value="formData.email" placeholder="Nhập email" />
-          </NFormItem>
-        </div>
-
-        <!-- CCCD -->
-        <NFormItem label="CMND/CCCD" required>
-          <div class="flex gap-2 w-full">
-            <NInput
-              class="flex-1"
-              v-model:value="formData.citizenIdentifyCard"
-              placeholder="Nhập số CMND/CCCD"
-            />
-            <NButton type="info" @click="openCamera">Quét</NButton>
+            <span v-else class="text-gray-400 text-xs italic">
+              Chấp nhận: .jpg, .png, .jpeg
+            </span>
           </div>
-        </NFormItem>
+        </div>
 
-        <!-- Địa chỉ cụ thể -->
-        <NFormItem label="Địa chỉ cụ thể">
-          <NInput
-            v-model:value="formData.hometown"
-            placeholder="Số nhà, đường..."
-          />
-        </NFormItem>
-
-        <!-- Địa chỉ (tỉnh, huyện, xã) -->
-        <NFormItem label="Địa chỉ">
-          <div class="flex gap-2 w-full">
-            <NSelect
-              class="flex-1"
-              v-model:value="formData.provinceCode"
-              :options="provinces"
-              placeholder="Tỉnh/Thành phố"
-              filterable
-              clearable
-            />
-            <NSelect
-              class="flex-1"
-              v-model:value="formData.districtCode"
-              :options="districts"
-              placeholder="Quận/Huyện"
-              filterable
-              clearable
-            />
-            <NSelect
-              class="flex-1"
-              v-model:value="formData.communeCode"
-              :options="communes"
-              placeholder="Xã/Phường"
-              filterable
-              clearable
-            />
+        <div class="space-y-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <NFormItem label="Họ và tên" required>
+              <NInput v-model:value="formData.fullName" placeholder="VD: Nguyễn Văn A" />
+            </NFormItem>
+            <NFormItem label="Giới tính">
+              <NRadioGroup v-model:value="formData.gender">
+                <NSpace>
+                  <NRadio :value="true">
+                    Nam
+                  </NRadio>
+                  <NRadio :value="false">
+                    Nữ
+                  </NRadio>
+                </NSpace>
+              </NRadioGroup>
+            </NFormItem>
           </div>
-        </NFormItem>
-      </div>
-    </n-form>
 
-    <template #footer>
-      <NSpace justify="end">
-        <NButton @click="closeModal">Hủy</NButton>
-        <NButton type="primary" @click="saveStaff">
-          {{ modalMode === "add" ? "Thêm mới" : "Lưu thay đổi" }}
-        </NButton>
-      </NSpace>
-    </template>
-  </n-modal>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <NFormItem label="Chức vụ" required>
+              <NSelect
+                v-model:value="formData.role" :options="[
+                  { label: 'Quản lý', value: 'QUAN_LY' },
+                  { label: 'Nhân viên', value: 'NHAN_VIEN' },
+                ]" placeholder="Chọn chức vụ"
+              />
+            </NFormItem>
+            <NFormItem label="Ngày sinh">
+              <NDatePicker v-model:value="formData.birthday" type="date" placeholder="Ngày/Tháng/Năm" class="w-full" />
+            </NFormItem>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <NFormItem label="Số điện thoại" required>
+              <NInput v-model:value="formData.phone" placeholder="09xx..." />
+            </NFormItem>
+            <NFormItem label="Email" required>
+              <NInput v-model:value="formData.email" placeholder="example@gmail.com" />
+            </NFormItem>
+          </div>
+
+          <NFormItem label="CCCD/CMND" required>
+            <NInput v-model:value="formData.citizenIdentifyCard" placeholder="Số thẻ căn cước...">
+              <template #suffix>
+                <NTooltip trigger="hover">
+                  <template #trigger>
+                    <NButton text type="info" @click="openCamera">
+                      <Icon icon="carbon:qr-code" width="20" />
+                    </NButton>
+                  </template>
+                  Quét mã QR CCCD
+                </NTooltip>
+              </template>
+            </NInput>
+          </NFormItem>
+
+          <NFormItem label="Địa chỉ">
+            <div class="flex flex-col gap-2 w-full">
+              <div class="grid grid-cols-3 gap-2">
+                <NSelect v-model:value="formData.provinceCode" :options="provinces" placeholder="Tỉnh/TP" filterable />
+                <NSelect
+                  v-model:value="formData.districtCode" :options="districts" placeholder="Quận/Huyện" filterable
+                  :disabled="!formData.provinceCode"
+                />
+                <NSelect
+                  v-model:value="formData.communeCode" :options="communes" placeholder="Xã/Phường" filterable
+                  :disabled="!formData.districtCode"
+                />
+              </div>
+              <NInput v-model:value="formData.hometown" placeholder="Số nhà, tên đường cụ thể..." />
+            </div>
+          </NFormItem>
+        </div>
+      </NForm>
+
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="closeModal">
+            Đóng
+          </NButton>
+          <NButton type="primary" icon-placement="right" @click="saveStaff">
+            {{ modalMode === "add" ? "Thêm mới" : "Lưu thay đổi" }}
+            <template #icon>
+              <Icon icon="carbon:save" />
+            </template>
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+  </div>
 </template>

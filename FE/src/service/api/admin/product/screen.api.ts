@@ -1,16 +1,17 @@
 import { API_ADMIN_PRODUCT_SCREEN } from '@/constants/url'
 import request from '@/service/request'
-import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
-import { AxiosResponse } from 'axios'
+import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
+import type { AxiosResponse } from 'axios'
 
 export type ADProductScreenRequest = PaginationParams & {
-  physicalSize: number
-  resolution: string
-  panelType: string
-  technology: string
+  physicalSize?: number
+  resolution?: string
+  panelType?: string
+  technology?: string
+  status?: string
 }
 
-export type ADProductScreenCreateUpdateRequest = {
+export interface ADProductScreenCreateUpdateRequest {
   id?: string
   code: string
   name: string
@@ -20,7 +21,7 @@ export type ADProductScreenCreateUpdateRequest = {
   technology: string
 }
 
-export type ADProductScreenResponse = {
+export interface ADProductScreenResponse {
   id?: string
   code: string
   name: string
@@ -31,7 +32,7 @@ export type ADProductScreenResponse = {
   technology: string
 }
 
-export type ADProductScreenDetailResponse = {
+export interface ADProductScreenDetailResponse {
   id?: string
   code: string
   name: string
@@ -41,13 +42,13 @@ export type ADProductScreenDetailResponse = {
   technology: string
 }
 
-export type ADProductScreenResolutionResponse = {
+export interface ADProductScreenResolutionResponse {
   id: string
   code: string
   name: string
 }
 
-export const getScreens = async (params: ADProductScreenRequest) => {
+export async function getScreens(params: ADProductScreenRequest) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_SCREEN}`,
     method: 'GET',
@@ -57,7 +58,7 @@ export const getScreens = async (params: ADProductScreenRequest) => {
   return res.data
 }
 
-export const getScreenById = async (id: string) => {
+export async function getScreenById(id: string) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_SCREEN}/${id}`,
     method: 'GET',
@@ -66,7 +67,7 @@ export const getScreenById = async (id: string) => {
   return res.data
 }
 
-export const modifyScreen = async (data: ADProductScreenCreateUpdateRequest) => {
+export async function modifyScreen(data: ADProductScreenCreateUpdateRequest) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_SCREEN}`,
     method: 'POST',
@@ -76,7 +77,7 @@ export const modifyScreen = async (data: ADProductScreenCreateUpdateRequest) => 
   return res.data
 }
 
-export const changeScreenStatus = async (id: string) => {
+export async function changeScreenStatus(id: string) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_SCREEN}/change-status/${id}`,
     method: 'GET',

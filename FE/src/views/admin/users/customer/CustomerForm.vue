@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import type { FormInst, FormItemRule, SelectOption, UploadFileInfo } from 'naive-ui'
 import {
   createDiscreteApi,
-  NBadge,
   NButton,
   NCard,
   NDatePicker,
@@ -13,7 +12,6 @@ import {
   NInput,
   NPopconfirm,
   NSelect,
-  NSpace,
   NSwitch,
   NUpload,
 } from 'naive-ui'
@@ -31,7 +29,6 @@ import {
   createAddress,
   deleteAddress as deleteAddressApi,
   getAddressesByCustomer,
-  setDefaultAddress as setDefaultAddressApi,
   updateAddress,
 } from '@/service/api/admin/users/customer/address'
 
@@ -134,7 +131,6 @@ const isEditMode = computed(() => !!customerId.value)
 
 const formRef = ref<FormInst | null>(null)
 const addressFormsRef = ref<FormInst[]>([])
-const uploadRef = ref()
 
 const loading = ref(false)
 const submitting = ref(false)

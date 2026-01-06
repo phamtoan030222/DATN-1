@@ -28,7 +28,7 @@ public class AdColorServiceImpl implements AdColorService {
         Pageable pageable =  Helper.createPageable(request, "createdDate");
 
         return new ResponseObject<>(
-                PageableObject.of(adColorRepository.getAllColors(pageable, request.getColorName(), request.getColorStatus())),
+                PageableObject.of(adColorRepository.getAllColors(pageable, request.getKeyword(), request.getStatus())),
                 HttpStatus.OK,
                 "Lấy thành công danh sách màu "
         );
