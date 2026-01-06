@@ -21,9 +21,10 @@ public class MappingConstants {
 
     public static final String ADMIN = "/admin";
 
-
     /* API PRODUCTS */
     public static final String API_ADMIN_PREFIX = API_VERSION_PREFIX + ADMIN;
+    public static final String API_STAFF_PREFIX = API_VERSION_PREFIX + STAFF;
+    public static final String API_CUSTOMER_PREFIX = API_VERSION_PREFIX + CUSTOMER;
 
     public static final String API_ADMIN_PREFIX_GEO =  API_VERSION_PREFIX + "/geo";
     public static final String API_ADMIN_PREFIX_PRODUCTS = API_ADMIN_PREFIX + "/products";

@@ -2,6 +2,8 @@ import { router } from "@/router";
 import { local } from "@/utils";
 import { useRouteStore } from "./router";
 import { useTabStore } from "./tab";
+import { localStorageAction } from "@/utils/storage.helper";
+import { ACCESS_TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY, USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
 
 interface AuthStatus {
   userInfo: Api.Login.Info | null;
@@ -49,18 +51,16 @@ export const useAuthStore = defineStore("auth-store", {
       local.remove("userInfo");
     },
 
-    async login(userName: string, password: string) {
+    async login(userInfo: Entity.UserInformation, accessToken: string, refreshToken: string) {
       try {
         // ✅ Fake dữ liệu trả về đúng với interface Api.Login.Info
-        const fakeData: Api.Login.Info = {
-          id: 1,
-          userName,
-          role: ["admin"], // 👈 dùng role, không phải roleList
-          accessToken: "fake-token-123",
-          refreshToken: "fake-refresh-456",
+        const dataStorage: Api.Login.Info = {
+          userInfo: userInfo,
+          accessToken,
+          refreshToken,
         };
 
-        await this.handleLoginInfo(fakeData);
+        await this.handleLoginInfo(dataStorage);
       } catch (e) {
         console.warn("[Login Error]:", e);
       }
@@ -71,6 +71,10 @@ export const useAuthStore = defineStore("auth-store", {
       local.set("accessToken", data.accessToken);
       local.set("refreshToken", data.refreshToken);
 
+      localStorageAction.set(ACCESS_TOKEN_STORAGE_KEY, data.accessToken)
+      localStorageAction.set(REFRESH_TOKEN_STORAGE_KEY, data.refreshToken)
+      localStorageAction.set(USER_INFO_STORAGE_KEY, data.userInfo)
+
       this.token = data.accessToken;
       this.userInfo = data;
 
@@ -78,10 +82,10 @@ export const useAuthStore = defineStore("auth-store", {
       await routeStore.initAuthRoute();
 
       const route = unref(router.currentRoute);
-      const query = route.query as { redirect: string };
-      router.push({
-        path: query.redirect || "/",
-      });
+      // const query = route.query as { redirect: string };
+      // router.push({
+      //   path: query.redirect || "/",
+      // });
     },
   },
 });

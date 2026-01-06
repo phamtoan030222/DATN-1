@@ -3,6 +3,16 @@ export const { VITE_BASE_URL_CLIENT } = import.meta.env || {}
 
 export const API_URL = `${VITE_BASE_URL_SERVER}/api/v1` as string
 
+// AUTH API
+export const PREFIX_API_AUTH = `${API_URL}/auth` as string
+
+// SUB_REDIRECT
+export const SCREEN_ROLE_ADMIN = `&screen=ADMIN`
+
+export const URL_OAUTH2_GOOGLE_ADMIN =
+  `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_ADMIN}` as string
+
+  // ADMIN API
 export const PREFIX_API_ADMIN = `${API_URL}/admin` as string
 
 export const API_ADMIN_GEO = `${API_URL}/geo` as string
