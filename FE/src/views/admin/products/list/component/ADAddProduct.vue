@@ -575,6 +575,11 @@ const submitVariantHandler = async () => {
 }
 
 const validateSubmitVariantHandler: () => boolean = () => {
+    if (!formDataBasicRef?.value?.validate(error => {
+        if (error) notification.error({ content: error[0][0]?.message ?? 'Vui lòng điền đầy đủ thông tin cơ bản', duration: 3000 })
+        return !!error
+    })) return false;
+
     if (!formDataVariantRef?.value?.validate(error => {
         if (error) notification.error({ content: error[0][0]?.message ?? 'Vui lòng điền đầy đủ thông tin biến thể', duration: 3000 })
         return !!error
