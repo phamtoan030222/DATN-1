@@ -1,275 +1,566 @@
-<template>
-    <div>
-        <n-card>
-            <NSpace vertical :size="8">
-                <NSpace align="center">
-                    <NIcon size="24">
-                        <Icon icon="icon-park-outline:monitor" />
-                    </NIcon>
-                    <span style="font-weight: 600; font-size: 24px">
-                        Quản lý màn hình
-                    </span>
-                </NSpace>
-                <span>Quản lý thuộc tính màn hình của sản phẩm</span>
-            </NSpace>
-        </n-card>
-        <n-card title="Bộ lọc" class="mt-20px">
-            <n-grid x-gap="12" :cols="11">
-                <n-grid-item span="2">
-                    <span>Tìm kiếm</span>
-                    <n-input v-model:value="state.search.q" placeholder="Tìm kiếm" />
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Độ phân giải</span>
-                    <n-select v-model:value="state.search.resolution"
-                        :options="screenResolutionOptionsSelect"></n-select>
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Dạng tấm nền</span>
-                    <n-select v-model:value="state.search.panelType" :options="panelTypeOptionsSelect"></n-select>
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Kích thước màn hình</span>
-                    <n-select v-model:value="state.search.physicalSize" :options="screenSizeOptionsSelect"></n-select>
-                </n-grid-item>
-                <n-grid-item span="2">
-                    <span>Công nghệ</span>
-                    <n-input v-model:value="state.search.technology" placeholder="Nhập công nghệ" />
-                </n-grid-item>
-                <n-grid-item span="1">
-                    <n-flex vertical justify="end" style="height: 100%;">
-                        <n-button @click="refreshFilter" strong secondary circle type="success">
-                            <template #icon>
-                                <n-icon>
-                                    <svg version="1.1" xmlns="http://www.w3.org/2000/svg"
-                                        xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px" viewBox="0 0 512 512"
-                                        enable-background="new 0 0 512 512" xml:space="preserve">
-                                        <path d="M433,288.8c-7.7,0-14.3,5.9-14.9,13.6c-6.9,83.1-76.8,147.9-161.8,147.9c-89.5,0-162.4-72.4-162.4-161.4
-                                    c0-87.6,70.6-159.2,158.2-161.4c2.3-0.1,4.1,1.7,4.1,4v50.3c0,12.6,13.9,20.2,24.6,13.5L377,128c10-6.3,10-20.8,0-27.1l-96.1-66.4
-                                    c-10.7-6.7-24.6,0.9-24.6,13.5v45.7c0,2.2-1.7,4-3.9,4C148,99.8,64,184.6,64,288.9C64,394.5,150.1,480,256.3,480
-                                    c100.8,0,183.4-76.7,191.6-175.1C448.7,296.2,441.7,288.8,433,288.8L433,288.8z">
-                                        </path>
-                                    </svg>
-                                </n-icon>
-                            </template>
-                        </n-button>
-                    </n-flex>
-                </n-grid-item>
-            </n-grid>
-        </n-card>
-        <n-card title="Danh sách màn hình" class="mt-20px">
-            <template #header-extra>
-                <n-space justify="end">
-                    <n-button circle type="primary" @click="clickOpenModal()">
-                        <Icon icon="material-symbols:add" />
-                    </n-button>
-                </n-space>
-            </template>
-            <n-data-table :columns="columns" :data="state.data.screens" :bordered="false" />
-            <n-space justify="center" class="mt-20px">
-                <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
-                    :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
-            </n-space>
-        </n-card>
-
-        <ADProductScreenModal @success="handleSuccessModifyModal" :isDetail="isDetailModal" :isOpen="isOpenModal"
-            :id="ScreenIDSelected" @close="closeModal" />
-    </div>
-</template>
-
-<script lang="ts" setup>
-import { debounce } from 'lodash'
-import { onMounted, reactive, Ref, ref, watch } from 'vue'
-import ADProductScreenModal from './component/ADProductScreenModal.vue'
-import { ADProductScreenResponse, changeScreenStatus, getScreens } from '@/service/api/admin/product/screen.api'
-import { DataTableColumns, NButton, NSpace, NSwitch } from 'naive-ui'
+<script setup lang="tsx">
+import { h, onMounted, reactive, ref } from 'vue'
+import {
+  NButton,
+  NCard,
+  NDataTable,
+  NForm,
+  NFormItem,
+  NGrid,
+  NGridItem,
+  NIcon,
+  NInput,
+  NModal,
+  NPagination,
+  NRadio,
+  NRadioGroup,
+  NSelect,
+  NSpace,
+  NSwitch,
+  NTooltip,
+  useMessage,
+  useNotification,
+} from 'naive-ui'
 import { Icon } from '@iconify/vue'
+import {
+  changeScreenStatus,
+  getScreenById,
+  getScreens,
+  modifyScreen,
+} from '@/service/api/admin/product/screen.api'
+import type {
+  ADProductScreenCreateUpdateRequest,
+  ADProductScreenResponse,
+} from '@/service/api/admin/product/screen.api'
+import type { DataTableColumns } from 'naive-ui'
 
+// ================= STATE =================
+const message = useMessage()
+const notification = useNotification()
+const tableData = ref<ADProductScreenResponse[]>([])
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
+const loading = ref(false)
 
-const state = reactive({
-    search: {
-        q: '',
-        resolution: '' as string | undefined,
-        technology: '',
-        panelType: '',
-        physicalSize: undefined as number | undefined,
-    },
-    data: {
-        screens: [] as ADProductScreenResponse[],
-    },
-    pagination: {
-        page: 1,
-        size: 10,
-        totalPages: undefined as number | undefined,
-    },
+// State tìm kiếm & bộ lọc
+const searchState = reactive({
+  keyword: '',
+  resolution: null as string | null,
+  panelType: null as string | null,
+  physicalSize: null as number | null,
+  technology: '',
+  status: null as string | null, // null = Tất cả
 })
 
-const fetchScreens = async () => {
-    const res = await getScreens({
-        page: state.pagination.page,
-        size: state.pagination.size,
-        q: state.search.q,
-        resolution: state.search.resolution as string,
-        physicalSize: state.search.physicalSize as number,
-        panelType: state.search.panelType,
-        technology: state.search.technology,
-    })
-
-    state.data.screens = res.data.data
-    state.pagination.totalPages = res.data.totalPages
-}
-
-const refreshFilter = () => {
-    state.search.q = ''
-    state.search.resolution = undefined
-    state.search.technology = ''
-    state.search.panelType = ''
-    state.search.physicalSize = undefined
-}
-
-const columns: DataTableColumns<ADProductScreenResponse> = [
-    { type: 'selection', fixed: 'left' },
-    {
-        title: '#', key: 'orderNumber', width: 50, fixed: 'left', render: (data, index) => {
-            return h('span', { innerText: index + 1 })
-        }
-    },
-    { title: 'Mã', key: 'code', width: 100, fixed: 'left', },
-    { title: 'Tên', key: 'name', width: 150, fixed: 'left', },
-    { title: 'Đô phân giải', key: 'resolution', width: 150, align: 'center', },
-    { title: 'Kích thước vật lý', key: 'physicalSize', width: 150, align: 'center', },
-    { title: 'Tấm nền', key: 'panelType', width: 150, align: 'center', },
-    { title: 'Công nghệ', key: 'technology', width: 150, align: 'center', },
-    {
-        title: 'Trạng thái', key: 'status', width: 70, align: 'center',
-        render: (data: ADProductScreenResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } })
-    },
-    {
-        title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
-        render: (data: ADProductScreenResponse) => {
-            return h(NSpace,
-                [
-                    h(NButton, {
-                        quaternary: true, size: 'small', circle: true,
-                        onClick: () => clickOpenModal(data.id, true)
-                    },
-                        h(Icon, { icon: 'carbon:edit' })
-                    ),
-                    // h(NButton, {
-                    //     strong: true, circle: true, type: 'warning',
-                    //     onClick: () => clickOpenModal(data.id)
-                    // },
-                    //     h(Icon, { icon: 'carbon:edit' })
-                    // )
-                ]
-            )
-        }
-    },
-]
-
-onMounted(() => {
-    fetchScreens()
-})
-
-const isOpenModal = ref<boolean>(false)
-
-const isDetailModal: Ref<boolean> = ref(true)
-
-const ScreenIDSelected = ref<string>()
-
-const clickOpenModal = (id?: string, isDetail?: boolean) => {
-    ScreenIDSelected.value = id
-    isOpenModal.value = true
-    isDetailModal.value = isDetail ?? false
-}
-
-const closeModal = () => {
-    isOpenModal.value = false
-}
-
-const handleSuccessModifyModal = () => {
-    fetchScreens()
-    closeModal()
-}
-
-const debounceFetchScreens = debounce(fetchScreens, 300)
-
-watch(
-    () => [state.search.q, state.search.resolution, state.search.physicalSize, state.search.technology, state.search.panelType],
-    () => {
-        debounceFetchScreens()
-    }
-)
-
+// ================= OPTIONS =================
 const screenResolutionOptionsSelect = [
-    { label: '1920 x 1080 pixels', value: '1920x1080' },
-    { label: '1366 x 768 pixels', value: '1366x768' },
-    { label: '2880 x 1800 pixels', value: '2880x1800' },
-    { label: '3840 x 2160 pixels', value: '3840x2160' },
-    { label: '2560 x 1440 pixels', value: '2560x1440' },
+  { label: '1920 x 1080 pixels', value: '1920x1080' },
+  { label: '1366 x 768 pixels', value: '1366x768' },
+  { label: '2880 x 1800 pixels', value: '2880x1800' },
+  { label: '3840 x 2160 pixels', value: '3840x2160' },
+  { label: '2560 x 1440 pixels', value: '2560x1440' },
 ]
 
 const panelTypeOptionsSelect = [
-    { label: 'LCD', value: 'LCD' },
-    { label: 'OLED', value: 'OLED' },
-    { label: 'LED_BACKLIT_LCD', value: 'LED_BACKLIT_LCD' },
-    { label: 'AMOLED', value: 'AMOLED' },
-    { label: 'MINI_LED', value: 'MINI_LED' },
-    { label: 'MICRO_LED', value: 'MICRO_LED' },
+  { label: 'LCD', value: 'LCD' },
+  { label: 'OLED', value: 'OLED' },
+  { label: 'LED Backlit', value: 'LED_BACKLIT_LCD' },
+  { label: 'AMOLED', value: 'AMOLED' },
+  { label: 'Mini LED', value: 'MINI_LED' },
+  { label: 'Micro LED', value: 'MICRO_LED' },
 ]
 
 const screenSizeOptionsSelect = [
-    { label: '11.6 inch', value: '11.6' },
-    { label: '13.3 inch', value: '13.3' },
-    { label: '14 inch', value: '14' },
-    { label: '15.6 inch', value: '15.6' },
-    { label: '16 inch', value: '16' },
-    { label: '17.3 inch', value: '17.3' },
+  { label: '11.6 inch', value: 11.6 },
+  { label: '13.3 inch', value: 13.3 },
+  { label: '14.0 inch', value: 14.0 },
+  { label: '15.6 inch', value: 15.6 },
+  { label: '16.0 inch', value: 16.0 },
+  { label: '17.3 inch', value: 17.3 },
 ]
 
-const handlePageChange = (page: number) => {
-    state.pagination.page = page
+// ================= MODAL STATE =================
+const showModal = ref(false)
+const modalMode = ref<'add' | 'edit'>('add')
+
+const formData = reactive<ADProductScreenCreateUpdateRequest>({
+  id: undefined,
+  code: '',
+  name: '',
+  physicalSize: 0,
+  resolution: '',
+  panelType: '',
+  technology: '',
+})
+
+// ================= API CALL =================
+async function fetchScreens() {
+  loading.value = true
+  try {
+    const params: any = {
+      page: currentPage.value,
+      size: pageSize.value,
+      q: searchState.keyword || undefined,
+      resolution: searchState.resolution || undefined,
+      physicalSize: searchState.physicalSize || undefined,
+      panelType: searchState.panelType || undefined,
+      technology: searchState.technology || undefined,
+      status: searchState.status || undefined,
+    }
+
+    const res = await getScreens(params)
+
+    if (res.data) {
+      tableData.value = res.data.data || []
+      total.value = res.data.totalItems || 0
+    }
+  }
+  catch (e) {
+    message.error('Lỗi tải dữ liệu màn hình')
+  }
+  finally {
+    loading.value = false
+  }
 }
 
-const notification = useNotification()
+onMounted(fetchScreens)
 
-const handleChangeStatus = async (id: string) => {
-    const res = await changeScreenStatus(id)
+// ================= CRUD LOGIC =================
+async function openModal(mode: 'add' | 'edit', row?: ADProductScreenResponse) {
+  modalMode.value = mode
 
-    if (res.success) notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
-    else notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
-
-    fetchScreens();
+  if (mode === 'edit' && row && row.id) {
+    try {
+      const res = await getScreenById(row.id)
+      const detail = res.data
+      if (detail) {
+        Object.assign(formData, {
+          id: detail.id,
+          code: detail.code,
+          name: detail.name,
+          physicalSize: detail.physicalSize,
+          resolution: detail.resolution,
+          panelType: detail.panelType,
+          technology: detail.technology,
+        })
+      }
+    }
+    catch (e) {
+      message.error('Không thể lấy chi tiết màn hình')
+      return
+    }
+  }
+  else {
+    Object.assign(formData, {
+      id: undefined,
+      code: '',
+      name: '',
+      physicalSize: null,
+      resolution: null,
+      panelType: null,
+      technology: '',
+    })
+  }
+  showModal.value = true
 }
+
+function closeModal() {
+  showModal.value = false
+}
+
+async function saveScreen() {
+  if (!formData.name || !formData.resolution || !formData.physicalSize || !formData.panelType) {
+    message.warning('Vui lòng nhập đầy đủ: Tên, Kích thước, Độ phân giải, Tấm nền')
+    return
+  }
+
+  try {
+    await modifyScreen(formData)
+    notification.success({
+      content: modalMode.value === 'add' ? 'Thêm mới thành công' : 'Cập nhật thành công',
+      duration: 3000,
+    })
+    closeModal()
+    fetchScreens()
+  }
+  catch (e) {
+    notification.error({ content: 'Có lỗi xảy ra', duration: 3000 })
+  }
+}
+
+async function handleStatusChange(row: ADProductScreenResponse, value: boolean) {
+  if (!row.id)
+    return
+  try {
+    loading.value = true
+    await changeScreenStatus(row.id)
+    notification.success({ content: `Đã cập nhật trạng thái: ${row.name}`, duration: 2000 })
+    fetchScreens()
+  }
+  catch {
+    notification.error({ content: 'Cập nhật trạng thái thất bại', duration: 3000 })
+    loading.value = false
+  }
+}
+
+function refreshTable() {
+  searchState.keyword = ''
+  searchState.resolution = null
+  searchState.panelType = null
+  searchState.physicalSize = null
+  searchState.technology = ''
+  searchState.status = null // Reset về Tất cả
+
+  currentPage.value = 1
+  fetchScreens()
+}
+
+function handleSearch() {
+  currentPage.value = 1
+  fetchScreens()
+}
+
+function handlePageChange(page: number) {
+  currentPage.value = page
+  fetchScreens()
+}
+
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchScreens()
+}
+
+// ================= TABLE COLUMNS =================
+const columns: DataTableColumns<ADProductScreenResponse> = [
+  {
+    title: 'STT',
+    key: 'index',
+    width: 60,
+    align: 'center',
+    render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
+  },
+  {
+    title: 'Mã',
+    key: 'code',
+    width: 120,
+    render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
+  },
+  {
+    title: 'Tên Màn hình',
+    key: 'name',
+    minWidth: 150,
+    render: row => h('span', { class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors', onClick: () => openModal('edit', row) }, row.name),
+  },
+  { title: 'Độ phân giải', key: 'resolution', width: 150 },
+  {
+    title: 'Kích thước',
+    key: 'physicalSize',
+    width: 150,
+    align: 'center',
+    render: row => `${row.physicalSize} inch`,
+  },
+  { title: 'Tấm nền', key: 'panelType', width: 150, align: 'center' },
+  { title: 'Công nghệ', key: 'technology', width: 150, ellipsis: { tooltip: true } },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 100,
+    align: 'center',
+    render(row) {
+      return h(NSwitch, {
+        value: row.status === 'ACTIVE',
+        size: 'small',
+        disabled: loading.value,
+        onUpdateValue: val => handleStatusChange(row, val),
+      })
+    },
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 100,
+    fixed: 'right',
+    align: 'center',
+    render(row) {
+      return h('div', { class: 'flex justify-center' }, [
+        h(NTooltip, { trigger: 'hover' }, {
+          trigger: () => h(NButton, {
+            size: 'small',
+            secondary: true,
+            type: 'warning',
+            circle: true,
+            class: 'transition-all duration-200 hover:scale-125 hover:shadow-md',
+            onClick: () => openModal('edit', row),
+          }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
+          default: () => 'Cập nhật thông tin',
+        }),
+      ])
+    },
+  },
+]
 </script>
 
+<template>
+  <div>
+    <NCard class="mb-3 shadow-sm border-none">
+      <NSpace vertical :size="8">
+        <NSpace align="center">
+          <NIcon size="24" class="text-blue-600">
+            <Icon icon="icon-park-outline:monitor" />
+          </NIcon>
+          <span style="font-weight: 600; font-size: 24px; color: #1f2937">
+            Quản lý Màn hình
+          </span>
+        </NSpace>
+        <span class="text-gray-500">Quản lý danh sách và thông số kỹ thuật màn hình</span>
+      </NSpace>
+    </NCard>
+
+    <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-sm mb-4 border border-gray-100">
+      <template #header-extra>
+        <div class="mr-5">
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                @click="refreshTable"
+              >
+                <NIcon size="24">
+                  <Icon icon="carbon:filter-reset" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới bộ lọc
+          </NTooltip>
+        </div>
+      </template>
+
+      <NForm label-placement="top">
+        <NGrid :x-gap="24" :y-gap="12" cols="1 600:2 900:3 1200:4">
+          <NGridItem span="1 600:2 1200:2">
+            <NFormItem label="Tìm kiếm chung">
+              <NInput
+                v-model:value="searchState.keyword"
+                placeholder="Nhập tên, mã màn hình..."
+                clearable
+                @input="handleSearch"
+                @keydown.enter="handleSearch"
+              >
+                <template #prefix>
+                  <Icon icon="carbon:search" class="text-gray-400" />
+                </template>
+              </NInput>
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem span="1 600:2 900:2 1200:2">
+            <NFormItem label="Trạng thái">
+              <NRadioGroup v-model:value="searchState.status" name="status-radio-group" @update:value="handleSearch">
+                <NSpace align="center" style="height: 34px;">
+                  <NRadio :value="null">
+                    Tất cả
+                  </NRadio>
+                  <NRadio value="ACTIVE" class="ml-4">
+                    Hoạt động
+                  </NRadio>
+                  <NRadio value="INACTIVE" class="ml-4">
+                    Ngừng hoạt động
+                  </NRadio>
+                </NSpace>
+              </NRadioGroup>
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem>
+            <NFormItem label="Độ phân giải">
+              <NSelect
+                v-model:value="searchState.resolution"
+                :options="screenResolutionOptionsSelect"
+                placeholder="Chọn độ phân giải"
+                clearable
+                @update:value="handleSearch"
+              />
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem>
+            <NFormItem label="Tấm nền">
+              <NSelect
+                v-model:value="searchState.panelType"
+                :options="panelTypeOptionsSelect"
+                placeholder="Chọn tấm nền"
+                clearable
+                @update:value="handleSearch"
+              />
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem>
+            <NFormItem label="Kích thước">
+              <NSelect
+                v-model:value="searchState.physicalSize"
+                :options="screenSizeOptionsSelect"
+                placeholder="Chọn kích thước"
+                clearable
+                @update:value="handleSearch"
+              />
+            </NFormItem>
+          </NGridItem>
+        </NGrid>
+      </NForm>
+    </NCard>
+
+    <NCard title="Danh sách Màn hình" class="border border-gray-100 rounded-2xl shadow-sm">
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
+            <NButton
+              type="primary"
+              secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="openModal('add')"
+            >
+              <template #icon>
+                <NIcon size="20">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Thêm mới
+              </span>
+            </NButton>
+
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="refreshTable"
+            >
+              <template #icon>
+                <NIcon size="20">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại
+              </span>
+            </NButton>
+          </NSpace>
+        </div>
+      </template>
+
+      <NDataTable
+        :columns="columns"
+        :data="tableData"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        striped
+        :bordered="false"
+        class="rounded-lg overflow-hidden"
+      />
+
+      <div class="flex justify-end mt-4">
+        <NPagination
+          v-model:page="currentPage"
+          v-model:page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[5, 10, 20, 50]"
+          show-size-picker
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </NCard>
+
+    <NModal
+      v-model:show="showModal"
+      preset="card"
+      style="width: 700px"
+      :title="modalMode === 'add' ? 'Thêm mới Màn hình' : 'Cập nhật Màn hình'"
+      :bordered="false"
+      size="huge"
+      class="shadow-2xl rounded-2xl"
+      :closable="false"
+    >
+      <div class="max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+        <NForm label-placement="top" :model="formData">
+          <NFormItem label="Tên màn hình" required>
+            <NInput v-model:value="formData.name" placeholder="VD: Màn hình OLED 2.8K" />
+          </NFormItem>
+
+          <NGrid cols="2" x-gap="24" y-gap="12">
+            <NGridItem>
+              <NFormItem label="Kích thước (inch)" required>
+                <NSelect
+                  v-model:value="formData.physicalSize"
+                  :options="screenSizeOptionsSelect"
+                  placeholder="Chọn kích thước"
+                />
+              </NFormItem>
+            </NGridItem>
+
+            <NGridItem>
+              <NFormItem label="Độ phân giải" required>
+                <NSelect
+                  v-model:value="formData.resolution"
+                  :options="screenResolutionOptionsSelect"
+                  placeholder="Chọn độ phân giải"
+                />
+              </NFormItem>
+            </NGridItem>
+
+            <NGridItem>
+              <NFormItem label="Loại tấm nền" required>
+                <NSelect
+                  v-model:value="formData.panelType"
+                  :options="panelTypeOptionsSelect"
+                  placeholder="Chọn tấm nền"
+                />
+              </NFormItem>
+            </NGridItem>
+
+            <NGridItem>
+              <NFormItem label="Công nghệ màn hình">
+                <NInput v-model:value="formData.technology" placeholder="VD: Anti-glare, 100% sRGB..." />
+              </NFormItem>
+            </NGridItem>
+          </NGrid>
+        </NForm>
+      </div>
+
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="closeModal">
+            Hủy
+          </NButton>
+          <NButton type="primary" @click="saveScreen">
+            {{ modalMode === 'add' ? 'Thêm mới' : 'Lưu thay đổi' }}
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+  </div>
+</template>
+
 <style scoped>
-.container {
-    padding: 0 20px 20px 20px;
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
 }
-
-.mt-20px {
-    margin-top: 20px;
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
 }
-
-.mb-20px {
-    margin-bottom: 20px;
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
 }
-
-.pt-20px {
-    padding-top: 20px;
-}
-
-.p-20px {
-    padding: 20px;
-}
-
-.line {
-    margin: 32px 0;
-    border-top: 1px solid #a4a5a8;
-}
-
-.d-inline {
-    display: inline;
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
 }
 </style>

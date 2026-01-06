@@ -25,16 +25,32 @@ public class ADBrandServiceImpl implements ADBrandService {
     @Override
     public ResponseObject<?> getAllBrands(ADBrandRequest request) {
         Pageable pageable = Helper.createPageable(request, "createdDate");
+
+        // --- BẮT ĐẦU SỬA ---
+        EntityStatus statusEnum = null;
+        String reqStatus = request.getStatus();
+
+        // Logic convert String -> Enum an toàn
+        if (reqStatus != null && !reqStatus.trim().isEmpty()) {
+            try {
+                statusEnum = EntityStatus.valueOf(reqStatus);
+            } catch (IllegalArgumentException e) {
+                // Nếu chuỗi không hợp lệ (ví dụ: "ALL", ""), coi như là null để tìm tất cả
+                statusEnum = null;
+            }
+        }
+        // --- KẾT THÚC SỬA ---
+
         return new ResponseObject<>(
                 PageableObject.of(adBrandRepository.getAllBrands(
                         pageable,
-                        request.getName()
+                        request.getName(),
+                        statusEnum // Truyền biến Enum vào đây
                 )),
                 HttpStatus.OK,
                 "Lấy thành công danh sách thương hiệu"
         );
     }
-
     @Override
     public ResponseObject<?> createBrand(ADCreateBrandRequest request) {
         Brand brand = new Brand();

@@ -29,7 +29,7 @@ public class ADRamServiceImpl implements ADRamService {
     public ResponseObject<?> getAllRam(ADRamRequest request) {
         Pageable pageable = Helper.createPageable(request, "createdDate");
         return new ResponseObject<>(
-                PageableObject.of(adRamRepository.getAllRam(pageable,request.getName())),
+                PageableObject.of(adRamRepository.getAllRam(pageable,request.getKey(), request.getStatus())),
                         HttpStatus.OK,
                         "Lấy thành công danhh sách ram"
         );

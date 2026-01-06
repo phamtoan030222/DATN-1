@@ -28,7 +28,8 @@ public class ADHardDriveServiceImpl implements ADHardDriveService {
         return new ResponseObject<>(
                 PageableObject.of(adHardDriveRepository.getAllHardDrives(
                         pageable,
-                        request.getKey()
+                        request.getKey(),
+                        request.getStatus()
                 )),
                 HttpStatus.OK,
                 "Lấy thành công danh sách ổ cứng"

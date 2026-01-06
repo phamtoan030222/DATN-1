@@ -9,4 +9,5 @@ import lombok.Setter;
 public class ADBrandRequest extends PageableRequest {
 
     private String name;
+    private String status;
 }

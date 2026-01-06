@@ -1,91 +1,82 @@
-import { API_ADMIN_MATERIAL } from "@/constants/url";
-import { AxiosResponse } from "axios";
-import {
+import { API_ADMIN_MATERIAL } from '@/constants/url'
+import type { AxiosResponse } from 'axios'
+import type {
   DefaultResponse,
   PaginationParams,
   ResponseList,
-} from "@/typings/api/api.common";
-import request from "@/service/request";
+} from '@/typings/api/api.common'
+import request from '@/service/request'
 
-// ===== Tham số truy vấn =====
 export interface ParamsGetMaterial extends PaginationParams {
-  name?: string;
+  key?: string
+  status?: string | null
 }
 
-// ===== Kiểu dữ liệu Material trả về =====
 export interface MaterialResponse extends ResponseList {
-  id: string;
-  code: string;
-  status: string;
-  topCaseMaterial?: string;
-  bottomCaseMaterial?: string;
-  keyboardMaterial?: string;
+  id: string
+  code: string
+  status: string
+  topCaseMaterial?: string
+  bottomCaseMaterial?: string
+  keyboardMaterial?: string
 }
 
-// ===== Payload tạo Material =====
 export interface CreateMaterialRequest {
-  code?: string;
-  topCaseMaterial?: string;
-  bottomCaseMaterial?: string;
-  keyboardMaterial?: string;
+  id?: string
+  code?: string
+  topCaseMaterial?: string
+  bottomCaseMaterial?: string
+  keyboardMaterial?: string
+  status?: string
 }
 
-// ===== API =====
+// ===== API Methods =====
 
-// Lấy danh sách Material
-export const getAllMaterials = async (params: ParamsGetMaterial) => {
-  const queryParams = { ...params };
+export async function getAllMaterials(params: ParamsGetMaterial) {
+  const queryParams = { ...params }
 
   const res = (await request({
     url: API_ADMIN_MATERIAL,
-    method: "GET",
+    method: 'GET',
     params: queryParams,
   })) as AxiosResponse<
     DefaultResponse<{
-      data: MaterialResponse[];
-      totalPages: number;
-      currentPage: number;
-      totalElements: number;
+      data: MaterialResponse[]
+      totalPages: number
+      currentPage: number
+      totalElements: number
     }>
-  >;
+  >
 
   return {
-    items: res.data.data.data || [],
-    totalItems: res.data.data.totalElements || 0,
-    totalPages: res.data.data.totalPages || 0,
-    currentPage: res.data.data.currentPage || 1,
-  };
-};
+    data: res.data?.data?.data || [],
+    totalElements: res.data?.data?.totalElements || 0,
+    totalPages: res.data?.data?.totalPages || 0,
+    currentPage: res.data?.data?.currentPage || 1,
+  }
+}
 
-// Tạo Material mới
-export const createMaterial = async (payload: CreateMaterialRequest) => {
+// ĐÃ XÓA hàm getMaterialById
+
+export async function createMaterial(payload: CreateMaterialRequest) {
   return request({
     url: `${API_ADMIN_MATERIAL}/add`,
-    method: "POST",
+    method: 'POST',
     data: payload,
-  });
-};
+  })
+}
 
-// Cập nhật Material
-export const updateMaterial = async (
-  id: string,
-  payload: CreateMaterialRequest
-) => {
+export async function updateMaterial(id: string, payload: CreateMaterialRequest) {
   return request({
     url: `${API_ADMIN_MATERIAL}/${id}`,
-    method: "PUT",
+    method: 'PUT',
     data: payload,
-  });
-};
+  })
+}
 
-// Cập nhật trạng thái ACTIVE/INACTIVE
-export const updateMaterialStatus = async (
-  id: string,
-  status: "ACTIVE" | "INACTIVE"
-) => {
+export async function updateMaterialStatus(id: string) {
   return request({
     url: `${API_ADMIN_MATERIAL}/${id}/status`,
-    method: "PATCH",
-    data: { status },
-  });
-};
+    method: 'PATCH',
+  })
+}

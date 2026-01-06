@@ -1,170 +1,178 @@
 <script setup lang="tsx">
-import { onMounted, ref, reactive } from "vue";
+import { onMounted, reactive, ref } from 'vue'
 import {
   NButton,
-  NSpace,
   NCard,
   NDataTable,
-  NModal,
   NForm,
   NFormItem,
-  NInput,
   NGrid,
   NGridItem,
+  NIcon,
+  NInput,
+  NModal,
+  NPagination,
   NPopconfirm,
+  NSpace,
   NSwitch,
   useMessage,
-  NPagination,
-  NIcon,
-} from "naive-ui";
-import { Icon } from "@iconify/vue";
+} from 'naive-ui'
+import { Icon } from '@iconify/vue'
 import {
-  getAllColors,
+
   createColor,
+
+  getAllColors,
   updateColor,
   updateColorStatus,
-  type ColorResponse,
-  type CreateColorRequest,
-} from "@/service/api/admin/product/color.api";
+} from '@/service/api/admin/product/color.api'
+import type { ColorResponse, CreateColorRequest } from '@/service/api/admin/product/color.api'
 
 // ================= STATE =================
-const message = useMessage();
-const tableData = ref<ColorResponse[]>([]);
-const total = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(5);
-const loading = ref(false);
-const searchKeyword = ref("");
+const message = useMessage()
+const tableData = ref<ColorResponse[]>([])
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(5)
+const loading = ref(false)
+const searchKeyword = ref('')
 
-const checkedRowKeys = ref<(string | number)[]>([]);
+const checkedRowKeys = ref<(string | number)[]>([])
 
 // ================= MODAL =================
-const showModal = ref(false);
-const modalMode = ref<"add" | "edit">("add");
-const modalRow = ref<ColorResponse | null>(null);
+const showModal = ref(false)
+const modalMode = ref<'add' | 'edit'>('add')
+const modalRow = ref<ColorResponse | null>(null)
 
 const formData = reactive<CreateColorRequest>({
-  colorName: "",
-  colorCode: "",
-});
+  colorName: '',
+  colorCode: '',
+})
 
 // ================= API CALL =================
 async function fetchColors() {
-  loading.value = true;
+  loading.value = true
   try {
     const res = await getAllColors({
       page: currentPage.value,
       size: pageSize.value,
       q: searchKeyword.value || undefined,
-    });
-    tableData.value = res.items;
-    total.value = res.totalItems;
-  } catch (e) {
-    message.error("Không thể tải dữ liệu Màu sắc");
-  } finally {
-    loading.value = false;
+    })
+    tableData.value = res.items
+    total.value = res.totalItems
+  }
+  catch (e) {
+    message.error('Không thể tải dữ liệu Màu sắc')
+  }
+  finally {
+    loading.value = false
   }
 }
 
-onMounted(fetchColors);
+onMounted(fetchColors)
 
 // ================= CRUD =================
-function openModal(mode: "add" | "edit", row?: ColorResponse) {
-  modalMode.value = mode;
-  if (mode === "edit" && row) {
-    modalRow.value = row;
-    formData.colorName = row.colorName;
-    formData.colorCode = row.colorCode;
-  } else {
-    modalRow.value = null;
-    formData.colorName = "";
-    formData.colorCode = "";
+function openModal(mode: 'add' | 'edit', row?: ColorResponse) {
+  modalMode.value = mode
+  if (mode === 'edit' && row) {
+    modalRow.value = row
+    formData.colorName = row.colorName
+    formData.colorCode = row.colorCode
   }
-  showModal.value = true;
+  else {
+    modalRow.value = null
+    formData.colorName = ''
+    formData.colorCode = ''
+  }
+  showModal.value = true
 }
 
 function closeModal() {
-  showModal.value = false;
+  showModal.value = false
 }
 
 async function saveColor() {
   if (!formData.colorName || !formData.colorCode) {
-    message.warning("Vui lòng nhập đầy đủ Tên và Mã màu");
-    return;
+    message.warning('Vui lòng nhập đầy đủ Tên và Mã màu')
+    return
   }
 
   try {
-    if (modalMode.value === "add") {
-      await createColor(formData);
-      message.success("Thêm màu thành công");
-    } else if (modalMode.value === "edit" && modalRow.value) {
-      await updateColor(modalRow.value.id, formData);
-      message.success("Cập nhật màu thành công");
+    if (modalMode.value === 'add') {
+      await createColor(formData)
+      message.success('Thêm màu thành công')
     }
-    closeModal();
-    fetchColors();
-  } catch (e) {
-    message.error("Có lỗi xảy ra khi lưu Màu");
+    else if (modalMode.value === 'edit' && modalRow.value) {
+      await updateColor(modalRow.value.id, formData)
+      message.success('Cập nhật màu thành công')
+    }
+    closeModal()
+    fetchColors()
+  }
+  catch (e) {
+    message.error('Có lỗi xảy ra khi lưu Màu')
   }
 }
 
 async function handleDelete(id: string) {
   try {
-    message.info("TODO: Thêm API xóa màu");
-  } catch {
-    message.error("Xóa thất bại");
+    message.info('TODO: Thêm API xóa màu')
+  }
+  catch {
+    message.error('Xóa thất bại')
   }
 }
 
 async function handleStatusChange(row: ColorResponse, value: boolean) {
   try {
-    await updateColorStatus(row.id, value ? "ACTIVE" : "INACTIVE");
-    message.success(`Cập nhật trạng thái ${row.colorName} thành công`);
-    fetchColors();
-  } catch {
-    message.error("Cập nhật trạng thái thất bại");
+    await updateColorStatus(row.id, value ? 'ACTIVE' : 'INACTIVE')
+    message.success(`Cập nhật trạng thái ${row.colorName} thành công`)
+    fetchColors()
+  }
+  catch {
+    message.error('Cập nhật trạng thái thất bại')
   }
 }
 
 // ================= TABLE COLUMNS =================
 const columns = [
-  { type: "selection" as const },
-  { title: "Tên màu", key: "colorName" },
+  { type: 'selection' as const },
+  { title: 'Tên màu', key: 'colorName' },
   {
-    title: "Mã màu",
-    key: "colorCode",
+    title: 'Mã màu',
+    key: 'colorCode',
     render(row: ColorResponse) {
       return (
         <div class="flex items-center gap-2">
           <span>{row.colorCode}</span>
           <div
             style={{
-              width: "16px",
-              height: "16px",
+              width: '16px',
+              height: '16px',
               backgroundColor: row.colorCode,
-              border: "1px solid #ccc",
-              borderRadius: "4px",
+              border: '1px solid #ccc',
+              borderRadius: '4px',
             }}
           />
         </div>
-      );
+      )
     },
   },
   {
-    title: "Trạng thái",
-    key: "colorStatus",
+    title: 'Trạng thái',
+    key: 'colorStatus',
     render(row: ColorResponse) {
       return (
         <NSwitch
-          value={row.colorStatus === "ACTIVE"}
+          value={row.colorStatus === 'ACTIVE'}
           onUpdateValue={(val: boolean) => handleStatusChange(row, val)}
         />
-      );
+      )
     },
   },
   {
-    title: "Thao tác",
-    key: "actions",
+    title: 'Thao tác',
+    key: 'actions',
     render(row: ColorResponse) {
       return (
         <NSpace>
@@ -172,7 +180,7 @@ const columns = [
             size="small"
             quaternary
             circle
-            onClick={() => openModal("edit", row)}
+            onClick={() => openModal('edit', row)}
           >
             <Icon icon="carbon:edit" width="18" />
           </NButton>
@@ -183,40 +191,40 @@ const columns = [
                   <Icon icon="carbon:trash-can" width="18" />
                 </NButton>
               ),
-              default: () => "Bạn có chắc muốn xóa?",
+              default: () => 'Bạn có chắc muốn xóa?',
             }}
           </NPopconfirm>
         </NSpace>
-      );
+      )
     },
   },
-];
+]
 
 // ================= SEARCH & PAGINATION =================
 function handleSearch() {
-  currentPage.value = 1;
-  fetchColors();
+  currentPage.value = 1
+  fetchColors()
 }
 
 function handlePageChange(page: number) {
-  currentPage.value = page;
-  fetchColors();
+  currentPage.value = page
+  fetchColors()
 }
 </script>
 
 <template>
   <!-- Header -->
-  <n-card>
+  <NCard>
     <NSpace vertical :size="8">
       <NSpace align="center">
         <NIcon size="24">
-          <Icon :icon="'carbon:color-palette'" />
+          <Icon icon="carbon:color-palette" />
         </NIcon>
         <span style="font-weight: 600; font-size: 24px"> Quản lý Màu sắc </span>
       </NSpace>
       <span>Quản lý danh sách màu sản phẩm</span>
     </NSpace>
-  </n-card>
+  </NCard>
 
   <!-- Table -->
   <NCard title="Danh sách Màu sắc" style="margin-top: 16px">
@@ -231,7 +239,7 @@ function handlePageChange(page: number) {
         >
           <template #prefix>
             <NIcon size="18">
-              <Icon :icon="'carbon:search'" />
+              <Icon icon="carbon:search" />
             </NIcon>
           </template>
         </NInput>
@@ -242,7 +250,7 @@ function handlePageChange(page: number) {
           @click="openModal('add')"
         >
           <NIcon size="24">
-            <Icon :icon="'carbon:add'" />
+            <Icon icon="carbon:add" />
           </NIcon>
         </NButton>
         <NButton
@@ -253,7 +261,7 @@ function handlePageChange(page: number) {
           @click="fetchColors"
         >
           <NIcon size="24">
-            <Icon :icon="'carbon:rotate'" />
+            <Icon icon="carbon:rotate" />
           </NIcon>
         </NButton>
         <NPopconfirm
@@ -262,7 +270,7 @@ function handlePageChange(page: number) {
           <template #trigger>
             <NButton type="error" secondary circle title="Xóa hàng loạt">
               <NIcon size="24">
-                <Icon :icon="'icon-park-outline:delete'" />
+                <Icon icon="icon-park-outline:delete" />
               </NIcon>
             </NButton>
           </template>
@@ -272,11 +280,11 @@ function handlePageChange(page: number) {
     </template>
 
     <NDataTable
+      v-model:checked-row-keys="checkedRowKeys"
       :columns="columns"
       :data="tableData"
       :loading="loading"
       :row-key="(row) => row.id"
-      v-model:checked-row-keys="checkedRowKeys"
       :pagination="false"
       bordered
     />
@@ -321,8 +329,12 @@ function handlePageChange(page: number) {
     </NForm>
     <template #footer>
       <NSpace justify="end">
-        <NButton @click="closeModal">Hủy</NButton>
-        <NButton type="primary" @click="saveColor">Lưu</NButton>
+        <NButton @click="closeModal">
+          Hủy
+        </NButton>
+        <NButton type="primary" @click="saveColor">
+          Lưu
+        </NButton>
       </NSpace>
     </template>
   </NModal>

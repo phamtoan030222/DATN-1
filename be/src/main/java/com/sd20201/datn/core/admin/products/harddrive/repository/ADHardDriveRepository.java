@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.harddrive.repository;
 
 import com.sd20201.datn.core.admin.products.harddrive.model.response.ADHardDriveResponse;
+import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.repository.HardDriveRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -15,6 +16,7 @@ public interface ADHardDriveRepository extends HardDriveRepository {
             value = """
         SELECT hd.id AS id,
                hd.brand AS brand,
+               hd.code  AS code,
                hd.type AS type,
                hd.typeConnect AS typeConnect,
                hd.capacity AS capacity,
@@ -26,18 +28,33 @@ public interface ADHardDriveRepository extends HardDriveRepository {
                hd.status AS status,
                hd.name AS name
         FROM HardDrive hd
-        WHERE (:key IS NULL OR hd.name LIKE CONCAT('%', :key, '%') OR hd.brand LIKE CONCAT('%', :key, '%'))
+         WHERE
+            (
+                 (:key IS NULL OR hd.name LIKE CONCAT('%', :key, '%'))
+                 OR (:key IS NULL OR hd.code LIKE CONCAT('%', :key, '%'))
+                 OR (:key IS NULL OR hd.brand LIKE CONCAT('%', :key, '%'))
+                 OR (:key IS NULL OR hd.type LIKE CONCAT('%', :key, '%'))
+            )
+            AND (:status IS NULL OR hd.status = :status)
         ORDER BY hd.createdDate DESC
     """,
             countQuery = """
         SELECT COUNT(hd.id)
         FROM HardDrive hd
-        WHERE (:key IS NULL OR hd.name LIKE CONCAT('%', :key, '%') OR hd.brand LIKE CONCAT('%', :key, '%'))
+        WHERE
+            (
+                 (:key IS NULL OR hd.name LIKE CONCAT('%', :key, '%'))
+                 OR (:key IS NULL OR hd.code LIKE CONCAT('%', :key, '%'))
+                 OR (:key IS NULL OR hd.brand LIKE CONCAT('%', :key, '%'))
+                 OR (:key IS NULL OR hd.type LIKE CONCAT('%', :key, '%'))
+            )
+            AND (:status IS NULL OR hd.status = :status)
     """
     )
     Page<ADHardDriveResponse> getAllHardDrives(
             Pageable pageable,
-            @Param("key") String key
+            @Param("key") String key,
+            @Param("status") EntityStatus status
     );
 
 }

@@ -1,68 +1,69 @@
 import { API_ADMIN_PRODUCT_CPU } from '@/constants/url'
 import request from '@/service/request'
-import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
-import { AxiosResponse } from 'axios'
+import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
+import type { AxiosResponse } from 'axios'
 
 export type ADProductCPURequest = PaginationParams & {
-  brand: string,
-  releaseYear: number | null,
-  generation: string,
-  series: string,
+  brand: string
+  releaseYear: number | null
+  generation: string
+  series: string
+  status: string
 }
 
-export type ADProductCPUCreateUpdateRequest = {
-  id?: string;
-  code: string;
-  name: string;
-  brand: string;
-  description: string;
-  generation: string;
-  series: string;
-  releaseYear: number;
+export interface ADProductCPUCreateUpdateRequest {
+  id?: string
+  code: string
+  name: string
+  brand: string
+  description: string
+  generation: string
+  series: string
+  releaseYear: number
 }
 
-export type ADProductCPUResponse = {
-  id?: string,
-  code: string;
-  name: string;
+export interface ADProductCPUResponse {
+  id?: string
+  code: string
+  name: string
   status?: string
-  description: string;
-  generation: string;
-  series: string;
-  brand: string;
-  releaseYear: number;
+  description: string
+  generation: string
+  series: string
+  brand: string
+  releaseYear: number
 }
 
-export const getCPUs = async (params: ADProductCPURequest) => {
+export async function getCPUs(params: ADProductCPURequest) {
   const res = await request({
     url: `${API_ADMIN_PRODUCT_CPU}`,
     method: 'GET',
     params,
   }) as AxiosResponse<DefaultResponse<PaginationResponse<Array<ADProductCPUResponse>>>>
 
-  return res.data;
+  return res.data
 }
 
-export const getCPUById = async (id: string) => {
+export async function getCPUById(id: string) {
   const res = await request({
     url: `${API_ADMIN_PRODUCT_CPU}/${id}`,
     method: 'GET',
   }) as AxiosResponse<DefaultResponse<ADProductCPUResponse>>
 
-  return res.data;
+  return res.data
 }
 
-export const modifyCPU = async (data: ADProductCPUCreateUpdateRequest) => {
+export async function modifyCPU(data: ADProductCPUCreateUpdateRequest) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_CPU}`,
     method: 'POST',
-    data
+    data,
   })) as AxiosResponse<DefaultResponse<ADProductCPUResponse>>
 
-  return res.data;
+  return res.data
 }
 
-export const changeCPUStatus = async (id: string) => {
+export async function changeCPUStatus(id: string) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_CPU}/change-status/${id}`,
     method: 'GET',
