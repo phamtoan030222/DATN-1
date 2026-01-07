@@ -351,7 +351,7 @@ const customerColumns: DataTableColumns<Customer> = [
 </script>
 
 <template>
-  <NCard :title="mode === 'edit' ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm giá'" class="mt-6">
+  <NCard :title="mode === 'edit' ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm Giá'" class="mt-6">
     <NSpin :show="loading || isLoadingData">
       <div class="grid grid-cols-12 gap-6">
         <div

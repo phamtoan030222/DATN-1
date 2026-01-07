@@ -8,13 +8,13 @@ export function usePermission() {
     if (!permission) return true;
 
     if (!authStore.userInfo) return false;
-    const { role } = authStore.userInfo;
+    const { rolesCodes } = authStore.userInfo.userInfo;
 
-    let has = role.includes("super");
+    let has = rolesCodes.includes("QUAN_LY");
     if (!has) {
-      if (isArray(permission)) has = permission.some((i) => role.includes(i));
+      if (isArray(permission)) has = permission.some((i) => rolesCodes.includes(i));
 
-      if (isString(permission)) has = role.includes(permission);
+      if (isString(permission)) has = rolesCodes.includes(permission);
     }
     return has;
   }

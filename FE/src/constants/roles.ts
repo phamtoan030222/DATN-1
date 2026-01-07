@@ -1,0 +1,5 @@
+export enum ROLES {
+  QUAN_LY = 'QUAN_LY',
+  NHAN_VIEN = 'NHAN_VIEN',
+  KHACH_HANG = 'KHACH_HANG',
+}

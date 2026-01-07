@@ -23,19 +23,21 @@ public interface ADProductGPURepository extends GPURepository {
           AND (:#{#request.releaseYear} is NULL OR g.releaseYear = :#{#request.releaseYear})
           AND (:#{#request.series} is NULL OR g.series like concat('%',:#{#request.series},'%'))
           AND (:#{#request.generation} is NULL OR g.generation like concat('%',:#{#request.generation},'%'))
+          AND (:#{#request.status} IS NULL OR g.status = :#{#request.status})
     ORDER BY g.createdDate DESC
     """, countQuery = """
-    SELECT COUNT(1)
-    FROM GPU g
-    where
-        (
-            :#{#request.q} is null or g.name like concat('%',:#{#request.q},'%')
-            OR :#{#request.q} is null or g.code like concat('%',:#{#request.q},'%')
-        ) AND (:#{#request.brand} is NULL OR g.brand like concat('%',:#{#request.brand},'%'))
-          AND (:#{#request.releaseYear} is NULL OR g.releaseYear = :#{#request.releaseYear})
-          AND (:#{#request.series} is NULL OR g.series like concat('%',:#{#request.series},'%'))
-          AND (:#{#request.generation} is NULL OR g.generation like concat('%',:#{#request.generation},'%'))
-    """)
+            SELECT COUNT(1)
+            FROM GPU g
+            where
+                (
+                    :#{#request.q} is null or g.name like concat('%',:#{#request.q},'%')
+                    OR :#{#request.q} is null or g.code like concat('%',:#{#request.q},'%')
+                ) AND (:#{#request.brand} is NULL OR g.brand like concat('%',:#{#request.brand},'%'))
+                  AND (:#{#request.releaseYear} is NULL OR g.releaseYear = :#{#request.releaseYear})
+                  AND (:#{#request.series} is NULL OR g.series like concat('%',:#{#request.series},'%'))
+                  AND (:#{#request.generation} is NULL OR g.generation like concat('%',:#{#request.generation},'%'))
+                  AND (:#{#request.status} IS NULL OR g.status = :#{#request.status})
+            """)
     Page<ADProductGPUResponse> getGPUs(Pageable pageable, ADProductGPURequest request);
 
     Optional<ADProductGPUResponse> getGPUById(String id);

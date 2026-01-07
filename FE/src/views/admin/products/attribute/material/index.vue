@@ -1,347 +1,447 @@
 <script setup lang="tsx">
-import { onMounted, ref, reactive } from "vue";
+import { h, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
-  NSpace,
   NCard,
   NDataTable,
-  NModal,
   NForm,
   NFormItem,
-  NInput,
   NGrid,
   NGridItem,
-  NPopconfirm,
-  NSwitch,
-  useMessage,
-  NPagination,
   NIcon,
-} from "naive-ui";
-import { Icon } from "@iconify/vue";
+  NInput,
+  NModal,
+  NPagination,
+  NRadio,
+  NRadioGroup,
+  NSpace,
+  NSwitch,
+  NTooltip,
+  useMessage,
+  useNotification,
+} from 'naive-ui'
+import { Icon } from '@iconify/vue'
+import type { DataTableColumns } from 'naive-ui'
 import {
-  getAllMaterials,
   createMaterial,
+  getAllMaterials,
   updateMaterial,
   updateMaterialStatus,
-  type MaterialResponse,
-  type CreateMaterialRequest,
-} from "@/service/api/admin/product/material.api";
+} from '@/service/api/admin/product/material.api'
+import type {
+  CreateMaterialRequest,
+  MaterialResponse,
+} from '@/service/api/admin/product/material.api'
 
 // ================= STATE =================
-const message = useMessage();
-const tableData = ref<MaterialResponse[]>([]);
-const total = ref(0);
-const currentPage = ref(1);
-const pageSize = ref(5);
-const loading = ref(false);
-const searchKeyword = ref("");
+const message = useMessage()
+const notification = useNotification()
+const tableData = ref<MaterialResponse[]>([])
+const total = ref(0)
+const currentPage = ref(1)
+const pageSize = ref(10)
+const loading = ref(false)
 
-const checkedRowKeys = ref<(string | number)[]>([]);
+const searchState = reactive({
+  keyword: '',
+  status: null as string | null,
+})
 
-// ================= MODAL =================
-const showModal = ref(false);
-const modalMode = ref<"add" | "edit">("add");
-const modalRow = ref<MaterialResponse | null>(null);
+// ================= MODAL STATE =================
+const showModal = ref(false)
+const modalMode = ref<'add' | 'edit'>('add')
 
 const formData = reactive<CreateMaterialRequest>({
-  code: "",
-  topCaseMaterial: "",
-  bottomCaseMaterial: "",
-  keyboardMaterial: "",
-});
+  id: undefined,
+  topCaseMaterial: '',
+  bottomCaseMaterial: '',
+  keyboardMaterial: '',
+})
 
 // ================= API CALL =================
 async function fetchMaterials() {
-  loading.value = true;
+  loading.value = true
   try {
-    const res = await getAllMaterials({
+    const params: any = {
       page: currentPage.value,
       size: pageSize.value,
-      name: searchKeyword.value || undefined,
-    });
-    tableData.value = res.items;
-    total.value = res.totalItems;
-  } catch {
-    message.error("Không thể tải dữ liệu Chất liệu");
-  } finally {
-    loading.value = false;
+      key: searchState.keyword || undefined,
+      status: searchState.status || undefined,
+    }
+
+    const res = await getAllMaterials(params)
+
+    if (res) {
+      tableData.value = res.data || []
+      total.value = res.totalElements || 0
+    }
+  }
+  catch (e) {
+    message.error('Lỗi tải dữ liệu chất liệu')
+  }
+  finally {
+    loading.value = false
   }
 }
 
-onMounted(fetchMaterials);
+onMounted(fetchMaterials)
 
-// ================= CRUD =================
-function openModal(mode: "add" | "edit", row?: MaterialResponse) {
-  modalMode.value = mode;
-  if (mode === "edit" && row) {
-    modalRow.value = row;
-    formData.code = row.code;
-    formData.topCaseMaterial = row.topCaseMaterial || "";
-    formData.bottomCaseMaterial = row.bottomCaseMaterial || "";
-    formData.keyboardMaterial = row.keyboardMaterial || "";
-  } else {
-    modalRow.value = null;
-    formData.code = "";
-    formData.topCaseMaterial = "";
-    formData.bottomCaseMaterial = "";
-    formData.keyboardMaterial = "";
+// ================= CRUD LOGIC =================
+// SỬA: Hàm openModal lấy dữ liệu trực tiếp từ row
+function openModal(mode: 'add' | 'edit', row?: MaterialResponse) {
+  modalMode.value = mode
+
+  if (mode === 'edit' && row) {
+    // Fill data trực tiếp từ row vào form
+    Object.assign(formData, {
+      id: row.id,
+      topCaseMaterial: row.topCaseMaterial,
+      bottomCaseMaterial: row.bottomCaseMaterial,
+      keyboardMaterial: row.keyboardMaterial,
+    })
   }
-  showModal.value = true;
+  else {
+    // Reset form khi thêm mới
+    Object.assign(formData, {
+      id: undefined,
+      topCaseMaterial: '',
+      bottomCaseMaterial: '',
+      keyboardMaterial: '',
+    })
+  }
+  showModal.value = true
 }
 
 function closeModal() {
-  showModal.value = false;
+  showModal.value = false
 }
 
 async function saveMaterial() {
-  if (!formData.code) {
-    message.warning("Vui lòng nhập Mã chất liệu");
-    return;
+  if (!formData.topCaseMaterial || !formData.bottomCaseMaterial || !formData.keyboardMaterial) {
+    message.warning('Vui lòng nhập đầy đủ thông tin các mặt chất liệu')
+    return
   }
 
   try {
-    if (modalMode.value === "add") {
-      await createMaterial(formData);
-      message.success("Thêm Chất liệu thành công");
-    } else if (modalMode.value === "edit" && modalRow.value) {
-      await updateMaterial(modalRow.value.id, formData);
-      message.success("Cập nhật Chất liệu thành công");
+    if (modalMode.value === 'add') {
+      await createMaterial(formData)
+      notification.success({ content: 'Thêm mới chất liệu thành công', duration: 3000 })
     }
-    closeModal();
-    fetchMaterials();
-  } catch {
-    message.error("Có lỗi xảy ra khi lưu Chất liệu");
-  }
-}
+    else {
+      if (!formData.id)
+        return
+      await updateMaterial(formData.id, formData)
+      notification.success({ content: 'Cập nhật chất liệu thành công', duration: 3000 })
+    }
 
-async function handleDelete(id: string) {
-  try {
-    // TODO: Thêm API xóa Material
-    message.info("TODO: Thêm API xóa chất liệu");
-  } catch {
-    message.error("Xóa thất bại");
+    closeModal()
+    fetchMaterials()
   }
-}
-
-async function handleDeleteSelected() {
-  if (!checkedRowKeys.value.length) {
-    message.warning("Chưa chọn chất liệu nào để xóa");
-    return;
+  catch (e) {
+    notification.error({ content: 'Có lỗi xảy ra khi lưu dữ liệu', duration: 3000 })
   }
-  // TODO: gọi API xóa hàng loạt
-  message.info("TODO: Thêm API xóa nhiều chất liệu");
 }
 
 async function handleStatusChange(row: MaterialResponse, value: boolean) {
+  if (!row.id)
+    return
   try {
-    await updateMaterialStatus(row.id, value ? "ACTIVE" : "INACTIVE");
-    message.success(`Cập nhật trạng thái ${row.code} thành công`);
-    fetchMaterials();
-  } catch {
-    message.error("Cập nhật trạng thái thất bại");
+    loading.value = true
+    await updateMaterialStatus(row.id)
+    notification.success({ content: `Đã cập nhật trạng thái: ${row.code}`, duration: 2000 })
+    fetchMaterials()
+  }
+  catch {
+    notification.error({ content: 'Cập nhật trạng thái thất bại', duration: 3000 })
+    loading.value = false
   }
 }
 
-// ================= TABLE COLUMNS =================
-const columns = [
-  { type: "selection" as const },
-  { title: "Mã", key: "code" },
-  { title: "Top Case", key: "topCaseMaterial" },
-  { title: "Bottom Case", key: "bottomCaseMaterial" },
-  { title: "Keyboard", key: "keyboardMaterial" },
-  {
-    title: "Trạng thái",
-    key: "status",
-    render(row: MaterialResponse) {
-      return (
-        <NSwitch
-          value={row.status === "ACTIVE"}
-          onUpdateValue={(val: boolean) => handleStatusChange(row, val)}
-        />
-      );
-    },
-  },
-  {
-    title: "Thao tác",
-    key: "actions",
-    render(row: MaterialResponse) {
-      return (
-        <NSpace>
-          <NButton
-            size="small"
-            quaternary
-            circle
-            onClick={() => openModal("edit", row)}
-          >
-            <Icon icon="carbon:edit" width="18" />
-          </NButton>
-          <NPopconfirm onPositiveClick={() => handleDelete(row.id)}>
-            {{
-              trigger: () => (
-                <NButton size="small" quaternary circle type="error">
-                  <Icon icon="carbon:trash-can" width="18" />
-                </NButton>
-              ),
-              default: () => "Bạn có chắc muốn xóa?",
-            }}
-          </NPopconfirm>
-        </NSpace>
-      );
-    },
-  },
-];
+function refreshTable() {
+  searchState.keyword = ''
+  searchState.status = null
+  currentPage.value = 1
+  fetchMaterials()
+}
 
-// ================= SEARCH & PAGINATION =================
 function handleSearch() {
-  currentPage.value = 1;
-  fetchMaterials();
+  currentPage.value = 1
+  fetchMaterials()
 }
 
 function handlePageChange(page: number) {
-  currentPage.value = page;
-  fetchMaterials();
+  currentPage.value = page
+  fetchMaterials()
 }
 
-function refreshTable() {
-  fetchMaterials();
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchMaterials()
 }
+
+// ================= TABLE COLUMNS =================
+const columns: DataTableColumns<MaterialResponse> = [
+  {
+    title: 'STT',
+    key: 'index',
+    width: 60,
+    align: 'center',
+    render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
+  },
+  {
+    title: 'Mã',
+    key: 'code',
+    width: 120,
+    render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
+  },
+  {
+    title: 'Mặt trên (Top)',
+    key: 'topCaseMaterial',
+    minWidth: 150,
+  },
+  {
+    title: 'Mặt dưới (Bottom)',
+    key: 'bottomCaseMaterial',
+    minWidth: 150,
+  },
+  {
+    title: 'Bàn phím (Keyboard)',
+    key: 'keyboardMaterial',
+    minWidth: 150,
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 120,
+    align: 'center',
+    render(row) {
+      return h(NSwitch, {
+        value: row.status === 'ACTIVE',
+        size: 'small',
+        disabled: loading.value,
+        onUpdateValue: val => handleStatusChange(row, val),
+      })
+    },
+  },
+  {
+    title: 'Thao tác',
+    key: 'actions',
+    width: 100,
+    fixed: 'right',
+    align: 'center',
+    render(row) {
+      return h('div', { class: 'flex justify-center' }, [
+        h(NTooltip, { trigger: 'hover' }, {
+          trigger: () => h(NButton, {
+            size: 'small',
+            secondary: true,
+            type: 'warning',
+            circle: true,
+            class: 'transition-all duration-200 hover:scale-125 hover:shadow-md',
+            onClick: () => openModal('edit', row),
+          }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
+          default: () => 'Cập nhật thông tin',
+        }),
+      ])
+    },
+  },
+]
 </script>
 
 <template>
-  <!-- Header -->
-  <n-card>
-    <NSpace vertical :size="8">
-      <NSpace align="center">
-        <NIcon size="24">
-          <Icon :icon="'mdi:material-design'" />
-        </NIcon>
-        <span style="font-weight: 600; font-size: 24px">
-          Quản lý Chất liệu
-        </span>
+  <div>
+    <NCard class="mb-3 shadow-sm border-none">
+      <NSpace vertical :size="8">
+        <NSpace align="center">
+          <NIcon size="24" class="text-blue-600">
+            <Icon icon="mdi:material-design" />
+          </NIcon>
+          <span style="font-weight: 600; font-size: 24px; color: #1f2937">
+            Quản lý Chất liệu
+          </span>
+        </NSpace>
+        <span class="text-gray-500">Quản lý các loại chất liệu cấu thành sản phẩm</span>
       </NSpace>
-      <span>Quản lý danh sách chất liệu sản phẩm</span>
-    </NSpace>
-  </n-card>
+    </NCard>
 
-  <!-- Table -->
-  <NCard title="Danh sách Chất liệu" style="margin-top: 16px">
-    <template #header-extra>
-      <NSpace>
-        <NInput
-          v-model:value="searchKeyword"
-          placeholder="Tìm kiếm chất liệu..."
-          clearable
-          style="width: 220px"
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <NIcon size="18">
-              <Icon :icon="'carbon:search'" />
-            </NIcon>
-          </template>
-        </NInput>
-        <NButton
-          type="primary"
-          circle
-          title="Thêm mới"
-          @click="openModal('add')"
-        >
-          <NIcon size="24">
-            <Icon :icon="'carbon:add'" />
-          </NIcon>
-        </NButton>
-        <NButton
-          type="primary"
-          secondary
-          circle
-          title="Làm mới"
-          @click="refreshTable"
-        >
-          <NIcon size="24">
-            <Icon :icon="'carbon:rotate'" />
-          </NIcon>
-        </NButton>
-        <NPopconfirm @positive-click="handleDeleteSelected">
-          <template #trigger>
-            <NButton type="error" secondary circle title="Xóa hàng loạt">
-              <NIcon size="24">
-                <Icon :icon="'icon-park-outline:delete'" />
-              </NIcon>
+    <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-sm mb-4 border border-gray-100">
+      <template #header-extra>
+        <div class="mr-5">
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                @click="refreshTable"
+              >
+                <NIcon size="24">
+                  <Icon icon="carbon:filter-reset" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới bộ lọc
+          </NTooltip>
+        </div>
+      </template>
+
+      <NForm label-placement="top">
+        <NGrid :x-gap="24" :y-gap="12" cols="1 600:2 900:3 1200:4">
+          <NGridItem span="1 600:1 1200:2">
+            <NFormItem label="Tìm kiếm chung">
+              <NInput
+                v-model:value="searchState.keyword"
+                placeholder="Nhập tên, mã chất liệu..."
+                clearable
+                @input="handleSearch"
+                @keydown.enter="handleSearch"
+              >
+                <template #prefix>
+                  <Icon icon="carbon:search" class="text-gray-400" />
+                </template>
+              </NInput>
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem span="1 600:2 900:2 1200:2">
+            <NFormItem label="Trạng thái">
+              <NRadioGroup v-model:value="searchState.status" name="status-radio-group" @update:value="handleSearch">
+                <NSpace align="center" style="height: 34px;">
+                  <NRadio :value="null">
+                    Tất cả
+                  </NRadio>
+                  <NRadio value="ACTIVE" class="ml-4">
+                    Hoạt động
+                  </NRadio>
+                  <NRadio value="INACTIVE" class="ml-4">
+                    Ngừng hoạt động
+                  </NRadio>
+                </NSpace>
+              </NRadioGroup>
+            </NFormItem>
+          </NGridItem>
+        </NGrid>
+      </NForm>
+    </NCard>
+
+    <NCard title="Danh sách Chất liệu" class="border border-gray-100 rounded-2xl shadow-sm">
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
+            <NButton
+              type="primary"
+              secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="openModal('add')"
+            >
+              <template #icon>
+                <NIcon size="20">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Thêm mới
+              </span>
             </NButton>
-          </template>
-          Xác nhận xóa tất cả chất liệu đã chọn?
-        </NPopconfirm>
-      </NSpace>
-    </template>
 
-    <NDataTable
-      :columns="columns"
-      :data="tableData"
-      :loading="loading"
-      :row-key="(row) => row.id"
-      v-model:checked-row-keys="checkedRowKeys"
-      :pagination="false"
-      bordered
-    />
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="refreshTable"
+            >
+              <template #icon>
+                <NIcon size="20">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại
+              </span>
+            </NButton>
+          </NSpace>
+        </div>
+      </template>
 
-    <div class="flex justify-center mt-4">
-      <NPagination
-        :page="currentPage"
-        :page-size="pageSize"
-        :page-count="Math.ceil(total / pageSize)"
-        @update:page="handlePageChange"
+      <NDataTable
+        :columns="columns"
+        :data="tableData"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        striped
+        :bordered="false"
+        class="rounded-lg overflow-hidden"
       />
-    </div>
-  </NCard>
 
-  <!-- Modal thêm/sửa -->
-  <NModal
-    v-model:show="showModal"
-    preset="card"
-    style="width: 500px"
-    title="Chất liệu"
-  >
-    <NForm>
-      <NGrid cols="1" x-gap="12">
-        <NGridItem>
-          <NFormItem label="Mã chất liệu" required>
-            <NInput
-              v-model:value="formData.code"
-              placeholder="Nhập mã chất liệu"
-            />
+      <div class="flex justify-end mt-4">
+        <NPagination
+          v-model:page="currentPage"
+          v-model:page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[5, 10, 20, 50]"
+          show-size-picker
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </NCard>
+
+    <NModal
+      v-model:show="showModal"
+      preset="card"
+      style="width: 600px"
+      :title="modalMode === 'add' ? 'Thêm mới Chất liệu' : 'Cập nhật Chất liệu'"
+      :bordered="false"
+      size="huge"
+      class="shadow-2xl rounded-2xl"
+      :closable="false"
+    >
+      <div class="max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
+        <NForm label-placement="top" :model="formData">
+          <NFormItem label="Chất liệu mặt trên (Top Case)" required>
+            <NInput v-model:value="formData.topCaseMaterial" placeholder="VD: Nhôm nguyên khối..." />
           </NFormItem>
-        </NGridItem>
-        <NGridItem>
-          <NFormItem label="Top Case">
-            <NInput
-              v-model:value="formData.topCaseMaterial"
-              placeholder="Nhập chất liệu top case"
-            />
+
+          <NFormItem label="Chất liệu mặt dưới (Bottom Case)" required>
+            <NInput v-model:value="formData.bottomCaseMaterial" placeholder="VD: Nhựa cao cấp..." />
           </NFormItem>
-        </NGridItem>
-        <NGridItem>
-          <NFormItem label="Bottom Case">
-            <NInput
-              v-model:value="formData.bottomCaseMaterial"
-              placeholder="Nhập chất liệu bottom case"
-            />
+
+          <NFormItem label="Chất liệu bàn phím (Keyboard)" required>
+            <NInput v-model:value="formData.keyboardMaterial" placeholder="VD: Nhựa ABS..." />
           </NFormItem>
-        </NGridItem>
-        <NGridItem>
-          <NFormItem label="Keyboard">
-            <NInput
-              v-model:value="formData.keyboardMaterial"
-              placeholder="Nhập chất liệu keyboard"
-            />
-          </NFormItem>
-        </NGridItem>
-      </NGrid>
-    </NForm>
-    <template #footer>
-      <NSpace justify="end">
-        <NButton @click="closeModal">Hủy</NButton>
-        <NButton type="primary" @click="saveMaterial">Lưu</NButton>
-      </NSpace>
-    </template>
-  </NModal>
+        </NForm>
+      </div>
+
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="closeModal">
+            Hủy
+          </NButton>
+          <NButton type="primary" @click="saveMaterial">
+            {{ modalMode === 'add' ? 'Thêm mới' : 'Lưu thay đổi' }}
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+  </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+</style>

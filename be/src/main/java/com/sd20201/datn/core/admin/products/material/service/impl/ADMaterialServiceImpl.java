@@ -27,7 +27,7 @@ public class ADMaterialServiceImpl implements ADMaterialService {
     public ResponseObject<?> getAllMaterials(ADMaterialRequest request) {
         Pageable pageable = Helper.createPageable(request, "createdDate");
         return new ResponseObject<>(
-                PageableObject.of(adMaterialRepository.getAllMaterials(pageable, request.getKey())),
+                PageableObject.of(adMaterialRepository.getAllMaterials(pageable, request.getKey(), request.getStatus())),
                 HttpStatus.OK,
                 "Lấy thành công danh sách chất liệu"
         );

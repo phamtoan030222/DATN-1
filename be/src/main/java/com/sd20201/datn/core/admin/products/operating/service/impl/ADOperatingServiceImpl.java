@@ -29,7 +29,8 @@ public class ADOperatingServiceImpl implements ADOperatingService
         return new ResponseObject<>(
                 PageableObject.of(adOperatingRepository.getAllOperatingSystems(
                         pageable,
-                        request.getKey()
+                        request.getKey(),
+                        request.getStatus()
                 )),
                 HttpStatus.OK,
                 "Lấy thành công danh sách hệ điều hành"

@@ -43,8 +43,19 @@ function handleLogin() {
 
     if (isRemember.value) local.set("loginAccount", { account, pwd });
     else local.remove("loginAccount");
+    const dummyUserInformation = {
+      userId: "u_123456",
+      userCode: "EMP001",
+      fullName: "Nguyen Van A",
+      rolesNames: ["Quản lý", "Nhân viên"],
+      rolesCodes: ["QUAN_LY", "NHAN_VIEN"],
+      email: "nguyenvana@example.com",
+      pictureUrl: "https://example.com/avatar.png",
+      roleSwitch: "ADMIN",
+      roleScreen: "ADMIN"
+    }
 
-    await authStore.login(account, pwd);
+    await authStore.login(dummyUserInformation, account, pwd);
     isLoading.value = false;
   });
 }
@@ -65,28 +76,13 @@ function checkUserAccount() {
     <n-h2 depth="3" class="text-center">
       {{ $t("login.signInTitle") }}
     </n-h2>
-    <n-form
-      ref="formRef"
-      :rules="rules"
-      :model="formValue"
-      :show-label="false"
-      size="large"
-    >
+    <n-form ref="formRef" :rules="rules" :model="formValue" :show-label="false" size="large">
       <n-form-item path="account">
-        <n-input
-          v-model:value="formValue.account"
-          clearable
-          :placeholder="$t('login.accountPlaceholder')"
-        />
+        <n-input v-model:value="formValue.account" clearable :placeholder="$t('login.accountPlaceholder')" />
       </n-form-item>
       <n-form-item path="pwd">
-        <n-input
-          v-model:value="formValue.pwd"
-          type="password"
-          :placeholder="$t('login.passwordPlaceholder')"
-          clearable
-          show-password-on="click"
-        >
+        <n-input v-model:value="formValue.pwd" type="password" :placeholder="$t('login.passwordPlaceholder')" clearable
+          show-password-on="click">
           <template #password-invisible-icon>
             <icon-park-outline-preview-close-one />
           </template>
@@ -104,14 +100,7 @@ function checkUserAccount() {
             {{ $t("login.forgotPassword") }}
           </n-button>
         </div>
-        <n-button
-          block
-          type="primary"
-          size="large"
-          :loading="isLoading"
-          :disabled="isLoading"
-          @click="handleLogin"
-        >
+        <n-button block type="primary" size="large" :loading="isLoading" :disabled="isLoading" @click="handleLogin">
           {{ $t("login.signIn") }}
         </n-button>
         <n-flex>

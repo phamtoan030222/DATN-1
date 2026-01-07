@@ -24,8 +24,8 @@ import {
 import { Icon } from '@iconify/vue'
 import {
   getVouchers,
-  updateVoucherToEnd, // Import API end
-  updateVoucherToStart, // Import API start
+  updateVoucherToEnd,
+  updateVoucherToStart,
 } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
 import formatDate from '@/utils/common.helper'
@@ -34,8 +34,20 @@ import formatDate from '@/utils/common.helper'
 const router = useRouter()
 const message = useMessage()
 
+/* ===================== Format Date Time ===================== */
+function formatDateTime(timestamp: number | undefined) {
+  if (!timestamp)
+    return '-'
+  return new Date(timestamp).toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
 /* ===================== Utility Functions ===================== */
-// Hàm check trạng thái cũ của bạn (giữ nguyên logic để đồng bộ)
 function getVoucherStatus(row: ADVoucherResponse) {
   const now = Date.now()
   const startDate = row.startDate
@@ -50,7 +62,7 @@ function getVoucherStatus(row: ADVoucherResponse) {
   const isExpiredByQuantity = targetType === 'ALL_CUSTOMERS' && (remainingQuantity === null || remainingQuantity <= 0)
 
   if (isExpiredByDate || isExpiredByQuantity)
-    return { text: 'Đã kết thúc', type: '', value: 'ENDED' }
+    return { text: 'Đã kết thúc', type: 'default', value: 'ENDED' }
 
   const isWithinTime = (startDate || 0) <= now && (endDate || Infinity) >= now
   const hasRemainingQuantity = targetType === 'INDIVIDUAL' || (targetType === 'ALL_CUSTOMERS' && (remainingQuantity || 0) > 0)
@@ -97,7 +109,7 @@ async function handleStartVoucher(id: string) {
   try {
     await updateVoucherToStart(id)
     message.success('Đã kích hoạt phiếu giảm giá!')
-    await fetchData() // Load lại dữ liệu để cập nhật trạng thái mới
+    await fetchData()
   }
   catch (err: any) {
     message.error(err.response?.data?.message || 'Lỗi khi kích hoạt voucher')
@@ -113,7 +125,7 @@ async function handleEndVoucher(id: string) {
   try {
     await updateVoucherToEnd(id)
     message.success('Đã kết thúc phiếu giảm giá!')
-    await fetchData() // Load lại dữ liệu
+    await fetchData()
   }
   catch (err: any) {
     message.error(err.response?.data?.message || 'Lỗi khi kết thúc voucher')
@@ -138,6 +150,7 @@ function resetFilters() {
   filters.value.status = ''
   pagination.value.page = 1
   handleClientSideFilter()
+  fetchData()
 }
 
 function handleClientSideFilter() {
@@ -166,10 +179,9 @@ async function fetchData() {
       conditions: filters.value.conditions || undefined,
       startDate: filters.value.dateRange?.[0],
       endDate: filters.value.dateRange?.[1],
-      status: undefined, // Lấy tất cả về lọc client
+      status: undefined,
     }
     const res = await getVouchers(query)
-    // Map dữ liệu nếu cần
     allData.value = (res.content ?? []).map(item => ({ ...item }))
     handleClientSideFilter()
     checkedRowKeys.value = []
@@ -185,65 +197,92 @@ async function fetchData() {
 }
 
 /* ===================== Data Table ===================== */
+/* ===================== Data Table ===================== */
 const columns: DataTableColumns<ADVoucherResponse> = [
-  { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
-  { title: 'Mã', key: 'code', width: 120 },
-  { title: 'Tên', key: 'name', width: 180 },
+  { title: 'STT', key: 'stt', fixed: 'left', align: 'center', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
+  { title: 'Mã', key: 'code', fixed: 'left', width: 120, render: row => h('strong', { class: 'text-primary' }, row.code) },
+  { title: 'Tên', key: 'name', fixed: 'left', width: 180, ellipsis: { tooltip: true } },
   {
     title: 'Kiểu',
+    align: 'center',
     key: 'targetType',
-    width: 100,
+    width: 90,
     render(row) {
       const typeInfo = getVoucherTypeText(row)
-      return h(NTag, { type: typeInfo.type, size: 'small' }, { default: () => typeInfo.text })
+      return h(NTag, { type: typeInfo.type, size: 'small', bordered: false }, { default: () => typeInfo.text })
     },
   },
-  { title: 'Số lượng', key: 'quantity', width: 80 },
-  { title: 'Còn lại', key: 'remainingQuantity', width: 80 },
+  { title: 'Số lượng', align: 'center', width: 90, key: 'quantity' },
+  { title: 'Còn lại', align: 'center', key: 'remainingQuantity', width: 90 },
   {
     title: 'Giá trị',
+    width: 100,
+    align: 'center',
     key: 'discountValue',
     render(row) {
       if (row.discountValue === null)
         return 'N/A'
-      if (row.typeVoucher === 'PERCENTAGE')
-        return `${row.discountValue}%`
-      return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.discountValue)
+
+      const isPercent = row.typeVoucher === 'PERCENTAGE'
+      // Yêu cầu: % là error, Tiền là primary
+      const tagType = isPercent ? 'error' : 'primary'
+
+      return h(
+        NTag,
+        { type: tagType, size: 'small' },
+        { default: () => isPercent ? `${row.discountValue}%` : new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.discountValue) },
+      )
     },
   },
   {
-    title: 'Tối đa',
+    title: 'Giảm tối đa',
     key: 'maxValue',
+    width: 100,
     render(row) {
       if (row.maxValue === null)
-        return 'N/A'
+        return '-'
       return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.maxValue)
     },
   },
   {
-    title: 'Điều kiện',
+    title: 'Đơn tối thiểu',
     key: 'conditions',
+    width: 120,
     render(row) {
       if (row.conditions === null)
-        return 'N/A'
+        return '-'
       return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(row.conditions)
     },
   },
-  { title: 'Bắt đầu', key: 'startDate', render: row => (row.startDate ? formatDate(row.startDate) : 'N/A') },
-  { title: 'Kết thúc', key: 'endDate', render: row => (row.endDate ? formatDate(row.endDate) : 'N/A') },
+  { title: 'Bắt đầu', key: 'startDate', width: 110, render: row => (row.startDate ? formatDateTime(row.startDate) : '-') },
+  { title: 'Kết thúc', key: 'endDate', width: 110, render: row => (row.endDate ? formatDateTime(row.endDate) : '-') },
   {
     title: 'Trạng thái',
     key: 'computedStatus',
-    width: 130,
+    width: 110,
+    align: 'center',
     render(row) {
       const statusInfo = getVoucherStatus(row)
-      return h(NTag, { type: statusInfo.type, size: 'small' }, { default: () => statusInfo.text })
+      return h(
+        NTag,
+        {
+          type: statusInfo.type,
+          size: 'small',
+          style: { cursor: 'pointer' },
+          onClick: () => {
+            filters.value.status = statusInfo.value
+            handleClientSideFilter()
+          },
+        },
+        { default: () => statusInfo.text },
+      )
     },
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 150, // Tăng độ rộng cột thao tác
+    align: 'center',
+    width: 120, // Tăng nhẹ width để đủ chỗ cho các nút scale
     fixed: 'right',
     render(row: ADVoucherResponse) {
       const id = row.id
@@ -253,34 +292,51 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       const statusInfo = getVoucherStatus(row)
       const actions = []
 
-      // 1. Nút Sửa (Chỉ hiện khi Sắp diễn ra)
+      // --- LOGIC NÚT SỬA ---
+      let editTooltip = 'Sửa thông tin'
+      let isEditDisabled = false
+      let editBtnClass = 'transition-all duration-200 hover:scale-[1.3] hover:shadow-lg' // Class active
+
+      // Xử lý trạng thái disable
+      if (statusInfo.value === 'ONGOING') {
+        editTooltip = 'Không thể sửa vì đang diễn ra'
+        isEditDisabled = true
+        editBtnClass = 'opacity-50 cursor-not-allowed' // Class disabled
+      }
+      else if (statusInfo.value === 'ENDED') {
+        editTooltip = 'Không được sửa vì đã kết thúc'
+        isEditDisabled = true
+        editBtnClass = 'opacity-50 cursor-not-allowed' // Class disabled
+      }
+
+      // Render Nút Sửa
+      actions.push(
+        h(NTooltip, { trigger: 'hover' }, {
+          trigger: () => h(NButton, {
+            size: 'small',
+            type: isEditDisabled ? 'default' : 'warning', // Nếu disable thì màu xám, ngược lại màu xanh
+            secondary: true,
+            circle: true,
+            disabled: isEditDisabled,
+            class: editBtnClass,
+            onClick: isEditDisabled ? undefined : () => openEditPage(id),
+          }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
+          default: () => editTooltip,
+        }),
+      )
+
+      // --- LOGIC NÚT KÍCH HOẠT (Chỉ hiện khi Sắp diễn ra) ---
       if (statusInfo.value === 'UPCOMING') {
         actions.push(
-          h(NTooltip, { trigger: 'hover' }, {
-            trigger: () => h(NButton, {
-              size: 'small',
-              type: 'primary',
-              secondary: true,
-              circle: true,
-              onClick: () => openEditPage(id),
-            }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
-            default: () => 'Sửa thông tin',
-          }),
-        )
-
-        // 2. Nút Start (Chỉ hiện khi Sắp diễn ra)
-        actions.push(
-          h(NPopconfirm, {
-            onPositiveClick: () => handleStartVoucher(id),
-          }, {
+          h(NPopconfirm, { onPositiveClick: () => handleStartVoucher(id) }, {
             trigger: () => h(NTooltip, { trigger: 'hover' }, {
               trigger: () => h(NButton, {
                 size: 'small',
-                type: 'success', // Màu xanh lá
+                type: 'success',
                 secondary: true,
                 circle: true,
-                class: 'ml-2',
-              }, { icon: () => h(Icon, { icon: 'carbon:play-filled-alt' }) }), // Icon Play
+                class: 'ml-2 transition-all duration-200 hover:scale-[1.3] hover:shadow-lg', // Scale 130%
+              }, { icon: () => h(Icon, { icon: 'carbon:play-filled-alt' }) }),
               default: () => 'Kích hoạt ngay',
             }),
             default: () => 'Bạn có chắc chắn muốn kích hoạt Voucher này ngay bây giờ?',
@@ -288,19 +344,18 @@ const columns: DataTableColumns<ADVoucherResponse> = [
         )
       }
 
-      // 3. Nút End (Chỉ hiện khi Đang diễn ra)
+      // --- LOGIC NÚT KẾT THÚC (Chỉ hiện khi Đang diễn ra) ---
       if (statusInfo.value === 'ONGOING') {
         actions.push(
-          h(NPopconfirm, {
-            onPositiveClick: () => handleEndVoucher(id),
-          }, {
+          h(NPopconfirm, { onPositiveClick: () => handleEndVoucher(id) }, {
             trigger: () => h(NTooltip, { trigger: 'hover' }, {
               trigger: () => h(NButton, {
                 size: 'small',
-                type: 'warning', // Màu cam/đỏ
+                type: 'error',
                 secondary: true,
                 circle: true,
-              }, { icon: () => h(Icon, { icon: 'carbon:stop-filled-alt' }) }), // Icon Stop
+                class: 'ml-2 transition-all duration-200 hover:scale-[1.3] hover:shadow-lg', // Scale 130%
+              }, { icon: () => h(Icon, { icon: 'carbon:stop-filled-alt' }) }),
               default: () => 'Kết thúc ngay',
             }),
             default: () => 'Xác nhận kết thúc Voucher này? Khách hàng sẽ không thể sử dụng nữa.',
@@ -308,11 +363,10 @@ const columns: DataTableColumns<ADVoucherResponse> = [
         )
       }
 
-      return h('div', { class: 'flex justify-center' }, actions)
+      return h('div', { class: 'flex justify-center items-center' }, actions)
     },
   },
 ]
-
 /* ===================== Watchers & Hooks ===================== */
 onMounted(() => {
   fetchData()
@@ -327,7 +381,7 @@ watch([() => filters.value.status, () => pagination.value.page, () => pagination
     <NCard class="mb-3">
       <NSpace vertical :size="8">
         <NSpace align="center">
-          <NIcon size="24">
+          <NIcon size="24" class="text-red-500">
             <Icon icon="icon-park-outline:ticket" />
           </NIcon>
           <span style="font-weight: 600; font-size: 24px">Quản lý Phiếu Giảm Giá</span>
@@ -336,14 +390,22 @@ watch([() => filters.value.status, () => pagination.value.page, () => pagination
       </NSpace>
     </NCard>
 
-    <NCard title="Bộ lọc" class="rounded-2xl shadow-md mb-4">
+    <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-md mb-4">
       <template #header-extra>
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
-              <NButton size="large" circle secondary type="primary" title="Làm mới bộ lọc" @click="resetFilters">
-                <NIcon size="35">
-                  <Icon icon="carbon:rotate" />
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                title="Làm mới bộ lọc"
+                @click="resetFilters"
+              >
+                <NIcon size="24">
+                  <Icon icon="carbon:filter-reset" />
                 </NIcon>
               </NButton>
             </template>
@@ -353,13 +415,18 @@ watch([() => filters.value.status, () => pagination.value.page, () => pagination
       </template>
 
       <NForm label-placement="top">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-2">
           <NFormItem label="Tên hoặc mã">
-            <NInput v-model:value="filters.q" placeholder="Nhập tên hoặc mã..." />
+            <NInput v-model:value="filters.q" placeholder="Nhập tên hoặc mã..." clearable>
+              <template #prefix>
+                <Icon icon="carbon:search" />
+              </template>
+            </NInput>
           </NFormItem>
+
           <NFormItem label="Trạng thái">
             <NRadioGroup v-model:value="filters.status" name="status">
-              <NSpace>
+              <div class="flex flex-wrap gap-2">
                 <NRadio value="">
                   Tất cả
                 </NRadio>
@@ -372,13 +439,15 @@ watch([() => filters.value.status, () => pagination.value.page, () => pagination
                 <NRadio value="ENDED">
                   Đã kết thúc
                 </NRadio>
-              </NSpace>
+              </div>
             </NRadioGroup>
           </NFormItem>
-          <NFormItem label="Điều kiện áp dụng tối thiểu">
-            <NInputNumber v-model:value="filters.conditions" step="1000" placeholder="VD: 100,000..." class="w-full" />
+
+          <NFormItem label="Đơn tối thiểu">
+            <NInputNumber v-model:value="filters.conditions" step="1000" placeholder="VD: 100,000" class="w-full" />
           </NFormItem>
-          <NFormItem label="Thời gian diễn ra">
+
+          <NFormItem label="Thời gian">
             <NDatePicker
               v-model:value="filters.dateRange" type="daterange" clearable class="w-full"
               start-placeholder="Bắt đầu" end-placeholder="Kết thúc"
@@ -392,40 +461,59 @@ watch([() => filters.value.status, () => pagination.value.page, () => pagination
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NTooltip trigger="hover" placement="top">
-              <template #trigger>
-                <NButton type="primary" secondary circle title="Thêm mới" @click="openAddPage">
-                  <NIcon size="24">
-                    <Icon icon="carbon:add" />
-                  </NIcon>
-                </NButton>
+            <NButton
+              type="primary"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="openAddPage"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:add" />
+                </NIcon>
               </template>
-              Thêm mới
-            </NTooltip>
-            <NTooltip trigger="hover" placement="top">
-              <template #trigger>
-                <NButton circle secondary type="primary" title="Làm mới" @click="fetchData">
-                  <NIcon size="24">
-                    <Icon icon="carbon:rotate" />
-                  </NIcon>
-                </NButton>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tạo phiếu giảm giá
+              </span>
+            </NButton>
+
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="fetchData"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
               </template>
-              Làm mới
-            </NTooltip>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại dữ liệu
+              </span>
+            </NButton>
           </NSpace>
         </div>
       </template>
 
       <NDataTable
-        v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading"
-        :row-key="(row) => row.id" :pagination="false" bordered striped
+        v-model:checked-row-keys="checkedRowKeys"
+        :columns="columns"
+        :data="displayData"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        striped
+        :scroll-x="1200"
       />
 
       <div class="flex justify-end mt-4">
         <NPagination
-          :page="pagination.page" :page-size="pagination.pageSize" :item-count="pagination.itemCount"
-          @update:page="(page) => { pagination.page = page }"
-          @update:page-size="(size) => { pagination.pageSize = size; pagination.page = 1 }"
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :item-count="pagination.itemCount"
+          :page-sizes="[5, 10, 20, 50]"
+          :show-size-picker="true"
         />
       </div>
     </NCard>

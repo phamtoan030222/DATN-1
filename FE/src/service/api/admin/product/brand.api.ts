@@ -10,6 +10,7 @@ import request from '@/service/request'
 // Tham số truy vấn
 export interface ParamsGetBrand extends PaginationParams {
   name?: string
+  status?: string
 }
 
 // Kiểu dữ liệu Brand trả về

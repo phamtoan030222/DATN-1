@@ -1,63 +1,23 @@
-<template>
-  <n-modal :show="isOpen">
-    <n-card style="width: 600px" :title="id ? (isDetail ? 'Chi tiết CPU' : 'Cập nhật CPU') : 'Thêm CPU'"
-      :bordered="false" size="huge" role="dialog" aria-modal="true">
-      <template #header-extra>
-        <n-button @click="handleClickCancel">
-          <Icon icon="ic:outline-close" />
-        </n-button>
-      </template>
-
-      <!-- content -->
-      <div :style="{ maxHeight: '400px', overflowY: 'auto' }">
-        <n-form>
-          <n-form-item label="Mã">
-            <n-input v-model:value="detailCPU.code" placeholder="Nhập mã"></n-input>
-          </n-form-item>
-          <n-form-item label="Tên">
-            <n-input v-model:value="detailCPU.name" placeholder="Nhập tên"></n-input>
-          </n-form-item>
-          <n-form-item label="Thế hệ">
-            <n-input v-model:value="detailCPU.generation" placeholder="Nhập thế hệ"></n-input>
-          </n-form-item>
-          <n-form-item label="Dòng CPU">
-            <n-input v-model:value="detailCPU.series" placeholder="Nhập dòng CPU"></n-input>
-          </n-form-item>
-          <n-form-item label="Hãng">
-            <n-select v-model:value="detailCPU.brand" :options="brandOptionsSelect"
-              :placeholder="'Chọn hãng'"></n-select>
-          </n-form-item>
-          <n-form-item label="Năm phát hành">
-            <n-date-picker v-model:value="detailCPU.releaseYear" type="year" clearable
-              placeholder="Chọn năm phát hành" />
-          </n-form-item>
-        </n-form>
-      </div>
-
-      <!-- footer -->
-      <template #footer>
-        <n-space justify="end">
-          <n-button @click="handleClickCancel">Hủy</n-button>
-          <n-popconfirm @positive-click="handleClickOK" @negative-click="handleClickCancel"
-            :positive-button-props="{ type: 'info' }">
-            <template #trigger>
-              <n-button>Xác nhận</n-button>
-            </template>
-            Bạn chắc chắn muốn thao tác
-          </n-popconfirm>
-        </n-space>
-      </template>
-    </n-card>
-  </n-modal>
-</template>
-
 <script setup lang="ts">
-import { ADProductCPUResponse, getCPUById, modifyCPU } from '@/service/api/admin/product/cpu.api';
-import { convertMsToYear, convertYearToMs } from '@/utils/helper';
-import { Icon } from '@iconify/vue';
-import { Ref, ref, watch } from 'vue'
-
-const notification = useNotification();
+import { ref, watch } from 'vue'
+import {
+  NButton,
+  NDatePicker,
+  NForm,
+  NFormItem,
+  NGrid,
+  NGridItem,
+  NInput,
+  NModal,
+  NSelect,
+  NSpace,
+  useNotification,
+} from 'naive-ui'
+import type { FormInst, FormRules } from 'naive-ui'
+import { Icon } from '@iconify/vue'
+import { getCPUById, modifyCPU } from '@/service/api/admin/product/cpu.api'
+import type { ADProductCPUCreateUpdateRequest, ADProductCPUResponse } from '@/service/api/admin/product/cpu.api'
+import { convertMsToYear, convertYearToMs } from '@/utils/helper'
 
 const props = defineProps<{
   isOpen: boolean
@@ -65,74 +25,214 @@ const props = defineProps<{
   isDetail: boolean
 }>()
 
-const emit = defineEmits(['success', 'close'])
+const emit = defineEmits(['success', 'close', 'update:isOpen']) // Thêm update:isOpen để v-model hoạt động chuẩn
 
-const detailCPU: Ref<ADProductCPUResponse> = ref({
+const notification = useNotification()
+const formRef = ref<FormInst | null>(null)
+const loading = ref(false)
+
+// Init model với kiểu dữ liệu chính xác
+const detailCPU = ref({
+  id: '',
   code: '',
   name: '',
   description: '',
   generation: '',
   series: '',
-  brand: '',
-  releaseYear: 0,
+  brand: null as string | null, // Sửa thành null, không phải 'null' string
+  releaseYear: null as number | null, // Timestamp (number) hoặc null
 })
 
-const fetchDetailCPU = async () => {
-  const res = await getCPUById(props.id as string)
-
-  const data = res.data;
-
-  data.releaseYear = convertYearToMs(data.releaseYear)
-
-  detailCPU.value = data
-}
-
-const resetField = () => {
-  detailCPU.value = {
-    code: '',
-    name: '',
-    description: '',
-    generation: '',
-    series: '',
-    brand: '',
-    releaseYear: 0,
-  }
-}
-
-watch(
-  () => props.id,
-  (newId) => {
-    if (newId) fetchDetailCPU()
-    else resetField()
-  }
-)
-
-const handleClickCancel = () => {
-  emit('close')
-}
-
-const handleClickOK = async () => {
-  const data = detailCPU.value;
-
-  data.releaseYear = convertMsToYear(data.releaseYear)
-
-  const res = await modifyCPU(data)
-  console.log(res.success)
-  if (res.success) notification.success({ content: props.id ? 'Cập nhật cpu thành công' : 'Thêm CPU thành công', duration: 3000 })
-  else notification.error({ content: props.id ? 'Cập nhật CPU thất bại' : 'Thêm CPU thất bại', duration: 3000 })
-  emit('success')
-}
-
+// Options: bỏ string 'null', dùng null thật
 const brandOptionsSelect = [
   { label: 'Intel', value: 'Intel' },
   { label: 'AMD', value: 'AMD' },
   { label: 'Apple', value: 'Apple' },
 ]
+
+const rules: FormRules = {
+  name: [{ required: true, message: 'Vui lòng nhập tên CPU', trigger: 'blur' }],
+  brand: [{ required: true, message: 'Vui lòng chọn hãng sản xuất', trigger: ['blur', 'change'] }],
+  releaseYear: [{ required: true, type: 'number', message: 'Vui lòng chọn năm phát hành', trigger: ['blur', 'change'] }],
+  generation: [{ required: true, message: 'Vui lòng nhập thế hệ', trigger: 'blur' }],
+  series: [{ required: true, message: 'Vui lòng nhập dòng CPU', trigger: 'blur' }],
+}
+
+async function fetchDetailCPU() {
+  if (!props.id)
+    return
+  loading.value = true
+  try {
+    const res = await getCPUById(props.id)
+    if (res.data) {
+      // Spread để tránh tham chiếu, xử lý date
+      detailCPU.value = {
+        ...res.data,
+        // Backend trả về 2024 -> Convert sang timestamp để hiện lên DatePicker
+        releaseYear: res.data.releaseYear ? convertYearToMs(res.data.releaseYear) : null,
+      }
+    }
+  }
+  catch (error) {
+    notification.error({ content: 'Lỗi tải thông tin CPU', duration: 3000 })
+  }
+  finally {
+    loading.value = false
+  }
+}
+
+function resetField() {
+  detailCPU.value = {
+    id: '',
+    code: '',
+    name: '',
+    description: '',
+    generation: '',
+    series: '',
+    brand: null,
+    releaseYear: null,
+  }
+  formRef.value?.restoreValidation()
+}
+
+watch(
+  () => props.isOpen,
+  (newVal) => {
+    if (newVal) {
+      if (props.id)
+        fetchDetailCPU()
+      else resetField()
+    }
+  },
+)
+
+function handleClickCancel() {
+  emit('close')
+  emit('update:isOpen', false)
+}
+
+async function handleClickOK() {
+  formRef.value?.validate(async (errors) => {
+    if (!errors) {
+      loading.value = true
+      try {
+        // Prepare payload
+        // DatePicker trả về timestamp -> Cần convert về Year (VD: 2024)
+        // Cần check null trước khi convert
+        const releaseYearNumber = detailCPU.value.releaseYear
+          ? convertMsToYear(detailCPU.value.releaseYear)
+          : new Date().getFullYear()
+
+        const payload: ADProductCPUCreateUpdateRequest = {
+          ...detailCPU.value,
+          brand: detailCPU.value.brand || '',
+          releaseYear: releaseYearNumber,
+        }
+
+        const res = await modifyCPU(payload)
+
+        if (res.success) {
+          notification.success({
+            content: props.id ? 'Cập nhật CPU thành công' : 'Thêm CPU thành công',
+            duration: 3000,
+          })
+          emit('success')
+          emit('update:isOpen', false) // Đóng modal
+        }
+      }
+      catch (error) {
+        notification.error({ content: 'Có lỗi xảy ra', duration: 3000 })
+      }
+      finally {
+        loading.value = false
+      }
+    }
+  })
+}
 </script>
 
-<style scoped>
-.container {
-  max-height: 400px;
-  overflow-y: auto;
-}
-</style>
+<template>
+  <NModal
+    :show="isOpen"
+    preset="card"
+    :style="{ width: '600px' }"
+    :title="id ? 'Cập nhật thông tin CPU' : 'Thêm mới CPU'"
+    :bordered="false"
+    size="huge"
+    :mask-closable="false"
+    @close="handleClickCancel"
+  >
+    <NForm
+      ref="formRef"
+      :model="detailCPU"
+      :rules="rules"
+      label-placement="top"
+      size="medium"
+    >
+      <NGrid :x-gap="12" :cols="2">
+        <NGridItem :span="2">
+          <NFormItem label="Tên CPU" path="name">
+            <NInput v-model:value="detailCPU.name" placeholder="VD: Intel Core i9 14900K" />
+          </NFormItem>
+        </NGridItem>
+
+        <NGridItem>
+          <NFormItem label="Hãng sản xuất" path="brand">
+            <NSelect
+              v-model:value="detailCPU.brand"
+              :options="brandOptionsSelect"
+              placeholder="Chọn hãng"
+            />
+          </NFormItem>
+        </NGridItem>
+
+        <NGridItem>
+          <NFormItem label="Năm phát hành" path="releaseYear">
+            <NDatePicker
+              v-model:value="detailCPU.releaseYear"
+              type="year"
+              clearable
+              placeholder="Chọn năm"
+              style="width: 100%"
+            />
+          </NFormItem>
+        </NGridItem>
+        <NGridItem>
+          <NFormItem label="Thế hệ" path="generation">
+            <NInput v-model:value="detailCPU.generation" placeholder="VD: Gen 14, Zen 4..." />
+          </NFormItem>
+        </NGridItem>
+
+        <NGridItem>
+          <NFormItem label="Dòng CPU" path="series">
+            <NInput v-model:value="detailCPU.series" placeholder="VD: Core i9, Ryzen 9..." />
+          </NFormItem>
+        </NGridItem>
+
+        <NGridItem :span="2">
+          <NFormItem label="Mô tả thêm">
+            <NInput
+              v-model:value="detailCPU.description"
+              type="textarea"
+              placeholder="Ghi chú thêm về sản phẩm..."
+              :autosize="{ minRows: 2, maxRows: 4 }"
+            />
+          </NFormItem>
+        </NGridItem>
+      </NGrid>
+    </NForm>
+    <template #footer>
+      <NSpace justify="end">
+        <NButton @click="handleClickCancel">
+          Hủy
+        </NButton>
+        <NButton type="primary" :loading="loading" icon-placement="right" @click="handleClickOK">
+          {{ id ? 'Lưu thay đổi' : 'Thêm mới' }}
+          <template #icon>
+            <Icon icon="carbon:save" />
+          </template>
+        </NButton>
+      </NSpace>
+    </template>
+  </NModal>
+</template>

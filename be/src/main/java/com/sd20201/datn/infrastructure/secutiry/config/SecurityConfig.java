@@ -1,6 +1,7 @@
 package com.sd20201.datn.infrastructure.secutiry.config;
 
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
+import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import com.sd20201.datn.infrastructure.secutiry.exception.RestAuthenticationEntryPoint;
 import com.sd20201.datn.infrastructure.secutiry.filter.TokenAuthenticationFilter;
 import com.sd20201.datn.infrastructure.secutiry.oauth2.CustomOAuth2UserService;
@@ -8,6 +9,7 @@ import com.sd20201.datn.infrastructure.secutiry.oauth2.HttpCookieOAuth2Authoriza
 import com.sd20201.datn.infrastructure.secutiry.oauth2.OAuth2AuthenticationFailureHandler;
 import com.sd20201.datn.infrastructure.secutiry.oauth2.OAuth2AuthenticationSuccessHandler;
 import com.sd20201.datn.infrastructure.secutiry.service.CustomUserDetailsService;
+import com.sd20201.datn.utils.Helper;
 import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,6 +26,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -89,35 +92,40 @@ public class SecurityConfig {
         http.csrf(AbstractHttpConfigurer::disable);
         http.cors(c -> c.configurationSource(corsConfigurationSource()));
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
-        http.formLogin(AbstractHttpConfigurer::disable);
         http.httpBasic(AbstractHttpConfigurer::disable);
         http.exceptionHandling(e -> e.authenticationEntryPoint(new RestAuthenticationEntryPoint()));
 
-//        http.authorizeHttpRequests(
-//                authorizeRequests -> authorizeRequests.requestMatchers(MappingConstants.API_LOGIN).permitAll()
-//        );
-//
-//        http.authorizeHttpRequests(
-//                authorizeRequests -> authorizeRequests.requestMatchers(Helper.appendWildcard(MappingConstants.API_TEST)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
-//        );
-//
-//        http.oauth2Login(
-//                oauth2 -> oauth2.authorizationEndpoint(a -> a.baseUri("/oauth2/authorize"))
-//                        .redirectionEndpoint(r -> r.baseUri("/oauth2/callback/**"))
-//                        .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
-//                        .authorizationEndpoint(a -> a.authorizationRequestRepository(httpCookieOAuth2AuthorizationRequestRepository))
-//                        .successHandler(oAuth2AuthenticationSuccessHandler)
-//                        .failureHandler(oAuth2AuthenticationFailureHandler)
-//        );
-//
-//        http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+        http.formLogin(login ->
+                    login.loginProcessingUrl(MappingConstants.API_LOGIN)
+                            .usernameParameter("username")
+                            .passwordParameter("password")
+                            .successHandler(oAuth2AuthenticationSuccessHandler)
+                            .failureHandler(oAuth2AuthenticationFailureHandler)
+                );
+
+        http.oauth2Login(
+                oauth2 -> oauth2.authorizationEndpoint(a -> a.baseUri("/oauth2/authorize"))
+                        .redirectionEndpoint(r -> r.baseUri("/oauth2/callback/**"))
+                        .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
+                        .authorizationEndpoint(a -> a.authorizationRequestRepository(httpCookieOAuth2AuthorizationRequestRepository))
+                        .successHandler(oAuth2AuthenticationSuccessHandler)
+                        .failureHandler(oAuth2AuthenticationFailureHandler)
+        );
+
+        http.authorizeHttpRequests( request ->
+                request.requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_STAFF_PREFIX)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_CUSTOMER_PREFIX)).hasAnyAuthority(RoleConstant.KHACH_HANG.name())
+        );
 
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/upload/**").permitAll()  // Upload endpoint
                 .requestMatchers("/uploads/**").permitAll()     // Static files
-                .requestMatchers(MappingConstants.API_LOGIN).permitAll()
                 .anyRequest().permitAll() // Tạm thời cho phép tất cả để test
         );
+
+        http.addFilterBefore(tokenAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class);
+
         return http.build();
     }
 }
