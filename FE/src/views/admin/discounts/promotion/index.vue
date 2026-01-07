@@ -427,7 +427,7 @@ const columns: DataTableColumns<DiscountResponse> = [
 
     <div class="flex justify-end mt-4">
       <NPagination
-        v-if="totalFilteredPages > 1"
+     
         :page="currentPage"
         :page-size="pageSize"
         :page-count="totalFilteredPages"

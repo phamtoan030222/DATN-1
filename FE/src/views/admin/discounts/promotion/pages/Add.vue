@@ -59,10 +59,10 @@
                   v-model:value="formData.endDate"
                   type="datetime"
                   placeholder="Chọn ngày kết thúc"
-                  style="width: 100%"
+                  style="width: 100%" 
                   :is-date-disabled="(ts) => ts <= formData.startDate"
                 />
-              </NFormItem>
+              </NFormItem> 
             </div>
 
             <NFormItem label="Phần trăm giảm giá (%)" path="percentage" required>
@@ -208,7 +208,7 @@
 
     />
 
-    <div class="flex justify-end mt-4" v-if="filteredDetails.length > detailPageSize">
+    <div class="flex justify-end mt-4" >
       <NPagination
         v-model:page="detailCurrentPage"
         :page-size="detailPageSize"
