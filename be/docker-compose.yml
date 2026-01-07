@@ -1,0 +1,20 @@
+services:
+  backend-datn:
+    build: .
+    container_name: datn_backend_container
+    ports:
+      - "2345:2345"
+    environment:
+      MYSQL_HOST: host.docker.internal
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: datn
+      MYSQL_USER: root
+      MYSQL_PASSWORD: 123456
+
+      SERVER_PORT: 2345
+
+      ALLOWED_ORIGIN: http://localhost:6788
+      FRONTEND_URL: http://localhost:6788
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
