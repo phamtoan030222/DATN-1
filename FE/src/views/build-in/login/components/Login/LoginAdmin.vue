@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import type { FormInst } from "naive-ui";
+import { URL_OAUTH2_GOOGLE_ADMIN, VITE_BASE_URL_CLIENT } from "@/constants/url";
+import { postLogin } from "@/service/api/auth/auth.api";
 import { useAuthStore } from "@/store";
 import { local } from "@/utils";
-import { URL_OAUTH2_GOOGLE_ADMIN } from "@/constants/url";
+import { getUserInformation } from "@/utils/token.helper";
+import { use } from "echarts";
+import type { FormInst } from "naive-ui";
 
 const emit = defineEmits(["update:modelValue"]);
-
-const authStore = useAuthStore();
 
 function toOtherForm(type: any) {
     emit("update:modelValue", type);
 }
+
+const authStore = useAuthStore();
 
 const { t } = useI18n();
 const rules = computed(() => {
@@ -28,11 +31,13 @@ const rules = computed(() => {
     };
 });
 const formValue = ref({
-    account: "super",
-    pwd: "123456",
+    account: "",
+    pwd: "",
 });
 const isRemember = ref(false);
 const isLoading = ref(false);
+
+const notication = useNotification();
 
 const formRef = ref<FormInst | null>(null);
 function handleLogin() {
@@ -44,19 +49,14 @@ function handleLogin() {
 
         if (isRemember.value) local.set("loginAccount", { account, pwd });
         else local.remove("loginAccount");
-        const dummyUserInformation = {
-            userId: "u_123456",
-            userCode: "EMP001",
-            fullName: "Nguyen Van A",
-            rolesNames: ["Quản lý", "Nhân viên"],
-            rolesCodes: ["QUAN_LY", "NHAN_VIEN"],
-            email: "nguyenvana@example.com",
-            pictureUrl: "https://example.com/avatar.png",
-            roleSwitch: "ADMIN",
-            roleScreen: "ADMIN"
+        try {
+            const token = await postLogin(account, pwd, "ADMIN");
+            if (token) {
+                window.location.href = VITE_BASE_URL_CLIENT + "/redirect?state=" + token.state;
+            }
+        } catch (error) {
+            notication.error({ content: "Đăng nhập thất bại. Vui lòng kiểm tra lại tài khoản hoặc mật khẩu." });
         }
-
-        await authStore.login(dummyUserInformation, account, pwd);
         isLoading.value = false;
     });
 }
@@ -75,7 +75,7 @@ function checkUserAccount() {
 const appName = import.meta.env.VITE_APP_NAME
 
 const handleRedirectLoginADMIN = () => {
-  window.location.href = URL_OAUTH2_GOOGLE_ADMIN;
+    window.location.href = URL_OAUTH2_GOOGLE_ADMIN;
 };
 
 </script>

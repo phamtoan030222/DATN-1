@@ -6,6 +6,8 @@ export const API_URL = `${VITE_BASE_URL_SERVER}/api/v1` as string
 // AUTH API
 export const PREFIX_API_AUTH = `${API_URL}/auth` as string
 
+export const API_AUTH_LOGIN = `${API_URL}/login` as string
+
 // SUB_REDIRECT
 export const SCREEN_ROLE_ADMIN = `&screen=ADMIN`
 

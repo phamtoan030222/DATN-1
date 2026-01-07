@@ -4,6 +4,8 @@ import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import com.sd20201.datn.infrastructure.secutiry.exception.RestAuthenticationEntryPoint;
 import com.sd20201.datn.infrastructure.secutiry.filter.TokenAuthenticationFilter;
+import com.sd20201.datn.infrastructure.secutiry.login.LoginAuthenticationFailureHandler;
+import com.sd20201.datn.infrastructure.secutiry.login.LoginAuthenticationSuccessHandler;
 import com.sd20201.datn.infrastructure.secutiry.oauth2.CustomOAuth2UserService;
 import com.sd20201.datn.infrastructure.secutiry.oauth2.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.sd20201.datn.infrastructure.secutiry.oauth2.OAuth2AuthenticationFailureHandler;
@@ -43,6 +45,12 @@ public class SecurityConfig {
 
     @Setter(onMethod = @__({@Autowired}))
     private OAuth2AuthenticationFailureHandler oAuth2AuthenticationFailureHandler;
+
+    @Setter(onMethod = @__({@Autowired}))
+    private LoginAuthenticationSuccessHandler loginAuthenticationSuccessHandler;
+
+    @Setter(onMethod = @__({@Autowired}))
+    private LoginAuthenticationFailureHandler loginAuthenticationFailureHandler;
 
     @Setter(onMethod = @__({@Autowired}))
     private CustomOAuth2UserService customOAuth2UserService;
@@ -96,11 +104,11 @@ public class SecurityConfig {
         http.exceptionHandling(e -> e.authenticationEntryPoint(new RestAuthenticationEntryPoint()));
 
         http.formLogin(login ->
-                    login.loginProcessingUrl(MappingConstants.API_LOGIN)
+                    login.loginProcessingUrl(MappingConstants.API_LOGIN).permitAll()
                             .usernameParameter("username")
                             .passwordParameter("password")
-                            .successHandler(oAuth2AuthenticationSuccessHandler)
-                            .failureHandler(oAuth2AuthenticationFailureHandler)
+                            .successHandler(loginAuthenticationSuccessHandler)
+                            .failureHandler(loginAuthenticationFailureHandler)
                 );
 
         http.oauth2Login(
