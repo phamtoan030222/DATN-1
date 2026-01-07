@@ -12,6 +12,7 @@ import {
   NIcon,
   NInput,
   NPagination,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
   NSelect,
@@ -19,7 +20,6 @@ import {
   NSwitch,
   NTooltip,
   useMessage,
-  useNotification,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import type { DataTableColumns } from 'naive-ui'
@@ -33,7 +33,6 @@ import ADProductGPUModal from './component/ADProductGPUModal.vue'
 
 // ================= STATE =================
 const message = useMessage()
-const notification = useNotification()
 const loading = ref(false)
 
 const state = reactive({
@@ -43,7 +42,7 @@ const state = reactive({
     generation: '',
     series: '',
     releaseYear: null as number | null,
-    status: null as string | null, // <--- Thêm state status
+    status: null as string | null,
   },
   data: {
     GPUs: [] as ADProductGPUResponse[],
@@ -75,13 +74,13 @@ async function fetchGPUs() {
     const res = await getGPUs({
       page: state.pagination.page,
       size: state.pagination.size,
-      q: state.search.q || undefined, // Backend có thể dùng 'q' hoặc 'name'
+      q: state.search.q || undefined,
       name: state.search.q || undefined,
       brand: state.search.brand || undefined,
       generation: state.search.generation || undefined,
       series: state.search.series || undefined,
       releaseYear: yearToSend,
-      status: state.search.status || undefined, // <--- Gửi status
+      status: state.search.status || undefined,
     })
 
     state.data.GPUs = res.data.data || []
@@ -107,14 +106,14 @@ function refreshFilter() {
   state.search.generation = ''
   state.search.series = ''
   state.search.releaseYear = null
-  state.search.status = null // <--- Reset status
+  state.search.status = null
   state.pagination.page = 1
   fetchGPUs()
 }
 
 // Watch filters
 watch(
-  () => [state.search.brand, state.search.releaseYear, state.search.status], // <--- Watch status
+  () => [state.search.brand, state.search.releaseYear, state.search.status],
   () => {
     state.pagination.page = 1
     fetchGPUs()
@@ -144,20 +143,21 @@ function handleSuccessModifyModal() {
   closeModal()
 }
 
+// Hàm đổi trạng thái (đã chuyển sang dùng message)
 async function handleChangeStatus(id: string) {
   try {
     loading.value = true
-    const res = await changeGPUStatus(id)
-    if (res.success) {
-      notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
+    const res: any = await changeGPUStatus(id)
+    if (res.success || res) {
+      message.success('Thay đổi trạng thái thành công')
       fetchGPUs()
     }
     else {
-      notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
+      message.error('Thay đổi trạng thái thất bại')
     }
   }
   catch (e) {
-    notification.error({ content: 'Lỗi hệ thống', duration: 3000 })
+    message.error('Lỗi hệ thống')
   }
   finally {
     loading.value = false
@@ -171,12 +171,14 @@ const columns: DataTableColumns<ADProductGPUResponse> = [
     key: 'orderNumber',
     width: 60,
     align: 'center',
+    fixed: 'left',
     render: (_, index) => (state.pagination.page - 1) * state.pagination.size + index + 1,
   },
   {
     title: 'Mã GPU',
     key: 'code',
-    width: 150,
+    width: 100,
+    fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code),
   },
   {
@@ -184,6 +186,7 @@ const columns: DataTableColumns<ADProductGPUResponse> = [
     key: 'name',
     minWidth: 200,
     ellipsis: { tooltip: true },
+    render: row => h('span', { class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors', onClick: () => clickOpenModal(row.id, false) }, row.name),
   },
   { title: 'Hãng', key: 'brand', width: 120, align: 'center' },
   { title: 'Thế hệ', key: 'generation', width: 120, align: 'center' },
@@ -195,13 +198,25 @@ const columns: DataTableColumns<ADProductGPUResponse> = [
     width: 100,
     align: 'center',
     render: (row) => {
+      // Dùng NPopconfirm cho Switch
       return h(
-        NSwitch,
+        NPopconfirm,
         {
-          value: row.status === 'ACTIVE',
-          size: 'small',
-          disabled: loading.value,
-          onUpdateValue: () => handleChangeStatus(row.id as string),
+          onPositiveClick: () => handleChangeStatus(row.id),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
+        },
+        {
+          trigger: () => h(
+            NSwitch,
+            {
+              value: row.status === 'ACTIVE',
+              size: 'small',
+              disabled: loading.value,
+              // Không bind onUpdateValue trực tiếp để chặn toggle khi chưa confirm
+            },
+          ),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} GPU này?`,
         },
       )
     },
@@ -209,7 +224,7 @@ const columns: DataTableColumns<ADProductGPUResponse> = [
   {
     title: 'Thao tác',
     key: 'action',
-    width: 100,
+    width: 80,
     align: 'center',
     fixed: 'right',
     render: (row) => {
@@ -410,6 +425,7 @@ function handlePageSizeChange(pageSize: number) {
         :loading="loading"
         :row-key="(row) => row.id"
         :pagination="false"
+        :scroll-x="1000"
         striped
       />
 

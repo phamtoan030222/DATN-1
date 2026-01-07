@@ -8,11 +8,9 @@ import type {
 import request from '@/service/request'
 
 export interface ParamGetStaff extends PaginationParams {
-  code?: string
-  fullName?: string
+  key?: string
+  name?: string
   role?: string
-  email?: string
-  phone?: string
   status?: string
 }
 
@@ -21,6 +19,7 @@ export type StaffResponse = ResponseList & {
   fullName: string
   code?: string
   status: string // "ACTIVE", "INACTIVE"
+  email: string
   role: string // "QUAN_LY", ...
   birthday?: number // timestamp
   citizenIdentifyCard?: string
@@ -74,6 +73,14 @@ export async function createStaff(data: CreateStaffRequest) {
   const res = await request({
     url: `${API_ADMIN_STAFF}/add`,
     method: 'POST',
+    data,
+  })
+  return res.data.data
+}
+export async function updateStaff(id: string, data: CreateStaffRequest) {
+  const res = await request({
+    url: `${API_ADMIN_STAFF}/${id}`,
+    method: 'PUT',
     data,
   })
   return res.data.data

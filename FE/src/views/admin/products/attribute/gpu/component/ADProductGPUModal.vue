@@ -11,7 +11,8 @@ import {
   NModal,
   NSelect,
   NSpace,
-  useNotification,
+  useDialog, // Import useDialog
+  useMessage,
 } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
@@ -27,7 +28,8 @@ const props = defineProps<{
 
 const emit = defineEmits(['success', 'close', 'update:isOpen'])
 
-const notification = useNotification()
+const message = useMessage()
+const dialog = useDialog() // Init Dialog
 const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
@@ -76,7 +78,7 @@ async function fetchDetailGPU() {
     }
   }
   catch (error) {
-    notification.error({ content: 'Lỗi tải thông tin GPU', duration: 3000 })
+    message.error('Lỗi tải thông tin GPU')
   }
   finally {
     loading.value = false
@@ -113,45 +115,57 @@ function handleClickCancel() {
   emit('update:isOpen', false)
 }
 
-async function handleClickOK() {
-  formRef.value?.validate(async (errors) => {
+function handleClickOK() {
+  formRef.value?.validate((errors) => {
     if (!errors) {
-      loading.value = true
-      try {
-        // Convert Timestamp -> Year (number) trước khi gửi API
-        const releaseYearNumber = detailGPU.value.releaseYear
-          ? convertMsToYear(detailGPU.value.releaseYear)
-          : new Date().getFullYear()
+      // Dùng Dialog để xác nhận
+      dialog.warning({
+        title: 'Xác nhận',
+        content: props.id
+          ? 'Bạn có chắc chắn muốn cập nhật thông tin GPU này?'
+          : 'Bạn có chắc chắn muốn thêm mới GPU này?',
+        positiveText: 'Đồng ý',
+        negativeText: 'Hủy',
+        onPositiveClick: async () => {
+          // Logic gọi API được giữ nguyên, chỉ bọc trong onPositiveClick
+          loading.value = true
+          try {
+            // Convert Timestamp -> Year (number) trước khi gửi API
+            const releaseYearNumber = detailGPU.value.releaseYear
+              ? convertMsToYear(detailGPU.value.releaseYear)
+              : new Date().getFullYear()
 
-        const payload: ADProductGPUCreateUpdateRequest = {
-          ...detailGPU.value,
-          brand: detailGPU.value.brand || '',
-          releaseYear: releaseYearNumber,
-        }
+            const payload: ADProductGPUCreateUpdateRequest = {
+              ...detailGPU.value,
+              brand: detailGPU.value.brand || '',
+              releaseYear: releaseYearNumber,
+            }
 
-        const res = await modifyGPU(payload)
+            const res = await modifyGPU(payload)
 
-        if (res.success) {
-          notification.success({
-            content: props.id ? 'Cập nhật GPU thành công' : 'Thêm GPU thành công',
-            duration: 3000,
-          })
-          emit('success')
-          emit('update:isOpen', false)
-        }
-        else {
-          notification.error({
-            content: props.id ? 'Cập nhật thất bại' : 'Thêm mới thất bại',
-            duration: 3000,
-          })
-        }
-      }
-      catch (error) {
-        notification.error({ content: 'Lỗi hệ thống', duration: 3000 })
-      }
-      finally {
-        loading.value = false
-      }
+            if (res.success) {
+              message.success(
+                props.id ? 'Cập nhật GPU thành công' : 'Thêm GPU thành công',
+                { duration: 3000 },
+              )
+              emit('success')
+              emit('update:isOpen', false)
+            }
+            else {
+              message.error(
+                props.id ? 'Cập nhật thất bại' : 'Thêm mới thất bại',
+                { duration: 3000 },
+              )
+            }
+          }
+          catch (error) {
+            message.error('Lỗi hệ thống')
+          }
+          finally {
+            loading.value = false
+          }
+        },
+      })
     }
   })
 }

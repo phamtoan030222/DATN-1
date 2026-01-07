@@ -1,70 +1,83 @@
 import { API_ADMIN_COLOR } from '@/constants/url'
+import request from '@/service/request'
 import type { AxiosResponse } from 'axios'
 import type {
   DefaultResponse,
   PaginationParams,
   ResponseList,
 } from '@/typings/api/api.common'
-import request from '@/service/request'
 
-export interface ParamsGetColor extends PaginationParams {
-  q?: string | ''
-  colorName?: string
-  colorStatus?: string
+// ===== 1. Interfaces =====
+
+export interface ParamsGetColors extends PaginationParams {
+  q?: string
+  status?: string | null
 }
 
-export type ColorResponse = ResponseList & {
-  colorName: string
-  colorCode: string
-  colorStatus: string
-  createdDate: number
+export interface AdColorResponse extends ResponseList {
+  id: string
+  code: string
+  name: string
+  status: string
 }
 
-export interface ColorRequest {
-  colorName: string
+export interface AdColorRequest {
+  id?: string
+  code: string
+  name: string
+  status?: string
 }
 
-export interface CreateColorRequest {
-  colorName: string
-  colorCode: string
+export interface ColorCreateUpdateRequest {
+  id?: string
+  code: string
+  name: string
+  status?: string
 }
 
-export async function getAllColors(params: ParamsGetColor) {
-  const queryParams = {
-    ...params,
-    colorName: params.q, // map q → colorName
-  }
+// ===== 2. API Methods =====
 
+export async function getAllColors(params: ParamsGetColors) {
   const res = (await request({
     url: API_ADMIN_COLOR,
     method: 'GET',
-    params: queryParams,
+    params,
   })) as AxiosResponse<
     DefaultResponse<{
-      data: ColorResponse[]
+      data: AdColorResponse[]
       totalPages: number
-      currentPage: number
       totalElements: number
+      currentPage: number
     }>
   >
 
   return {
-    items: res.data.data.data || [],
-    totalItems: res.data.data.totalElements || 0,
-    totalPages: res.data.data.totalPages || 0,
-    currentPage: res.data.data.currentPage || 1,
+    data: res.data?.data?.data || [],
+    totalPages: res.data?.data?.totalPages || 0,
+    totalElements: res.data?.data?.totalElements || 0,
+    currentPage: res.data?.data?.currentPage || 1,
   }
 }
 
-export async function createColor(data: CreateColorRequest) {
-  const res = await request({
+export async function createColor(payload: ColorCreateUpdateRequest) {
+  return request({
     url: `${API_ADMIN_COLOR}/add`,
     method: 'POST',
-    data,
+    data: payload,
   })
-  return res.data.data
 }
 
-export async function updateColor() {}
+export async function updateColor(id: string, payload: ColorCreateUpdateRequest) {
+  return request({
+    url: `${API_ADMIN_COLOR}/${id}`,
+    method: 'PUT',
+    data: payload,
+  })
+}
 
-export async function updateColorStatus() {}
+export async function updateColorStatus(id: string) {
+  return request({
+    url: `${API_ADMIN_COLOR}/${id}/status`,
+    method: 'PATCH',
+  })
+}

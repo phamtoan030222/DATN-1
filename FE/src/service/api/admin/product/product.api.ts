@@ -1,7 +1,7 @@
 import { API_ADMIN_PRODUCTS } from '@/constants/url'
 import request from '@/service/request'
-import { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
-import { AxiosResponse } from 'axios'
+import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
+import type { AxiosResponse } from 'axios'
 
 export type ADProductRequest = PaginationParams & {
   idBattery: string
@@ -12,7 +12,7 @@ export type ADProductRequest = PaginationParams & {
   maxPrice: number
 }
 
-export type ADProductCreateUpdateRequest = {
+export interface ADProductCreateUpdateRequest {
   id?: string
   name: string
   idBrand: string
@@ -21,7 +21,7 @@ export type ADProductCreateUpdateRequest = {
   idOperatingSystem: string
 }
 
-export type ADProductResponse = {
+export interface ADProductResponse {
   id?: string
   code: string
   name: string
@@ -30,13 +30,13 @@ export type ADProductResponse = {
   battery: string
   screen: string
   operatingSystem: string
-  minPrice: number,
-  maxPrice: number,
+  minPrice: number
+  maxPrice: number
   quantity: number
   urlImage: string
 }
 
-export type ADProductDetailResponse = {
+export interface ADProductDetailResponse {
   id?: string
   code: string
   name: string
@@ -46,12 +46,12 @@ export type ADProductDetailResponse = {
   idOperatingSystem: string
 }
 
-export type ADPRPropertiesComboboxResponse = {
+export interface ADPRPropertiesComboboxResponse {
   label: string
   value: string
 }
 
-export const getProducts = async (params: ADProductRequest) => {
+export async function getProducts(params: ADProductRequest) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}`,
     method: 'GET',
@@ -61,7 +61,7 @@ export const getProducts = async (params: ADProductRequest) => {
   return res.data
 }
 
-export const getScreens = async () => {
+export async function getScreens() {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/screens`,
     method: 'GET',
@@ -70,7 +70,7 @@ export const getScreens = async () => {
   return res.data
 }
 
-export const getBatteries = async () => {
+export async function getBatteries() {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/batteries`,
     method: 'GET',
@@ -79,7 +79,7 @@ export const getBatteries = async () => {
   return res.data
 }
 
-export const getBrands = async () => {
+export async function getBrands() {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/brands`,
     method: 'GET',
@@ -88,7 +88,7 @@ export const getBrands = async () => {
   return res.data
 }
 
-export const getOperatingSystems = async () => {
+export async function getOperatingSystems() {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/operating-systems`,
     method: 'GET',
@@ -97,7 +97,7 @@ export const getOperatingSystems = async () => {
   return res.data
 }
 
-export const getProductById = async (id: string) => {
+export async function getProductById(id: string) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/${id}`,
     method: 'GET',
@@ -106,13 +106,14 @@ export const getProductById = async (id: string) => {
   return res.data
 }
 
-export const modifyProduct = async (data: ADProductCreateUpdateRequest, images: any) => {
-  const formData = new FormData();
-  formData.append('request', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+export async function modifyProduct(data: ADProductCreateUpdateRequest, images: any) {
+  const formData = new FormData()
+  formData.append('request', new Blob([JSON.stringify(data)], { type: 'application/json' }))
   if (Array.isArray(images)) {
-    images.forEach((image) => formData.append('images', image));
-  } else {
-    formData.append('images', images);
+    images.forEach(image => formData.append('images', image))
+  }
+  else {
+    formData.append('images', images)
   }
 
   const res = (await request({
@@ -120,14 +121,14 @@ export const modifyProduct = async (data: ADProductCreateUpdateRequest, images: 
     method: 'POST',
     data: formData,
     headers: {
-      "Content-Type": "multipart/form-data"
-    }
+      'Content-Type': 'multipart/form-data',
+    },
   })) as AxiosResponse<DefaultResponse<string>>
 
   return res.data
 }
 
-export const changeProductStatus = async (id: string) => {
+export async function changeProductStatus(id: string) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/change-status/${id}`,
     method: 'GET',
@@ -136,37 +137,37 @@ export const changeProductStatus = async (id: string) => {
   return res.data
 }
 
-export const uploadImages = async (data: FormData, id: string) => {
+export async function uploadImages(data: FormData, id: string) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/upload-images/${id}`,
     method: 'POST',
     data,
     headers: {
-      "Content-Type": "multipart/form-data"
-    }
+      'Content-Type': 'multipart/form-data',
+    },
   })) as AxiosResponse<DefaultResponse<null>>
 
   return res.data
 }
 
-export const updateProduct = async (data: ADProductCreateUpdateRequest) => {
+export async function updateProduct(data: ADProductCreateUpdateRequest) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}`,
     method: 'PUT',
     data: JSON.stringify(data),
     headers: {
-      "Content-Type": "application/json"
-    }
+      'Content-Type': 'application/json',
+    },
   })) as AxiosResponse<DefaultResponse<string>>
 
   return res.data
 }
 
-export const getProductsCombobox = async () => {
+export async function getProductsCombobox() {
   const res = (await request({
     url: `${API_ADMIN_PRODUCTS}/combobox`,
     method: 'GET',
-  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>;
+  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
 
   return res.data
 }

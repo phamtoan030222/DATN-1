@@ -28,7 +28,6 @@ import {
   updateVoucherToStart,
 } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
-import formatDate from '@/utils/common.helper'
 
 /* ===================== Config & Router ===================== */
 const router = useRouter()

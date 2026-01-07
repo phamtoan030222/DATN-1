@@ -1,7 +1,8 @@
-// API customer
+// admin/users/customer/customer.ts
 
 import { API_ADMIN_CUSTOMERS } from '@/constants/url'
-import axios from 'axios'
+// 1. Sửa import: Dùng request đã cấu hình thay vì axios gốc
+import request from '@/service/request'
 
 // -----------------------------
 // Types
@@ -49,23 +50,28 @@ export async function getCustomers(params: CustomerFilterParams = {}) {
   if (params.customerStatus != null)
     query.customerStatus = Number(params.customerStatus)
 
-  return axios.get(API_ADMIN_CUSTOMERS, { params: query })
+  // 2. Thay axios.get thành request.get
+  return request.get(API_ADMIN_CUSTOMERS, { params: query })
 }
 
 export function getCustomerById(id: string) {
-  return axios.get<{ data: Customer }>(`${API_ADMIN_CUSTOMERS}/${id}`)
+  // 3. Thay axios.get thành request.get
+  return request.get<{ data: Customer }>(`${API_ADMIN_CUSTOMERS}/${id}`)
 }
 
 export function createCustomer(customer: Customer) {
-  return axios.post<{ data: Customer }>(API_ADMIN_CUSTOMERS, customer)
+  // 4. Thay axios.post thành request.post
+  return request.post<{ data: Customer }>(API_ADMIN_CUSTOMERS, customer)
 }
 
 export function updateCustomer(id: string, customer: Customer) {
-  return axios.put<{ data: Customer }>(`${API_ADMIN_CUSTOMERS}/${id}`, customer)
+  // 5. Thay axios.put thành request.put
+  return request.put<{ data: Customer }>(`${API_ADMIN_CUSTOMERS}/${id}`, customer)
 }
 
 export function deleteCustomer(id: string) {
-  return axios.delete<void>(`${API_ADMIN_CUSTOMERS}/${id}`)
+  // 6. Thay axios.delete thành request.delete
+  return request.delete<void>(`${API_ADMIN_CUSTOMERS}/${id}`)
 }
 
 // -----------------------------
@@ -76,7 +82,10 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
   formData.append('file', file)
 
   try {
-    const response = await axios.post('http://localhost:2345/api/upload', formData, {
+    // 7. Thay axios.post thành request.post để có Token (nếu API upload cần quyền)
+    // Lưu ý: Đường dẫn http://localhost:2345... đang bị hardcode,
+    // bạn nên cân nhắc dùng biến môi trường hoặc dùng request để tự nối Base URL
+    const response = await request.post('http://localhost:2345/api/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
 

@@ -68,7 +68,7 @@ function getNameFromMap(
     // 2a. Thử ép kiểu sang số để tìm trong Map Code (Fix lỗi của bạn ở đây)
     // Ví dụ: key="01" -> num=1 -> tìm thấy Hà Nội
     const num = Number(key)
-    if (!isNaN(num) && mapByCode.has(num)) {
+    if (!Number.isNaN(num) && mapByCode.has(num)) {
       return mapByCode.get(num) || ''
     }
 

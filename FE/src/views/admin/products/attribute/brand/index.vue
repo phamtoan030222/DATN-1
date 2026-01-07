@@ -12,15 +12,18 @@ import {
   NInput,
   NModal,
   NPagination,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
   NSpace,
   NSwitch,
   NTooltip,
+  useDialog,
   useMessage,
 } from 'naive-ui'
+// Thêm import FormInst và FormRules
+import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import type { DataTableColumns } from 'naive-ui'
 import { debounce } from 'lodash'
 import {
   createBrand,
@@ -32,6 +35,10 @@ import type { BrandResponse, CreateBrandRequest } from '@/service/api/admin/prod
 
 // ================= STATE =================
 const message = useMessage()
+const dialog = useDialog()
+// 1. Khởi tạo ref cho form
+const formRef = ref<FormInst | null>(null)
+
 const tableData = ref<BrandResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -40,7 +47,7 @@ const loading = ref(false)
 
 const filter = reactive({
   name: '',
-  status: null as string | null, // null = Tất cả, 'ACTIVE', 'INACTIVE'
+  status: null as string | null,
 })
 
 const checkedRowKeys = ref<(string | number)[]>([])
@@ -55,6 +62,13 @@ const formData = reactive<CreateBrandRequest>({
   name: '',
 })
 
+// 2. Định nghĩa Rules
+const rules: FormRules = {
+  name: [
+    { required: true, message: 'Vui lòng nhập tên thương hiệu', trigger: ['blur', 'input'] },
+  ],
+}
+
 // ================= API CALL =================
 async function fetchBrands() {
   loading.value = true
@@ -63,7 +77,7 @@ async function fetchBrands() {
       page: currentPage.value,
       size: pageSize.value,
       name: filter.name || undefined,
-      status: filter.status || undefined, // Truyền trạng thái lọc xuống API
+      status: filter.status || undefined,
     })
     tableData.value = res.items || []
     total.value = res.totalItems || 0
@@ -76,7 +90,6 @@ async function fetchBrands() {
   }
 }
 
-// Tìm kiếm tự động khi gõ chữ (Debounce 500ms)
 const debouncedFetch = debounce(() => {
   currentPage.value = 1
   fetchBrands()
@@ -89,7 +102,6 @@ function resetFilters() {
   fetchBrands()
 }
 
-// Tự động tải lại khi đổi trạng thái (Radio)
 watch(() => filter.status, () => {
   currentPage.value = 1
   fetchBrands()
@@ -117,42 +129,59 @@ function closeModal() {
   showModal.value = false
 }
 
-async function saveBrand() {
-  if (!formData.code || !formData.name) {
-    message.warning('Vui lòng nhập đầy đủ Mã và Tên thương hiệu')
-    return
-  }
+// 3. Cập nhật hàm Lưu để sử dụng Validate
+function handleSaveBrand() {
+  // Gọi validate
+  formRef.value?.validate((errors) => {
+    if (errors) {
+      // Nếu có lỗi thì dừng lại, NFormItem sẽ tự hiện dòng chữ đỏ
+      return
+    }
 
-  try {
-    if (modalMode.value === 'add') {
-      await createBrand({
-        code: formData.code,
-        name: formData.name,
-      })
-      message.success('Thêm thương hiệu thành công')
-    }
-    else if (modalMode.value === 'edit' && modalRow.value) {
-      const req: CreateBrandRequest = {
-        code: formData.code,
-        name: formData.name,
-      }
-      await updateBrand(modalRow.value.id, req)
-      message.success('Cập nhật thương hiệu thành công')
-    }
-    closeModal()
-    fetchBrands()
-  }
-  catch (e) {
-    message.error('Có lỗi xảy ra khi lưu thương hiệu')
-  }
+    // Nếu không lỗi thì hiện Dialog xác nhận
+    dialog.warning({
+      title: 'Xác nhận',
+      content: modalMode.value === 'add'
+        ? 'Bạn có chắc chắn muốn thêm thương hiệu này?'
+        : 'Bạn có chắc chắn muốn cập nhật thông tin thương hiệu này?',
+      positiveText: 'Đồng ý',
+      negativeText: 'Hủy',
+      onPositiveClick: async () => {
+        try {
+          if (modalMode.value === 'add') {
+            await createBrand({
+              code: formData.code,
+              name: formData.name,
+            })
+            message.success('Thêm thương hiệu thành công')
+          }
+          else if (modalMode.value === 'edit' && modalRow.value) {
+            const req: CreateBrandRequest = {
+              code: formData.code,
+              name: formData.name,
+            }
+            await updateBrand(modalRow.value.id, req)
+            message.success('Cập nhật thương hiệu thành công')
+          }
+          closeModal()
+          fetchBrands()
+        }
+        catch (e) {
+          message.error('Có lỗi xảy ra khi lưu thương hiệu')
+        }
+      },
+    })
+  })
 }
 
-async function handleStatusChange(row: BrandResponse, value: boolean) {
+async function handleStatusChange(row: BrandResponse) {
   try {
     loading.value = true
-    await updateBrandStatus(row.id, value ? 'ACTIVE' : 'INACTIVE')
+    const newStatus = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
+
+    await updateBrandStatus(row.id, newStatus)
     message.success(`Cập nhật trạng thái ${row.name} thành công`)
-    row.status = value ? 'ACTIVE' : 'INACTIVE'
+    row.status = newStatus
   }
   catch {
     message.error('Cập nhật trạng thái thất bại')
@@ -190,11 +219,22 @@ const columns: DataTableColumns<BrandResponse> = [
     align: 'center',
     render(row: BrandResponse) {
       return h(
-        NSwitch,
+        NPopconfirm,
         {
-          value: row.status === 'ACTIVE',
-          size: 'small',
-          onUpdateValue: (val: boolean) => handleStatusChange(row, val),
+          onPositiveClick: () => handleStatusChange(row),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
+        },
+        {
+          trigger: () => h(
+            NSwitch,
+            {
+              value: row.status === 'ACTIVE',
+              size: 'small',
+              disabled: loading.value,
+            },
+          ),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} thương hiệu này?`,
         },
       )
     },
@@ -207,12 +247,11 @@ const columns: DataTableColumns<BrandResponse> = [
     fixed: 'right',
     render(row: BrandResponse) {
       return h('div', { class: 'flex justify-center' }, [
-        // Nút Sửa (Màu Cam - Warning)
         h(NTooltip, { trigger: 'hover' }, {
           trigger: () => h(NButton, {
             size: 'small',
             secondary: true,
-            type: 'warning', // Màu cam
+            type: 'warning',
             circle: true,
             class: 'transition-all duration-200 hover:scale-125 hover:shadow-md',
             onClick: () => openModal('edit', row),
@@ -377,10 +416,15 @@ function handlePageChange(page: number) {
       style="width: 500px"
       :title="modalMode === 'add' ? 'Thêm thương hiệu mới' : 'Cập nhật thương hiệu'"
     >
-      <NForm size="large">
+      <NForm
+        ref="formRef"
+        :model="formData"
+        :rules="rules"
+        size="large"
+      >
         <NGrid cols="1" x-gap="12">
           <NGridItem>
-            <NFormItem label="Tên thương hiệu" required>
+            <NFormItem label="Tên thương hiệu" path="name" required>
               <NInput v-model:value="formData.name" placeholder="VD: Samsung, Apple..." />
             </NFormItem>
           </NGridItem>
@@ -391,7 +435,7 @@ function handlePageChange(page: number) {
           <NButton @click="closeModal">
             Đóng
           </NButton>
-          <NButton type="primary" icon-placement="right" @click="saveBrand">
+          <NButton type="primary" icon-placement="right" @click="handleSaveBrand">
             Lưu thay đổi
             <template #icon>
               <Icon icon="carbon:save" />

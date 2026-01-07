@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { h, onMounted, reactive, ref } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import {
   NButton,
   NCard,
@@ -12,16 +12,19 @@ import {
   NInput,
   NModal,
   NPagination,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
+  NSelect,
   NSpace,
   NSwitch,
   NTooltip,
+  useDialog,
   useMessage,
-  useNotification,
 } from 'naive-ui'
+import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import type { DataTableColumns } from 'naive-ui'
+import { debounce } from 'lodash'
 import {
   createMaterial,
   getAllMaterials,
@@ -35,7 +38,9 @@ import type {
 
 // ================= STATE =================
 const message = useMessage()
-const notification = useNotification()
+const dialog = useDialog() // Init Dialog
+const formRef = ref<FormInst | null>(null) // Ref Form
+
 const tableData = ref<MaterialResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -57,6 +62,19 @@ const formData = reactive<CreateMaterialRequest>({
   bottomCaseMaterial: '',
   keyboardMaterial: '',
 })
+
+// 2. Định nghĩa Rules Validate
+const rules: FormRules = {
+  topCaseMaterial: [
+    { required: true, message: 'Vui lòng nhập chất liệu mặt trên', trigger: ['blur', 'input'] },
+  ],
+  bottomCaseMaterial: [
+    { required: true, message: 'Vui lòng nhập chất liệu mặt dưới', trigger: ['blur', 'input'] },
+  ],
+  keyboardMaterial: [
+    { required: true, message: 'Vui lòng nhập chất liệu bàn phím', trigger: ['blur', 'input'] },
+  ],
+}
 
 // ================= API CALL =================
 async function fetchMaterials() {
@@ -87,12 +105,10 @@ async function fetchMaterials() {
 onMounted(fetchMaterials)
 
 // ================= CRUD LOGIC =================
-// SỬA: Hàm openModal lấy dữ liệu trực tiếp từ row
 function openModal(mode: 'add' | 'edit', row?: MaterialResponse) {
   modalMode.value = mode
 
   if (mode === 'edit' && row) {
-    // Fill data trực tiếp từ row vào form
     Object.assign(formData, {
       id: row.id,
       topCaseMaterial: row.topCaseMaterial,
@@ -101,7 +117,6 @@ function openModal(mode: 'add' | 'edit', row?: MaterialResponse) {
     })
   }
   else {
-    // Reset form khi thêm mới
     Object.assign(formData, {
       id: undefined,
       topCaseMaterial: '',
@@ -116,43 +131,62 @@ function closeModal() {
   showModal.value = false
 }
 
-async function saveMaterial() {
-  if (!formData.topCaseMaterial || !formData.bottomCaseMaterial || !formData.keyboardMaterial) {
-    message.warning('Vui lòng nhập đầy đủ thông tin các mặt chất liệu')
-    return
-  }
-
-  try {
-    if (modalMode.value === 'add') {
-      await createMaterial(formData)
-      notification.success({ content: 'Thêm mới chất liệu thành công', duration: 3000 })
-    }
-    else {
-      if (!formData.id)
-        return
-      await updateMaterial(formData.id, formData)
-      notification.success({ content: 'Cập nhật chất liệu thành công', duration: 3000 })
+// 3. Hàm lưu sử dụng Validate và Dialog
+function saveMaterial() {
+  // Gọi validate
+  formRef.value?.validate((errors) => {
+    if (errors) {
+      // Nếu lỗi -> Dừng lại, form tự hiện đỏ
+      return
     }
 
-    closeModal()
-    fetchMaterials()
-  }
-  catch (e) {
-    notification.error({ content: 'Có lỗi xảy ra khi lưu dữ liệu', duration: 3000 })
-  }
+    // Nếu ok -> Hiện Dialog xác nhận
+    dialog.warning({
+      title: 'Xác nhận',
+      content: modalMode.value === 'add'
+        ? 'Bạn có chắc chắn muốn thêm mới chất liệu này?'
+        : 'Bạn có chắc chắn muốn cập nhật thông tin chất liệu này?',
+      positiveText: 'Đồng ý',
+      negativeText: 'Hủy',
+      onPositiveClick: async () => {
+        try {
+          if (modalMode.value === 'add') {
+            await createMaterial(formData)
+            message.success('Thêm mới chất liệu thành công')
+          }
+          else {
+            if (!formData.id)
+              return
+            await updateMaterial(formData.id, formData)
+            message.success('Cập nhật chất liệu thành công')
+          }
+
+          closeModal()
+          fetchMaterials()
+        }
+        catch (e) {
+          message.error('Có lỗi xảy ra khi lưu dữ liệu')
+        }
+      },
+    })
+  })
 }
 
-async function handleStatusChange(row: MaterialResponse, value: boolean) {
+// Hàm đổi trạng thái (từ Popconfirm)
+async function handleStatusChange(row: MaterialResponse) {
   if (!row.id)
     return
   try {
     loading.value = true
     await updateMaterialStatus(row.id)
-    notification.success({ content: `Đã cập nhật trạng thái: ${row.code}`, duration: 2000 })
+    message.success(`Đã cập nhật trạng thái: ${row.code}`)
+
+    // Cập nhật lại UI (nếu API không trả về object mới thì cần reload hoặc sửa trực tiếp row)
+    // Ở đây tôi gọi fetch lại để đảm bảo đồng bộ
     fetchMaterials()
   }
   catch {
-    notification.error({ content: 'Cập nhật trạng thái thất bại', duration: 3000 })
+    message.error('Cập nhật trạng thái thất bại')
     loading.value = false
   }
 }
@@ -185,50 +219,70 @@ const columns: DataTableColumns<MaterialResponse> = [
   {
     title: 'STT',
     key: 'index',
-    width: 60,
+    width: 60, // Cố định chiều rộng
     align: 'center',
+    fixed: 'left', // Ghim bên trái
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
     title: 'Mã',
     key: 'code',
-    width: 120,
+    width: 120, // Cố định chiều rộng
+    fixed: 'left', // Ghim bên trái
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },
   {
     title: 'Mặt trên (Top)',
     key: 'topCaseMaterial',
-    minWidth: 150,
+    minWidth: 150, // Co giãn
+    ellipsis: { tooltip: true },
   },
   {
     title: 'Mặt dưới (Bottom)',
     key: 'bottomCaseMaterial',
-    minWidth: 150,
+    minWidth: 150, // Co giãn
+    ellipsis: { tooltip: true },
   },
   {
     title: 'Bàn phím (Keyboard)',
     key: 'keyboardMaterial',
-    minWidth: 150,
+    minWidth: 150, // Co giãn
+    ellipsis: { tooltip: true },
   },
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 120,
+    width: 120, // Cố định
     align: 'center',
     render(row) {
-      return h(NSwitch, {
-        value: row.status === 'ACTIVE',
-        size: 'small',
-        disabled: loading.value,
-        onUpdateValue: val => handleStatusChange(row, val),
-      })
+      // Bọc NSwitch bằng NPopconfirm
+      return h(
+        NPopconfirm,
+        {
+          onPositiveClick: () => handleStatusChange(row),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
+        },
+        {
+          trigger: () => h(
+            NSwitch,
+            {
+              value: row.status === 'ACTIVE',
+              size: 'small',
+              disabled: loading.value,
+              // Không bind onUpdateValue trực tiếp
+            },
+          ),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} chất liệu này?`,
+        },
+      )
     },
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 100,
-    fixed: 'right',
+    width: 100, // Cố định
+    fixed: 'right', // Ghim bên phải
     align: 'center',
     render(row) {
       return h('div', { class: 'flex justify-center' }, [
@@ -372,6 +426,7 @@ const columns: DataTableColumns<MaterialResponse> = [
         :loading="loading"
         :row-key="(row) => row.id"
         :pagination="false"
+        :scroll-x="1000"
         striped
         :bordered="false"
         class="rounded-lg overflow-hidden"
@@ -401,16 +456,21 @@ const columns: DataTableColumns<MaterialResponse> = [
       :closable="false"
     >
       <div class="max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
-        <NForm label-placement="top" :model="formData">
-          <NFormItem label="Chất liệu mặt trên (Top Case)" required>
+        <NForm
+          ref="formRef"
+          label-placement="top"
+          :model="formData"
+          :rules="rules"
+        >
+          <NFormItem label="Chất liệu mặt trên (Top Case)" required path="topCaseMaterial">
             <NInput v-model:value="formData.topCaseMaterial" placeholder="VD: Nhôm nguyên khối..." />
           </NFormItem>
 
-          <NFormItem label="Chất liệu mặt dưới (Bottom Case)" required>
+          <NFormItem label="Chất liệu mặt dưới (Bottom Case)" required path="bottomCaseMaterial">
             <NInput v-model:value="formData.bottomCaseMaterial" placeholder="VD: Nhựa cao cấp..." />
           </NFormItem>
 
-          <NFormItem label="Chất liệu bàn phím (Keyboard)" required>
+          <NFormItem label="Chất liệu bàn phím (Keyboard)" required path="keyboardMaterial">
             <NInput v-model:value="formData.keyboardMaterial" placeholder="VD: Nhựa ABS..." />
           </NFormItem>
         </NForm>
