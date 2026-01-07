@@ -11,12 +11,13 @@ import {
   NModal,
   NSelect,
   NSpace,
-  useNotification,
+  useDialog,
+  useMessage,
 } from 'naive-ui'
 import type { FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { getCPUById, modifyCPU } from '@/service/api/admin/product/cpu.api'
-import type { ADProductCPUCreateUpdateRequest, ADProductCPUResponse } from '@/service/api/admin/product/cpu.api'
+import type { ADProductCPUCreateUpdateRequest } from '@/service/api/admin/product/cpu.api'
 import { convertMsToYear, convertYearToMs } from '@/utils/helper'
 
 const props = defineProps<{
@@ -25,13 +26,13 @@ const props = defineProps<{
   isDetail: boolean
 }>()
 
-const emit = defineEmits(['success', 'close', 'update:isOpen']) // Thêm update:isOpen để v-model hoạt động chuẩn
+const emit = defineEmits(['success', 'close', 'update:isOpen'])
 
-const notification = useNotification()
+const message = useMessage()
+const dialog = useDialog() // 2. Khởi tạo dialog
 const formRef = ref<FormInst | null>(null)
 const loading = ref(false)
 
-// Init model với kiểu dữ liệu chính xác
 const detailCPU = ref({
   id: '',
   code: '',
@@ -39,11 +40,10 @@ const detailCPU = ref({
   description: '',
   generation: '',
   series: '',
-  brand: null as string | null, // Sửa thành null, không phải 'null' string
-  releaseYear: null as number | null, // Timestamp (number) hoặc null
+  brand: null as string | null,
+  releaseYear: null as number | null,
 })
 
-// Options: bỏ string 'null', dùng null thật
 const brandOptionsSelect = [
   { label: 'Intel', value: 'Intel' },
   { label: 'AMD', value: 'AMD' },
@@ -65,16 +65,14 @@ async function fetchDetailCPU() {
   try {
     const res = await getCPUById(props.id)
     if (res.data) {
-      // Spread để tránh tham chiếu, xử lý date
       detailCPU.value = {
         ...res.data,
-        // Backend trả về 2024 -> Convert sang timestamp để hiện lên DatePicker
         releaseYear: res.data.releaseYear ? convertYearToMs(res.data.releaseYear) : null,
       }
     }
   }
   catch (error) {
-    notification.error({ content: 'Lỗi tải thông tin CPU', duration: 3000 })
+    message.error('Lỗi tải thông tin CPU')
   }
   finally {
     loading.value = false
@@ -111,41 +109,50 @@ function handleClickCancel() {
   emit('update:isOpen', false)
 }
 
-async function handleClickOK() {
-  formRef.value?.validate(async (errors) => {
+function handleClickOK() {
+  formRef.value?.validate((errors) => {
     if (!errors) {
-      loading.value = true
-      try {
-        // Prepare payload
-        // DatePicker trả về timestamp -> Cần convert về Year (VD: 2024)
-        // Cần check null trước khi convert
-        const releaseYearNumber = detailCPU.value.releaseYear
-          ? convertMsToYear(detailCPU.value.releaseYear)
-          : new Date().getFullYear()
+      // 3. Hiển thị Dialog xác nhận trước khi xử lý
+      dialog.warning({
+        title: 'Xác nhận',
+        content: props.id
+          ? 'Bạn có chắc chắn muốn cập nhật thông tin CPU này?'
+          : 'Bạn có chắc chắn muốn thêm mới CPU này?',
+        positiveText: 'Đồng ý',
+        negativeText: 'Hủy',
+        onPositiveClick: async () => {
+          // Logic xử lý API được chuyển vào đây
+          loading.value = true
+          try {
+            const releaseYearNumber = detailCPU.value.releaseYear
+              ? convertMsToYear(detailCPU.value.releaseYear)
+              : new Date().getFullYear()
 
-        const payload: ADProductCPUCreateUpdateRequest = {
-          ...detailCPU.value,
-          brand: detailCPU.value.brand || '',
-          releaseYear: releaseYearNumber,
-        }
+            const payload: ADProductCPUCreateUpdateRequest = {
+              ...detailCPU.value,
+              brand: detailCPU.value.brand || '',
+              releaseYear: releaseYearNumber,
+            }
 
-        const res = await modifyCPU(payload)
+            const res = await modifyCPU(payload)
 
-        if (res.success) {
-          notification.success({
-            content: props.id ? 'Cập nhật CPU thành công' : 'Thêm CPU thành công',
-            duration: 3000,
-          })
-          emit('success')
-          emit('update:isOpen', false) // Đóng modal
-        }
-      }
-      catch (error) {
-        notification.error({ content: 'Có lỗi xảy ra', duration: 3000 })
-      }
-      finally {
-        loading.value = false
-      }
+            if (res.success) {
+              message.success(
+                props.id ? 'Cập nhật CPU thành công' : 'Thêm CPU thành công',
+                { duration: 3000 },
+              )
+              emit('success')
+              emit('update:isOpen', false)
+            }
+          }
+          catch (error) {
+            message.error('Có lỗi xảy ra')
+          }
+          finally {
+            loading.value = false
+          }
+        },
+      })
     }
   })
 }

@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { h, onMounted, reactive, ref } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import {
   NButton,
   NCard,
@@ -12,15 +12,17 @@ import {
   NInput,
   NModal,
   NPagination,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
   NSelect,
   NSpace,
   NSwitch,
   NTooltip,
+  useDialog,
   useMessage,
-  useNotification,
 } from 'naive-ui'
+import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import {
   changeScreenStatus,
@@ -32,11 +34,11 @@ import type {
   ADProductScreenCreateUpdateRequest,
   ADProductScreenResponse,
 } from '@/service/api/admin/product/screen.api'
-import type { DataTableColumns } from 'naive-ui'
 
 // ================= STATE =================
 const message = useMessage()
-const notification = useNotification()
+const dialog = useDialog()
+const formRef = ref<FormInst | null>(null)
 const tableData = ref<ADProductScreenResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -93,6 +95,14 @@ const formData = reactive<ADProductScreenCreateUpdateRequest>({
   panelType: '',
   technology: '',
 })
+
+// Validation Rules
+const rules: FormRules = {
+  name: [{ required: true, message: 'Vui lòng nhập tên màn hình', trigger: ['blur', 'input'] }],
+  physicalSize: [{ required: true, type: 'number', message: 'Vui lòng chọn kích thước', trigger: ['blur', 'change'] }],
+  resolution: [{ required: true, message: 'Vui lòng chọn độ phân giải', trigger: ['blur', 'change'] }],
+  panelType: [{ required: true, message: 'Vui lòng chọn loại tấm nền', trigger: ['blur', 'change'] }],
+}
 
 // ================= API CALL =================
 async function fetchScreens() {
@@ -169,37 +179,50 @@ function closeModal() {
   showModal.value = false
 }
 
+// Hàm lưu có Dialog và Validate
 async function saveScreen() {
-  if (!formData.name || !formData.resolution || !formData.physicalSize || !formData.panelType) {
-    message.warning('Vui lòng nhập đầy đủ: Tên, Kích thước, Độ phân giải, Tấm nền')
-    return
-  }
+  formRef.value?.validate((errors) => {
+    if (errors)
+      return
 
-  try {
-    await modifyScreen(formData)
-    notification.success({
-      content: modalMode.value === 'add' ? 'Thêm mới thành công' : 'Cập nhật thành công',
-      duration: 3000,
+    dialog.warning({
+      title: 'Xác nhận',
+      content: modalMode.value === 'add' ? 'Bạn có chắc muốn thêm mới màn hình này?' : 'Bạn có chắc muốn cập nhật thông tin màn hình này?',
+      positiveText: 'Đồng ý',
+      negativeText: 'Hủy',
+      onPositiveClick: async () => {
+        try {
+          await modifyScreen(formData)
+          message.success(
+            modalMode.value === 'add' ? 'Thêm mới thành công' : 'Cập nhật thành công',
+            { duration: 3000 },
+          )
+          closeModal()
+          fetchScreens()
+        }
+        catch (e) {
+          message.error('Có lỗi xảy ra', { duration: 3000 })
+        }
+      },
     })
-    closeModal()
-    fetchScreens()
-  }
-  catch (e) {
-    notification.error({ content: 'Có lỗi xảy ra', duration: 3000 })
-  }
+  })
 }
 
-async function handleStatusChange(row: ADProductScreenResponse, value: boolean) {
+// Hàm đổi trạng thái có Popconfirm
+async function handleStatusChange(row: ADProductScreenResponse) {
   if (!row.id)
     return
   try {
     loading.value = true
     await changeScreenStatus(row.id)
-    notification.success({ content: `Đã cập nhật trạng thái: ${row.name}`, duration: 2000 })
-    fetchScreens()
+    message.success(`Đã cập nhật trạng thái: ${row.name}`, { duration: 2000 })
+    // Cập nhật UI ngay lập tức
+    row.status = row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE'
   }
   catch {
-    notification.error({ content: 'Cập nhật trạng thái thất bại', duration: 3000 })
+    message.error('Cập nhật trạng thái thất bại', { duration: 3000 })
+  }
+  finally {
     loading.value = false
   }
 }
@@ -210,7 +233,7 @@ function refreshTable() {
   searchState.panelType = null
   searchState.physicalSize = null
   searchState.technology = ''
-  searchState.status = null // Reset về Tất cả
+  searchState.status = null
 
   currentPage.value = 1
   fetchScreens()
@@ -237,51 +260,68 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
   {
     title: 'STT',
     key: 'index',
-    width: 60,
+    width: 50,
     align: 'center',
+    fixed: 'left', // Ghim trái
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
     title: 'Mã',
     key: 'code',
-    width: 120,
+    width: 100, // Cố định
+    fixed: 'left', // Ghim trái
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },
   {
     title: 'Tên Màn hình',
     key: 'name',
-    minWidth: 150,
+    minWidth: 150, // Co giãn
+    ellipsis: { tooltip: true },
     render: row => h('span', { class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors', onClick: () => openModal('edit', row) }, row.name),
   },
   { title: 'Độ phân giải', key: 'resolution', width: 150 },
   {
     title: 'Kích thước',
     key: 'physicalSize',
-    width: 150,
+    width: 120,
     align: 'center',
     render: row => `${row.physicalSize} inch`,
   },
-  { title: 'Tấm nền', key: 'panelType', width: 150, align: 'center' },
-  { title: 'Công nghệ', key: 'technology', width: 150, ellipsis: { tooltip: true } },
+  { title: 'Tấm nền', key: 'panelType', width: 120, align: 'center' },
+  { title: 'Công nghệ', key: 'technology', minWidth: 200, ellipsis: { tooltip: true } }, // Co giãn
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 100,
+    width: 120,
     align: 'center',
     render(row) {
-      return h(NSwitch, {
-        value: row.status === 'ACTIVE',
-        size: 'small',
-        disabled: loading.value,
-        onUpdateValue: val => handleStatusChange(row, val),
-      })
+      return h(
+        NPopconfirm,
+        {
+          onPositiveClick: () => handleStatusChange(row),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
+        },
+        {
+          trigger: () => h(
+            NSwitch,
+            {
+              value: row.status === 'ACTIVE',
+              size: 'small',
+              disabled: loading.value,
+              // Không bind update value trực tiếp
+            },
+          ),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} màn hình này?`,
+        },
+      )
     },
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 100,
-    fixed: 'right',
+    width: 80,
+    fixed: 'right', // Ghim phải
     align: 'center',
     render(row) {
       return h('div', { class: 'flex justify-center' }, [
@@ -461,6 +501,7 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
         :loading="loading"
         :row-key="(row) => row.id"
         :pagination="false"
+        :scroll-x="1000"
         striped
         :bordered="false"
         class="rounded-lg overflow-hidden"
@@ -490,14 +531,19 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
       :closable="false"
     >
       <div class="max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
-        <NForm label-placement="top" :model="formData">
-          <NFormItem label="Tên màn hình" required>
+        <NForm
+          ref="formRef"
+          label-placement="top"
+          :model="formData"
+          :rules="rules"
+        >
+          <NFormItem label="Tên màn hình" path="name" required>
             <NInput v-model:value="formData.name" placeholder="VD: Màn hình OLED 2.8K" />
           </NFormItem>
 
           <NGrid cols="2" x-gap="24" y-gap="12">
             <NGridItem>
-              <NFormItem label="Kích thước (inch)" required>
+              <NFormItem label="Kích thước (inch)" path="physicalSize" required>
                 <NSelect
                   v-model:value="formData.physicalSize"
                   :options="screenSizeOptionsSelect"
@@ -507,7 +553,7 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
             </NGridItem>
 
             <NGridItem>
-              <NFormItem label="Độ phân giải" required>
+              <NFormItem label="Độ phân giải" path="resolution" required>
                 <NSelect
                   v-model:value="formData.resolution"
                   :options="screenResolutionOptionsSelect"
@@ -517,7 +563,7 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
             </NGridItem>
 
             <NGridItem>
-              <NFormItem label="Loại tấm nền" required>
+              <NFormItem label="Loại tấm nền" path="panelType" required>
                 <NSelect
                   v-model:value="formData.panelType"
                   :options="panelTypeOptionsSelect"

@@ -30,31 +30,28 @@ public interface ADStaffRepository extends StaffRepository {
            s.districtCode AS districtCode,
            s.communeCode AS communeCode
     FROM Staff s
-    WHERE (:fullName IS NULL OR s.name LIKE CONCAT('%', :fullName, '%'))
-      AND (:role IS NULL OR s.account.roleConstant = :role)
-      AND (:email IS NULL OR s.email LIKE CONCAT('%', :email, '%'))
-      AND (:phone IS NULL OR s.phone LIKE CONCAT('%', :phone, '%'))
+    WHERE (:ten IS NULL OR s.name LIKE CONCAT('%', :ten, '%'))
       AND (:status IS NULL OR s.status = :status)
-    ORDER BY s.createdBy DESC
+      AND (:role IS NULL OR s.account.roleConstant = :role)
+      AND (:key IS NULL OR s.email LIKE CONCAT('%', :key, '%')
+                               OR s.phone LIKE CONCAT('%', :key, '%'))
+    ORDER BY s.lastModifiedDate DESC
     """,
             countQuery = """
     SELECT COUNT(s.id)
     FROM Staff s
-    WHERE (:fullName IS NULL OR s.name LIKE CONCAT('%', :fullName, '%'))
-      AND (:role IS NULL OR s.account.roleConstant = :role)
-      AND (:email IS NULL OR s.email LIKE CONCAT('%', :email, '%'))
-      AND (:phone IS NULL OR s.phone LIKE CONCAT('%', :phone, '%'))
+    WHERE (:ten IS NULL OR s.name LIKE CONCAT('%', :ten, '%'))
       AND (:status IS NULL OR s.status = :status)
+      AND (:role IS NULL OR s.account.roleConstant = :role)
+      AND (:key IS NULL OR s.email LIKE CONCAT('%', :key, '%') 
+                               OR s.phone LIKE CONCAT('%', :key, '%'))
     """
     )
     Page<ADStaffResponse> getAllStaff(
             Pageable pageable,
-            @Param("fullName") String fullName,
-            @Param("role") RoleConstant role, // <-- quan trọng: đổi từ String sang RoleConstant
-            @Param("email") String email,
-            @Param("phone") String phone,
-            @Param("status") EntityStatus status
+            @Param("ten") String ten,
+            @Param("key") String key,
+            @Param("status") EntityStatus status,
+            @Param("role") RoleConstant role
     );
-
-
 }

@@ -1,8 +1,9 @@
 <script setup lang="tsx">
-import { onMounted, reactive, ref } from 'vue'
+import { h, onMounted, reactive, ref, watch } from 'vue'
 import {
   NButton,
   NCard,
+  NColorPicker,
   NDataTable,
   NForm,
   NFormItem,
@@ -13,329 +14,457 @@ import {
   NModal,
   NPagination,
   NPopconfirm,
+  NRadio,
+  NRadioGroup,
   NSpace,
   NSwitch,
+  NTooltip,
+  useDialog,
   useMessage,
 } from 'naive-ui'
+import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import {
-
   createColor,
-
   getAllColors,
   updateColor,
   updateColorStatus,
 } from '@/service/api/admin/product/color.api'
-import type { ColorResponse, CreateColorRequest } from '@/service/api/admin/product/color.api'
+import type {
+  AdColorResponse,
+  ColorCreateUpdateRequest,
+} from '@/service/api/admin/product/color.api'
 
 // ================= STATE =================
 const message = useMessage()
-const tableData = ref<ColorResponse[]>([])
+const dialog = useDialog() // Init Dialog
+const formRef = ref<FormInst | null>(null) // Ref Form
+const loading = ref(false)
+
+// Data Table
+const tableData = ref<AdColorResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
-const pageSize = ref(5)
-const loading = ref(false)
-const searchKeyword = ref('')
+const pageSize = ref(10)
 
-const checkedRowKeys = ref<(string | number)[]>([])
-
-// ================= MODAL =================
-const showModal = ref(false)
-const modalMode = ref<'add' | 'edit'>('add')
-const modalRow = ref<ColorResponse | null>(null)
-
-const formData = reactive<CreateColorRequest>({
-  colorName: '',
-  colorCode: '',
+// Search State
+const searchState = reactive({
+  keyword: '',
+  status: null as string | null,
 })
 
-// ================= API CALL =================
-async function fetchColors() {
+// ================= MODAL STATE =================
+const showModal = ref(false)
+const modalMode = ref<'add' | 'edit'>('add')
+
+const formData = reactive<ColorCreateUpdateRequest>({
+  id: undefined,
+  name: '',
+  code: '#000000',
+  status: 'ACTIVE',
+})
+
+// 2. Định nghĩa Rules Validate
+const rules: FormRules = {
+  name: [
+    { required: true, message: 'Vui lòng nhập tên màu', trigger: ['blur', 'input'] },
+  ],
+  code: [
+    { required: true, message: 'Vui lòng chọn mã màu', trigger: ['blur', 'change'] },
+  ],
+}
+
+// ================= API CALLS =================
+async function fetchData() {
   loading.value = true
   try {
     const res = await getAllColors({
       page: currentPage.value,
       size: pageSize.value,
-      q: searchKeyword.value || undefined,
+      q: searchState.keyword || undefined,
+      status: searchState.status || undefined,
     })
-    tableData.value = res.items
-    total.value = res.totalItems
+    tableData.value = res.data || []
+    total.value = res.totalElements || 0
   }
   catch (e) {
-    message.error('Không thể tải dữ liệu Màu sắc')
+    message.error('Lỗi tải dữ liệu màu sắc')
   }
   finally {
     loading.value = false
   }
 }
 
-onMounted(fetchColors)
+onMounted(fetchData)
 
-// ================= CRUD =================
-function openModal(mode: 'add' | 'edit', row?: ColorResponse) {
+// ================= HANDLERS =================
+function handleSearch() {
+  currentPage.value = 1
+  fetchData()
+}
+
+function handleRefresh() {
+  searchState.keyword = ''
+  searchState.status = null
+  currentPage.value = 1
+  fetchData()
+}
+
+function handlePageChange(page: number) {
+  currentPage.value = page
+  fetchData()
+}
+
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchData()
+}
+
+// ================= CRUD LOGIC =================
+function openModal(mode: 'add' | 'edit', row?: AdColorResponse) {
   modalMode.value = mode
+
   if (mode === 'edit' && row) {
-    modalRow.value = row
-    formData.colorName = row.colorName
-    formData.colorCode = row.colorCode
+    Object.assign(formData, {
+      id: row.id,
+      name: row.name,
+      code: row.code,
+      status: row.status,
+    })
   }
   else {
-    modalRow.value = null
-    formData.colorName = ''
-    formData.colorCode = ''
+    Object.assign(formData, {
+      id: undefined,
+      name: '',
+      code: '#000000',
+      status: 'ACTIVE',
+    })
   }
   showModal.value = true
 }
 
-function closeModal() {
-  showModal.value = false
-}
-
-async function saveColor() {
-  if (!formData.colorName || !formData.colorCode) {
-    message.warning('Vui lòng nhập đầy đủ Tên và Mã màu')
-    return
-  }
-
-  try {
-    if (modalMode.value === 'add') {
-      await createColor(formData)
-      message.success('Thêm màu thành công')
+// 3. Hàm lưu sử dụng Validate và Dialog
+function handleSave() {
+  formRef.value?.validate((errors) => {
+    if (errors) {
+      return // Dừng nếu có lỗi validate
     }
-    else if (modalMode.value === 'edit' && modalRow.value) {
-      await updateColor(modalRow.value.id, formData)
-      message.success('Cập nhật màu thành công')
-    }
-    closeModal()
-    fetchColors()
-  }
-  catch (e) {
-    message.error('Có lỗi xảy ra khi lưu Màu')
-  }
+
+    // Hiển thị Dialog xác nhận
+    dialog.warning({
+      title: 'Xác nhận',
+      content: modalMode.value === 'add'
+        ? 'Bạn có chắc chắn muốn thêm màu sắc này?'
+        : 'Bạn có chắc chắn muốn cập nhật thông tin màu sắc này?',
+      positiveText: 'Đồng ý',
+      negativeText: 'Hủy',
+      onPositiveClick: async () => {
+        try {
+          if (modalMode.value === 'add') {
+            await createColor(formData)
+            message.success('Thêm màu thành công')
+          }
+          else {
+            if (!formData.id)
+              return
+            await updateColor(formData.id, formData)
+            message.success('Cập nhật màu thành công')
+          }
+          showModal.value = false
+          fetchData()
+        }
+        catch (e) {
+          message.error('Có lỗi xảy ra')
+        }
+      },
+    })
+  })
 }
 
-async function handleDelete(id: string) {
+// Hàm đổi trạng thái (từ Popconfirm)
+async function handleStatusChange(row: AdColorResponse) {
   try {
-    message.info('TODO: Thêm API xóa màu')
-  }
-  catch {
-    message.error('Xóa thất bại')
-  }
-}
-
-async function handleStatusChange(row: ColorResponse, value: boolean) {
-  try {
-    await updateColorStatus(row.id, value ? 'ACTIVE' : 'INACTIVE')
-    message.success(`Cập nhật trạng thái ${row.colorName} thành công`)
-    fetchColors()
+    loading.value = true
+    await updateColorStatus(row.id)
+    message.success(`Đã cập nhật trạng thái: ${row.name}`)
+    fetchData()
   }
   catch {
     message.error('Cập nhật trạng thái thất bại')
+    loading.value = false
   }
 }
 
-// ================= TABLE COLUMNS =================
-const columns = [
-  { type: 'selection' as const },
-  { title: 'Tên màu', key: 'colorName' },
+// ================= COLUMNS =================
+const columns: DataTableColumns<AdColorResponse> = [
+  {
+    title: 'STT',
+    key: 'index',
+    width: 60, // Cố định
+    align: 'center',
+    fixed: 'left', // Ghim trái
+    render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
+  },
+  {
+    title: 'Tên màu',
+    key: 'name',
+    minWidth: 150, // Co giãn
+    fixed: 'left', // Ghim trái (tùy chọn, nếu bảng rộng)
+    ellipsis: { tooltip: true },
+    render: row => h('strong', { class: 'text-gray-700' }, row.name),
+  },
   {
     title: 'Mã màu',
-    key: 'colorCode',
-    render(row: ColorResponse) {
-      return (
-        <div class="flex items-center gap-2">
-          <span>{row.colorCode}</span>
-          <div
-            style={{
-              width: '16px',
-              height: '16px',
-              backgroundColor: row.colorCode,
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-            }}
-          />
-        </div>
-      )
+    key: 'code',
+    width: 120, // Cố định
+    align: 'center',
+    render: (row) => {
+      return h('div', { class: 'flex items-center justify-center gap-2' }, [
+        h('div', {
+          style: {
+            width: '24px',
+            height: '24px',
+            backgroundColor: row.code,
+            borderRadius: '6px',
+            border: '1px solid #e5e7eb',
+            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+          },
+        }),
+        h('span', { class: 'font-mono text-xs text-gray-500' }, row.code),
+      ])
     },
   },
   {
     title: 'Trạng thái',
-    key: 'colorStatus',
-    render(row: ColorResponse) {
-      return (
-        <NSwitch
-          value={row.colorStatus === 'ACTIVE'}
-          onUpdateValue={(val: boolean) => handleStatusChange(row, val)}
-        />
+    key: 'status',
+    width: 120, // Cố định
+    align: 'center',
+    render(row) {
+      return h(
+        NPopconfirm,
+        {
+          onPositiveClick: () => handleStatusChange(row),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
+        },
+        {
+          trigger: () => h(
+            NSwitch,
+            {
+              value: row.status === 'ACTIVE',
+              size: 'small',
+              disabled: loading.value,
+              // Không bind update trực tiếp
+            },
+          ),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} màu này?`,
+        },
       )
     },
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    render(row: ColorResponse) {
-      return (
-        <NSpace>
-          <NButton
-            size="small"
-            quaternary
-            circle
-            onClick={() => openModal('edit', row)}
-          >
-            <Icon icon="carbon:edit" width="18" />
-          </NButton>
-          <NPopconfirm onPositiveClick={() => handleDelete(row.id)}>
-            {{
-              trigger: () => (
-                <NButton size="small" quaternary circle type="error">
-                  <Icon icon="carbon:trash-can" width="18" />
-                </NButton>
-              ),
-              default: () => 'Bạn có chắc muốn xóa?',
-            }}
-          </NPopconfirm>
-        </NSpace>
-      )
+    width: 100, // Cố định
+    fixed: 'right', // Ghim phải
+    align: 'center',
+    render(row) {
+      return h('div', { class: 'flex justify-center' }, [
+        h(NTooltip, { trigger: 'hover' }, {
+          trigger: () => h(NButton, {
+            size: 'small',
+            secondary: true,
+            type: 'warning',
+            circle: true,
+            class: 'transition-all duration-200 hover:scale-125 hover:shadow-md',
+            onClick: () => openModal('edit', row),
+          }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
+          default: () => 'Cập nhật thông tin',
+        }),
+      ])
     },
   },
 ]
-
-// ================= SEARCH & PAGINATION =================
-function handleSearch() {
-  currentPage.value = 1
-  fetchColors()
-}
-
-function handlePageChange(page: number) {
-  currentPage.value = page
-  fetchColors()
-}
 </script>
 
 <template>
-  <!-- Header -->
-  <NCard>
-    <NSpace vertical :size="8">
-      <NSpace align="center">
-        <NIcon size="24">
-          <Icon icon="carbon:color-palette" />
-        </NIcon>
-        <span style="font-weight: 600; font-size: 24px"> Quản lý Màu sắc </span>
+  <div>
+    <NCard class="mb-3 shadow-sm border-none">
+      <NSpace vertical :size="8">
+        <NSpace align="center">
+          <NIcon size="24" class="text-blue-600">
+            <Icon icon="icon-park-outline:platte" />
+          </NIcon>
+          <span style="font-weight: 600; font-size: 24px; color: #1f2937">
+            Quản lý Màu sắc
+          </span>
+        </NSpace>
+        <span class="text-gray-500">Quản lý danh sách các tùy chọn màu sắc sản phẩm</span>
       </NSpace>
-      <span>Quản lý danh sách màu sản phẩm</span>
-    </NSpace>
-  </NCard>
+    </NCard>
 
-  <!-- Table -->
-  <NCard title="Danh sách Màu sắc" style="margin-top: 16px">
-    <template #header-extra>
-      <NSpace>
-        <NInput
-          v-model:value="searchKeyword"
-          placeholder="Tìm kiếm màu..."
-          clearable
-          style="width: 220px"
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <NIcon size="18">
-              <Icon icon="carbon:search" />
-            </NIcon>
+    <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-sm mb-4 border border-gray-100">
+      <template #header-extra>
+        <NButton circle secondary type="primary" @click="handleRefresh">
+          <template #icon>
+            <Icon icon="carbon:filter-reset" />
           </template>
-        </NInput>
-        <NButton
-          type="primary"
-          circle
-          title="Thêm mới"
-          @click="openModal('add')"
-        >
-          <NIcon size="24">
-            <Icon icon="carbon:add" />
-          </NIcon>
         </NButton>
-        <NButton
-          type="primary"
-          secondary
-          circle
-          title="Làm mới"
-          @click="fetchColors"
-        >
-          <NIcon size="24">
-            <Icon icon="carbon:rotate" />
-          </NIcon>
-        </NButton>
-        <NPopconfirm
-          @positive-click="() => message.info('TODO: API xóa hàng loạt')"
-        >
-          <template #trigger>
-            <NButton type="error" secondary circle title="Xóa hàng loạt">
-              <NIcon size="24">
-                <Icon icon="icon-park-outline:delete" />
-              </NIcon>
+      </template>
+
+      <NForm label-placement="top" :show-feedback="false">
+        <NGrid :x-gap="24" :y-gap="12" cols="1 600:2 900:3">
+          <NGridItem>
+            <NFormItem label="Tìm kiếm">
+              <NInput
+                v-model:value="searchState.keyword"
+                placeholder="Nhập tên màu..."
+                clearable
+                @input="handleSearch"
+                @keydown.enter="handleSearch"
+              >
+                <template #prefix>
+                  <Icon icon="carbon:search" class="text-gray-400" />
+                </template>
+              </NInput>
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem>
+            <NFormItem label="Trạng thái">
+              <NRadioGroup v-model:value="searchState.status" name="status-group" @update:value="handleSearch">
+                <NSpace>
+                  <NRadio :value="null">
+                    Tất cả
+                  </NRadio>
+                  <NRadio value="ACTIVE">
+                    Hoạt động
+                  </NRadio>
+                  <NRadio value="INACTIVE">
+                    Ngưng hoạt động
+                  </NRadio>
+                </NSpace>
+              </NRadioGroup>
+            </NFormItem>
+          </NGridItem>
+        </NGrid>
+      </NForm>
+    </NCard>
+
+    <NCard title="Danh sách Màu sắc" class="border border-gray-100 rounded-2xl shadow-sm">
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
+            <NButton
+              type="primary"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="openModal('add')"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Thêm mới
+              </span>
             </NButton>
-          </template>
-          Xác nhận xóa tất cả màu đã chọn?
-        </NPopconfirm>
-      </NSpace>
-    </template>
 
-    <NDataTable
-      v-model:checked-row-keys="checkedRowKeys"
-      :columns="columns"
-      :data="tableData"
-      :loading="loading"
-      :row-key="(row) => row.id"
-      :pagination="false"
-      bordered
-    />
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="fetchData"
+            >
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="carbon:rotate" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại
+              </span>
+            </NButton>
+          </NSpace>
+        </div>
+      </template>
 
-    <div class="flex justify-center mt-4">
-      <NPagination
-        :page="currentPage"
-        :page-size="pageSize"
-        :page-count="Math.ceil(total / pageSize)"
-        @update:page="handlePageChange"
+      <NDataTable
+        :columns="columns"
+        :data="tableData"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        :scroll-x="800"
+        striped
+        :bordered="false"
+        class="rounded-lg overflow-hidden"
       />
-    </div>
-  </NCard>
 
-  <!-- Modal thêm/sửa -->
-  <NModal
-    v-model:show="showModal"
-    preset="card"
-    style="width: 500px"
-    title="Màu sắc"
-  >
-    <NForm>
-      <NGrid cols="1" x-gap="12">
-        <NGridItem>
-          <NFormItem label="Tên màu" required>
-            <NInput
-              v-model:value="formData.colorName"
-              placeholder="Nhập tên màu"
-            />
-          </NFormItem>
-        </NGridItem>
-        <NGridItem>
-          <NFormItem label="Mã màu" required>
-            <NColorPicker
-              v-model:value="formData.colorCode"
-              :modes="['hex']"
-              show-alpha="{false}"
-            />
-          </NFormItem>
-        </NGridItem>
-      </NGrid>
-    </NForm>
-    <template #footer>
-      <NSpace justify="end">
-        <NButton @click="closeModal">
-          Hủy
-        </NButton>
-        <NButton type="primary" @click="saveColor">
-          Lưu
-        </NButton>
-      </NSpace>
-    </template>
-  </NModal>
+      <div class="flex justify-end mt-4">
+        <NPagination
+          v-model:page="currentPage"
+          v-model:page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[10, 20, 50]"
+          show-size-picker
+          @update:page="handlePageChange"
+          @update:page-size="handlePageSizeChange"
+        />
+      </div>
+    </NCard>
+
+    <NModal
+      v-model:show="showModal"
+      preset="card"
+      style="width: 500px"
+      :title="modalMode === 'add' ? 'Thêm Màu sắc' : 'Cập nhật Màu sắc'"
+      :bordered="false"
+      size="huge"
+    >
+      <NForm
+        ref="formRef"
+        label-placement="top"
+        :model="formData"
+        :rules="rules"
+      >
+        <NGrid cols="1" :y-gap="12">
+          <NGridItem>
+            <NFormItem label="Tên màu" required path="name">
+              <NInput v-model:value="formData.name" placeholder="VD: Xám không gian, Bạc..." />
+            </NFormItem>
+          </NGridItem>
+
+          <NGridItem>
+            <NFormItem label="Mã màu (Hex)" required path="code">
+              <div class="w-full">
+                <NColorPicker
+                  v-model:value="formData.code"
+                  :modes="['hex']"
+                  :show-alpha="false"
+                  :swatches="[
+                    '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF',
+                    '#FFFF00', '#00FFFF', '#FF00FF', '#C0C0C0', '#808080',
+                  ]"
+                />
+              </div>
+            </NFormItem>
+          </NGridItem>
+        </NGrid>
+      </NForm>
+
+      <template #footer>
+        <NSpace justify="end">
+          <NButton @click="showModal = false">
+            Hủy
+          </NButton>
+          <NButton type="primary" @click="handleSave">
+            Lưu thay đổi
+          </NButton>
+        </NSpace>
+      </template>
+    </NModal>
+  </div>
 </template>

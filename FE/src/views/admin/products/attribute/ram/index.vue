@@ -12,14 +12,17 @@ import {
   NInput,
   NModal,
   NPagination,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
+  NSelect,
   NSpace,
   NSwitch,
   NTooltip,
+  useDialog,
   useMessage,
-  useNotification,
 } from 'naive-ui'
+import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import {
   createRam,
@@ -28,31 +31,29 @@ import {
   updateRamStatus,
 } from '@/service/api/admin/product/ram.api'
 import type { CreateRamRequest, RamResponse } from '@/service/api/admin/product/ram.api'
-import type { DataTableColumns } from 'naive-ui'
 
 // ================= STATE =================
 const message = useMessage()
-const notification = useNotification()
+const dialog = useDialog() // Init Dialog
+const formRef = ref<FormInst | null>(null) // Ref Form
 const tableData = ref<RamResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const loading = ref(false)
 
-// State tìm kiếm & bộ lọc
 const searchState = reactive({
   keyword: '',
-  status: null as string | null, // null: Tất cả, 'ACTIVE', 'INACTIVE'
+  status: null as string | null,
 })
 
 // ================= MODAL STATE =================
 const showModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
-const modalRow = ref<RamResponse | null>(null)
 
 const formData = reactive<CreateRamRequest>({
   name: '',
-  code: '', // Vẫn giữ biến này để binding dữ liệu cũ, nhưng không hiển thị input
+  code: '',
   brand: '',
   type: '',
   capacity: 0,
@@ -61,6 +62,83 @@ const formData = reactive<CreateRamRequest>({
   maxSupported: 0,
   description: '',
 })
+
+// 2. Định nghĩa Rules Validate (ĐÃ SỬA LỖI VALIDATE SỐ)
+const rules: FormRules = {
+  name: [{ required: true, message: 'Vui lòng nhập tên RAM', trigger: ['blur', 'input'] }],
+  brand: [{ required: true, message: 'Vui lòng nhập thương hiệu', trigger: ['blur', 'input'] }],
+  type: [{ required: true, message: 'Vui lòng nhập loại RAM', trigger: ['blur', 'input'] }],
+
+  // Sửa lỗi ở đây: Gộp kiểm tra trống và kiểm tra số vào một hàm validator
+  capacity: [
+    {
+      trigger: ['blur', 'input'],
+      validator: (rule, value) => {
+        // 1. Kiểm tra trống (chấp nhận cả số 0 nếu logic cho phép, nhưng ở đây ta cần > 0)
+        if (value === null || value === undefined || value === '') {
+          return new Error('Vui lòng nhập dung lượng')
+        }
+        // 2. Kiểm tra giá trị số
+        const numVal = Number(value)
+        if (Number.isNaN(numVal)) {
+          return new Error('Dung lượng phải là số')
+        }
+        if (numVal <= 0) {
+          return new Error('Dung lượng phải lớn hơn 0')
+        }
+        return true
+      },
+    },
+  ],
+  busSpeed: [
+    {
+      trigger: ['blur', 'input'],
+      validator: (rule, value) => {
+        if (value === null || value === undefined || value === '') {
+          return new Error('Vui lòng nhập Bus Speed')
+        }
+        const numVal = Number(value)
+        if (Number.isNaN(numVal)) {
+          return new Error('Bus Speed phải là số')
+        }
+        if (numVal <= 0) {
+          return new Error('Bus Speed phải lớn hơn 0')
+        }
+        return true
+      },
+    },
+  ],
+  // Các trường không bắt buộc (chỉ validate nếu có nhập)
+  slotConFig: [
+    {
+      trigger: ['blur', 'input'],
+      validator: (rule, value) => {
+        if (value !== null && value !== '' && Number(value) < 0) {
+          return new Error('Không được nhập số âm')
+        }
+        return true
+      },
+    },
+  ],
+  maxSupported: [
+    {
+      trigger: ['blur', 'input'],
+      validator: (rule, value) => {
+        if (value === null || value === undefined || value === '') {
+          return new Error('Vui lòng nhập Hỗ trợ tối đa')
+        }
+        const numVal = Number(value)
+        if (Number.isNaN(numVal)) {
+          return new Error('Hỗ trợ tối đa phải là số')
+        }
+        if (numVal <= 0) {
+          return new Error('Hỗ trợ tối đa phải lớn hơn 0')
+        }
+        return true
+      },
+    },
+  ],
+}
 
 // ================= API CALL =================
 async function fetchRams() {
@@ -89,8 +167,8 @@ onMounted(fetchRams)
 function openModal(mode: 'add' | 'edit', row?: RamResponse) {
   modalMode.value = mode
   if (mode === 'edit' && row) {
-    modalRow.value = row
     Object.assign(formData, {
+      id: row.id,
       name: row.name,
       code: row.code,
       brand: row.brand,
@@ -103,17 +181,17 @@ function openModal(mode: 'add' | 'edit', row?: RamResponse) {
     })
   }
   else {
-    modalRow.value = null
     // Reset form
     Object.assign(formData, {
+      id: undefined,
       name: '',
       code: '',
       brand: '',
       type: '',
-      capacity: 0,
-      busSpeed: 0,
-      slotConFig: 0,
-      maxSupported: 0,
+      capacity: null, // Để null để placeholder hiện ra
+      busSpeed: null,
+      slotConFig: null,
+      maxSupported: null,
       description: '',
     })
   }
@@ -124,38 +202,63 @@ function closeModal() {
   showModal.value = false
 }
 
-async function saveRam() {
-  if (!formData.name || !formData.brand || !formData.type) {
-    message.warning('Vui lòng nhập đầy đủ Tên, Thương hiệu, Loại')
-    return
-  }
+// 3. Hàm lưu sử dụng Validate và Dialog
+function saveRam() {
+  formRef.value?.validate((errors) => {
+    if (errors)
+      return // Dừng nếu có lỗi validate
 
-  try {
-    if (modalMode.value === 'add') {
-      await createRam(formData)
-      notification.success({ content: 'Thêm RAM thành công', duration: 3000 })
-    }
-    else if (modalMode.value === 'edit' && modalRow.value) {
-      await updateRam(modalRow.value.id, formData)
-      notification.success({ content: 'Cập nhật RAM thành công', duration: 3000 })
-    }
-    closeModal()
-    fetchRams()
-  }
-  catch (e) {
-    notification.error({ content: 'Có lỗi xảy ra khi lưu RAM', duration: 3000 })
-  }
+    dialog.warning({
+      title: 'Xác nhận',
+      content: modalMode.value === 'add'
+        ? 'Bạn có chắc chắn muốn thêm RAM này?'
+        : 'Bạn có chắc chắn muốn cập nhật thông tin RAM này?',
+      positiveText: 'Đồng ý',
+      negativeText: 'Hủy',
+      onPositiveClick: async () => {
+        try {
+          // Ép kiểu dữ liệu về số trước khi gửi API (đề phòng NInput trả về string)
+          const payload = {
+            ...formData,
+            capacity: Number(formData.capacity),
+            busSpeed: Number(formData.busSpeed),
+            slotConFig: Number(formData.slotConFig || 0),
+            maxSupported: Number(formData.maxSupported || 0),
+          }
+
+          if (modalMode.value === 'add') {
+            await createRam(payload)
+            message.success('Thêm RAM thành công')
+          }
+          else {
+            if (!formData.id)
+              return
+            await updateRam(formData.id, payload)
+            message.success('Cập nhật RAM thành công')
+          }
+          closeModal()
+          fetchRams()
+        }
+        catch (e) {
+          message.error('Có lỗi xảy ra khi lưu RAM')
+        }
+      },
+    })
+  })
 }
 
-async function handleStatusChange(row: RamResponse, value: boolean) {
+// Hàm đổi trạng thái (từ Popconfirm)
+async function handleStatusChange(row: RamResponse) {
+  if (!row.id)
+    return
   try {
     loading.value = true
-    await updateRamStatus(row.id, value ? 'ACTIVE' : 'INACTIVE')
-    notification.success({ content: `Đã cập nhật trạng thái: ${row.name}`, duration: 2000 })
+    await updateRamStatus(row.id, row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
+    message.success(`Đã cập nhật trạng thái: ${row.name}`)
     fetchRams()
   }
   catch {
-    notification.error({ content: 'Cập nhật trạng thái thất bại', duration: 3000 })
+    message.error('Cập nhật trạng thái thất bại')
     loading.value = false
   }
 }
@@ -190,18 +293,21 @@ const columns: DataTableColumns<RamResponse> = [
     key: 'index',
     width: 60,
     align: 'center',
+    fixed: 'left',
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
     title: 'Mã RAM',
     key: 'code',
-    width: 150,
+    width: 120,
+    fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },
   {
     title: 'Tên RAM',
     key: 'name',
     minWidth: 150,
+    ellipsis: { tooltip: true },
     render: row => h('span', { class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors', onClick: () => openModal('edit', row) }, row.name),
   },
   { title: 'Thương hiệu', key: 'brand', width: 120 },
@@ -219,23 +325,42 @@ const columns: DataTableColumns<RamResponse> = [
     render: row => `${row.busSpeed} MHz`,
   },
   {
+    title: 'Hỗ trợ tối đa',
+    key: 'maxSupported',
+    width: 120,
+    render: row => `${row.maxSupported} GB`,
+  },
+  {
     title: 'Trạng thái',
     key: 'status',
     width: 120,
     align: 'center',
     render(row) {
-      return h(NSwitch, {
-        value: row.status === 'ACTIVE',
-        size: 'small',
-        disabled: loading.value,
-        onUpdateValue: val => handleStatusChange(row, val),
-      })
+      return h(
+        NPopconfirm,
+        {
+          onPositiveClick: () => handleStatusChange(row),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
+        },
+        {
+          trigger: () => h(
+            NSwitch,
+            {
+              value: row.status === 'ACTIVE',
+              size: 'small',
+              disabled: loading.value,
+            },
+          ),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} RAM này?`,
+        },
+      )
     },
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 80,
+    width: 100,
     fixed: 'right',
     align: 'center',
     render(row) {
@@ -380,6 +505,7 @@ const columns: DataTableColumns<RamResponse> = [
         :loading="loading"
         :row-key="(row) => row.id"
         :pagination="false"
+        :scroll-x="1150"
         striped
         :bordered="false"
         class="rounded-lg overflow-hidden"
@@ -409,40 +535,44 @@ const columns: DataTableColumns<RamResponse> = [
       :closable="false"
     >
       <div class="max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
-        <NForm label-placement="top" :model="formData">
+        <NForm
+          ref="formRef"
+          label-placement="top"
+          :model="formData"
+          :rules="rules"
+        >
+          <NFormItem label="Tên RAM" path="name" required>
+            <NInput v-model:value="formData.name" placeholder="VD: Kingston Fury Beast" />
+          </NFormItem>
+
           <NGrid cols="2" x-gap="24" y-gap="12">
             <NGridItem>
-              <NFormItem label="Tên RAM" required>
-                <NInput v-model:value="formData.name" placeholder="VD: Kingston Fury Beast" />
-              </NFormItem>
-            </NGridItem>
-            <NGridItem>
-              <NFormItem label="Thương hiệu" required>
+              <NFormItem label="Thương hiệu" path="brand" required>
                 <NInput v-model:value="formData.brand" placeholder="VD: Kingston, Corsair" />
               </NFormItem>
             </NGridItem>
             <NGridItem>
-              <NFormItem label="Loại RAM" required>
+              <NFormItem label="Loại RAM" path="type" required>
                 <NInput v-model:value="formData.type" placeholder="VD: DDR4, DDR5" />
               </NFormItem>
             </NGridItem>
             <NGridItem>
-              <NFormItem label="Dung lượng (GB)" required>
+              <NFormItem label="Dung lượng (GB)" path="capacity" required>
                 <NInput v-model:value="formData.capacity" type="number" placeholder="VD: 8, 16" class="w-full" />
               </NFormItem>
             </NGridItem>
             <NGridItem>
-              <NFormItem label="Bus Speed (MHz)" required>
+              <NFormItem label="Bus Speed (MHz)" path="busSpeed" required>
                 <NInput v-model:value="formData.busSpeed" type="number" placeholder="VD: 3200" class="w-full" />
               </NFormItem>
             </NGridItem>
             <NGridItem>
-              <NFormItem label="Cấu hình Slot">
+              <NFormItem label="Cấu hình Slot" path="slotConFig">
                 <NInput v-model:value="formData.slotConFig" type="number" placeholder="Số khe cắm" class="w-full" />
               </NFormItem>
             </NGridItem>
             <NGridItem>
-              <NFormItem label="Hỗ trợ tối đa (GB)">
+              <NFormItem label="Hỗ trợ tối đa (GB)" path="maxSupported" required>
                 <NInput v-model:value="formData.maxSupported" type="number" placeholder="VD: 64" class="w-full" />
               </NFormItem>
             </NGridItem>

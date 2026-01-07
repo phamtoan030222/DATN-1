@@ -32,4 +32,15 @@ public class ADStaffController {
         return Helper.createResponseEntity(staffService.createStaff(request));
     }
 
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateStaff(@PathVariable String id, @RequestBody ADCreateStaff request) throws MessagingException {
+        return Helper.createResponseEntity(staffService.updateStaff(id, request));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> updateBrandStatus(@PathVariable String id) {
+        return Helper.createResponseEntity(adStaffService.changeStatusStaff(id));
+    }
+
+
 }

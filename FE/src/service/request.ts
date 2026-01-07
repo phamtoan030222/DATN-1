@@ -1,8 +1,9 @@
 import { ACCESS_TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import { PREFIX_API_AUTH, VITE_BASE_URL_SERVER } from '@/constants/url'
 import { localStorageAction } from '@/utils/storage.helper'
-import axios, { AxiosResponse } from 'axios'
-import { DefaultResponse } from './api.common'
+import type { AxiosResponse } from 'axios'
+import axios from 'axios'
+import type { DefaultResponse } from './api.common'
 import { getUserInformation } from '@/utils/token.helper'
 
 const request = axios.create({
@@ -25,10 +26,10 @@ request.interceptors.response.use(
     const originalRequest = error.config
 
     if (
-      error.response &&
-      error.response.status === 401 &&
-      !originalRequest._retry &&
-      window.location.pathname !== "/login"
+      error.response
+      && error.response.status === 401
+      && !originalRequest._retry
+      && window.location.pathname !== '/login'
       //    &&
       //   window.location.pathname !== ROUTES_CONSTANTS.LOGIN_CUSTOMER.path
     ) {
@@ -38,8 +39,8 @@ request.interceptors.response.use(
       if (refreshToken) {
         try {
           const response = (await axios.post(`${PREFIX_API_AUTH}/refresh`, {
-            refreshToken
-          })) as AxiosResponse<DefaultResponse<{ accessToken: string; refreshToken: string }>>
+            refreshToken,
+          })) as AxiosResponse<DefaultResponse<{ accessToken: string, refreshToken: string }>>
           const newAccessToken = response.data.data.accessToken
           const newRefreshToken = response.data.data.refreshToken
           localStorageAction.set(ACCESS_TOKEN_STORAGE_KEY, newAccessToken)
@@ -47,7 +48,8 @@ request.interceptors.response.use(
           localStorageAction.set(USER_INFO_STORAGE_KEY, getUserInformation(newAccessToken))
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
           return request(originalRequest)
-        } catch (refreshError) {
+        }
+        catch (refreshError) {
           console.log('🚀 ~ refreshError:', refreshError)
         }
       }
@@ -55,19 +57,20 @@ request.interceptors.response.use(
       localStorageAction.remove(ACCESS_TOKEN_STORAGE_KEY)
       localStorageAction.remove(REFRESH_TOKEN_STORAGE_KEY)
       localStorageAction.remove(USER_INFO_STORAGE_KEY)
-      window.location.href = "/error/401"
-    } else if (
-      error.response &&
-      error.response.status === 403 &&
-      window.location.pathname !== "/login"
-      
+      window.location.href = '/error/401'
+    }
+    else if (
+      error.response
+      && error.response.status === 403
+      && window.location.pathname !== '/login'
+
     ) {
-      window.location.href = "/error/403"
-      console.log("lỗi ",error.response)
+      window.location.href = '/error/403'
+      console.log('lỗi ', error.response)
     }
 
     return Promise.reject(error)
-  }
+  },
 )
 
 export default request

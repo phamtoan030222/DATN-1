@@ -13,12 +13,12 @@ import {
   NInput,
   NInputNumber,
   NPagination,
-  NPopconfirm,
   NRadio,
   NRadioGroup,
   NSpace,
   NSpin,
   NTag,
+  useDialog,
   useMessage,
 } from 'naive-ui'
 import type { AxiosResponse } from 'axios'
@@ -32,6 +32,7 @@ import { getCustomers } from '@/service/api/admin/users/customer/customer'
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
+const dialog = useDialog() // Init Dialog
 
 const mode = computed(() => route.path.includes('/add') ? 'add' : 'edit')
 const voucherId = computed(() => route.params.id as string | null)
@@ -45,7 +46,7 @@ const voucherUsersFormItemRef = ref<FormItemInst | null>(null)
 const isLoadingData = ref(false)
 const loading = ref(false)
 const loadingCustomers = ref(false)
-const showConfirm = ref(false)
+// const showConfirm = ref(false) // Removed, using dialog instead
 
 // Biến lưu trạng thái ban đầu để kiểm tra logic chặn sửa
 const originalTargetType = ref<string>('')
@@ -66,7 +67,7 @@ const newVoucher = ref<Partial<ADVoucherResponse>>({
   targetType: 'ALL_CUSTOMERS',
   quantity: null,
   voucherUsers: [],
-  status: '',
+  status: 'ACTIVE', // Default status
 })
 
 /* ====== Khối khách hàng ====== */
@@ -282,15 +283,21 @@ watch(() => pagination.value.page, fetchCustomers)
 
 onMounted(() => { loadVoucherData() })
 
-/* ====== Save ====== */
-async function handleValidateAndConfirm() {
-  try {
-    await addFormRef.value?.validate()
-    showConfirm.value = true
-  }
-  catch {
-    message.error('Vui lòng nhập đủ thông tin')
-  }
+/* ====== Save with Dialog ====== */
+function handleValidateAndConfirm() {
+  addFormRef.value?.validate((errors) => {
+    if (!errors) {
+      dialog.warning({
+        title: 'Xác nhận',
+        content: `Bạn có chắc chắn muốn ${mode.value === 'add' ? 'thêm mới' : 'cập nhật'} phiếu giảm giá này?`,
+        positiveText: 'Đồng ý',
+        negativeText: 'Hủy',
+        onPositiveClick: () => {
+          handleSaveVoucher()
+        },
+      })
+    }
+  })
 }
 
 async function handleSaveVoucher() {
@@ -306,6 +313,7 @@ async function handleSaveVoucher() {
       startDate: Number(newVoucher.value.startDate),
       endDate: Number(newVoucher.value.endDate),
       note: newVoucher.value.note ?? null,
+      status: newVoucher.value.status, // Send status if API supports it
     }
 
     if (base.targetType === 'ALL_CUSTOMERS') {
@@ -332,9 +340,14 @@ async function handleSaveVoucher() {
   }
   finally {
     loading.value = false
-    showConfirm.value = false
   }
 }
+
+// Handle Status Switch with Popconfirm (If you want status toggle here)
+// Note: Usually status is toggled in the list view, but if you want it in the form:
+// function toggleStatus(val: boolean) {
+//   newVoucher.value.status = val ? 'ACTIVE' : 'INACTIVE'
+// }
 
 /* ====== Table ====== */
 const customerColumns: DataTableColumns<Customer> = [
@@ -451,17 +464,10 @@ const customerColumns: DataTableColumns<Customer> = [
               <NButton @click="handleCancel">
                 Quay lại
               </NButton>
-              <NPopconfirm
-                :show="showConfirm" :on-positive-click="handleSaveVoucher"
-                @update:show="(v) => showConfirm = v"
-              >
-                <template #trigger>
-                  <NButton type="primary" :loading="loading" @click="handleValidateAndConfirm">
-                    Lưu
-                  </NButton>
-                </template>
-                Xác nhận lưu?
-              </NPopconfirm>
+
+              <NButton type="primary" :loading="loading" @click="handleValidateAndConfirm">
+                Lưu
+              </NButton>
             </div>
           </NForm>
         </div>
@@ -473,7 +479,7 @@ const customerColumns: DataTableColumns<Customer> = [
 
               <NDataTable
                 v-model:checked-row-keys="checkedCustomerKeys" :columns="customerColumns" :data="customers"
-                :row-key="(row: Customer) => row.id" :pagination="false" size="small" striped shadow
+                :row-key="(row: Customer) => row.id" :pagination="false" size="small" striped
                 @update:checked-row-keys="onSelectionChange"
               />
               <div class="flex justify-end mt-2">

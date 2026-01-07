@@ -93,7 +93,40 @@ public class StaffService {
         return new ResponseObject<>(null, HttpStatus.OK, "Thêm thành công nhân viên", true, null);
     }
 
+    @Transactional
+    public ResponseObject<?> updateStaff(String id, ADCreateStaff request) {
+        // 1. Kiểm tra nhân viên có tồn tại không
+        return staffRepository.findById(id).map(staff -> {
 
+            // 2. Cập nhật thông tin Account (nếu cần đổi Role)
+            Account account = staff.getAccount();
+            if (request.getRole() != null) {
+                account.setRoleConstant(RoleConstant.valueOf(request.getRole()));
+                accountRepository.save(account);
+            }
+
+            // 3. Cập nhật thông tin Staff
+            staff.setName(request.getFullName());
+            staff.setCitizenIdentifyCard(request.getCitizenIdentifyCard());
+            staff.setBirthday(request.getBirthday());
+            staff.setHometown(request.getHometown());
+            staff.setGender(request.getGender());
+            staff.setEmail(request.getEmail());
+            staff.setPhone(request.getPhone());
+            staff.setAvatarUrl(request.getAvatarUrl());
+
+            // Cập nhật địa chỉ từ GeoController logic
+            staff.setProvinceCode(request.getProvinceCode());
+            staff.setDistrictCode(request.getDistrictCode());
+            staff.setCommuneCode(request.getCommuneCode());
+
+            staffRepository.save(staff);
+
+            return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật nhân viên thành công", true, null);
+        }).orElseGet(() ->
+                new ResponseObject<>(null, HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên", false, null)
+        );
+    }
 
 }
 

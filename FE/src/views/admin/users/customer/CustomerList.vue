@@ -7,7 +7,7 @@ import {
   NButton,
   NCard,
   NDataTable,
-  NDropdown, // Import thêm Dropdown
+  NDropdown,
   NForm,
   NFormItem,
   NIcon,
@@ -21,10 +21,12 @@ import {
   NSwitch,
   NTag,
   NTooltip,
+  useDialog,
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import * as XLSX from 'xlsx'
+import { debounce } from 'lodash'
 
 // API & Types
 import type { Customer } from '@/service/api/admin/users/customer/customer'
@@ -35,8 +37,8 @@ import { getDistrictName, getProvinceName, getWardName, initLocationData } from 
 
 // ================= CONSTANTS & STATE =================
 const message = useMessage()
+const dialog = useDialog() // Init Dialog
 const router = useRouter()
-const { dialog } = createDiscreteApi(['dialog'])
 
 const customers = ref<Customer[]>([])
 const customerAddresses = ref<Record<string, Address[]>>({})
@@ -53,8 +55,6 @@ const filter = reactive({
   customerGender: null as number | null,
   customerStatus: null as number | null,
 })
-
-let searchTimer: NodeJS.Timeout | null = null
 
 // Options cho Dropdown Excel
 const exportOptions = [
@@ -116,8 +116,19 @@ async function loadCustomerAddresses(list: Customer[]) {
 }
 
 // ================= ACTIONS =================
+const debouncedFetch = debounce(() => {
+  currentPage.value = 1
+  fetchCustomers()
+}, 500)
+
 function handlePageChange(page: number) {
   currentPage.value = page
+  fetchCustomers()
+}
+
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
   fetchCustomers()
 }
 
@@ -137,12 +148,15 @@ function navigateToEdit(row: Customer) {
   router.push(`/users/customer/edit/${row.id}`)
 }
 
-async function handleStatusChange(row: Customer, val: boolean) {
+async function handleStatusChange(row: Customer) {
+  if (!row.id)
+    return
   try {
     loading.value = true
-    await updateCustomer(row.id!, { ...row, customerStatus: val ? 1 : 0 })
+    const newStatus = row.customerStatus === 1 ? 0 : 1
+    await updateCustomer(row.id, { ...row, customerStatus: newStatus })
     message.success('Cập nhật trạng thái thành công')
-    row.customerStatus = val ? 1 : 0
+    row.customerStatus = newStatus
   }
   catch {
     message.error('Cập nhật thất bại')
@@ -152,18 +166,17 @@ async function handleStatusChange(row: Customer, val: boolean) {
   }
 }
 
-watch(() => filter, () => {
-  if (searchTimer)
-    clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => {
+// Watch filters
+watch(
+  () => [filter.customerGender, filter.customerStatus],
+  () => {
     currentPage.value = 1
     fetchCustomers()
-  }, 500)
-}, { deep: true })
+  },
+)
 
 // ================= EXCEL LOGIC =================
-// Hàm điều phối khi chọn menu
-async function handleSelectExport(key: string) {
+function handleSelectExport(key: string) {
   if (key === 'current') {
     if (customers.value.length === 0)
       return message.warning('Không có dữ liệu trang này!')
@@ -184,14 +197,12 @@ async function handleSelectExport(key: string) {
   }
 }
 
-// Hàm xử lý tải dữ liệu lớn
 async function processExportAll(isAll: boolean) {
   const loadingMsg = message.loading('Đang tải dữ liệu...', { duration: 0 })
   try {
-    // Nếu chọn 'all' thì bỏ qua filter, ngược lại dùng filter hiện tại
     const params: any = {
       page: 1,
-      size: 10000, // Lấy số lượng lớn
+      size: 10000,
     }
 
     if (!isAll) {
@@ -209,7 +220,6 @@ async function processExportAll(isAll: boolean) {
     }
 
     loadingMsg.content = `Đang xử lý ${dataList.length} dòng dữ liệu...`
-    // Tải thêm địa chỉ cho danh sách này (có thể bỏ qua nếu sợ chậm)
     await loadCustomerAddresses(dataList)
 
     exportToExcel(dataList, isAll ? 'DS_ToanBo_KhachHang' : 'DS_KhachHang_TheoLoc')
@@ -222,7 +232,6 @@ async function processExportAll(isAll: boolean) {
   }
 }
 
-// Hàm thực thi tạo file Excel
 function exportToExcel(dataList: Customer[], fileName: string) {
   const excelData = dataList.map((item, index) => {
     let addressStr = ''
@@ -244,7 +253,6 @@ function exportToExcel(dataList: Customer[], fileName: string) {
   })
 
   const ws = XLSX.utils.json_to_sheet(excelData)
-  // Chỉnh độ rộng cột
   ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 40 }, { wch: 15 }]
 
   const wb = XLSX.utils.book_new()
@@ -253,12 +261,16 @@ function exportToExcel(dataList: Customer[], fileName: string) {
   message.success('Xuất file thành công!')
 }
 
-// ================= PRINT =================
 function handlePrint() {
   if (customers.value.length === 0)
     return message.warning('Không có dữ liệu để in!')
   window.print()
 }
+
+onMounted(async () => {
+  await initLocationData()
+  fetchCustomers()
+})
 
 // ================= TABLE COLUMNS =================
 const columns = [
@@ -267,12 +279,14 @@ const columns = [
     key: 'stt',
     width: 60,
     align: 'center',
-    render: (_, index) => index + 1 + (currentPage.value - 1) * pageSize.value,
+    fixed: 'left',
+    render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
     title: 'Khách hàng',
     key: 'info',
-    width: 150,
+    width: 200,
+    fixed: 'left',
     render: (row: Customer) => h(
       NSpace,
       { align: 'center', justify: 'start' },
@@ -309,20 +323,12 @@ const columns = [
     width: 120,
     align: 'center',
     render: (row: Customer) => {
-      // Nếu không có ngày sinh hoặc giá trị không hợp lệ
       if (!row.customerBirthday)
         return h('span', { class: 'text-gray-400 italic' }, 'Chưa cập nhật')
-
-      // Chuyển timestamp (hoặc chuỗi ISO) thành đối tượng Date
       const date = new Date(row.customerBirthday)
-
-      // Kiểm tra date có hợp lệ không (tránh lỗi Invalid Date)
       if (isNaN(date.getTime()))
         return h('span', { class: 'text-gray-400 italic' }, 'Lỗi ngày tháng')
 
-      // Định dạng ngày theo chuẩn Việt Nam (dd/MM/yyyy)
-      // day: '2-digit' -> luôn hiển thị 01, 02...
-      // month: '2-digit' -> luôn hiển thị 01, 02...
       const formatted = new Intl.DateTimeFormat('vi-VN', {
         day: '2-digit',
         month: '2-digit',
@@ -335,7 +341,7 @@ const columns = [
   {
     title: 'Liên hệ',
     key: 'contact',
-    width: 200,
+    mminWidth: 200,
     render: (row: Customer) => h('div', [
       h('div', { class: 'flex items-center gap-1 mb-1' }, [
         h(Icon, { icon: 'carbon:phone', class: 'text-gray-400' }),
@@ -347,11 +353,11 @@ const columns = [
       ]),
     ]),
   },
-
   {
     title: 'Địa chỉ nhận hàng',
     key: 'address',
-    width: 250,
+    minWidth: 250,
+    ellipsis: { tooltip: true },
     render: (row: Customer) => {
       const addrs = customerAddresses.value[row.id as string] || []
       const def = addrs.find(a => a.isDefault) || addrs[0]
@@ -366,20 +372,12 @@ const columns = [
           NTooltip,
           { trigger: 'hover', style: { maxWidth: '400px' } },
           {
-            trigger: () => h(
-              'span',
-              { class: 'text-xs text-gray-700 line-clamp-2 cursor-help text-left' },
-              fullAddress,
-            ),
+            trigger: () => h('span', { class: 'text-xs text-gray-700 cursor-help text-left' }, fullAddress),
             default: () => fullAddress,
           },
         ),
-        h(NTag, {
-          size: 'tiny',
-          bordered: false,
-          type: 'info',
-          class: 'w-fit text-[10px]',
-        }, { default: () => `Tổng: ${addrs.length} địa chỉ` }),
+        h(NTag, { size: 'tiny', bordered: false, type: 'info', class: 'w-fit text-[10px]' }, { default: () => `Tổng: ${addrs.length} địa chỉ` },
+        ),
       ])
     },
   },
@@ -390,14 +388,19 @@ const columns = [
     align: 'center',
     render: (row: Customer) => h(
       NPopconfirm,
-      { onPositiveClick: () => handleStatusChange(row, !row.customerStatus) },
+      {
+        onPositiveClick: () => handleStatusChange(row),
+        positiveText: 'Đồng ý',
+        negativeText: 'Hủy',
+      },
       {
         trigger: () => h(NSwitch, {
           value: row.customerStatus === 1,
           size: 'small',
           loading: loading.value,
+          // Không bind update trực tiếp
         }),
-        default: () => 'Bạn có chắc muốn đổi trạng thái?',
+        default: () => `Bạn có chắc muốn ${row.customerStatus === 1 ? 'ngưng hoạt động' : 'kích hoạt'} khách hàng này?`,
       },
     ),
   },
@@ -418,18 +421,12 @@ const columns = [
           circle: true,
           class: 'scale-100 transition-all hover:scale-125 hover:shadow-lg',
           onClick: () => navigateToEdit(row),
-        }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' },
-        ) }) }),
+        }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
         default: () => 'Sửa thông tin',
       },
     ),
   },
 ]
-
-onMounted(async () => {
-  await initLocationData()
-  fetchCustomers()
-})
 </script>
 
 <template>
@@ -458,7 +455,7 @@ onMounted(async () => {
                 circle
                 secondary
                 type="primary"
-                class="transition-all duration-200 hover:scale-130 hover:shadow-md"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
                 @click="resetFilters"
               >
                 <NIcon size="24">
@@ -478,6 +475,8 @@ onMounted(async () => {
               v-model:value="filter.customerName"
               placeholder="Tên, mã khách hàng, SĐT..."
               clearable
+              @input="debouncedFetch"
+              @keydown.enter="fetchCustomers"
             >
               <template #prefix>
                 <Icon icon="carbon:search" />
@@ -605,7 +604,7 @@ onMounted(async () => {
           :page-sizes="[5, 10, 20, 50]"
           show-size-picker
           @update:page="handlePageChange"
-          @update:page-size="(val) => { pageSize = val; currentPage = 1; fetchCustomers() }"
+          @update:page-size="handlePageSizeChange"
         />
       </div>
     </NCard>
