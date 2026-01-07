@@ -33,20 +33,20 @@ const option = ref<ECOption>({
       },
       data: [
         {
-          value: 335,
-          name: "12",
+          value: 0,
+          name: "Đang xử lý",
         },
         {
-          value: 77,
-          name: "Bilibili",
+          value: 1,
+          name: "Đã thanh toán",
         },
         {
-          value: 82,
-          name: "sd",
+          value: 0,
+          name: "Chờ xác nhận",
         },
         {
-          value: 421,
-          name: "cl",
+          value: 0,
+          name: "Đơn huỷ",
         },
       ],
     },

@@ -212,7 +212,7 @@
       max-height="400"
     />
 
-    <div class="flex justify-end mt-4" v-if="filteredUnapplied.length > unappliedPageSize">
+    <div class="flex justify-end mt-4" >
       <NPagination
         :page="unappliedCurrentPage"
         :page-size="unappliedPageSize"
@@ -264,7 +264,7 @@
       max-height="400px"
     />
 
-    <div class="flex justify-end mt-4" v-if="filteredAppliedProducts.length > appliedPageSize">
+    <div class="flex justify-end mt-4">
       <NPagination
         :page="appliedCurrentPage"
         :page-size="appliedPageSize"
@@ -587,7 +587,7 @@ const productColumns: DataTableColumns<ProductResponse> = [
 const unappliedProductColumns: DataTableColumns<ExtendedProductDetail> = [
   { type: 'selection' },
   { title: "STT", width: 50, align: "center", render: (_, i) => (unappliedCurrentPage.value - 1) * unappliedPageSize.value + i + 1 },
-   { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
+  { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
   
   { title: 'Màu', key: 'colorName', align: 'center', render: r => r.colorName || '-' },
   { title: 'RAM', key: 'ramName', align: 'center', render: r => r.ramName || '-' },

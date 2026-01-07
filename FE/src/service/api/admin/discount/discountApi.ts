@@ -332,7 +332,6 @@ export const getAllProducts = async (params: PaginationParams) => {
     size,
   };
 
-
   if (params.q?.trim()) {
     queryParams.q = params.q.trim();
   }
@@ -351,7 +350,7 @@ export const getAllProducts = async (params: PaginationParams) => {
       currentPage: (responseData?.number ?? page) + 1,
     }
   } catch (error) {
-    console.error('❌ Error fetching products:', error)
+    console.error('Error fetching products:', error)
     return {
       items: [],
       totalItems: 0,
