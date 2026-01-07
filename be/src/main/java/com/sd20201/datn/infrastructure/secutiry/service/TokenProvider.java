@@ -135,6 +135,46 @@ public class TokenProvider {
         return token;
     }
 
+    public String createTokenByLogin(Authentication authentication) throws BadRequestException, JsonProcessingException {
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+
+        Optional<String> screenForRole = Optional.ofNullable(request.getParameter("screen"));
+
+        TokenInfoResponse tokenInfoResponse = new TokenInfoResponse();
+        if (screenForRole.isEmpty()) {
+            throw new RedirectException("Account not exist");
+        } else {
+            Optional<Staff> optionalStaff = getCurrentStaffLogin(userPrincipal.getEmail());
+
+            if (optionalStaff.isPresent()) {
+                tokenInfoResponse = getTokenSubjectResponse(optionalStaff.get());
+                tokenInfoResponse.setRoleScreen(screenForRole.get());
+            }
+
+            Optional<Customer> optionalCustomer = customerRepository.findByEmail(userPrincipal.getEmail());
+
+            if (optionalCustomer.isPresent()) {
+                tokenInfoResponse = getTokenSubjectResponse(optionalCustomer.get());
+                tokenInfoResponse.setRoleScreen(screenForRole.get());
+            }
+        }
+
+        String subject = new ObjectMapper().writeValueAsString(tokenInfoResponse);
+        Map<String, Object> claims = getBodyClaims(tokenInfoResponse);
+
+        String token = Jwts.builder()
+                .setSubject(subject)
+                .setClaims(claims)
+                .setIssuedAt(new Date(System.currentTimeMillis()))
+                .setExpiration(new Date(TOKEN_EXP))
+                .setIssuer("sd20201.datn")
+                .signWith(Keys.hmacShaKeyFor(tokenSecret.getBytes()))
+                .compact();
+
+        log.info("Created token: {}", token);
+        return token;
+    }
+
     public String generateToken(Map<String, Object> claims) throws JsonProcessingException {
         String subject = new ObjectMapper().writeValueAsString(claims);
         return Jwts.builder()

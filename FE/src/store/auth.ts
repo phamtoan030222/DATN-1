@@ -4,6 +4,7 @@ import { useRouteStore } from "./router";
 import { useTabStore } from "./tab";
 import { localStorageAction } from "@/utils/storage.helper";
 import { ACCESS_TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY, USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
+import { postLogin } from "@/service/api/auth/auth.api";
 
 interface AuthStatus {
   userInfo: Api.Login.Info | null;
@@ -53,7 +54,6 @@ export const useAuthStore = defineStore("auth-store", {
 
     async login(userInfo: Entity.UserInformation, accessToken: string, refreshToken: string) {
       try {
-        // ✅ Fake dữ liệu trả về đúng với interface Api.Login.Info
         const dataStorage: Api.Login.Info = {
           userInfo: userInfo,
           accessToken,

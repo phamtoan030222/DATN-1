@@ -3,6 +3,7 @@ package com.sd20201.datn.infrastructure.secutiry.filter;
 
 import com.sd20201.datn.infrastructure.config.global.GlobalVariables;
 import com.sd20201.datn.infrastructure.constant.GlobalVariablesConstant;
+import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.infrastructure.secutiry.service.CustomUserDetailsService;
 import com.sd20201.datn.infrastructure.secutiry.service.TokenProvider;
 import jakarta.servlet.FilterChain;
@@ -17,6 +18,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -26,6 +28,10 @@ import java.util.List;
 @Slf4j
 @Component
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final List<String> EXCLUDED_PATHS = List.of(
+        MappingConstants.API_LOGIN
+    );
 
     @Setter(onMethod = @__({@Autowired}))
     private TokenProvider tokenProvider;
@@ -85,5 +91,14 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
         }
 
         return null;
+    }
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getServletPath();
+        AntPathMatcher matcher = new AntPathMatcher();
+
+        return EXCLUDED_PATHS.stream()
+                .anyMatch(pattern -> matcher.match(pattern, path));
     }
 }
