@@ -16,6 +16,18 @@ public class LoginAuthenticationFailureHandler extends SimpleUrlAuthenticationFa
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) throws IOException, ServletException {
+        log.warn("Login failed: {}", exception.getMessage());
+
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        response.setContentType("application/json");
+        response.setCharacterEncoding("UTF-8");
+
+        response.getWriter().write("""
+            {
+              "isSuccess": false,
+              "error": "INVALID_CREDENTIALS",
+              "message": "Username or password is incorrect"
+            }
+        """);
     }
 }

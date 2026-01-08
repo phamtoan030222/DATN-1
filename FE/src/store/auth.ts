@@ -50,6 +50,10 @@ export const useAuthStore = defineStore("auth-store", {
       local.remove("accessToken");
       local.remove("refreshToken");
       local.remove("userInfo");
+
+      localStorageAction.remove(ACCESS_TOKEN_STORAGE_KEY)
+      localStorageAction.remove(REFRESH_TOKEN_STORAGE_KEY)
+      localStorageAction.remove(USER_INFO_STORAGE_KEY)
     },
 
     async login(userInfo: Entity.UserInformation, accessToken: string, refreshToken: string) {

@@ -28,9 +28,8 @@ request.interceptors.response.use(
       error.response &&
       error.response.status === 401 &&
       !originalRequest._retry &&
-      window.location.pathname !== "/login"
-      //    &&
-      //   window.location.pathname !== ROUTES_CONSTANTS.LOGIN_CUSTOMER.path
+      window.location.pathname !== "/login" &&
+      window.location.pathname !== "/login-admin"
     ) {
       originalRequest._retry = true
 
@@ -59,8 +58,8 @@ request.interceptors.response.use(
     } else if (
       error.response &&
       error.response.status === 403 &&
-      window.location.pathname !== "/login"
-      
+      window.location.pathname !== "/login" &&
+      window.location.pathname !== "/login-admin"
     ) {
       window.location.href = "/error/403"
       console.log("lỗi ",error.response)
