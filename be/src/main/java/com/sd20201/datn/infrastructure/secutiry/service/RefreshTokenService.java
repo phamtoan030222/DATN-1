@@ -87,6 +87,6 @@ public class RefreshTokenService {
             return null;
         }
 
-        return refreshToken ;
+        return refreshToken;
     }
 }

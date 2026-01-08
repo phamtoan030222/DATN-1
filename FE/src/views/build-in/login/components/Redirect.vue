@@ -39,7 +39,6 @@ onMounted(() => {
       router.push({ name: 'dashboard_sales' })
       return
     } else if (user.rolesCodes.includes(ROLES.NHAN_VIEN) && user.roleScreen === "ADMIN") {
-      router.push({ name: 'unauthorized' })
       return
     } else if (user.rolesCodes.includes(ROLES.KHACH_HANG) && user.roleScreen === ROLES.KHACH_HANG) {
       return

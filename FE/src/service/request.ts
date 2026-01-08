@@ -26,12 +26,11 @@ request.interceptors.response.use(
     const originalRequest = error.config
 
     if (
-      error.response
-      && error.response.status === 401
-      && !originalRequest._retry
-      && window.location.pathname !== '/login'
-      //    &&
-      //   window.location.pathname !== ROUTES_CONSTANTS.LOGIN_CUSTOMER.path
+      error.response &&
+      error.response.status === 401 &&
+      !originalRequest._retry &&
+      window.location.pathname !== "/login" &&
+      window.location.pathname !== "/login-admin"
     ) {
       originalRequest._retry = true
 
@@ -57,13 +56,12 @@ request.interceptors.response.use(
       localStorageAction.remove(ACCESS_TOKEN_STORAGE_KEY)
       localStorageAction.remove(REFRESH_TOKEN_STORAGE_KEY)
       localStorageAction.remove(USER_INFO_STORAGE_KEY)
-      window.location.href = '/error/401'
-    }
-    else if (
-      error.response
-      && error.response.status === 403
-      && window.location.pathname !== '/login'
-
+      window.location.href = "/error/401"
+    } else if (
+      error.response &&
+      error.response.status === 403 &&
+      window.location.pathname !== "/login" &&
+      window.location.pathname !== "/login-admin"
     ) {
       window.location.href = '/error/403'
       console.log('lỗi ', error.response)
