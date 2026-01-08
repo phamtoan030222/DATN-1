@@ -28,7 +28,6 @@ import {
   updateVoucherToStart,
 } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
-import formatDate from '@/utils/common.helper'
 
 /* ===================== Config & Router ===================== */
 const router = useRouter()
@@ -196,8 +195,6 @@ async function fetchData() {
   }
 }
 
-/* ===================== Data Table ===================== */
-/* ===================== Data Table ===================== */
 const columns: DataTableColumns<ADVoucherResponse> = [
   { title: 'STT', key: 'stt', fixed: 'left', align: 'center', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
   { title: 'Mã', key: 'code', fixed: 'left', width: 120, render: row => h('strong', { class: 'text-primary' }, row.code) },
@@ -224,7 +221,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
         return 'N/A'
 
       const isPercent = row.typeVoucher === 'PERCENTAGE'
-      // Yêu cầu: % là error, Tiền là primary
       const tagType = isPercent ? 'error' : 'primary'
 
       return h(

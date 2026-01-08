@@ -12,6 +12,7 @@ import {
   NIcon,
   NInput,
   NPagination,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
   NSelect,
@@ -19,7 +20,7 @@ import {
   NSwitch,
   NTooltip,
   useMessage,
-  useNotification,
+  // Xóa useNotification
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import type { DataTableColumns } from 'naive-ui'
@@ -32,8 +33,8 @@ import type { ADProductCPUResponse } from '@/service/api/admin/product/cpu.api'
 import ADProductCPUModal from './component/ADProductCPUModal.vue'
 
 // ================= STATE =================
-const message = useMessage()
-const notification = useNotification()
+const message = useMessage() // Sử dụng useMessage
+// const notification = useNotification() -> Xóa dòng này
 
 const state = reactive({
   search: {
@@ -41,7 +42,7 @@ const state = reactive({
     brand: null as string | null,
     generation: '',
     series: '',
-    releaseYear: null as number | null, // Biến này lưu timestamp từ DatePicker
+    releaseYear: null as number | null,
     status: null as string | null,
   },
   data: {
@@ -68,8 +69,6 @@ const brandOptionsSelect = [
 async function fetchCPUs() {
   loading.value = true
   try {
-    // Xử lý chuyển đổi ngày tháng trước khi gọi API
-    // DatePicker trả về timestamp -> cần lấy ra Năm (VD: 2024)
     const yearToSend = state.search.releaseYear
       ? new Date(state.search.releaseYear).getFullYear()
       : null
@@ -77,18 +76,16 @@ async function fetchCPUs() {
     const res = await getCPUs({
       page: state.pagination.page,
       size: state.pagination.size,
-      name: state.search.q || undefined, // Backend map trường này là name hoặc q tùy API
+      name: state.search.q || undefined,
       brand: state.search.brand || undefined,
-      releaseYear: yearToSend, // Gửi số năm
+      releaseYear: yearToSend,
       series: state.search.series || undefined,
       generation: state.search.generation || undefined,
       status: state.search.status || undefined,
     })
 
     state.data.cpus = res.data.data || []
-    // Cập nhật lại pagination dựa trên response thực tế
     state.pagination.totalElements = res.data.totalItems || 0
-    // Nếu API trả về totalPages thì dùng, không thì tính toán
     state.pagination.totalPages = Math.ceil(res.data.totalItems / state.pagination.size)
   }
   catch (e) {
@@ -105,7 +102,6 @@ const debouncedFetch = debounce(() => {
 }, 500)
 
 function refreshFilter() {
-  // Reset về giá trị mặc định
   state.search.q = ''
   state.search.brand = null
   state.search.generation = ''
@@ -113,12 +109,9 @@ function refreshFilter() {
   state.search.releaseYear = null
   state.search.status = null
   state.pagination.page = 1
-
-  // Gọi lại API mà không hiện thông báo
   fetchCPUs()
 }
 
-// Watch filters để auto reload khi chọn dropdown/date
 watch(
   () => [state.search.brand, state.search.releaseYear, state.search.status],
   () => {
@@ -150,20 +143,22 @@ function handleSuccessModifyModal() {
   closeModal()
 }
 
+// Cập nhật hàm này để dùng message
 async function handleChangeStatus(id: string) {
   try {
     loading.value = true
-    const res = await changeCPUStatus(id)
-    if (res.success) {
-      notification.success({ content: 'Thay đổi trạng thái thành công', duration: 3000 })
+    const res: any = await changeCPUStatus(id)
+    // Kiểm tra response tùy theo format BE (res.success hoặc res.data)
+    if (res.success || res.code === 200 || res) {
+      message.success('Thay đổi trạng thái thành công') // Dùng message
       fetchCPUs()
     }
     else {
-      notification.error({ content: 'Thay đổi trạng thái thất bại', duration: 3000 })
+      message.error('Thay đổi trạng thái thất bại')
     }
   }
   catch (e) {
-    notification.error({ content: 'Lỗi hệ thống', duration: 3000 })
+    message.error('Lỗi hệ thống khi cập nhật trạng thái')
   }
   finally {
     loading.value = false
@@ -177,12 +172,14 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
     key: 'orderNumber',
     width: 60,
     align: 'center',
+    fixed: 'left',
     render: (_, index) => (state.pagination.page - 1) * state.pagination.size + index + 1,
   },
   {
     title: 'Mã CPU',
     key: 'code',
-    width: 150,
+    width: 100,
+    fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code),
   },
   {
@@ -190,16 +187,16 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
     key: 'name',
     minWidth: 200,
     ellipsis: { tooltip: true },
+    render: row => h('span', { class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors', onClick: () => clickOpenModal(row.id, false) }, row.name),
   },
   {
     title: 'Hãng',
     key: 'brand',
     width: 100,
     align: 'center',
-    // Đã bỏ render NTag, chỉ hiển thị text
   },
-  { title: 'Dòng', key: 'series', width: 120 },
-  { title: 'Thế hệ', key: 'generation', width: 120 },
+  { title: 'Dòng', key: 'series', align: 'center', width: 120 },
+  { title: 'Thế hệ', key: 'generation', align: 'center', width: 120 },
   { title: 'Năm SX', key: 'releaseYear', width: 100, align: 'center' },
   {
     title: 'Trạng thái',
@@ -207,14 +204,24 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
     width: 100,
     align: 'center',
     render: (row) => {
+      // Bọc NSwitch bằng NPopconfirm để xác nhận trước khi đổi
       return h(
-        NSwitch,
+        NPopconfirm,
         {
-          value: row.status === 'ACTIVE',
-          size: 'small',
-          // Disable switch khi đang loading để tránh spam click
-          disabled: loading.value,
-          onUpdateValue: () => handleChangeStatus(row.id as string),
+          onPositiveClick: () => handleChangeStatus(row.id),
+        },
+        {
+          trigger: () => h(
+            NSwitch,
+            {
+              value: row.status === 'ACTIVE',
+              size: 'small',
+              disabled: loading.value,
+              // Không binding onUpdateValue để chặn thay đổi trực tiếp
+              // Sự thay đổi chỉ xảy ra khi fetchCPUs lại sau khi API thành công
+            },
+          ),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} CPU này?`,
         },
       )
     },
@@ -222,7 +229,7 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
   {
     title: 'Thao tác',
     key: 'action',
-    width: 100,
+    width: 80,
     align: 'center',
     fixed: 'right',
     render: (row) => {
@@ -423,6 +430,7 @@ function handlePageSizeChange(pageSize: number) {
         :loading="loading"
         :row-key="(row) => row.id"
         :pagination="false"
+        :scroll-x="1000"
         striped
       />
 

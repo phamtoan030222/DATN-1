@@ -1,51 +1,41 @@
 <script setup lang="ts">
 import { ref, watch, onMounted } from "vue";
-import { useEcharts } from "@/hooks"; // Hook của bạn
+import { useEcharts } from "@/hooks"; 
 import type { ECOption } from "@/hooks";
 import { graphic } from "echarts";
 
-// Biến lưu trạng thái đang xem theo Tuần, Tháng hay Năm
 const timeRange = ref<'week' | 'month' | 'year'>('week');
 
-// Hàm tạo danh sách nhãn trục X (Thứ 2->CN, 1->31, T1->T12)
 const getXAxisData = (type: string) => {
   if (type === 'week') return ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
   if (type === 'month') return Array.from({ length: 31 }, (_, i) => `${i + 1}`);
   if (type === 'year') return Array.from({ length: 12 }, (_, i) => `T${i + 1}`);
   return [];
-};
+};  
 
-// Hàm tạo dữ liệu Doanh thu giả lập khớp với yêu cầu (Ngày 5/1/2026 bán 240k)
 const getSeriesData = (type: string) => {
-  // Dữ liệu so sánh (Tuần trước/Tháng trước) - Đang để 0 hoặc random thấp
-  const previousData = []; 
-  
-  // Dữ liệu hiện tại (Tuần này/Tháng này)
+   const previousData = []; 
   let currentData = [];
 
   if (type === 'week') {
-    // Tuần: 7 ngày. Ngày 5/1/2026 là Thứ 2 (index 0)
-    currentData = [240000, 0, 0, 0, 0, 0, 0];
-    previousData.push(0, 0, 0, 0, 0, 0, 0); // Ví dụ tuần trước không có gì
+   currentData = [600000, 0, 0, 0, 0, 0, 0];
+    previousData.push(0, 0, 0, 0, 0, 0, 0);
   } else if (type === 'month') {
-    // Tháng: 31 ngày. Ngày 5 là index 4
     currentData = new Array(31).fill(0);
-    currentData[4] = 240000; // Ngày 5
+    currentData[4] = 600000;
   } else {
-    // Năm: 12 tháng. Tháng 1 là index 0
-    currentData = new Array(12).fill(0);
-    currentData[0] = 240000; // Tháng 1
+    currentData = new Array(12).fill(0);  
+    currentData[0] = 600000; 
   }
 
   return { currentData, previousData };
 };
 
-// Cấu hình Chart
+
 const lineOptions = ref<ECOption>({
   tooltip: {
     trigger: "axis",
     formatter: (params: any) => {
-      // Format tiền Việt Nam
       const formatCurrency = (val: number) => 
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
       
@@ -65,7 +55,7 @@ const lineOptions = ref<ECOption>({
   xAxis: {
     type: "category",
     boundaryGap: false,
-    data: [], // Sẽ được cập nhật dynamic
+    data: [], 
     axisLine: { show: false },
     axisTick: { show: false },
     axisLabel: { color: '#9ca3af' }
@@ -84,7 +74,7 @@ const lineOptions = ref<ECOption>({
       smooth: true,
       showSymbol: true,
       symbolSize: 8,
-      data: [], // Sẽ cập nhật dynamic
+      data: [],
       itemStyle: { color: '#3b82f6' },
       areaStyle: {
         color: new graphic.LinearGradient(0, 0, 0, 1, [
@@ -94,7 +84,7 @@ const lineOptions = ref<ECOption>({
       }
     },
     {
-      name: "So sánh", // Tuần trước/Tháng trước...
+      name: "So sánh", 
       type: "line",
       smooth: true,
       showSymbol: false,
@@ -105,7 +95,6 @@ const lineOptions = ref<ECOption>({
   ]
 }) as any;
 
-// Hàm cập nhật dữ liệu khi người dùng bấm nút
 const updateChart = () => {
   const type = timeRange.value;
   const { currentData, previousData } = getSeriesData(type);
@@ -114,7 +103,6 @@ const updateChart = () => {
   lineOptions.value.series[0].data = currentData;
   lineOptions.value.series[1].data = previousData;
   
-  // Tùy chỉnh tên Legend cho hợp lý
   if(type === 'week') {
     lineOptions.value.series[0].name = 'Tuần này';
     lineOptions.value.series[1].name = 'Tuần trước';
@@ -127,15 +115,12 @@ const updateChart = () => {
   }
 };
 
-// Khởi chạy
 useEcharts("revenueChart", lineOptions);
 
-// Watch để cập nhật khi biến timeRange thay đổi
 watch(timeRange, () => {
   updateChart();
 });
 
-// Chạy lần đầu
 onMounted(() => {
   updateChart();
 });

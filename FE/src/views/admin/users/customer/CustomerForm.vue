@@ -8,6 +8,8 @@ import {
   NDatePicker,
   NForm,
   NFormItem,
+  NGrid,
+  NGridItem,
   NIcon,
   NInput,
   NPopconfirm,
@@ -32,8 +34,8 @@ import {
   updateAddress,
 } from '@/service/api/admin/users/customer/address'
 
-// --- KHỞI TẠO API ---
-const { message, notification } = createDiscreteApi(['message', 'notification'])
+// --- KHỞI TẠO API (Message & Dialog) ---
+const { message, dialog } = createDiscreteApi(['message', 'dialog'])
 
 // --- STATE ---
 const isAvatarUploading = ref(false)
@@ -195,7 +197,7 @@ async function handleUploadChange({ file }: { file: UploadFileInfo }) {
 
   if (rawFile.size > 5 * 1024 * 1024) {
     uploadKey.value++
-    return notification.error({ title: 'Lỗi', content: 'Ảnh quá lớn (Max 5MB)', duration: 3000 })
+    return message.error('Lỗi: Ảnh quá lớn (Max 5MB)')
   }
 
   if (avatarState.preview)
@@ -213,11 +215,11 @@ async function handleUploadChange({ file }: { file: UploadFileInfo }) {
 
     form.customerAvatar = url
     avatarState.url = url
-    notification.success({ title: 'Thành công', content: 'Tải ảnh thành công', duration: 2000 })
+    message.success('Tải ảnh thành công')
   }
   catch (e: any) {
     console.error('Upload error:', e)
-    notification.error({ title: 'Lỗi', content: 'Tải ảnh thất bại', duration: 3000 })
+    message.error('Tải ảnh thất bại')
   }
   finally {
     isAvatarUploading.value = false
@@ -233,45 +235,63 @@ function triggerUpload() {
     fileInput.click()
 }
 
-// Submit Logic
-async function onSubmit() {
+// --- CONFIRM & SUBMIT LOGIC ---
+async function handleValidateAndSubmit() {
   if (isAvatarUploading.value) {
-    return notification.warning({ title: 'Đợi chút', content: 'Đang tải ảnh lên...', duration: 3000 })
+    return message.warning('Vui lòng đợi ảnh tải lên hoàn tất')
   }
 
   if (!formRef.value)
     return
 
+  // 1. Validate Form
   try {
     cleanAndValidateFormData()
     await formRef.value.validate()
+  }
+  catch (errors) {
+    // Chỉ báo lỗi chung, các trường sẽ tự đỏ
+    return message.error('Vui lòng kiểm tra lại các trường bắt buộc')
+  }
 
-    submitting.value = true
+  // 2. Show Dialog Confirm
+  const actionText = isEditMode.value ? 'cập nhật' : 'thêm mới'
+  dialog.warning({
+    title: 'Xác nhận',
+    content: `Bạn có chắc chắn muốn ${actionText} thông tin khách hàng ${form.customerName}?`,
+    positiveText: 'Đồng ý',
+    negativeText: 'Hủy',
+    onPositiveClick: () => processSubmit(),
+  })
+}
+
+async function processSubmit() {
+  submitting.value = true
+  try {
     const payload = buildCustomerPayload()
 
     if (isEditMode.value) {
-      await updateCustomer(customerId.value, payload)
-      notification.success({ title: 'Thành công', content: 'Cập nhật thành công!', duration: 3000 })
+      await updateCustomer(customerId.value!, payload)
+      message.success('Cập nhật thành công!')
     }
     else {
       const result = await createCustomer(payload)
+      // Nếu có địa chỉ mới và tạo thành công KH -> lưu địa chỉ
       if (addresses.value.length > 0 && result.data?.data?.id) {
         await saveAllAddresses(result.data.data.id)
       }
-      notification.success({ title: 'Thành công', content: 'Thêm mới thành công!', duration: 3000 })
+      message.success('Thêm mới thành công!')
     }
     goBack()
   }
   catch (errors: any) {
-    if (Array.isArray(errors)) {
-      notification.warning({ title: 'Dữ liệu không hợp lệ', content: errors[0][0].message, duration: 4000 })
-    }
-    else if (errors?.response) {
+    if (errors?.response) {
       const msg = errors.response?.data?.message || 'Có lỗi xảy ra'
-      notification.error({ title: 'Lỗi hệ thống', content: msg, duration: 4000 })
+      message.error(msg)
     }
     else {
       console.error(errors)
+      message.error('Lỗi hệ thống')
     }
   }
   finally {
@@ -300,14 +320,22 @@ function getDistrictOptions(p?: string) { return addressData.value.find(x => x.c
 function getWardOptions(p?: string, d?: string) { return addressData.value.find(x => x.codename === p)?.districts.find(x => x.codename === d)?.wards.map(w => ({ label: w.name, value: w.codename })) || [] }
 function onProvinceChange(a: ExtendedAddress, v: any) { a.district = null; a.wardCommune = null }
 function onDistrictChange(a: ExtendedAddress, v: any) { a.wardCommune = null }
-function onDefaultChange(a: ExtendedAddress, v: boolean) {
-  if (v) {
+
+// Xử lý khi bật Switch "Mặc định"
+function onDefaultChange(a: ExtendedAddress, val: boolean) {
+  if (val) {
     addresses.value.forEach((x) => {
       if (x !== a)
         x.isDefault = false
     })
   }
+  else {
+    // Logic ngăn không cho tắt nếu nó đang là mặc định (tuỳ nhu cầu),
+    // ở đây giữ nguyên logic cũ của bạn: cho phép tắt, nhưng thường phải có 1 cái default.
+    // Vue sẽ tự cập nhật model 'a.isDefault'
+  }
 }
+
 function resetForm() {
   Object.assign(form, { customerName: '', customerPhone: '', customerEmail: '', customerGender: GENDER.MALE, customerBirthdayStr: null, customerAvatar: '' })
   if (avatarState.preview)
@@ -399,13 +427,11 @@ async function saveAddress(address: ExtendedAddress, index: number) {
         })
       }))
     }
-    notification.success({ title: 'Thành công', content: 'Lưu địa chỉ thành công!', duration: 2000 })
+    message.success('Lưu địa chỉ thành công!')
     await loadAddresses()
   }
   catch (errors: any) {
-    if (Array.isArray(errors))
-      notification.warning({ title: 'Lỗi địa chỉ', content: errors[0][0].message, duration: 3000 })
-    else notification.error({ title: 'Lỗi', content: 'Không lưu được địa chỉ', duration: 3000 })
+    message.error('Vui lòng kiểm tra lại thông tin địa chỉ')
   }
   finally { addressSubmitting.value = false }
 }
@@ -414,13 +440,13 @@ async function handleDeleteAddress(address: ExtendedAddress, index: number) {
   try {
     if (address.id && isEditMode.value) {
       await deleteAddressApi(customerId.value!, address.id)
-      notification.success({ title: 'Đã xóa', content: 'Xóa địa chỉ thành công', duration: 2000 })
+      message.success('Xóa địa chỉ thành công')
     }
     addresses.value.splice(index, 1)
     if (address.isDefault && addresses.value.length > 0)
       addresses.value[0].isDefault = true
   }
-  catch { notification.error({ title: 'Lỗi', content: 'Không xóa được địa chỉ' }) }
+  catch { message.error('Lỗi: Không xóa được địa chỉ') }
 }
 
 async function saveAllAddresses(id: string) {
@@ -442,74 +468,76 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="p-6">
-    <div class="flex items-center justify-between mb-4">
+  <div class="p-4 md:p-6 bg-gray-50/50 min-h-screen">
+    <div class="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-3">
       <div class="flex items-center gap-3">
-        <NButton circle secondary type="default" size="small" @click="goBack">
+        <NButton circle secondary type="default" size="medium" @click="goBack">
           <template #icon>
             <NIcon><Icon icon="mdi:arrow-left" /></NIcon>
           </template>
         </NButton>
         <div class="flex items-center gap-2">
-          <NIcon size="24" class="text-green-600">
+          <NIcon size="28" class="text-green-600">
             <Icon icon="carbon:user-profile" />
           </NIcon>
-          <span class="font-bold text-xl text-gray-800">{{ isEditMode ? 'Sửa khách hàng' : 'Thêm khách hàng' }}</span>
+          <span class="font-bold text-xl md:text-2xl text-gray-800">{{ isEditMode ? 'Sửa khách hàng' : 'Thêm khách hàng' }}</span>
         </div>
       </div>
     </div>
 
-    <NCard title="Thông tin chung" class="shadow-sm rounded-lg border border-gray-100" content-style="padding: 24px;">
+    <NCard title="Thông tin chung" class="shadow-sm rounded-xl border border-gray-100" content-style="padding: 24px;">
       <NForm
         ref="formRef"
         :rules="FORM_RULES"
         :model="form"
-        :show-feedback="false"
+        :show-feedback="true"
         label-placement="top"
         class="text-base"
       >
-        <div class="grid grid-cols-12 gap-8">
-          <div class="col-span-12 md:col-span-3 flex flex-col items-center">
-            <div class="relative group">
-              <img
-                :src="avatarSrc"
-                class="w-40 h-40 rounded-full object-cover border-4 border-gray-100 shadow-md group-hover:border-green-100 transition-all cursor-pointer"
-                alt="Avatar"
-                @click="triggerUpload"
-              >
-              <div
-                class="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                @click="triggerUpload"
-              >
-                <div class="text-center text-white">
-                  <Icon icon="mdi:camera" class="text-3xl mb-1" />
-                  <div class="text-xs font-medium">
-                    Đổi ảnh
+        <NGrid x-gap="24" y-gap="16" cols="1 768:12">
+          <NGridItem span="1 768:3">
+            <div class="flex flex-col items-center">
+              <div class="relative group">
+                <img
+                  :src="avatarSrc"
+                  class="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-lg group-hover:border-green-100 transition-all cursor-pointer"
+                  alt="Avatar"
+                  @click="triggerUpload"
+                >
+                <div
+                  class="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  @click="triggerUpload"
+                >
+                  <div class="text-center text-white">
+                    <Icon icon="mdi:camera" class="text-3xl mb-1" />
+                    <div class="text-xs font-medium">
+                      Đổi ảnh
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div class="mt-4 flex flex-col items-center">
-              <NUpload
-                ref="uploadRef"
-                :key="uploadKey"
-                :max="1"
-                accept="image/*"
-                :default-upload="false"
-                :on-change="handleUploadChange"
-                :show-file-list="false"
-                style="display: none;"
-              />
-              <NButton secondary size="small" :loading="isAvatarUploading" @click="triggerUpload">
-                Chọn ảnh
-              </NButton>
-              <span class="text-xs text-gray-400 mt-2">Dưới 2MB (300x300px)</span>
+              <div class="mt-4 flex flex-col items-center">
+                <NUpload
+                  ref="uploadRef"
+                  :key="uploadKey"
+                  :max="1"
+                  accept="image/*"
+                  :default-upload="false"
+                  :on-change="handleUploadChange"
+                  :show-file-list="false"
+                  style="display: none;"
+                />
+                <NButton secondary size="small" :loading="isAvatarUploading" @click="triggerUpload">
+                  Chọn ảnh
+                </NButton>
+                <span class="text-xs text-gray-400 mt-2">Max 5MB</span>
+              </div>
             </div>
-          </div>
+          </NGridItem>
 
-          <div class="col-span-12 md:col-span-9">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          <NGridItem span="1 768:9">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2">
               <NFormItem path="customerName" label="Họ và tên">
                 <NInput v-model:value="form.customerName" placeholder="Nhập họ và tên" size="large" />
               </NFormItem>
@@ -529,7 +557,7 @@ onMounted(async () => {
                   type="date"
                   class="w-full"
                   size="large"
-                  placeholder="Nhập ngày, tháng, năm sinh"
+                  placeholder="Chọn ngày sinh"
                 />
               </NFormItem>
 
@@ -542,31 +570,31 @@ onMounted(async () => {
                 />
               </NFormItem>
             </div>
-          </div>
-        </div>
+          </NGridItem>
+        </NGrid>
       </NForm>
     </NCard>
 
-    <NCard title="Danh sách địa chỉ" class="mt-6 shadow-sm rounded-lg border border-gray-100">
-      <div class="space-y-4">
-        <div v-if="addresses.length > 0" class="space-y-4">
+    <NCard title="Danh sách địa chỉ" class="mt-6 shadow-sm rounded-xl border border-gray-100">
+      <div class="space-y-6">
+        <template v-if="addresses.length > 0">
           <div
             v-for="(address, index) in addresses" :key="address.id || index"
-            class="border border-gray-200 rounded-lg p-5 bg-gray-50 relative hover:shadow-md transition-shadow"
-            :class="{ 'ring-2 ring-green-500 ring-opacity-50 bg-green-50': address.isDefault }"
+            class="border border-gray-200 rounded-xl p-4 md:p-6 bg-white relative transition-all hover:shadow-md"
+            :class="{ 'ring-2 ring-green-500 ring-opacity-50 bg-green-50/30': address.isDefault }"
           >
-            <div v-if="address.isDefault" class="absolute top-0 right-0 bg-green-600 text-white text-xs px-3 py-1 rounded-bl-lg rounded-tr-lg font-medium shadow-sm">
+            <div v-if="address.isDefault" class="absolute top-0 right-0 bg-green-600 text-white text-[10px] md:text-xs px-3 py-1 rounded-bl-lg rounded-tr-lg font-bold shadow-sm z-10">
               Mặc định
             </div>
 
-            <div v-if="isEditMode" class="absolute top-4 right-4" :class="{ 'top-8': address.isDefault }">
+            <div class="absolute top-3 right-3 z-10" :class="{ 'top-8': address.isDefault }">
               <NPopconfirm
-                positive-text="Đồng ý"
-                negative-text="Quay lại"
+                positive-text="Xóa"
+                negative-text="Hủy"
                 @positive-click="handleDeleteAddress(address, index)"
               >
                 <template #trigger>
-                  <NButton text type="error" class="hover:bg-red-100 p-1 rounded">
+                  <NButton text type="error" class="hover:bg-red-50 p-1 rounded-full transition-colors">
                     <NIcon size="20">
                       <Icon icon="mdi:trash-can-outline" />
                     </NIcon>
@@ -582,14 +610,14 @@ onMounted(async () => {
               :model="address"
               :show-feedback="false"
               label-placement="top"
-              class="text-base"
             >
-              <div class="grid grid-cols-12 gap-4">
-                <div class="col-span-12 font-semibold text-gray-700 mb-2 flex items-center gap-2">
-                  <Icon icon="mdi:map-marker" class="text-gray-400" /> Địa chỉ {{ index + 1 }}
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div class="md:col-span-12 font-bold text-gray-700 mb-1 flex items-center gap-2 border-b pb-2">
+                  <Icon icon="mdi:map-marker-radius" class="text-green-600 text-xl" />
+                  <span>Địa chỉ {{ index + 1 }}</span>
                 </div>
 
-                <div class="col-span-12 md:col-span-4">
+                <div class="md:col-span-4">
                   <NFormItem path="provinceCity" label="Tỉnh/Thành phố">
                     <NSelect
                       v-model:value="address.provinceCity"
@@ -601,7 +629,7 @@ onMounted(async () => {
                     />
                   </NFormItem>
                 </div>
-                <div class="col-span-12 md:col-span-4">
+                <div class="md:col-span-4">
                   <NFormItem path="district" label="Quận/Huyện">
                     <NSelect
                       v-model:value="address.district"
@@ -613,7 +641,7 @@ onMounted(async () => {
                     />
                   </NFormItem>
                 </div>
-                <div class="col-span-12 md:col-span-4">
+                <div class="md:col-span-4">
                   <NFormItem path="wardCommune" label="Phường/Xã">
                     <NSelect
                       v-model:value="address.wardCommune"
@@ -624,19 +652,29 @@ onMounted(async () => {
                     />
                   </NFormItem>
                 </div>
-                <div class="col-span-12">
+                <div class="md:col-span-12">
                   <NFormItem path="addressDetail" label="Địa chỉ chi tiết">
-                    <NInput v-model:value="address.addressDetail" type="textarea" :autosize="{ minRows: 2, maxRows: 2 }" placeholder="Số nhà, tên đường..." />
+                    <NInput v-model:value="address.addressDetail" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" placeholder="Số nhà, tên đường..." />
                   </NFormItem>
                 </div>
 
-                <div class="col-span-12 flex justify-between items-end border-t pt-3 mt-1">
+                <div class="md:col-span-12 flex flex-col md:flex-row justify-between items-start md:items-center border-t pt-3 mt-1 gap-3">
                   <NFormItem label="Đặt làm mặc định" class="mb-0">
-                    <NSwitch v-model:value="address.isDefault" @update:value="onDefaultChange(address, $event)" />
+                    <NPopconfirm
+                      :disabled="address.isDefault"
+                      @positive-click="onDefaultChange(address, true)"
+                    >
+                      <template #trigger>
+                        <div class="inline-block" @click.stop>
+                          <NSwitch :value="address.isDefault" :disabled="address.isDefault" />
+                        </div>
+                      </template>
+                      Bạn có muốn đặt địa chỉ này làm mặc định?
+                    </NPopconfirm>
                   </NFormItem>
 
-                  <div v-if="isEditMode">
-                    <NButton type="primary" size="small" ghost :loading="addressSubmitting" @click="saveAddress(address, index)">
+                  <div v-if="isEditMode" class="w-full md:w-auto">
+                    <NButton block md:inline-block type="primary" size="small" secondary :loading="addressSubmitting" @click="saveAddress(address, index)">
                       <template #icon>
                         <NIcon><Icon icon="mdi:content-save" /></NIcon>
                       </template>
@@ -647,17 +685,20 @@ onMounted(async () => {
               </div>
             </NForm>
           </div>
-        </div>
+        </template>
 
-        <div v-else class="text-center py-10 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <Icon icon="mdi:map-marker-off" class="text-4xl text-gray-300 mb-2" />
-          <p class="text-gray-500">
-            Chưa có địa chỉ nào được thêm
+        <div v-else class="text-center py-12 bg-white rounded-xl border-2 border-dashed border-gray-200">
+          <Icon icon="carbon:location-heart-filled" class="text-5xl text-gray-200 mb-3 mx-auto" />
+          <p class="text-gray-500 font-medium">
+            Chưa có địa chỉ nào
+          </p>
+          <p class="text-gray-400 text-sm">
+            Vui lòng thêm địa chỉ giao hàng
           </p>
         </div>
 
         <div class="flex justify-center pt-2">
-          <NButton type="primary" secondary dashed class="w-full md:w-auto" @click="addNewAddress">
+          <NButton type="primary" dashed class="w-full md:w-auto px-8" size="medium" @click="addNewAddress">
             <template #icon>
               <NIcon><Icon icon="mdi:plus" /></NIcon>
             </template>
@@ -667,30 +708,22 @@ onMounted(async () => {
       </div>
     </NCard>
 
-    <div class="flex justify-end gap-4 mt-8 pt-4 border-t sticky bottom-0 bg-white z-10 pb-4">
+    <div class="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t p-4 mt-8 -mx-4 md:-mx-6 z-20 flex justify-end gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
       <NButton size="large" @click="goBack">
         Hủy bỏ
       </NButton>
-      <NPopconfirm
-        :show-icon="false"
-        positive-text="Đồng ý"
-        negative-text="Quay lại"
-        @positive-click="onSubmit"
+      <NButton
+        type="primary"
+        :loading="submitting"
+        size="large"
+        class="px-8 shadow-lg shadow-green-500/30"
+        @click="handleValidateAndSubmit"
       >
-        <template #trigger>
-          <NButton type="primary" :loading="submitting" size="large" class="px-8 shadow-md">
-            {{ submitButtonText }}
-          </NButton>
+        <template #icon>
+          <Icon icon="carbon:save" />
         </template>
-        <div class="max-w-xs">
-          <p class="font-semibold mb-2 text-base">
-            Xác nhận lưu
-          </p>
-          <p class="text-sm text-gray-600">
-            Bạn có chắc chắn muốn lưu thông tin khách hàng <strong>{{ form.customerName }}</strong>?
-          </p>
-        </div>
-      </NPopconfirm>
+        {{ submitButtonText }}
+      </NButton>
     </div>
   </div>
 </template>

@@ -48,6 +48,7 @@ export interface ADVoucherUpsertPayload {
   endDate: number
   note?: string | null
   quantity?: number | null
+  status?: string | null
   voucherUsers?: { customer: { id: string } }[]
 }
 

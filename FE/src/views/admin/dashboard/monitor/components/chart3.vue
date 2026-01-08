@@ -34,7 +34,7 @@ const option = ref<ECOption>({
       data: [
         {
           value: 0,
-          name: "Đang xử lý",
+          name: "Đang xử lý ",
         },
         {
           value: 1,
@@ -48,6 +48,7 @@ const option = ref<ECOption>({
           value: 0,
           name: "Đơn huỷ",
         },
+
       ],
     },
   ],

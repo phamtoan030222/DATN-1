@@ -10,7 +10,6 @@ public class ADStaffRequest extends PageableRequest {
 
     private String name;
     private String role;
-    private String email;
-    private String phone;
+    private String key;
     private String status;
 }
