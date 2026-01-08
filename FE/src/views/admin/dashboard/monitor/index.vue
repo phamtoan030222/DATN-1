@@ -21,6 +21,13 @@ const tableData = [
     stt: "1",
     name: "Dell imposen 1",
     brand: "Dell",
+    soLuong: "3",
+  },
+  {
+    id: 2,
+    stt: "2",
+    name: "Pegasus",
+    brand: "AS",
     soLuong: "2",
   },
 ];
@@ -85,7 +92,7 @@ const tableData2 = [
         <div style="color: #18a058; font-size: 28px; font-weight: 800; line-height: 1.2;">
           <n-number-animation
             :from="0"
-            :to="240000"
+            :to="600000"
             show-separator
           />
           <span style="font-size: 20px; margin-left: 4px">₫</span>
@@ -95,7 +102,7 @@ const tableData2 = [
         </div>
         <!-- <n-tag color="{ color: '#0ea5e9', textColor: '#fff' }" round size="small" style="background-color: #0ea5e9; color: white; border: none; font-weight: 600;">
           -0% <span style="font-weight: normal; margin-left: 4px;">so với tháng trước</span>
-        </n-tag> -->
+        </n-tag>  -->
       </div>
 
       <n-grid x-gap="12" cols="2" style="margin-bottom: 16px;">
@@ -112,7 +119,7 @@ const tableData2 = [
         <n-gi>
           <div style="border: 1px solid #f3f4f6; border-radius: 8px; padding: 12px 8px; text-align: center;">
             <div style="font-weight: 700; font-size: 15px;">
-              <n-number-animation :from="0" :to="240000" show-separator /> ₫
+              <n-number-animation :from="0" :to="600000" show-separator /> ₫
             </div>
             <div style="font-size: 11px; color: #6b7280; margin-top: 4px;">
               Tuần 1
@@ -123,7 +130,7 @@ const tableData2 = [
 
       <div style="background-color: #f0fdf4; border-radius: 8px; padding: 12px; text-align: center;">
         <div style="color: #18a058; font-weight: 800; font-size: 18px;">
-          <n-number-animation :from="0" :to="240000" show-separator /> ₫
+          <n-number-animation :from="0" :to="600000" show-separator /> ₫
         </div>
         <div style="color: #15803d; font-size: 11px; margin-top: 2px;">
           Doanh thu năm 2026
@@ -167,7 +174,7 @@ const tableData2 = [
       <div style="margin-bottom: 24px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
           <span style="font-size: 13px; color: #374151;">Tỷ lệ hoàn thành</span>
-          <n-tag color="{ color: '#ef4444', textColor: '#fff' }" size="small" style="background-color: #ef4444; color: white; border: none; font-weight: 700; height: 20px; padding: 0 6px;">
+          <n-tag :color="{ color: '#ef4444', textColor: '#fff' }" size="small" style="background-color: #ef4444; color: white; border: none; font-weight: 700; height: 20px; padding: 0 6px;">
             100%
           </n-tag>
         </div>
@@ -177,7 +184,7 @@ const tableData2 = [
           :show-indicator="false"
           color="#10b981"
           rail-color="#f3f4f6"
-          height="8"
+          :height="8"
           style="margin-top: 4px;"
         />
       </div>
@@ -195,7 +202,7 @@ const tableData2 = [
 
         <div class="status-item">
           <div style="display: flex; align-items: center;">
-            <n-icon color="#3b82f6" size="20" style="margin-right: 10px; background: #eff6ff; padding: 0.5px; border-radius: 50%;">
+            <n-icon color="#3b82f6" size="20" style="margin-right: 10px; background: #eff6ff; padding: 0.1px; border-radius: 50%;">
               <settings-outline />
             </n-icon>
             <span style="font-size: 13px; color: #4b5563;">Đang xử lý</span>
@@ -215,7 +222,7 @@ const tableData2 = [
 
         <div class="status-item">
           <div style="display: flex; align-items: center;">
-            <n-icon color="#ef4444" size="20" style="margin-right: 10px; background: #fef2f2; padding: 0.5px; border-radius: 50%;">
+            <n-icon color="#ef4444" size="20" style="margin-right: 10px; background: #fef2f2; padding: 0.1px; border-radius: 50%;">
               <close-circle-outline />
             </n-icon>
             <span style="font-size: 13px; color: #4b5563;">Đã hủy</span>
@@ -297,6 +304,13 @@ const tableData2 = [
             <div style="display: flex; align-items: center;">
               <span class="rank-badge rank-1">1</span>
               <span style="font-size: 13px; color: #4b5563;">Dell imposen 1</span>
+            </div>
+            <n-tag size="small" :bordered="false" style="background-color: #ecfdf5; color: #10b981; font-weight: 700;">3</n-tag>
+          </div>
+          <div class="product-item">
+            <div style="display: flex; align-items: center;">
+              <span class="rank-badge rank-1">2</span>
+              <span style="font-size: 13px; color: #4b5563;">Pegasus</span>
             </div>
             <n-tag size="small" :bordered="false" style="background-color: #ecfdf5; color: #10b981; font-weight: 700;">2</n-tag>
           </div>
@@ -382,7 +396,7 @@ const tableData2 = [
           :show-indicator="false"
           color="#10b981"
           rail-color="#f3f4f6"
-          height="8"
+          :height="8"
           style="margin-top: 4px;"
         />
         <div style="font-size: 11px; color: #6b7280; margin-top: 6px;">
