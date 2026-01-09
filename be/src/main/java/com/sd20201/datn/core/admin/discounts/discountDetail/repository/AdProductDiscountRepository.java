@@ -13,6 +13,7 @@ public interface AdProductDiscountRepository extends ProductRepository {
                    c.code AS productCode,
                    c.name AS productName,
                    b.name AS productBrand,
+                   c.createdDate AS createdDate,
                    COUNT(pd.id) AS quantity
             FROM Product c
                      JOIN c.brand b

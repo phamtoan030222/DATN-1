@@ -1,10 +1,9 @@
 package com.sd20201.datn.core.admin.statistics.model.response;
 
-public interface AdInvoiceResponse {
+public interface AdProductResponse {
     String getId();
-    String getProductName();
-    String getProductBrand();
+    String getName();
+    String getBrandName();
     Integer getQuantity();
-    Integer getPrice();
     Long getCreatedDate();
 }

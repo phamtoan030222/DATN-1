@@ -1,63 +1,57 @@
 <script setup lang="ts">
+import { ref, watch, onMounted } from "vue";
 import { useEcharts } from "@/hooks";
-import type { ECOption } from "@/hooks";
+import { statisticsApi } from "@/service/api/admin/statistics/api";
 
-const option = ref<ECOption>({
-  tooltip: {
+const props = defineProps<{ filterType: string }>();
+
+const pieOptions = ref<any>({
+  tooltip: { 
     trigger: "item",
-    formatter: "{b} : {d}%",
+    formatter: "{b}: {c} đơn ({d}%)"
   },
-  legend: {
+  legend: { 
     orient: "horizontal",
-    top: 30,
-    padding: 5,
-    itemWidth: 20,
-    itemHeight: 12,
-    textStyle: {
-      color: "#777",
-    },
+    bottom: '0%', 
+    left: 'center',
+    itemWidth: 14,
+    itemHeight: 14
   },
   series: [
     {
       type: "pie",
-      radius: ["45%", "60%"],
-      center: ["50%", "50%"],
-      label: {
-        show: true,
-        formatter: "{b} : {d}%",
-        color: "#777",
+      radius: ["40%", "70%"],
+      center: ['50%', '45%'],
+      itemStyle: { 
+        borderRadius: 8, 
+        borderColor: '#fff', 
+        borderWidth: 2 
       },
-      labelLine: {
-        show: true,
-        length2: 10,
+      label: { 
+        show: true, 
+        formatter: "{b}\n{c}",
+        color: "#666"
       },
-      data: [
-        {
-          value: 0,
-          name: "Đang xử lý ",
-        },
-        {
-          value: 1,
-          name: "Đã thanh toán",
-        },
-        {
-          value: 0,
-          name: "Chờ xác nhận",
-        },
-        {
-          value: 0,
-          name: "Đơn huỷ",
-        },
+      data: [] // Sẽ được điền từ API
+    }
+  ]
+});
 
-      ],
-    },
-  ],
-}) as Ref<ECOption>;
-useEcharts("lineRef", option);
+const fetchPieData = async () => {
+  try {
+    const res = await statisticsApi.getOrderStatusChart(props.filterType);
+    if (res) {
+      pieOptions.value.series[0].data = res;
+      pieOptions.value = { ...pieOptions.value };
+    }
+  } catch(e) { console.error(e); }
+};
+
+useEcharts("pieChart", pieOptions);
+watch(() => props.filterType, fetchPieData);
+onMounted(fetchPieData);
 </script>
 
 <template>
-  <div ref="lineRef" class="h-400px" />
+  <div ref="pieChart" style="height: 350px; width: 100%;" />
 </template>
-
-<style scoped></style>
