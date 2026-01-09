@@ -45,7 +45,7 @@ public class TokenProvider {
     @Value("${jwt.secret}")
     private String tokenSecret;
 
-    private final long TOKEN_EXP = System.currentTimeMillis() + 2 * 60 * 60 * 100000;
+    private final long TOKEN_EXP = 15 * 60 * 1000;
 
     private final AuthStaffRepository staffRepository;
 
@@ -83,7 +83,7 @@ public class TokenProvider {
                 .setSubject(subject)
                 .setClaims(claims)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(TOKEN_EXP))
+                .setExpiration(new Date(System.currentTimeMillis() + TOKEN_EXP))
                 .setIssuer("sd20201.datn")
                 .signWith(Keys.hmacShaKeyFor(tokenSecret.getBytes()))
                 .compact();
@@ -126,7 +126,7 @@ public class TokenProvider {
                 .setSubject(subject)
                 .setClaims(claims)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(TOKEN_EXP))
+                .setExpiration(new Date(System.currentTimeMillis() + TOKEN_EXP))
                 .setIssuer("sd20201.datn")
                 .signWith(Keys.hmacShaKeyFor(tokenSecret.getBytes()))
                 .compact();
@@ -166,7 +166,7 @@ public class TokenProvider {
                 .setSubject(subject)
                 .setClaims(claims)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(TOKEN_EXP))
+                .setExpiration(new Date(System.currentTimeMillis() + TOKEN_EXP))
                 .setIssuer("sd20201.datn")
                 .signWith(Keys.hmacShaKeyFor(tokenSecret.getBytes()))
                 .compact();
@@ -181,7 +181,7 @@ public class TokenProvider {
                 .setSubject(subject)
                 .setClaims(claims)
                 .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(TOKEN_EXP))
+                .setExpiration(new Date(System.currentTimeMillis() + TOKEN_EXP))
                 .setIssuer("sd20201.datn")
                 .signWith(Keys.hmacShaKeyFor(tokenSecret.getBytes()))
                 .compact();
