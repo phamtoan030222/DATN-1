@@ -12,7 +12,7 @@ public interface AdProductRespone {
 
     String getProductBrand();
 
-    Long getCreateDate();
+    Long getCreatedDate();
 
     Long getQuantity();
 }
