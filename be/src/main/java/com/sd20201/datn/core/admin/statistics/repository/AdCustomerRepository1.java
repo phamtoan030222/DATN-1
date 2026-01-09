@@ -7,6 +7,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
+
 @Repository
 public interface AdCustomerRepository1 extends JpaRepository<Customer, String> {
     // 1. Đếm tổng khách hàng (Dựa theo Role, ví dụ Role KH là 2 hoặc tên là 'USER')
@@ -18,4 +20,7 @@ public interface AdCustomerRepository1 extends JpaRepository<Customer, String> {
     // created_date nằm trong class cha PrimaryEntity
     @Query(value = "SELECT COUNT(*) FROM customer WHERE created_date BETWEEN :start AND :end", nativeQuery = true)
     Integer countNewCustomers(@Param("start") Long start, @Param("end") Long end);
+
+    @Query(value = "SELECT created_date FROM customer ORDER BY created_date DESC", nativeQuery = true)
+    List<Long> getAllCustomerCreatedDates();
 }

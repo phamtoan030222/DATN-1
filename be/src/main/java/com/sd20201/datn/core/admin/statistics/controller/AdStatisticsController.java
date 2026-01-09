@@ -9,8 +9,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
+import java.io.IOException;
 import java.util.List;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+
 
 @RestController
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_STATISTICS)
@@ -18,6 +23,21 @@ import java.util.List;
 public class AdStatisticsController {
     private final AdStatisticsService adStatisticsService;
 
+
+    @GetMapping("/export/revenue")
+    public ResponseEntity<byte[]> exportRevenue() {
+        try {
+            byte[] excelContent = adStatisticsService.exportRevenueToExcel();
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=BaoCaoDoanhThu.xlsx")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(excelContent);
+        } catch (IOException e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().build();
+        }
+    }
     // 1. API Tổng quan (3 Card trên cùng)
     @GetMapping("/overview")
     public ResponseObject<AdDashboardOverviewResponse> getOverview() {

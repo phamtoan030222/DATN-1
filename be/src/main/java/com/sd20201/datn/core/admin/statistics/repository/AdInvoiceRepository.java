@@ -50,4 +50,12 @@ public interface AdInvoiceRepository extends InvoiceRepository {
     @Query(value = "SELECT COUNT(*) FROM invoice", nativeQuery = true)
     long countAllInvoices();
 
+    @Query(value = """
+        SELECT i.code, i.name_receiver, i.phone_receiver, i.total_amount, i.created_date, i.status 
+        FROM invoice i 
+        ORDER BY i.created_date DESC 
+        LIMIT 100
+    """, nativeQuery = true)
+    List<Object[]> getRecentOrdersForExport();
+
 }

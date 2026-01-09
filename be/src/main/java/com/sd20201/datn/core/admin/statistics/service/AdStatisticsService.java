@@ -4,7 +4,7 @@ import com.sd20201.datn.core.admin.statistics.model.response.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import java.util.List;
-
+import java.io.IOException;
 public interface AdStatisticsService {
     AdDashboardOverviewResponse getDashboardOverview();
 
@@ -18,4 +18,6 @@ public interface AdStatisticsService {
 
     // Bảng sản phẩm sắp hết
     Page<AdProductResponse> getLowStockProducts(Integer limit, Pageable pageable);
+    byte[] exportRevenueToExcel() throws IOException;
+
 }

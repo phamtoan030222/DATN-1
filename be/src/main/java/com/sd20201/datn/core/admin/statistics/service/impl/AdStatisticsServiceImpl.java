@@ -10,6 +10,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.apache.poi.ss.util.CellRangeAddress;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 import java.time.*;
 import java.util.*;
@@ -261,5 +266,264 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
     @Override
     public Page<AdProductResponse> getLowStockProducts(Integer limit, Pageable pageable) {
         return productRepo.getLowStockProducts(limit, pageable);
+    }
+
+    @Override
+    public byte[] exportRevenueToExcel() throws IOException {
+        // 1. Lấy dữ liệu (Ví dụ: Lấy 30 ngày gần nhất tính từ hôm nay)
+        LocalDateTime end = LocalDateTime.now();
+        LocalDateTime start = end.minusYears(1);
+
+        // A. Lấy dữ liệu từ các Repo
+        List<AdChartResponse> revenueData = invoiceRepo.getRawRevenueData(toMilis(start), toMilis(end));
+        List<AdChartResponse> topSelling = productRepo.getTopSellingProductsChart(toMilis(start), toMilis(end), PageRequest.of(0, 20));
+        List<AdProductResponse> lowStock = productRepo.getLowStockProducts(10, PageRequest.of(0, 100)).getContent();
+        List<AdChartResponse> topBrands = productRepo.getTop3Brands();
+        List<Object[]> recentOrders = invoiceRepo.getRecentOrdersForExport();
+
+        // F. Khách hàng: Lấy danh sách ngày tạo
+        List<Long> customerDates = customerRepo.getAllCustomerCreatedDates();
+
+        // B. Tạo File Excel
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            // Tạo các Sheet
+            createRevenueSheet(workbook, revenueData);      // Sheet 1: Doanh thu
+            createTopSellingSheet(workbook, topSelling);    // Sheet 2: Bán chạy
+            createLowStockSheet(workbook, lowStock);        // Sheet 3: Sắp hết
+            createTopBrandsSheet(workbook, topBrands);      // Sheet 4: Thương hiệu
+            createOrdersSheet(workbook, recentOrders);      // Sheet 5: Đơn hàng
+
+            // === SHEET 6: KHÁCH HÀNG (THỐNG KÊ THEO THÁNG) ===
+            createCustomersSheet(workbook, customerDates);
+
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+
+    private void createCustomersSheet(Workbook wb, List<Long> dates) {
+        Sheet sheet = wb.createSheet("Tăng Trưởng Khách Hàng");
+
+        // Header
+        createHeader(wb, sheet, new String[]{"Tháng", "Số Khách Mới Đăng Ký"});
+
+        // Map dùng để đếm: Key="01/2026", Value=Số lượng
+        Map<String, Integer> countMap = new LinkedHashMap<>();
+
+        if (dates != null) {
+            for (Long timestamp : dates) {
+                if(timestamp == null) continue;
+
+                // Convert Timestamp -> LocalDate
+                LocalDate date = Instant.ofEpochMilli(timestamp)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate();
+
+                // Tạo Key định dạng "MM/yyyy" (Ví dụ: 01/2026)
+                String key = String.format("%02d/%d", date.getMonthValue(), date.getYear());
+
+                // Cộng dồn số lượng vào Map
+                countMap.put(key, countMap.getOrDefault(key, 0) + 1);
+            }
+        }
+
+        // Ghi dữ liệu từ Map vào Excel
+        int rowIdx = 1;
+        for (Map.Entry<String, Integer> entry : countMap.entrySet()) {
+            Row row = sheet.createRow(rowIdx++);
+
+            // Cột 1: Tháng (Key)
+            row.createCell(0).setCellValue(entry.getKey());
+
+            // Cột 2: Số lượng (Value)
+            row.createCell(1).setCellValue(entry.getValue());
+        }
+
+        // Auto resize cột
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
+    }
+
+
+    private void createRevenueSheet(Workbook wb, List<AdChartResponse> data) {
+        Sheet sheet = wb.createSheet("Doanh Thu");
+        createHeader(wb, sheet, new String[]{"STT", "Ngày", "Doanh Thu (VNĐ)"});
+
+        int rowIdx = 1;
+        long total = 0;
+        CellStyle currencyStyle = createCurrencyStyle(wb);
+
+        if (data != null) {
+            for (AdChartResponse item : data) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(rowIdx - 1);
+
+                // Parse ngày từ timestamp
+                try {
+                    long timestamp = Long.parseLong(item.getName());
+                    LocalDate date = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDate();
+                    row.createCell(1).setCellValue(date.toString());
+                } catch (Exception e) {
+                    row.createCell(1).setCellValue(item.getName());
+                }
+
+                Long val = item.getValue() == null ? 0L : item.getValue();
+                total += val;
+                Cell money = row.createCell(2);
+                money.setCellValue(val);
+                money.setCellStyle(currencyStyle);
+            }
+        }
+        // Dòng Tổng cộng
+        Row totalRow = sheet.createRow(rowIdx);
+        totalRow.createCell(1).setCellValue("TỔNG CỘNG:");
+        Cell totalVal = totalRow.createCell(2);
+        totalVal.setCellValue(total);
+        totalVal.setCellStyle(currencyStyle);
+
+        sheet.autoSizeColumn(1);
+        sheet.setColumnWidth(2, 5000);
+    }
+
+    // 2. Sheet SP Bán Chạy
+    private void createTopSellingSheet(Workbook wb, List<AdChartResponse> data) {
+        Sheet sheet = wb.createSheet("Bán Chạy");
+        createHeader(wb, sheet, new String[]{"Hạng", "Tên Sản Phẩm", "Số Lượng Bán"});
+
+        int rowIdx = 1;
+        if (data != null) {
+            for (AdChartResponse item : data) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(rowIdx - 1);
+                row.createCell(1).setCellValue(item.getName());
+                row.createCell(2).setCellValue(item.getValue() == null ? 0 : item.getValue());
+            }
+        }
+        sheet.autoSizeColumn(1);
+    }
+
+    // 3. Sheet Sắp Hết Hàng
+    private void createLowStockSheet(Workbook wb, List<AdProductResponse> data) {
+        Sheet sheet = wb.createSheet("Sắp Hết");
+        createHeader(wb, sheet, new String[]{"STT", "Tên Sản Phẩm", "Thương Hiệu", "Tồn Kho"});
+
+        int rowIdx = 1;
+        if (data != null) {
+            for (AdProductResponse item : data) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(rowIdx - 1);
+                row.createCell(1).setCellValue(item.getName());
+                row.createCell(2).setCellValue(item.getBrandName());
+
+                Cell qty = row.createCell(3);
+                qty.setCellValue(item.getQuantity());
+
+                // Tô đỏ nếu hết hàng (số lượng = 0)
+                if (item.getQuantity() == 0) {
+                    CellStyle redStyle = wb.createCellStyle();
+                    Font font = wb.createFont();
+                    font.setColor(IndexedColors.RED.getIndex());
+                    redStyle.setFont(font);
+                    qty.setCellStyle(redStyle);
+                }
+            }
+        }
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(2);
+    }
+
+    // 4. Sheet Thương Hiệu
+    private void createTopBrandsSheet(Workbook wb, List<AdChartResponse> data) {
+        Sheet sheet = wb.createSheet("Thương Hiệu Hot");
+        createHeader(wb, sheet, new String[]{"Hạng", "Thương Hiệu", "Số Sản Phẩm Bán"});
+
+        int rowIdx = 1;
+        if (data != null) {
+            for (AdChartResponse item : data) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue(rowIdx - 1);
+                row.createCell(1).setCellValue(item.getName());
+                row.createCell(2).setCellValue(item.getValue());
+            }
+        }
+        sheet.autoSizeColumn(1);
+    }
+
+    // 5. Sheet Đơn Hàng
+    private void createOrdersSheet(Workbook wb, List<Object[]> data) {
+        Sheet sheet = wb.createSheet("Đơn Hàng Mới");
+        createHeader(wb, sheet, new String[]{"Mã ĐH", "Khách Hàng", "SĐT", "Tổng Tiền", "Ngày Tạo", "Trạng Thái"});
+
+        CellStyle currency = createCurrencyStyle(wb);
+        CellStyle dateStyle = wb.createCellStyle();
+        dateStyle.setDataFormat(wb.createDataFormat().getFormat("dd/mm/yyyy hh:mm"));
+
+        int rowIdx = 1;
+        if (data != null) {
+            for (Object[] obj : data) {
+                Row row = sheet.createRow(rowIdx++);
+                // obj[0]: code, [1]: name, [2]: phone, [3]: amount, [4]: date, [5]: status
+                row.createCell(0).setCellValue(obj[0] != null ? obj[0].toString() : "");
+                row.createCell(1).setCellValue(obj[1] != null ? obj[1].toString() : "Khách lẻ");
+                row.createCell(2).setCellValue(obj[2] != null ? obj[2].toString() : "");
+
+                Cell money = row.createCell(3);
+                money.setCellValue(obj[3] != null ? Double.parseDouble(obj[3].toString()) : 0);
+                money.setCellStyle(currency);
+
+                // Date
+                try {
+                    long ts = Long.parseLong(obj[4].toString());
+                    Cell dt = row.createCell(4);
+                    dt.setCellValue(new java.util.Date(ts));
+                    dt.setCellStyle(dateStyle);
+                } catch (Exception e) {}
+
+                // Status Mapping
+                String statusStr = "Khác";
+                try {
+                    int st = Integer.parseInt(obj[5].toString());
+                    if (st == 0) statusStr = "Đã thanh toán";
+                    else if (st == 1) statusStr = "Chờ xác nhận";
+                    else if (st == 2) statusStr = "Đã hủy";
+                    else if (st == 3) statusStr = "Đang xử lý";
+                } catch (Exception e) {}
+                row.createCell(5).setCellValue(statusStr);
+            }
+        }
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
+        sheet.autoSizeColumn(4);
+    }
+
+    // --- CÁC HÀM TIỆN ÍCH DÙNG CHUNG ---
+
+    // Tạo Header Style (Nền xanh chữ trắng)
+    private void createHeader(Workbook wb, Sheet sheet, String[] cols) {
+        Row row = sheet.createRow(0);
+        CellStyle style = wb.createCellStyle();
+        Font font = wb.createFont();
+        font.setBold(true);
+        font.setColor(IndexedColors.WHITE.getIndex());
+        style.setFont(font);
+        style.setFillForegroundColor(IndexedColors.GREEN.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        style.setAlignment(HorizontalAlignment.CENTER);
+
+        for (int i = 0; i < cols.length; i++) {
+            Cell c = row.createCell(i);
+            c.setCellValue(cols[i]);
+            c.setCellStyle(style);
+        }
+    }
+
+    // Tạo Style tiền tệ (VNĐ)
+    private CellStyle createCurrencyStyle(Workbook wb) {
+        CellStyle style = wb.createCellStyle();
+        style.setDataFormat(wb.createDataFormat().getFormat("#,##0 ₫"));
+        return style;
     }
 }

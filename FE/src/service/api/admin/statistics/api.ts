@@ -2,7 +2,17 @@ import request from '@/service/request'
 import { DefaultResponse, PaginationParams } from '@/typings/api/api.common'
 import { API_ADMIN_STATISTICS } from '@/constants/url' 
 
-
+export const exportRevenueExcel = async () => {
+  try {
+    const res = await request.get(`${API_ADMIN_STATISTICS}/export/revenue`, {
+      responseType: 'blob', 
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Lỗi tải file Excel:", error);
+    throw error;
+  }
+};
 
 export interface TopProductOverview {
   name: string;
@@ -184,5 +194,6 @@ export const statisticsApi = {
   getLowStockProducts,
   getRevenueChart,
   getOrderStatusChart,
-  getTopProductsChart
+  getTopProductsChart,
+  exportRevenueExcel
 }

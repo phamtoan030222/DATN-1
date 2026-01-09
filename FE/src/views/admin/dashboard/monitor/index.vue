@@ -6,11 +6,13 @@ import { DashboardOverviewResponse, statisticsApi } from "@/service/api/admin/st
 import Chart from "./components/chart.vue";
 import Chart3 from "./components/chart3.vue";
 import ChartProduct from "./components/ChartProduct.vue";
+
 // Icons
 import { 
   LogoUsd, CubeOutline, PeopleOutline, CartOutline, 
-  TrendingUpOutline, TrendingDownOutline, BarChartOutline 
+  TrendingUpOutline, TrendingDownOutline, BarChartOutline ,CloudDownloadOutline
 } from '@vicons/ionicons5';
+
 import { NTag } from "naive-ui";
 import { NDatePicker } from "naive-ui";
 
@@ -42,6 +44,29 @@ const pagination = reactive({
     fetchLowStock(); 
   }
 });
+
+//gửi mail
+const handleExportExcel = async () => {
+  try {
+    window.$message.loading("Đang tạo file Excel...");
+    const blob = await statisticsApi.exportRevenueExcel();
+    
+    const url = window.URL.createObjectURL(new Blob([blob]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `Bao_cao_doanh_thu_${new Date().toISOString().slice(0,10)}.xlsx`);
+    
+    document.body.appendChild(link);
+    link.click();
+    
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    
+    window.$message.success("Tải xuống thành công!");
+  } catch (e) {
+    window.$message.error("Lỗi khi xuất file Excel.");
+  }
+};
 
 const inventoryColumns = [
   { 
@@ -262,6 +287,12 @@ const filterOptions = [
            <span style="font-weight: 700; font-size: 16px;">Thống kê chi tiết</span>
            
            <div style="display: flex; gap: 10px; align-items: center;">
+            <n-button type="primary" size="small" @click="handleExportExcel" style="margin-right: 12px;">
+               <template #icon>
+                 <n-icon><cloud-download-outline /></n-icon>
+               </template>
+               Xuất Excel
+             </n-button>
              <n-radio-group v-model:value="filterType" size="small">
                 <n-radio-button 
                   v-for="opt in filterOptions" 
