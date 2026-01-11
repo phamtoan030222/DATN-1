@@ -491,43 +491,130 @@ const productColumns: DataTableColumns<ProductResponse> = [
   { title: 'Thương hiệu', key: 'productBrand', width: 100 }
 ];
 
+// 1. Cấu hình cột cho bảng "Chưa áp dụng" (DS Chờ)
 const unappliedProductColumns: DataTableColumns<ExtendedProductDetail> = [
   { type: 'selection' },
-  { title: "STT", width: 50, align: "center", render: (_, i) => (unappliedCurrentPage.value - 1) * unappliedPageSize.value + i + 1 },
-  { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
-  { title: 'Màu', key: 'colorName', align: 'center', render: (r:any) => r.colorName || r.color || '-' },
-  { title: 'RAM', key: 'ramName', align: 'center', render: (r:any) => r.ramName || r.ram || '-' },
-  { title: 'HDD', key: 'hardDriveName', align: 'center', render: (r:any) => r.hardDriveName || r.hardDrive || '-' },
-  { title: 'GPU', key: 'gpuName', align: 'center', render: (r:any) => r.gpuName || r.gpu || '-' },
-  { title: 'CPU', key: 'cpuName', align: 'center', render: (r:any) => r.cpuName || r.cpu || '-' },
-  { title: 'Giá giảm', key: 'salePrice', width: 120, align: 'right', render: r => 
-    h('div', { class: 'price-cell' }, [
-      h('div', { style: 'text-decoration:line-through;color:#999;font-size:11px' }, formatPrice(r.price)),
-      h('div', { style: 'color:#d03050;font-weight:bold' }, formatPrice(Math.round(r.price * (100 - formData.percentage) / 100)))
-    ]) 
+  { 
+    title: "STT", 
+    key: "stt",
+    width: 100, 
+    align: "center", 
+    render: (_, i) => (unappliedCurrentPage.value - 1) * unappliedPageSize.value + i + 1 
+  },
+  { 
+    title: 'Mã', 
+    key: 'productCode', 
+    width: 200, 
+    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productCode) 
+  },
+  { 
+    title: 'Tên SP', 
+    key: 'productName', 
+    width: 250, 
+    ellipsis: { tooltip: true } 
+  },
+  { 
+    title: 'Thông số kỹ thuật', 
+    key: 'specs', 
+    render: (r: any) => {
+      const specs = [
+        { label: 'Màu', val: r.colorName || r.color },
+        { label: 'RAM', val: r.ramName || r.ram },
+        { label: 'HDD', val: r.hardDriveName || r.hardDrive },
+        { label: 'GPU', val: r.gpuName || r.gpu },
+        { label: 'CPU', val: r.cpuName || r.cpu },
+      ].filter(item => item.val && item.val !== '-');
+      
+      return h('div', { style: 'font-size: 12px; line-height: 1.5;' }, 
+        specs.map(spec => h('div', {}, [
+          h('span', { style: 'color: #888; margin-right: 4px;' }, `${spec.label}:`),
+          h('span', { style: 'font-weight: 500; color: #333;' }, spec.val)
+        ]))
+      );
+    }
+  },
+  { 
+    title: 'Giá giảm dự kiến', 
+    key: 'salePrice', 
+    width: 140, 
+    align: 'right', 
+    render: r => {
+      const sale = Math.round(r.price * (100 - formData.percentage) / 100);
+      return h('div', { style: 'padding-right: 20px;' }, [
+        h('div', { style: 'text-decoration:line-through;color:#999;font-size:12px' }, formatPrice(r.price)),
+        h('div', { style: 'color:#d03050;font-weight:bold;font-size:14px' }, formatPrice(sale))
+      ]);
+    } 
   }
 ];
 
+// 2. Cấu hình cột cho bảng "Đã áp dụng" (DS Hiện có)
 const appliedProductColumns: DataTableColumns<AppliedProductResponse> = [
   { type: 'selection', disabled: () => !canUpdateProducts.value },
-  { title: "STT", key: "stt", width: 50, align: "center", render: (_, i) => (appliedCurrentPage.value - 1) * appliedPageSize.value + i + 1 },
-  { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
-  { title: 'Màu', key: 'colorName', align: 'center', render: (r:any) => r.colorName || r.color || '-' },
-  { title: 'RAM', key: 'ramName', align: 'center', render: (r:any) => r.ramName || r.ram || '-' },
-  { title: 'HDD', key: 'hardDriveName', align: 'center', render: (r:any) => r.hardDriveName || r.hardDrive || '-' },
-  { title: 'GPU', key: 'gpuName', align: 'center', render: (r:any) => r.gpuName || r.gpu || '-' },
-  { title: 'CPU', key: 'cpuName', align: 'center', render: (r:any) => r.cpuName || r.cpu || '-' },
-  { title: 'Giá giảm', key: 'salePrice', width: 120, align: 'right', render: r => 
-    h('div', [
-      h('div', { style: 'color:#d03050;font-weight:bold' }, formatPrice(Math.round(r.price * (100 - r.percentageDiscount) / 100))),
-      h('div', { style: 'font-size:10px;color:#666' }, `-${r.percentageDiscount}%`)
-    ]) 
+  { 
+    title: "STT", 
+    key: "stt", 
+    width: 100, 
+    align: "center", 
+    render: (_, i) => (appliedCurrentPage.value - 1) * appliedPageSize.value + i + 1 
+  },
+  { 
+    title: 'Mã', 
+    key: 'productCode', 
+    width: 200, 
+    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productCode) 
+  },
+  { 
+    title: 'Tên SP', 
+    key: 'productName', 
+    width: 250, 
+    ellipsis: { tooltip: true } 
+  },
+  { 
+    title: 'Thông số kỹ thuật', 
+    key: 'specs', 
+    render: (r: any) => {
+      const specs = [
+        { label: 'Màu', val: r.colorName || r.color },
+        { label: 'RAM', val: r.ramName || r.ram },
+        { label: 'HDD', val: r.hardDriveName || r.hardDrive },
+        { label: 'GPU', val: r.gpuName || r.gpu },
+        { label: 'CPU', val: r.cpuName || r.cpu },
+      ].filter(item => item.val && item.val !== '-');
+      
+      return h('div', { style: 'font-size: 12px; line-height: 1.5;' }, 
+        specs.map(spec => h('div', {}, [
+          h('span', { style: 'color: #888; margin-right: 4px;' }, `${spec.label}:`),
+          h('span', { style: 'font-weight: 500; color: #333;' }, spec.val)
+        ]))
+      );
+    }
+  },
+  { 
+    title: 'Giá đang bán', 
+    key: 'salePrice', 
+    width: 140, 
+    align: 'right', 
+    render: r => {
+       const salePrice = Math.round(r.price * (100 - r.percentageDiscount) / 100);
+       return h('div', { style: 'padding-right: 20px;' }, [
+         h('div', { style: 'color:#d03050;font-weight:bold;font-size:14px' }, formatPrice(salePrice)),
+         h('div', { style: 'font-size:11px;color:#666' }, `Giảm: ${r.percentageDiscount}%`)
+       ]);
+    } 
   },
   { 
     title: '', key: 'actions', width: 60, 
     render: r => {
       if (!canUpdateProducts.value) return null;
-      return h(NPopconfirm, { onPositiveClick: () => handleRemoveProduct(r.id), positiveText: 'Xóa', negativeText: 'Hủy' }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true, circle: true }, { icon: () => h(Icon, { icon: 'carbon:trash-can' }) }), default: () => 'Gỡ sản phẩm này?' });
+      return h(NPopconfirm, { 
+        onPositiveClick: () => handleRemoveProduct(r.id), 
+        positiveText: 'Xóa', 
+        negativeText: 'Hủy' 
+      }, { 
+        trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true, circle: true }, { icon: () => h(Icon, { icon: 'carbon:trash-can' }) }), 
+        default: () => 'Gỡ sản phẩm này?' 
+      });
     }
   }
 ];

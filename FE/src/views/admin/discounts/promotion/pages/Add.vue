@@ -18,49 +18,42 @@
     <div class="form-section">
       <NCard title="Thông tin đợt giảm giá">
         <NForm ref="formRef" :model="formData" :rules="formRules">
-          <NSpace vertical :size="16">
-            <div class="form-row">
-              <NFormItem label="Tên đợt giảm giá" path="discountName" required>
-                <NInput v-model:value="formData.discountName" placeholder="Ví dụ: Sale tết 2025" maxlength="100" show-count />
-              </NFormItem>
-              <NFormItem label="Mã giảm giá" path="discountCode" required>
-                <NInput v-model:value="formData.discountCode" placeholder="Mã giảm giá" maxlength="50">
-                  <template #suffix>
-                    <NButton text @click="generateCode" title="Tạo mã tự động"><NIcon size="16"><Icon icon="carbon:rotate" /></NIcon></NButton>
-                  </template>
-                </NInput>
-              </NFormItem>
-            </div>
+        <NSpace vertical :size="16">
+  <div class="form-row">
+    <NFormItem label="Tên đợt giảm giá" path="discountName" required>
+      <NInput v-model:value="formData.discountName" placeholder="Ví dụ: Sale tết 2025" maxlength="100" show-count />
+    </NFormItem>
 
-            <div class="form-row">
-              <NFormItem label="Ngày bắt đầu" path="startDate" required>
-                <NDatePicker v-model:value="formData.startDate" type="datetime" placeholder="Bắt đầu" style="width: 100%" :is-date-disabled="(ts) => ts < Date.now() - 86400000" />
-              </NFormItem>
-              <NFormItem label="Ngày kết thúc" path="endDate" required>
-                <NDatePicker v-model:value="formData.endDate" type="datetime" placeholder="Kết thúc" style="width: 100%" :is-date-disabled="(ts) => ts <= formData.startDate" />
-              </NFormItem> 
-            </div>
+    <NFormItem label="Phần trăm giảm giá (%)" path="percentage" required>
+      <NInputNumber v-model:value="formData.percentage" :min="1" :max="100" placeholder="Nhập 1-100" style="width: 100%" @keydown="preventNonNumericInput" />
+    </NFormItem>
+  </div>
 
-            <NFormItem label="Phần trăm giảm giá (%)" path="percentage" required>
-              <NInputNumber v-model:value="formData.percentage" :min="1" :max="100" placeholder="Nhập 1-100" style="width: 100%" @keydown="preventNonNumericInput" />
-            </NFormItem>
+  <div class="form-row">
+    <NFormItem label="Ngày bắt đầu" path="startDate" required>
+      <NDatePicker v-model:value="formData.startDate" type="datetime" placeholder="Bắt đầu" style="width: 100%" :is-date-disabled="(ts) => ts < Date.now() - 86400000" />
+    </NFormItem>
+    <NFormItem label="Ngày kết thúc" path="endDate" required>
+      <NDatePicker v-model:value="formData.endDate" type="datetime" placeholder="Kết thúc" style="width: 100%" :is-date-disabled="(ts) => ts <= formData.startDate" />
+    </NFormItem> 
+  </div>
 
-            <NFormItem label="Mô tả" path="description">
-              <NInput v-model:value="formData.description" type="textarea" placeholder="Mô tả..." maxlength="500" show-count :rows="3" />
-            </NFormItem>
+  <NFormItem label="Mô tả" path="description">
+    <NInput v-model:value="formData.description" type="textarea" placeholder="Mô tả..." maxlength="500" show-count :rows="3" />
+  </NFormItem>
 
-            <NSpace justify="space-between" style="margin-top: 24px;">
-              <NButton @click="$router.back()">Hủy</NButton>
-              <NPopconfirm @positive-click="handleSubmit" positive-text="Đồng ý" negative-text="Hủy">
-                <template #trigger>
-                  <NButton type="primary" :loading="submitting">
-                    <template #icon><NIcon><Icon icon="carbon:save" /></NIcon></template> Tạo và Áp dụng
-                  </NButton>
-                </template>
-                Bạn có chắc chắn muốn tạo đợt giảm giá này không?
-              </NPopconfirm>
-            </NSpace>
-          </NSpace>
+  <NSpace justify="space-between" style="margin-top: 24px;">
+    <NButton @click="$router.back()">Hủy</NButton>
+    <NPopconfirm @positive-click="handleSubmit" positive-text="Đồng ý" negative-text="Hủy">
+      <template #trigger>
+        <NButton type="primary" :loading="submitting">
+          <template #icon><NIcon><Icon icon="carbon:save" /></NIcon></template> Tạo và Áp dụng
+        </NButton>
+      </template>
+      Bạn có chắc chắn muốn tạo đợt giảm giá này không?
+    </NPopconfirm>
+  </NSpace>
+</NSpace>
         </NForm>
       </NCard>
     </div>
@@ -75,9 +68,19 @@
           </div>
         </template>
         <div class="flex justify-between items-center mb-2" v-if="checkedProductKeys.length > 0">
-          <NTag type="info" size="small">Đã chọn: {{ checkedProductKeys.length }} sản phẩm cha</NTag>
+          <NTag type="info" size="small">Đã chọn: {{ checkedProductKeys.length }} Sản phẩm </NTag>
         </div>
-        <NDataTable :columns="productColumns" :data="paginatedProducts" :loading="loadingProducts" :row-key="(row) => row.id" v-model:checked-row-keys="checkedProductKeys" :pagination="false" striped max-height="400px" />
+        <NDataTable 
+        :columns="productColumns" 
+        :data="paginatedProducts" 
+        :loading="loadingProducts" 
+        :row-key="(row) => row.id" 
+        v-model:checked-row-keys="checkedProductKeys" 
+        :pagination="false" 
+        striped max-height="400px"
+        style="width: 100%; min-width: 580px;"
+        class="no-scroll-table"
+         />
         <div class="flex justify-end mt-4" v-if="filteredProducts.length > 0">
           <NPagination v-model:page="productCurrentPage" :page-size="productPageSize" :page-count="Math.ceil(filteredProducts.length / productPageSize)" />
         </div>
@@ -88,7 +91,7 @@
   <NCard title="Danh sách Sản Phẩm Chi Tiết sẽ áp dụng" style="margin-top: 16px;" v-if="selectedProductDetails.length > 0">
     <div class="filter-container mb-4">
       <NGrid :x-gap="12" :y-gap="8" :cols="24">
-        <NGridItem :span="5"><div class="filter-label">Tên SPCT</div><NInput v-model:value="filterState.name" placeholder="Tìm tên..." clearable size="small" /></NGridItem>
+        <NGridItem :span="5"><div class="filter-label">Tên SP</div><NInput v-model:value="filterState.name" placeholder="Tìm tên..." clearable size="small" /></NGridItem>
         <NGridItem :span="3"><div class="filter-label">Màu sắc</div><NSelect v-model:value="filterState.color" :options="uniqueColors" placeholder="Màu" clearable size="small" /></NGridItem>
         <NGridItem :span="3"><div class="filter-label">RAM</div><NSelect v-model:value="filterState.ram" :options="uniqueRams" placeholder="RAM" clearable size="small" /></NGridItem>
         <NGridItem :span="3"><div class="filter-label">Ổ cứng</div><NSelect v-model:value="filterState.hardDrive" :options="uniqueHardDrives" placeholder="Ổ cứng" clearable size="small" /></NGridItem>
@@ -104,7 +107,16 @@
       <NTag type="success" size="small">Hiển thị: {{ filteredDetails.length }} | Đã chọn: {{ selectedDetailKeys.length }}</NTag>
     </div>
 
-    <NDataTable :columns="productDetailColumns" :data="paginatedDetails" :row-key="(row) => row.id" v-model:checked-row-keys="selectedDetailKeys" :pagination="false" striped size="small" max-height="400" />
+    <NDataTable 
+    :columns="productDetailColumns" 
+    :data="paginatedDetails" 
+    :row-key="(row) => row.id" 
+    v-model:checked-row-keys="selectedDetailKeys" 
+    :pagination="false" 
+    striped size="small" 
+    max-height="400" 
+    style="width: 100%; min-width: 580px;"
+    class="no-scroll-table"/>
     <div class="flex justify-end mt-4"><NPagination v-model:page="detailCurrentPage" :page-size="detailPageSize" :page-count="Math.ceil(filteredDetails.length / detailPageSize)" /></div>
   </NCard>
 </template>
@@ -307,7 +319,7 @@ const fetchAndAddDetails = async (productId: string) => {
       if (availableDetails.length < details.length && availableDetails.length > 0) {
           // Vẫn hiện những cái chưa bận
       } else if (availableDetails.length === 0) {
-          message.warning(`Tất cả biến thể của sản phẩm này đã bận trong khung giờ này.`);
+          message.warning(`Tất cả biến thể của sản phẩm này đã áp dụng trong đợt giảm giá khác trong khung giờ này.`);
       }
 
       const detailsWithParent: ExtendedProductDetail[] = availableDetails.map((d: any) => ({...d, _parentId: productId}));
@@ -368,18 +380,60 @@ const productColumns: DataTableColumns<ProductResponse> = [
   { title: 'Thương hiệu', key: 'productBrand', width: 120 },
 ];
 
+
 const productDetailColumns: DataTableColumns<ExtendedProductDetail> = [
   { type: 'selection' },
-  { title: "STT", key: "stt", width: 50, align: "center", render: (_, i) => (detailCurrentPage.value - 1) * detailPageSize.value + i + 1 },
-  { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
-  { title: 'Màu', key: 'colorName', align: 'center', render: (r:any) => r.colorName || r.color || '-' },
-  { title: 'RAM', key: 'ramName', align: 'center', render: (r:any) => r.ramName || r.ram || '-' },
-  { title: 'HDD', key: 'hardDriveName', align: 'center', render: (r:any) => r.hardDriveName || r.hardDrive || '-' },
-  { title: 'GPU', key: 'gpuName', align: 'center', render: (r:any) => r.gpuName || r.gpu || '-' },
-  { title: 'CPU', key: 'cpuName', align: 'center', render: (r:any) => r.cpuName || r.cpu || '-' },
-  { title: 'Giá áp dụng', key: 'price', width: 140, align: 'right', render: (r) => {
+  { 
+    title: "STT", 
+    key: "stt", 
+    width: 100, 
+    align: "center", 
+    render: (_, i) => (detailCurrentPage.value - 1) * detailPageSize.value + i + 1 
+  },
+
+  { 
+    title: 'Mã', 
+    key: 'productCode', 
+    width: 200, 
+    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productCode) 
+  },
+  // ----------------------
+  { 
+    title: 'Tên SP', 
+    key: 'productName', 
+    width: 250, 
+    ellipsis: { tooltip: true } 
+  },
+  { 
+    title: 'Thông số kỹ thuật', 
+    key: 'specs', 
+    render: (r: any) => {
+      const specs = [
+        { label: 'Màu', val: r.colorName || r.color },
+        { label: 'RAM', val: r.ramName || r.ram },
+        { label: 'Ổ cứng', val: r.hardDriveName || r.hardDrive },
+        { label: 'GPU', val: r.gpuName || r.gpu },
+        { label: 'CPU', val: r.cpuName || r.cpu },
+      ].filter(item => item.val && item.val !== '-');
+      return h('div', { style: 'font-size: 12px; line-height: 1.5;' }, 
+        specs.map(spec => 
+          h('div', {}, [
+            h('span', { style: 'color: #888; margin-right: 4px;' }, `${spec.label}:`),
+            h('span', { style: 'font-weight: 500; color: #333;' }, spec.val)
+          ])
+        )
+      );
+    }
+  },
+  // ---------------------------
+  { 
+    title: 'Giá áp dụng', 
+    key: 'price', 
+    width: 140, 
+    align: 'right', 
+    render: (r) => {
       const sale = Math.round(r.price * (100 - formData.percentage) / 100);
-      return h('div', { class: 'price-cell' }, [
+      return h('div',{ style: 'padding-right: 20px;' }, [
         h('div', { style: 'text-decoration: line-through; color: #999; font-size: 11px;' }, formatPrice(r.price)),
         h('div', { style: 'color: #d03050; font-weight: bold;' }, formatPrice(sale))
       ]);
