@@ -3,6 +3,7 @@ import { API_ADMIN_PRODUCT_DETAIL } from '@/constants/url'
 import request from '@/service/request'
 import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import type { AxiosResponse } from 'axios'
+import { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 export type ADProductDetailRequest = PaginationParams & {
   idProduct?: string | null
@@ -63,7 +64,7 @@ export interface ADProductDetailDetailResponse {
   price: number
 }
 
-export interface ADPRPropertiesComboboxResponse {
+export type ADPRPropertiesComboboxResponse = SelectMixedOption & {
   label: string
   value: string
 }

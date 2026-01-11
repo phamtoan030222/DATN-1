@@ -40,7 +40,8 @@
                 <n-space justify="end">
                     <n-button @click="handleClickCancel">Hủy</n-button>
                     <n-popconfirm @positive-click="handleClickOK" @negative-click="handleClickCancel"
-                        :positive-button-props="{ type: 'info' }">
+                    :positive-text="'Xác nhận'" :negative-text="'Hủy'"
+                    >
                         <template #trigger>
                             <n-button type="success">Xác nhận</n-button>
                         </template>

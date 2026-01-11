@@ -219,6 +219,7 @@ async function handleChangeStatusImei(idImei: string) {
           <n-popconfirm
             :positive-button-props="{ type: 'info' }" @positive-click="handleClickOK"
             @negative-click="handleClickCancel"
+            :positive-text="'Xác nhận'" :negative-text="'Hủy'"
           >
             <template #trigger>
               <NButton type="success">
