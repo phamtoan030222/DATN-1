@@ -32,7 +32,7 @@ import { getCustomers } from '@/service/api/admin/users/customer/customer'
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
-const dialog = useDialog() // Init Dialog
+const dialog = useDialog()
 
 const mode = computed(() => route.path.includes('/add') ? 'add' : 'edit')
 const voucherId = computed(() => route.params.id as string | null)
@@ -46,7 +46,9 @@ const voucherUsersFormItemRef = ref<FormItemInst | null>(null)
 const isLoadingData = ref(false)
 const loading = ref(false)
 const loadingCustomers = ref(false)
-// const showConfirm = ref(false) // Removed, using dialog instead
+
+// Biến kiểm tra chế độ xem chi tiết
+const isViewOnly = ref(false)
 
 // Biến lưu trạng thái ban đầu để kiểm tra logic chặn sửa
 const originalTargetType = ref<string>('')
@@ -67,7 +69,7 @@ const newVoucher = ref<Partial<ADVoucherResponse>>({
   targetType: 'ALL_CUSTOMERS',
   quantity: null,
   voucherUsers: [],
-  status: 'ACTIVE', // Default status
+  status: 'ACTIVE',
 })
 
 /* ====== Khối khách hàng ====== */
@@ -81,7 +83,16 @@ const initialAssignedCustomers = ref<Customer[]>([])
 /* ===================== Computed ===================== */
 const showQuantity = computed(() => newVoucher.value.targetType === 'ALL_CUSTOMERS')
 
-// Kiểm tra xem khách hàng này có phải là khách cũ (đã lưu DB) không để chặn xoá
+// Tiêu đề trang linh hoạt
+const pageTitle = computed(() => {
+  if (mode.value === 'add')
+    return 'Thêm Phiếu Giảm Giá'
+  if (isViewOnly.value)
+    return 'Chi tiết Phiếu Giảm Giá'
+  return 'Sửa Phiếu Giảm Giá'
+})
+
+// Kiểm tra xem khách hàng này có phải là khách cũ (đã lưu DB) không
 function isFixedCustomer(id: string | number) {
   if (mode.value !== 'edit')
     return false
@@ -97,7 +108,7 @@ const selectedCustomers = computed(() => {
   }).filter((c): c is Customer => !!c)
 })
 
-/* ===================== Rules ===================== */
+/* ===================== Rules (VALIDATION) ===================== */
 const addVoucherRules: FormRules = {
   name: { required: true, message: 'Nhập tên phiếu', trigger: ['input', 'blur'] },
   typeVoucher: { required: true, message: 'Chọn loại', trigger: ['change'] },
@@ -107,20 +118,65 @@ const addVoucherRules: FormRules = {
       if (v == null)
         return new Error('Nhập giá trị')
       if (newVoucher.value.typeVoucher === 'PERCENTAGE' && (v <= 0 || v >= 100))
-        return new Error('0 < % < 100')
+        return new Error('giá trị phải nằm trong khoảng từ 1 đến 99')
       if (newVoucher.value.typeVoucher === 'FIXED_AMOUNT' && v <= 0)
-        return new Error('> 0')
+        return new Error('Phải lớn hơn 0')
       return true
     },
     trigger: ['blur', 'change'],
   },
-  maxValue: { type: 'number', required: true, validator: (_r, v) => v == null ? new Error('Nhập tối đa') : true, trigger: ['blur', 'change'] },
-  startDate: { type: 'number', required: true, message: 'Chọn ngày bắt đầu', trigger: ['change'] },
-  endDate: { type: 'number', required: true, validator: (_r, v) => v == null || v <= (newVoucher.value.startDate || 0) ? new Error('Ngày kết thúc sai') : true, trigger: ['change'] },
+  maxValue: {
+    type: 'number',
+    required: true,
+    validator: (_r, v) => v == null ? new Error('Nhập tối đa') : true,
+    trigger: ['blur', 'change'],
+  },
+  // --- VALIDATE NGÀY BẮT ĐẦU ---
+  startDate: {
+    type: 'number',
+    required: true,
+    trigger: ['blur', 'change'],
+    validator: (_rule, value) => {
+      if (!value)
+        return new Error('Chọn ngày bắt đầu')
+      // Nếu đã có ngày kết thúc, kiểm tra Start < End
+      if (newVoucher.value.endDate && value >= newVoucher.value.endDate) {
+        return new Error('Ngày bắt đầu phải nhỏ hơn ngày kết thúc')
+      }
+      return true
+    },
+  },
+  // --- VALIDATE NGÀY KẾT THÚC ---
+  endDate: {
+    type: 'number',
+    required: true,
+    trigger: ['blur', 'change'],
+    validator: (_rule, value) => {
+      if (!value)
+        return new Error('Chọn ngày kết thúc')
+      // Nếu đã có ngày bắt đầu, kiểm tra End > Start
+      if (newVoucher.value.startDate && value <= newVoucher.value.startDate) {
+        return new Error('Ngày kết thúc phải lớn hơn ngày bắt đầu')
+      }
+      return true
+    },
+  },
   targetType: { required: true, message: 'Chọn đối tượng', trigger: ['change'] },
-  quantity: [{ required: true, validator: (_r, v) => newVoucher.value.targetType === 'ALL_CUSTOMERS' && (!v || v <= 0) ? new Error('Nhập số lượng') : true, trigger: ['blur', 'change'] }],
-  conditions: [{ required: true, validator: (_r, v) => (!v || v <= 0) ? new Error('Nhập điều kiện') : true, trigger: ['blur', 'change'] }],
-  voucherUsers: [{ required: true, validator: (_r, v: any[]) => newVoucher.value.targetType === 'INDIVIDUAL' && (!v || v.length === 0) ? new Error('Chọn khách hàng') : true, trigger: ['change'] }],
+  quantity: [{
+    required: true,
+    validator: (_r, v) => newVoucher.value.targetType === 'ALL_CUSTOMERS' && (!v || v <= 0) ? new Error('Nhập số lượng') : true,
+    trigger: ['blur', 'change'],
+  }],
+  conditions: [{
+    required: true,
+    validator: (_r, v) => (!v || v <= 0) ? new Error('Nhập điều kiện') : true,
+    trigger: ['blur', 'change'],
+  }],
+  voucherUsers: [{
+    required: true,
+    validator: (_r, v: any[]) => newVoucher.value.targetType === 'INDIVIDUAL' && (!v || v.length === 0) ? new Error('Chọn khách hàng') : true,
+    trigger: ['change'],
+  }],
 }
 
 /* ===================== Methods ===================== */
@@ -135,9 +191,16 @@ async function loadVoucherData() {
       const res = await getVoucherById(voucherId.value)
       if (res?.data) {
         const v = res.data
-        const validType = (['PERCENTAGE', 'FIXED_AMOUNT'] as const).includes(v.typeVoucher) ? v.typeVoucher : 'PERCENTAGE'
 
-        // Lưu lại type gốc để disable radio nếu cần
+        const now = Date.now()
+        if (v.startDate && v.startDate <= now) {
+          isViewOnly.value = true
+        }
+        else {
+          isViewOnly.value = false
+        }
+
+        const validType = (['PERCENTAGE', 'FIXED_AMOUNT'] as const).includes(v.typeVoucher) ? v.typeVoucher : 'PERCENTAGE'
         originalTargetType.value = v.targetType ?? 'ALL_CUSTOMERS'
 
         newVoucher.value = {
@@ -220,17 +283,16 @@ async function fetchCustomers() {
 }
 
 function onSelectionChange(keys: (string | number)[]) {
-  // Logic chặn bỏ chọn khách cũ
+  if (isViewOnly.value)
+    return
+
   if (mode.value === 'edit' && initialAssignedCustomers.value.length > 0) {
     const fixedIds = initialAssignedCustomers.value.map(c => String(c.id))
     const keysStr = keys.map(String)
-
-    // Tìm xem có id nào trong fixedIds bị thiếu trong keys mới không
     const isMissingFixed = fixedIds.some(fixedId => !keysStr.includes(fixedId))
 
     if (isMissingFixed) {
       message.warning('Không thể bỏ chọn khách hàng đã được gán voucher!')
-      // Restore lại các fixed keys + các keys mới hợp lệ
       const mergedKeys = Array.from(new Set([...fixedIds, ...keysStr]))
       checkedCustomerKeys.value = mergedKeys
       newVoucher.value.voucherUsers = mergedKeys
@@ -244,6 +306,9 @@ function onSelectionChange(keys: (string | number)[]) {
 }
 
 function unselectCustomer(id: string) {
+  if (isViewOnly.value)
+    return
+
   if (isFixedCustomer(id)) {
     message.warning('Không thể huỷ khách hàng cũ')
     return
@@ -278,6 +343,15 @@ watch(() => newVoucher.value.discountValue, (val) => {
     newVoucher.value.maxValue = val
 })
 
+watch(() => newVoucher.value.startDate, () => {
+  if (newVoucher.value.endDate)
+    addFormRef.value?.validate(undefined, rule => rule.key === 'endDate').catch(() => {})
+})
+watch(() => newVoucher.value.endDate, () => {
+  if (newVoucher.value.startDate)
+    addFormRef.value?.validate(undefined, rule => rule.key === 'startDate').catch(() => {})
+})
+
 watch(customerFilters, () => { pagination.value.page = 1; fetchCustomers() }, { deep: true })
 watch(() => pagination.value.page, fetchCustomers)
 
@@ -285,6 +359,9 @@ onMounted(() => { loadVoucherData() })
 
 /* ====== Save with Dialog ====== */
 function handleValidateAndConfirm() {
+  if (isViewOnly.value)
+    return
+
   addFormRef.value?.validate((errors) => {
     if (!errors) {
       dialog.warning({
@@ -313,7 +390,7 @@ async function handleSaveVoucher() {
       startDate: Number(newVoucher.value.startDate),
       endDate: Number(newVoucher.value.endDate),
       note: newVoucher.value.note ?? null,
-      status: newVoucher.value.status, // Send status if API supports it
+      status: newVoucher.value.status,
     }
 
     if (base.targetType === 'ALL_CUSTOMERS') {
@@ -343,17 +420,11 @@ async function handleSaveVoucher() {
   }
 }
 
-// Handle Status Switch with Popconfirm (If you want status toggle here)
-// Note: Usually status is toggled in the list view, but if you want it in the form:
-// function toggleStatus(val: boolean) {
-//   newVoucher.value.status = val ? 'ACTIVE' : 'INACTIVE'
-// }
-
 /* ====== Table ====== */
 const customerColumns: DataTableColumns<Customer> = [
   {
     type: 'selection',
-    disabled: row => !row.id || isFixedCustomer(row.id), // Disable checkbox khách cũ
+    disabled: row => !row.id || isFixedCustomer(row.id) || isViewOnly.value,
   },
   { title: 'STT', key: 'stt', width: 60, render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
   { title: 'Mã', key: 'customerCode', width: 100 },
@@ -364,14 +435,21 @@ const customerColumns: DataTableColumns<Customer> = [
 </script>
 
 <template>
-  <NCard :title="mode === 'edit' ? 'Sửa Phiếu Giảm Giá' : 'Thêm Phiếu Giảm Giá'" class="mt-6">
+  <NCard :title="pageTitle" class="mt-6">
     <NSpin :show="loading || isLoadingData">
       <div class="grid grid-cols-12 gap-6">
         <div
           class="col-span-12 transition-all duration-300"
           :class="newVoucher.targetType === 'INDIVIDUAL' ? 'lg:col-span-7' : 'lg:col-start-3 lg:col-span-8'"
         >
-          <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top">
+          <NForm
+            ref="addFormRef"
+            :model="newVoucher"
+            :rules="addVoucherRules"
+            label-placement="top"
+            :disabled="isViewOnly"
+            :class="{ 'view-only-form': isViewOnly }"
+          >
             <NFormItem label="Tên" path="name">
               <NInput v-model:value="newVoucher.name" placeholder="Nhập tên ..." />
             </NFormItem>
@@ -394,7 +472,7 @@ const customerColumns: DataTableColumns<Customer> = [
                   <NSpace>
                     <NRadio
                       value="ALL_CUSTOMERS"
-                      :disabled="mode === 'edit' && originalTargetType === 'INDIVIDUAL'"
+                      :disabled="isViewOnly || (mode === 'edit' && originalTargetType === 'INDIVIDUAL')"
                     >
                       Tất cả
                     </NRadio>
@@ -420,7 +498,8 @@ const customerColumns: DataTableColumns<Customer> = [
               <NFormItem label="Giảm tối đa" path="maxValue">
                 <NInputNumber
                   v-model:value="newVoucher.maxValue" :min="0" :step="1000"
-                  :disabled="newVoucher.typeVoucher === 'FIXED_AMOUNT'" placeholder="giá trị ..."
+                  :disabled="isViewOnly || newVoucher.typeVoucher === 'FIXED_AMOUNT'"
+                  placeholder="giá trị ..."
                 >
                   <template #suffix>
                     VND
@@ -465,7 +544,7 @@ const customerColumns: DataTableColumns<Customer> = [
                 Quay lại
               </NButton>
 
-              <NButton type="primary" :loading="loading" @click="handleValidateAndConfirm">
+              <NButton v-if="!isViewOnly" type="primary" :loading="loading" @click="handleValidateAndConfirm">
                 Lưu
               </NButton>
             </div>
@@ -475,7 +554,12 @@ const customerColumns: DataTableColumns<Customer> = [
         <div v-if="newVoucher.targetType === 'INDIVIDUAL'" class="col-span-12 lg:col-span-5">
           <NCard title="Chọn khách hàng" size="small" class="mb-3">
             <NSpin :show="loadingCustomers">
-              <NInput v-model:value="customerFilters.keyword" placeholder="Tìm tên, mã, số điện thoại" class="mb-2" />
+              <NInput
+                v-model:value="customerFilters.keyword"
+                placeholder="Tìm tên, mã, số điện thoại"
+                class="mb-2"
+                :disabled="isViewOnly"
+              />
 
               <NDataTable
                 v-model:checked-row-keys="checkedCustomerKeys" :columns="customerColumns" :data="customers"
@@ -498,7 +582,7 @@ const customerColumns: DataTableColumns<Customer> = [
                 <NTag
                   v-for="c in selectedCustomers" :key="c.id"
                   type="success"
-                  :closable="!isFixedCustomer(c.id)"
+                  :closable="!isFixedCustomer(c.id) && !isViewOnly"
                   @close="unselectCustomer(c.id)"
                 >
                   {{ c.customerName || c.id }}
@@ -518,3 +602,46 @@ const customerColumns: DataTableColumns<Customer> = [
     </NSpin>
   </NCard>
 </template>
+
+<style scoped>
+/* --- Style cho chế độ Xem Chi Tiết (View Only) --- */
+
+/* 1. Làm rõ text và input, loại bỏ hiệu ứng mờ */
+:deep(.view-only-form .n-input--disabled),
+:deep(.view-only-form .n-input-number--disabled),
+:deep(.view-only-form .n-date-picker--disabled),
+:deep(.view-only-form .n-radio--disabled),
+:deep(.view-only-form .n-checkbox--disabled) {
+  opacity: 1 !important; /* Hiển thị rõ 100% */
+  cursor: default;       /* SỬA: Đổi cursor thành default (mũi tên bình thường) */
+  background-color: #fafafa; /* Nền xám cực nhạt */
+}
+
+/* 2. Đổi màu chữ thành màu tối (đen/xám đậm) thay vì xám nhạt */
+:deep(.view-only-form .n-input__input-el),
+:deep(.view-only-form .n-input__textarea-el),
+:deep(.view-only-form .n-date-picker-input__value) {
+  color: #333 !important;
+  -webkit-text-fill-color: #333 !important;
+  font-weight: 500;
+  cursor: default; /* Đảm bảo cả text cũng không hiện not-allowed */
+}
+
+/* 3. Chỉnh màu cho Radio button khi disable */
+:deep(.view-only-form .n-radio--disabled .n-radio__label) {
+  color: #333 !important;
+  cursor: default;
+}
+/* Làm đậm chấm tròn đã chọn của radio */
+:deep(.view-only-form .n-radio--disabled.n-radio--checked .n-radio__dot) {
+  background-color: #18a058 !important; /* Giữ màu xanh */
+  border-color: #18a058 !important;
+  opacity: 1 !important;
+}
+
+/* 4. Viền */
+:deep(.view-only-form .n-input--disabled .n-input__border),
+:deep(.view-only-form .n-input--disabled .n-input__state-border) {
+  border-color: #d9d9d9 !important;
+}
+</style>

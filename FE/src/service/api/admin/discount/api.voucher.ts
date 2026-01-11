@@ -27,8 +27,8 @@ export interface ADVoucherResponse {
   maxValue: number | null
   quantity: number | null
   remainingQuantity: number | null
-  startDate: number | null
-  endDate: number | null
+  startDate: number | undefined | null
+  endDate: number | undefined | null
   createdDate: number | null
   conditions: number | null
   note: string | null
