@@ -114,3 +114,12 @@ export async function deleteManyStaff(ids: string[]) {
   })
   return res.data.data
 }
+// Lấy chi tiết 1 nhân viên theo ID
+export async function getStaffById(id: string) {
+  const res = (await request({
+    url: `${API_ADMIN_STAFF}/${id}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<StaffResponse>>
+
+  return res.data.data
+}

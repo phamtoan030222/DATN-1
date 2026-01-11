@@ -1,11 +1,3 @@
-<template>
-  <div class="redirect-container">
-    <p class="redirect-message">
-      <n-spin size="large" />
-    </p>
-  </div>
-</template>
-
 <script lang="ts" setup>
 import { ROLES } from '@/constants/roles'
 import { useAuthStore } from '@/store'
@@ -32,21 +24,31 @@ onMounted(() => {
     authStore.login(
       user,
       accessToken,
-      refreshToken
+      refreshToken,
     )
 
-    if (user.rolesCodes.includes(ROLES.QUAN_LY) && user.roleScreen === "ADMIN") {
+    if (user.rolesCodes.includes(ROLES.QUAN_LY) && user.roleScreen === 'ADMIN') {
       router.push({ name: 'dashboard_sales' })
       return
-    } else if (user.rolesCodes.includes(ROLES.NHAN_VIEN) && user.roleScreen === "ADMIN") {
+    }
+    else if (user.rolesCodes.includes(ROLES.NHAN_VIEN) && user.roleScreen === 'ADMIN') {
       return
-    } else if (user.rolesCodes.includes(ROLES.KHACH_HANG) && user.roleScreen === ROLES.KHACH_HANG) {
+    }
+    else if (user.rolesCodes.includes(ROLES.KHACH_HANG) && user.roleScreen === ROLES.KHACH_HANG) {
       return
     }
   }
-  router.push({ name: "login " })
+  router.push({ name: 'login' })
 })
 </script>
+
+<template>
+  <div class="redirect-container">
+    <p class="redirect-message">
+      <n-spin size="large" />
+    </p>
+  </div>
+</template>
 
 <style scoped>
 .redirect-container {

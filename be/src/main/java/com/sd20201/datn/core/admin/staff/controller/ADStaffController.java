@@ -42,5 +42,10 @@ public class ADStaffController {
         return Helper.createResponseEntity(adStaffService.changeStatusStaff(id));
     }
 
-
+    // Thêm đoạn này vào class ADStaffController
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getStaffDetail(@PathVariable String id) {
+        // Giả sử bạn viết hàm tìm kiếm trong adStaffService
+        return Helper.createResponseEntity(adStaffService.getStaffById(id));
+    }
 }

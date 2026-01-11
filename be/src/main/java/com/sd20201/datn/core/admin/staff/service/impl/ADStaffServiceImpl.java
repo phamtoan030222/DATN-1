@@ -94,5 +94,16 @@ public class ADStaffServiceImpl implements ADStaffService {
         return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật trạng thái thành công", true, null);
     }
 
+    @Override
+    public ResponseObject<?> getStaffById(String id) {
+        Optional<Staff> staffCheck = repo.findById(id);
+
+        if (staffCheck.isEmpty()) {
+            return new ResponseObject<>(null, HttpStatus.NOT_FOUND, "Không tìm thấy nhân viên với ID: " + id);
+        }
+
+        // Trả về đối tượng Staff tìm thấy
+        return new ResponseObject<>(staffCheck.get(), HttpStatus.OK, "Lấy thông tin nhân viên thành công");
+    }
 
 }

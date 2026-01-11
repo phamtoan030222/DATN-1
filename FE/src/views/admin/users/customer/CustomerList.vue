@@ -80,7 +80,7 @@ async function fetchCustomers() {
     const params = {
       page: currentPage.value,
       size: pageSize.value,
-      customerName: filter.customerName || undefined,
+      keyword: filter.customerName || undefined,
       customerGender: filter.customerGender,
       customerStatus: filter.customerStatus,
     }
