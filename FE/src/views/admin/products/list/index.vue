@@ -24,6 +24,7 @@ import {
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
+import * as XLSX from 'xlsx'
 
 // API
 import {
@@ -262,10 +263,10 @@ const columns: DataTableColumns<ADProductResponse> = [
     align: 'left',
     render: (row: ADProductResponse) => h('div',
       [
-        h('div', { span: 6 }, [ h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:tag' }), h('span', `Hãng: ${row.brand}`)]) ]),
-        h('div', { span: 6 }, [ h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', `Pin: ${row.battery}`)]) ]),
-        h('div', { span: 6 }, [ h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:carbon-for-ibm-dotcom' }), h('span', `OS: ${row.operatingSystem}`)]) ]),
-        h('div', { span: 6 }, [ h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'icon-park-outline:monitor' }), h('span', `Màn hình: ${row.screen}`)]) ]),
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:tag' }), h('span', `Hãng: ${row.brand}`)])]),
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', `Pin: ${row.battery}`)])]),
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:carbon-for-ibm-dotcom' }), h('span', `OS: ${row.operatingSystem}`)])]),
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'icon-park-outline:monitor' }), h('span', `Màn hình: ${row.screen}`)])]),
       ],
     )
   },
@@ -350,6 +351,36 @@ const columns: DataTableColumns<ADProductResponse> = [
     },
   },
 ]
+
+function exportToExcel(dataList: ADProductResponse[], fileName: string) {
+  const excelData = dataList.map((item, index) => {
+    return {
+      'STT': index + 1,
+      'Mã sản phẩm': item.code,
+      'Tên sản phẩm': item.name,
+      'Hãng': item.brand,
+      'Pin': item.battery,
+      'Màn hình': item.screen,
+      'Hệ điều hành': item.operatingSystem,
+      'Giá nhỏ nhất': item.minPrice,
+      'Giá lớn nhất': item.maxPrice,
+      'Số lượng': item.quantity,
+      'Link ảnh sản phẩm': item.urlImage,
+    }
+  })
+
+  const ws = XLSX.utils.json_to_sheet(excelData)
+  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 30 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Data')
+  XLSX.writeFile(wb, `${fileName}_${new Date().getTime()}.xlsx`)
+  notification.success({ content: 'Xuất Excel thành công', duration: 3000 })
+}
+
+const exportExcelHandler = () => {
+  exportToExcel(state.data.products, 'Danh_sach_san_pham')
+}
 </script>
 
 <template>
@@ -439,6 +470,17 @@ const columns: DataTableColumns<ADProductResponse> = [
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
+            <NButton type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="file-icons:microsoft-excel" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Xuất Excel
+              </span>
+            </NButton>
             <NButton type="primary" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out"
               @click="handleClickAddProduct()">
               <template #icon>
