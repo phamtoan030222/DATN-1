@@ -20,7 +20,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { getAllDiscounts } from '@/service/api/admin/discount/discountApi'
+import { getAllDiscounts,deleteDiscount } from '@/service/api/admin/discount/discountApi'
 import type { DiscountResponse, ParamsGetDiscount } from '@/service/api/admin/discount/discountApi'
 import { useRouter } from 'vue-router'
 
@@ -42,6 +42,8 @@ const searchForm = reactive({
   dateRange: null as [number, number] | null,
   sortBy: 'createdDate_desc',
 })
+
+
 
 // ================= HELPERS =================
 function formatDateTime(timestamp: number | undefined) {
@@ -172,6 +174,15 @@ const columns: DataTableColumns<DiscountResponse> = [
     minWidth: 200,
     ellipsis: { tooltip: true },
     render: row => row.discountName,
+  },
+  {
+    title: 'SL Sản phẩm',
+    key: 'productCount',
+    width: 120,
+    align: 'center',
+    render: row => {
+      return `${row.productCount || 0} `;
+    }
   },
   {
     title: 'Giá trị',
