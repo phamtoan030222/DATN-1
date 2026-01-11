@@ -13,14 +13,20 @@ import {
   NIcon,
   NInput,
   NPopconfirm,
+  // Thêm mới cho Radio
+  NRadio,
+  NRadioGroup,
   NSelect,
+  NSpace,
   NSwitch,
   NUpload,
 } from 'naive-ui'
+import { useRoute, useRouter } from 'vue-router'
+import { Icon } from '@iconify/vue'
+
+// Import API
 import type { Customer } from '@/service/api/admin/users/customer/customer'
 import type { Address } from '@/service/api/admin/users/customer/address'
-import { Icon } from '@iconify/vue'
-import { useRoute, useRouter } from 'vue-router'
 import {
   createCustomer,
   getCustomerById,
@@ -34,82 +40,32 @@ import {
   updateAddress,
 } from '@/service/api/admin/users/customer/address'
 
-// --- KHỞI TẠO API (Message & Dialog) ---
+// --- KHỞI TẠO API ---
 const { message, dialog } = createDiscreteApi(['message', 'dialog'])
 
 // --- STATE ---
 const isAvatarUploading = ref(false)
 const uploadKey = ref(0)
 
-const GENDER = {
-  MALE: 'true',
-  FEMALE: 'false',
-} as const
-
-const GENDER_OPTIONS: SelectOption[] = [
-  { label: 'Nam', value: GENDER.MALE },
-  { label: 'Nữ', value: GENDER.FEMALE },
-]
+const GENDER = { MALE: 'true', FEMALE: 'false' } as const
+// Không cần GENDER_OPTIONS nữa vì dùng Radio trực tiếp
 
 // --- VALIDATION RULES ---
 const FORM_RULES = {
   customerName: [
-    {
-      required: true,
-      validator(_rule: FormItemRule, value: string) {
-        if (!value?.trim())
-          return new Error('Tên khách hàng không được để trống')
-        const trimmed = value.trim()
-        if (trimmed.length < 2 || trimmed.length > 100)
-          return new Error('Tên từ 2-100 ký tự')
-        if (!/^[a-zA-ZÀ-ỹ\s0-9]+$/.test(trimmed))
-          return new Error('Tên chứa ký tự đặc biệt')
-        return true
-      },
-      trigger: ['blur', 'input'],
-    },
+    { required: true, message: 'Tên khách hàng không được để trống', trigger: ['blur', 'input'] },
+    { min: 2, max: 100, message: 'Tên từ 2-100 ký tự', trigger: ['blur', 'input'] },
   ],
   customerPhone: [
-    {
-      required: true,
-      validator(_rule: FormItemRule, value: string) {
-        if (!value?.trim())
-          return new Error('SĐT không được để trống')
-        if (!/^(03|05|07|08|09)\d{8,9}$/.test(value.replace(/[\s\-()+]/g, '')))
-          return new Error('Số điện thoại không hợp lệ')
-        return true
-      },
-      trigger: ['blur', 'input'],
-    },
+    { required: true, message: 'SĐT không được để trống', trigger: ['blur', 'input'] },
+    { pattern: /^(03|05|07|08|09)\d{8,9}$/, message: 'Số điện thoại không hợp lệ', trigger: ['blur', 'input'] },
   ],
   customerGender: { required: true, message: 'Vui lòng chọn giới tính', trigger: 'change' },
   customerEmail: [
-    {
-      required: true,
-      validator(_rule: FormItemRule, value: string) {
-        if (!value?.trim())
-          return new Error('Email không được để trống')
-        if (!/^[\w.-]+@([\w-]+\.)+[\w-]{2,4}$/.test(value.trim()))
-          return new Error('Email không đúng định dạng')
-        return true
-      },
-      trigger: ['blur', 'input'],
-    },
+    { required: true, message: 'Email không được để trống', trigger: ['blur', 'input'] },
+    { type: 'email', message: 'Email không đúng định dạng', trigger: ['blur', 'input'] },
   ],
-  customerBirthdayStr: [
-    {
-      required: true,
-      validator(_rule: FormItemRule, value: string | null) {
-        if (!value)
-          return new Error('Chưa chọn ngày sinh')
-        const birthDate = new Date(value)
-        if (birthDate >= new Date())
-          return new Error('Ngày sinh phải trong quá khứ')
-        return true
-      },
-      trigger: ['blur', 'change'],
-    },
-  ],
+  customerBirthdayStr: { required: true, message: 'Chưa chọn ngày sinh', trigger: ['blur', 'change'] },
 }
 
 const ADDRESS_FORM_RULES = {
@@ -120,9 +76,7 @@ const ADDRESS_FORM_RULES = {
 }
 
 // Interfaces
-interface Ward { name: string, name_with_type: string, code: number, division_type: string, codename: string, district_code: number }
-interface District { name: string, name_with_type: string, code: number, division_type: string, codename: string, province_code: number, wards: Ward[] }
-interface Province { name: string, name_with_type: string, code: number, division_type: string, codename: string, districts: District[] }
+interface Province { name: string, name_with_type: string, code: number, division_type: string, codename: string, districts: any[] }
 interface CustomerForm { customerName: string, customerPhone: string, customerEmail: string, customerGender: string | null, customerBirthdayStr: string | null, customerAvatar: string }
 interface ExtendedAddress extends Omit<Address, 'provinceCity' | 'district' | 'wardCommune'> { provinceCity?: string | null, district?: string | null, wardCommune?: string | null, ward?: string }
 
@@ -134,9 +88,7 @@ const isEditMode = computed(() => !!customerId.value)
 const formRef = ref<FormInst | null>(null)
 const addressFormsRef = ref<FormInst[]>([])
 
-const loading = ref(false)
 const submitting = ref(false)
-const addressSubmitting = ref(false)
 const addressDataLoading = ref(false)
 const addressData = ref<Province[]>([])
 
@@ -189,36 +141,30 @@ function buildCustomerPayload(): Customer {
   }
 }
 
-// Upload Logic
+// --- UPLOAD LOGIC ---
 async function handleUploadChange({ file }: { file: UploadFileInfo }) {
   const rawFile = file?.file as File | undefined
   if (!rawFile || file.status === 'removed')
     return
-
   if (rawFile.size > 5 * 1024 * 1024) {
     uploadKey.value++
     return message.error('Lỗi: Ảnh quá lớn (Max 5MB)')
   }
-
   if (avatarState.preview)
     URL.revokeObjectURL(avatarState.preview)
   avatarState.preview = URL.createObjectURL(rawFile)
-
   isAvatarUploading.value = true
   let loadingMsg: any = null
-
   try {
     loadingMsg = message.loading('Đang tải ảnh lên...', { duration: 0 })
     const { url } = await uploadAvatar(rawFile)
     if (!url)
       throw new Error('Không nhận được URL ảnh')
-
     form.customerAvatar = url
     avatarState.url = url
     message.success('Tải ảnh thành công')
   }
   catch (e: any) {
-    console.error('Upload error:', e)
     message.error('Tải ảnh thất bại')
   }
   finally {
@@ -228,78 +174,13 @@ async function handleUploadChange({ file }: { file: UploadFileInfo }) {
     uploadKey.value++
   }
 }
-
 function triggerUpload() {
   const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
   if (fileInput)
     fileInput.click()
 }
 
-// --- CONFIRM & SUBMIT LOGIC ---
-async function handleValidateAndSubmit() {
-  if (isAvatarUploading.value) {
-    return message.warning('Vui lòng đợi ảnh tải lên hoàn tất')
-  }
-
-  if (!formRef.value)
-    return
-
-  // 1. Validate Form
-  try {
-    cleanAndValidateFormData()
-    await formRef.value.validate()
-  }
-  catch (errors) {
-    // Chỉ báo lỗi chung, các trường sẽ tự đỏ
-    return message.error('Vui lòng kiểm tra lại các trường bắt buộc')
-  }
-
-  // 2. Show Dialog Confirm
-  const actionText = isEditMode.value ? 'cập nhật' : 'thêm mới'
-  dialog.warning({
-    title: 'Xác nhận',
-    content: `Bạn có chắc chắn muốn ${actionText} thông tin khách hàng ${form.customerName}?`,
-    positiveText: 'Đồng ý',
-    negativeText: 'Hủy',
-    onPositiveClick: () => processSubmit(),
-  })
-}
-
-async function processSubmit() {
-  submitting.value = true
-  try {
-    const payload = buildCustomerPayload()
-
-    if (isEditMode.value) {
-      await updateCustomer(customerId.value!, payload)
-      message.success('Cập nhật thành công!')
-    }
-    else {
-      const result = await createCustomer(payload)
-      // Nếu có địa chỉ mới và tạo thành công KH -> lưu địa chỉ
-      if (addresses.value.length > 0 && result.data?.data?.id) {
-        await saveAllAddresses(result.data.data.id)
-      }
-      message.success('Thêm mới thành công!')
-    }
-    goBack()
-  }
-  catch (errors: any) {
-    if (errors?.response) {
-      const msg = errors.response?.data?.message || 'Có lỗi xảy ra'
-      message.error(msg)
-    }
-    else {
-      console.error(errors)
-      message.error('Lỗi hệ thống')
-    }
-  }
-  finally {
-    submitting.value = false
-  }
-}
-
-// Address Functions
+// --- ADDRESS LOGIC ---
 async function loadAddressData() {
   if (addressData.value.length > 0)
     return
@@ -311,29 +192,129 @@ async function loadAddressData() {
     addressData.value = await res.json()
   }
   catch {
-    addressData.value = [{ name: 'Hà Nội', codename: 'ha_noi', code: 1, division_type: 'tp', phone_code: 24, districts: [] }]
+    addressData.value = [{ name: 'Hà Nội', codename: 'ha_noi', code: 1, division_type: 'tp', districts: [] } as any]
   }
   finally { addressDataLoading.value = false }
 }
 
 function getDistrictOptions(p?: string) { return addressData.value.find(x => x.codename === p)?.districts.map(d => ({ label: d.name, value: d.codename })) || [] }
-function getWardOptions(p?: string, d?: string) { return addressData.value.find(x => x.codename === p)?.districts.find(x => x.codename === d)?.wards.map(w => ({ label: w.name, value: w.codename })) || [] }
+function getWardOptions(p?: string, d?: string) { return addressData.value.find(x => x.codename === p)?.districts.find((x: any) => x.codename === d)?.wards.map((w: any) => ({ label: w.name, value: w.codename })) || [] }
 function onProvinceChange(a: ExtendedAddress, v: any) { a.district = null; a.wardCommune = null }
 function onDistrictChange(a: ExtendedAddress, v: any) { a.wardCommune = null }
 
-// Xử lý khi bật Switch "Mặc định"
-function onDefaultChange(a: ExtendedAddress, val: boolean) {
+// === LOGIC MỚI: Toggle Mặc định (Khóa nút đang active) ===
+function onDefaultChange(targetAddress: ExtendedAddress, val: boolean) {
   if (val) {
-    addresses.value.forEach((x) => {
-      if (x !== a)
-        x.isDefault = false
+    addresses.value.forEach((addr) => {
+      addr.isDefault = (addr === targetAddress)
     })
   }
   else {
-    // Logic ngăn không cho tắt nếu nó đang là mặc định (tuỳ nhu cầu),
-    // ở đây giữ nguyên logic cũ của bạn: cho phép tắt, nhưng thường phải có 1 cái default.
-    // Vue sẽ tự cập nhật model 'a.isDefault'
+    // Không cho phép tắt trực tiếp, phải bật cái khác lên
+    targetAddress.isDefault = true
+    message.warning('Vui lòng chọn địa chỉ khác làm mặc định để thay thế!')
   }
+}
+
+function addNewAddress() {
+  addresses.value.push({ provinceCity: null, district: null, wardCommune: null, addressDetail: '', isDefault: addresses.value.length === 0 })
+}
+
+async function handleDeleteAddress(address: ExtendedAddress, index: number) {
+  try {
+    if (address.id && isEditMode.value) {
+      await deleteAddressApi(customerId.value!, address.id)
+      message.success('Xóa địa chỉ thành công')
+    }
+    addresses.value.splice(index, 1)
+    if (address.isDefault && addresses.value.length > 0) {
+      addresses.value[0].isDefault = true
+    }
+  }
+  catch { message.error('Lỗi: Không xóa được địa chỉ') }
+}
+
+// --- SUBMIT LOGIC ---
+async function handleValidateAndSubmit() {
+  if (isAvatarUploading.value)
+    return message.warning('Vui lòng đợi ảnh tải lên hoàn tất')
+  if (!formRef.value)
+    return
+
+  try {
+    cleanAndValidateFormData()
+    await formRef.value.validate()
+    if (addresses.value.length > 0) {
+      for (const addrForm of addressFormsRef.value) {
+        if (addrForm)
+          await addrForm.validate()
+      }
+    }
+  }
+  catch (errors) {
+    return message.error('Vui lòng kiểm tra lại thông tin nhập liệu')
+  }
+
+  const actionText = isEditMode.value ? 'cập nhật' : 'thêm mới'
+  dialog.warning({
+    title: 'Xác nhận',
+    content: `Bạn có chắc chắn muốn ${actionText} thông tin này?`,
+    positiveText: 'Đồng ý',
+    negativeText: 'Hủy',
+    onPositiveClick: () => processSubmit(),
+  })
+}
+
+async function processSubmit() {
+  submitting.value = true
+  try {
+    const payload = buildCustomerPayload()
+    let currentCustId = customerId.value
+
+    if (isEditMode.value) {
+      await updateCustomer(currentCustId!, payload)
+    }
+    else {
+      const result = await createCustomer(payload)
+      if (result.data?.data?.id) {
+        currentCustId = result.data.data.id
+      }
+      else {
+        throw new Error('Không lấy được ID khách hàng mới')
+      }
+    }
+
+    if (addresses.value.length > 0 && currentCustId) {
+      await syncAddressesToBackend(currentCustId)
+    }
+
+    message.success(isEditMode.value ? 'Cập nhật thành công!' : 'Thêm mới thành công!')
+    goBack()
+  }
+  catch (errors: any) {
+    console.error(errors)
+    const msg = errors.response?.data?.message || 'Có lỗi xảy ra'
+    message.error(msg)
+  }
+  finally {
+    submitting.value = false
+  }
+}
+
+async function syncAddressesToBackend(custId: string) {
+  const promises = addresses.value.map((addr) => {
+    const payload: Address = {
+      provinceCity: addr.provinceCity!,
+      district: addr.district!,
+      wardCommune: addr.wardCommune!,
+      addressDetail: addr.addressDetail!,
+      isDefault: addr.isDefault,
+    }
+    if (addr.id)
+      return updateAddress(custId, addr.id, payload)
+    else return createAddress(custId, payload)
+  })
+  await Promise.all(promises)
 }
 
 function resetForm() {
@@ -342,14 +323,12 @@ function resetForm() {
     URL.revokeObjectURL(avatarState.preview)
   avatarState.preview = ''; avatarState.url = ''
 }
-function addNewAddress() { addresses.value.push({ provinceCity: null, district: null, wardCommune: null, addressDetail: '', isDefault: addresses.value.length === 0 }) }
 function goBack() { router.push('/users/customer') }
 
 async function loadCustomer() {
   if (!isEditMode.value || !customerId.value)
     return
   try {
-    loading.value = true
     const res = await getCustomerById(customerId.value)
     const data = res.data.data
     Object.assign(form, {
@@ -363,7 +342,6 @@ async function loadCustomer() {
     await loadAddresses()
   }
   catch (e) { message.error('Lỗi tải dữ liệu'); goBack() }
-  finally { loading.value = false }
 }
 
 async function loadAddresses() {
@@ -385,79 +363,7 @@ async function loadAddresses() {
     }
     addresses.value = data
   }
-  catch (error) {
-    console.error('Lỗi khi tải địa chỉ:', error)
-    addresses.value = []
-  }
-}
-
-async function saveAddress(address: ExtendedAddress, index: number) {
-  try {
-    const currentForm = addressFormsRef.value[index]
-    if (currentForm)
-      await currentForm.validate()
-
-    addressSubmitting.value = true
-    const payload: Address = {
-      provinceCity: address.provinceCity!,
-      district: address.district!,
-      wardCommune: address.wardCommune!,
-      addressDetail: address.addressDetail!,
-      isDefault: address.isDefault,
-    }
-
-    if (address.id) {
-      await updateAddress(customerId.value!, address.id, payload)
-    }
-    else {
-      const res = await createAddress(customerId.value!, payload)
-      if (res.data?.data?.id)
-        address.id = res.data.data.id
-    }
-
-    if (address.isDefault && address.id) {
-      const otherAddresses = addresses.value.filter(a => a !== address && a.id)
-      await Promise.all(otherAddresses.map((otherAddr) => {
-        return updateAddress(customerId.value!, otherAddr.id!, {
-          provinceCity: otherAddr.provinceCity!,
-          district: otherAddr.district!,
-          wardCommune: otherAddr.wardCommune!,
-          addressDetail: otherAddr.addressDetail!,
-          isDefault: false,
-        })
-      }))
-    }
-    message.success('Lưu địa chỉ thành công!')
-    await loadAddresses()
-  }
-  catch (errors: any) {
-    message.error('Vui lòng kiểm tra lại thông tin địa chỉ')
-  }
-  finally { addressSubmitting.value = false }
-}
-
-async function handleDeleteAddress(address: ExtendedAddress, index: number) {
-  try {
-    if (address.id && isEditMode.value) {
-      await deleteAddressApi(customerId.value!, address.id)
-      message.success('Xóa địa chỉ thành công')
-    }
-    addresses.value.splice(index, 1)
-    if (address.isDefault && addresses.value.length > 0)
-      addresses.value[0].isDefault = true
-  }
-  catch { message.error('Lỗi: Không xóa được địa chỉ') }
-}
-
-async function saveAllAddresses(id: string) {
-  const validAddresses = addresses.value.filter(a => a.provinceCity && a.wardCommune && a.addressDetail)
-  await Promise.all(validAddresses.map(a => createAddress(id, {
-    provinceCity: a.provinceCity!,
-    district: a.district!,
-    wardCommune: a.wardCommune!,
-    addressDetail: a.addressDetail!,
-    isDefault: a.isDefault,
-  })))
+  catch (error) { addresses.value = [] }
 }
 
 onMounted(async () => {
@@ -486,48 +392,22 @@ onMounted(async () => {
     </div>
 
     <NCard title="Thông tin chung" class="shadow-sm rounded-xl border border-gray-100" content-style="padding: 24px;">
-      <NForm
-        ref="formRef"
-        :rules="FORM_RULES"
-        :model="form"
-        :show-feedback="true"
-        label-placement="top"
-        class="text-base"
-      >
+      <NForm ref="formRef" :rules="FORM_RULES" :model="form" :show-feedback="true" label-placement="top" class="text-base">
         <NGrid x-gap="24" y-gap="16" cols="1 768:12">
           <NGridItem span="1 768:3">
             <div class="flex flex-col items-center">
               <div class="relative group">
-                <img
-                  :src="avatarSrc"
-                  class="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-lg group-hover:border-green-100 transition-all cursor-pointer"
-                  alt="Avatar"
-                  @click="triggerUpload"
-                >
-                <div
-                  class="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                  @click="triggerUpload"
-                >
+                <img :src="avatarSrc" class="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-lg cursor-pointer" @click="triggerUpload">
+                <div class="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" @click="triggerUpload">
                   <div class="text-center text-white">
-                    <Icon icon="mdi:camera" class="text-3xl mb-1" />
-                    <div class="text-xs font-medium">
+                    <Icon icon="mdi:camera" class="text-3xl mb-1" /><div class="text-xs font-medium">
                       Đổi ảnh
                     </div>
                   </div>
                 </div>
               </div>
-
               <div class="mt-4 flex flex-col items-center">
-                <NUpload
-                  ref="uploadRef"
-                  :key="uploadKey"
-                  :max="1"
-                  accept="image/*"
-                  :default-upload="false"
-                  :on-change="handleUploadChange"
-                  :show-file-list="false"
-                  style="display: none;"
-                />
+                <NUpload ref="uploadRef" :key="uploadKey" :max="1" accept="image/*" :default-upload="false" :on-change="handleUploadChange" :show-file-list="false" style="display: none;" />
                 <NButton secondary size="small" :loading="isAvatarUploading" @click="triggerUpload">
                   Chọn ảnh
                 </NButton>
@@ -541,33 +421,27 @@ onMounted(async () => {
               <NFormItem path="customerName" label="Họ và tên">
                 <NInput v-model:value="form.customerName" placeholder="Nhập họ và tên" size="large" />
               </NFormItem>
-
               <NFormItem path="customerPhone" label="Số điện thoại">
                 <NInput v-model:value="form.customerPhone" placeholder="Nhập số điện thoại" size="large" />
               </NFormItem>
-
               <NFormItem path="customerEmail" label="Email">
                 <NInput v-model:value="form.customerEmail" placeholder="example@email.com" size="large" />
               </NFormItem>
-
               <NFormItem label="Ngày sinh" path="customerBirthdayStr">
-                <NDatePicker
-                  v-model:formatted-value="form.customerBirthdayStr"
-                  value-format="yyyy-MM-dd"
-                  type="date"
-                  class="w-full"
-                  size="large"
-                  placeholder="Chọn ngày sinh"
-                />
+                <NDatePicker v-model:formatted-value="form.customerBirthdayStr" value-format="yyyy-MM-dd" type="date" class="w-full" size="large" placeholder="Chọn ngày sinh" />
               </NFormItem>
 
               <NFormItem path="customerGender" label="Giới tính">
-                <NSelect
-                  v-model:value="form.customerGender"
-                  :options="GENDER_OPTIONS"
-                  size="large"
-                  placeholder="Chọn giới tính"
-                />
+                <NRadioGroup v-model:value="form.customerGender" name="genderGroup" size="large">
+                  <NSpace>
+                    <NRadio :value="GENDER.MALE">
+                      Nam
+                    </NRadio>
+                    <NRadio :value="GENDER.FEMALE">
+                      Nữ
+                    </NRadio>
+                  </NSpace>
+                </NRadioGroup>
               </NFormItem>
             </div>
           </NGridItem>
@@ -588,11 +462,7 @@ onMounted(async () => {
             </div>
 
             <div class="absolute top-3 right-3 z-10" :class="{ 'top-8': address.isDefault }">
-              <NPopconfirm
-                positive-text="Xóa"
-                negative-text="Hủy"
-                @positive-click="handleDeleteAddress(address, index)"
-              >
+              <NPopconfirm positive-text="Xóa" negative-text="Hủy" @positive-click="handleDeleteAddress(address, index)">
                 <template #trigger>
                   <NButton text type="error" class="hover:bg-red-50 p-1 rounded-full transition-colors">
                     <NIcon size="20">
@@ -605,7 +475,7 @@ onMounted(async () => {
             </div>
 
             <NForm
-              ref="addressFormsRef"
+              :ref="(el) => { if (el) addressFormsRef[index] = el as FormInst }"
               :rules="ADDRESS_FORM_RULES"
               :model="address"
               :show-feedback="false"
@@ -619,37 +489,17 @@ onMounted(async () => {
 
                 <div class="md:col-span-4">
                   <NFormItem path="provinceCity" label="Tỉnh/Thành phố">
-                    <NSelect
-                      v-model:value="address.provinceCity"
-                      :options="provinceOptions"
-                      filterable clearable
-                      :loading="addressDataLoading"
-                      placeholder="Chọn Tỉnh/Thành phố"
-                      @update:value="onProvinceChange(address, $event)"
-                    />
+                    <NSelect v-model:value="address.provinceCity" :options="provinceOptions" filterable clearable :loading="addressDataLoading" placeholder="Chọn Tỉnh/Thành phố" @update:value="onProvinceChange(address, $event)" />
                   </NFormItem>
                 </div>
                 <div class="md:col-span-4">
                   <NFormItem path="district" label="Quận/Huyện">
-                    <NSelect
-                      v-model:value="address.district"
-                      :options="getDistrictOptions(address.provinceCity)"
-                      filterable clearable
-                      :disabled="!address.provinceCity"
-                      placeholder="Chọn Quận/Huyện"
-                      @update:value="onDistrictChange(address, $event)"
-                    />
+                    <NSelect v-model:value="address.district" :options="getDistrictOptions(address.provinceCity)" filterable clearable :disabled="!address.provinceCity" placeholder="Chọn Quận/Huyện" @update:value="onDistrictChange(address, $event)" />
                   </NFormItem>
                 </div>
                 <div class="md:col-span-4">
                   <NFormItem path="wardCommune" label="Phường/Xã">
-                    <NSelect
-                      v-model:value="address.wardCommune"
-                      :options="getWardOptions(address.provinceCity, address.district)"
-                      filterable clearable
-                      :disabled="!address.district"
-                      placeholder="Chọn Phường/Xã"
-                    />
+                    <NSelect v-model:value="address.wardCommune" :options="getWardOptions(address.provinceCity, address.district)" filterable clearable :disabled="!address.district" placeholder="Chọn Phường/Xã" />
                   </NFormItem>
                 </div>
                 <div class="md:col-span-12">
@@ -658,28 +508,15 @@ onMounted(async () => {
                   </NFormItem>
                 </div>
 
-                <div class="md:col-span-12 flex flex-col md:flex-row justify-between items-start md:items-center border-t pt-3 mt-1 gap-3">
-                  <NFormItem label="Đặt làm mặc định" class="mb-0">
-                    <NPopconfirm
+                <div class="md:col-span-12 border-t pt-3 mt-1">
+                  <div class="flex items-center gap-3">
+                    <span class="text-gray-600 font-medium">Đặt làm mặc định:</span>
+                    <NSwitch
+                      :value="address.isDefault"
                       :disabled="address.isDefault"
-                      @positive-click="onDefaultChange(address, true)"
-                    >
-                      <template #trigger>
-                        <div class="inline-block" @click.stop>
-                          <NSwitch :value="address.isDefault" :disabled="address.isDefault" />
-                        </div>
-                      </template>
-                      Bạn có muốn đặt địa chỉ này làm mặc định?
-                    </NPopconfirm>
-                  </NFormItem>
-
-                  <div v-if="isEditMode" class="w-full md:w-auto">
-                    <NButton block md:inline-block type="primary" size="small" secondary :loading="addressSubmitting" @click="saveAddress(address, index)">
-                      <template #icon>
-                        <NIcon><Icon icon="mdi:content-save" /></NIcon>
-                      </template>
-                      Lưu thay đổi
-                    </NButton>
+                      @update:value="(val) => onDefaultChange(address, val)"
+                    />
+                    <span v-if="address.isDefault" class="text-xs text-gray-400 italic">(Bật địa chỉ khác để thay thế)</span>
                   </div>
                 </div>
               </div>
@@ -712,13 +549,7 @@ onMounted(async () => {
       <NButton size="large" @click="goBack">
         Hủy bỏ
       </NButton>
-      <NButton
-        type="primary"
-        :loading="submitting"
-        size="large"
-        class="px-8 shadow-lg shadow-green-500/30"
-        @click="handleValidateAndSubmit"
-      >
+      <NButton type="primary" :loading="submitting" size="large" class="px-8 shadow-lg shadow-green-500/30" @click="handleValidateAndSubmit">
         <template #icon>
           <Icon icon="carbon:save" />
         </template>

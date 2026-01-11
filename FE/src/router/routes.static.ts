@@ -220,10 +220,36 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     path: '/users/staff',
     title: 'Nhân viên',
     requiresAuth: true,
-    icon: 'icon-park-outline:address-book',
+    icon: 'icon-park-outline:peoples', // Đổi icon cho khác khách hàng một chút
     menuType: 'page',
-    componentPath: '/admin/users/staff/index.vue',
-    id: 501,
+    componentPath: '/admin/users/staff/index.vue', // File index cho staff của bạn
+    id: 505,
+    pid: 5,
+  },
+  {
+    name: 'users_staff_add',
+    path: '/users/staff/add',
+    title: 'Thêm nhân viên',
+    requiresAuth: true,
+    hide: true, // Ẩn khỏi menu
+    icon: 'icon-park-outline:user-plus',
+    menuType: 'page',
+    // Giả sử bạn đặt tên file form là StaffForm.vue, nếu khác hãy sửa lại nhé
+    componentPath: '/admin/users/staff/StaffDetail.vue',
+    id: 506,
+    pid: 5,
+  },
+  {
+    name: 'users_staff_edit',
+    path: '/users/staff/edit/:id',
+    title: 'Sửa nhân viên',
+    requiresAuth: true,
+    hide: true, // Ẩn khỏi menu
+    icon: 'icon-park-outline:user-edit',
+    menuType: 'page',
+    // Dùng chung form với trang thêm mới
+    componentPath: '/admin/users/staff/StaffDetail.vue',
+    id: 507,
     pid: 5,
   },
   {
