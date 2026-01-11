@@ -10,6 +10,7 @@ import { NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import type { Ref } from 'vue'
 import { onMounted, reactive, ref } from 'vue'
 import ADProductVariantModal from './component/ADProductVariantModal.vue'
+import { exportToExcel } from '@/utils/excel.helper'
 
 const route = useRoute()
 
@@ -131,7 +132,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
   },
   {
     title: 'Cấu hình', key: 'configuration', width: 200, align: 'left',
-    render: (rowData: ADProductDetailResponse) => h('div', { style: {  } }, [
+    render: (rowData: ADProductDetailResponse) => h('div', { style: {} }, [
       h('div', [
         h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
         h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
@@ -149,11 +150,18 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     key: 'price',
     width: 150,
     align: 'center',
-    render: (data: ADProductDetailResponse) => h('span', `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
-      if ((arr.length - index) % 3 == 0)
-        return `${prev} ${curr}`
-      return prev + curr
-    }, '')} vnđ`),
+    render: (data: ADProductDetailResponse) => h('div', { style: { display: 'flex', flexDirection: 'column', justifyContent: 'start' } }, [
+      h('span',{ style: 'text-decoration: line-through; color: #999; font-size: 11px;' }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
+        if ((arr.length - index) % 3 == 0)
+          return `${prev} ${curr}`
+        return prev + curr
+      }, '')} vnđ`),
+      h('span', { style: 'color: #d03050; font-weight: bold;' },`${(`${data.salePrice}`).split('').reduce((prev, curr, index, arr) => {
+        if ((arr.length - index) % 3 == 0)
+          return `${prev} ${curr}`
+        return prev + curr
+      }, '')} vnđ`),
+    ]),
   },
   {
     title: 'Tồn kho',
@@ -278,6 +286,25 @@ async function fetchProductsCombobox() {
 
   state.data.productsCombobox = res.data
 }
+
+const exportExcelHandler = () => {
+  const excelData = state.data.productDetails.map((item, index) => ({
+    'STT': index + 1,
+    'Mã biến thể': item.code,
+    'Tên biến thể': item.name,
+    'Màu sắc': item.color,
+    'CPU': item.cpu,
+    'GPU': item.gpu,
+    'RAM': item.ram,
+    'Ổ cứng': item.hardDrive,
+    'Chất liệu': item.material,
+    'Giá': item.price,
+    'Giá khuyến mãi': item.salePrice,
+    'Tồn kho': item.quantity,
+  }))
+
+  exportToExcel(excelData, `Danh_sach_bien_the_san_pham_${product.value ? product.value.code : ''}`)
+}
 </script>
 
 <template>
@@ -355,12 +382,29 @@ async function fetchProductsCombobox() {
       </div>
     </n-card>
     <n-card class="mt-20px" title="Danh sách biến thể">
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
+            <NButton @click="exportExcelHandler" type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="file-icons:microsoft-excel" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Xuất Excel
+              </span>
+            </NButton>
+          </NSpace>
+        </div>
+      </template>
       <n-data-table :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
         :row-key="(row) => row.id" @update:expanded-row-keys="key => expandedKeys = key as Array<string>" />
 
-      <NSpace justify="center" class="mt-20px">
-        <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
-          :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
+      <NSpace justify="end" class="mt-20px">
+        <NPagination :page="state.pagination.page" :page-size="state.pagination.size" :page-sizes="[5, 10, 20, 50]"
+          show-size-picker :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
       </NSpace>
     </n-card>
 
