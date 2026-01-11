@@ -14,4 +14,6 @@ public interface ADStaffService {
     ResponseObject<?> updateStaff(String id, ADCreateStaff request);
 
     ResponseObject<?> changeStatusStaff(String id);
+
+    ResponseObject<?> getStaffById(String id);
 }

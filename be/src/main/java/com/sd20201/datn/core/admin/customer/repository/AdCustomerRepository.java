@@ -34,6 +34,7 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
                                           c.name LIKE CONCAT('%', :keyword, '%')
                                           OR c.phone LIKE CONCAT('%', :keyword, '%')
                                           OR c.code LIKE CONCAT('%', :keyword, '%')
+                                                              OR c.email LIKE CONCAT('%', :keyword, '%')
                                             ))
                       AND (:customerStatus IS NULL
                            OR (:customerStatus = 1 AND c.status = 0)
@@ -49,6 +50,7 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
                                           c.name LIKE CONCAT('%', :keyword, '%')
                                           OR c.phone LIKE CONCAT('%', :keyword, '%')
                                           OR c.code LIKE CONCAT('%', :keyword, '%')
+                                                              OR c.email LIKE CONCAT('%', :keyword, '%')
                                             ))
                       AND (:customerStatus IS NULL 
                            OR (:customerStatus = 1 AND c.status = 0) 

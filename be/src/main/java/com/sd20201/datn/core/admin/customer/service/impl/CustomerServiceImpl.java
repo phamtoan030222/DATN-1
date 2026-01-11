@@ -10,12 +10,15 @@ import com.sd20201.datn.core.admin.customer.service.CustomerService;
 import com.sd20201.datn.entity.Account;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
+import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import com.sd20201.datn.repository.AccountRepository;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import java.util.UUID;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.List;
@@ -45,6 +48,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
+    @Transactional
     public ResponseObject<?> createCustomer(CustomerCreateUpdateRequest request) {
         // Kiểm tra tên trùng
 
@@ -65,15 +69,40 @@ public class CustomerServiceImpl implements CustomerService {
 
         // Xử lý account
         Account account = null;
-        if (request.getCustomerIdAccount() != null) {
+        if (request.getCustomerIdAccount() != null && !request.getCustomerIdAccount().trim().isEmpty()) {
             account = accountRepository.findById(request.getCustomerIdAccount()).orElse(null);
             if (account == null) {
                 return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
                         "Tài khoản không tồn tại", false, "ACCOUNT_NOT_FOUND");
             }
         }
+        // Trường hợp 2: Không gửi ID Account -> TỰ ĐỘNG TẠO ACCOUNT MỚI
+        else {
+            account = new Account();
+            // Tự sinh ID (hoặc để DB tự sinh nếu cấu hình @GeneratedValue)
+            account.setId(UUID.randomUUID().toString());
 
+            // Lấy SĐT hoặc Email làm username
+            String username = request.getCustomerPhone();
+            // Hoặc generate: request.getCustomerName() + code...
+
+            // Kiểm tra username đã tồn tại chưa (quan trọng)
+            if(accountRepository.findByUsername(username).isPresent()){
+                return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
+                        "Tài khoản/SĐT đã tồn tại trong hệ thống", false, "USERNAME_EXISTS");
+            }
+
+            account.setUsername(username);
+            account.setPassword("123456");
+            account.setRoleConstant(RoleConstant.KHACH_HANG);
+
+            // Lưu Account trước
+            account = accountRepository.save(account);
+        }
+
+        System.out.println("DEBUG CHECK ID: " + account.getId());
         String generatedCode = generateCustomerCode(request.getCustomerName());
+
         // Tạo customer
         Customer customer = new Customer();
         customer.setAccount(account);
