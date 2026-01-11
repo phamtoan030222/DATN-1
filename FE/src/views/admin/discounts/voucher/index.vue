@@ -225,38 +225,65 @@ function handleClientSideFilter() {
   loading.value = false
 }
 
-// --- LOGIC XUẤT EXCEL THEO BỘ LỌC ---
+// --- LOGIC XUẤT EXCEL (Đã sửa để lọc chính xác) ---
 async function handleExportExcel() {
   exportLoading.value = true
   message.loading('Đang xử lý dữ liệu xuất Excel...')
 
   try {
-    // 1. Gọi API lấy dữ liệu (Size lớn để lấy hết)
-    // Lưu ý: Ta gửi các params lọc lên Server để Server lọc bớt phần lớn dữ liệu
+    // 1. Lấy TOÀN BỘ dữ liệu về trước
     const query: ADVoucherQuery = {
       page: 1,
-      size: 100000,
-      keyword: filters.keyword,
-      startDate: filters.startDate,
-      endDate: filters.endDate,
-      typeVoucher: filters.typeVoucher,
-      targetType: filters.targetType,
-      status: filters.status,
+      size: 100000, // Lấy hết
     }
 
     const res = await getVouchers(query)
     let dataToExport = res.content || []
 
-    // 2. Lọc lại bằng Slider (Client-side logic)
-    // Vì slider thường lọc trên RAM chứ API ít hỗ trợ range custom này
+    // 2. ÁP DỤNG BỘ LỌC CLIENT (Giống hệt hàm filter hiển thị)
+    // ---------------------------------------------------------
+
+    // 2.1 Keyword
+    if (filters.keyword) {
+      const k = filters.keyword.toLowerCase().trim()
+      dataToExport = dataToExport.filter(item =>
+        (item.code && item.code.toLowerCase().includes(k))
+        || (item.name && item.name.toLowerCase().includes(k)),
+      )
+    }
+
+    // 2.2 Ngày tháng
+    if (filters.startDate) {
+      dataToExport = dataToExport.filter(item => (item.startDate || 0) >= filters.startDate!)
+    }
+    if (filters.endDate) {
+      dataToExport = dataToExport.filter(item => (item.endDate || 0) <= filters.endDate!)
+    }
+
+    // 2.3 Loại và Đối tượng
+    if (filters.typeVoucher) {
+      dataToExport = dataToExport.filter(item => item.typeVoucher === filters.typeVoucher)
+    }
+    if (filters.targetType) {
+      dataToExport = dataToExport.filter(item => item.targetType === filters.targetType)
+    }
+
+    // 2.4 Trạng thái
+    if (filters.status) {
+      dataToExport = dataToExport.filter(item => getVoucherStatus(item).value === filters.status)
+    }
+
+    // 2.5 Khoảng giá (Slider)
     const [minPrice, maxPrice] = filters.maxDiscountRange
-    // Chỉ lọc nếu người dùng có kéo slider khác mặc định
+    // Nếu khoảng giá khác mặc định mới lọc
     if (minPrice > 0 || maxPrice < dynamicMaxPrice.value) {
       dataToExport = dataToExport.filter((item) => {
         const val = item.maxValue || item.discountValue || 0
         return val >= minPrice && val <= maxPrice
       })
     }
+
+    // ---------------------------------------------------------
 
     if (dataToExport.length === 0) {
       message.warning('Không có dữ liệu nào phù hợp bộ lọc để xuất!')
@@ -504,7 +531,7 @@ onMounted(() => fetchData())
     <NCard class="mb-3 shadow-sm border-none">
       <NSpace vertical :size="8">
         <NSpace align="center">
-          <NIcon size="24" class="text-green-600">
+          <NIcon size="24" class="text-black-600">
             <Icon icon="icon-park-outline:ticket" />
           </NIcon>
           <span style="font-weight: 600; font-size: 24px; color: #1f2937">Quản lý Phiếu Giảm Giá</span>
@@ -534,7 +561,7 @@ onMounted(() => fetchData())
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div class="lg:col-span-3">
-          <div class="text-xs font-bold text-green-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
             Tìm kiếm chung
           </div>
           <NInput
@@ -542,13 +569,13 @@ onMounted(() => fetchData())
             @input="handleSearch"
           >
             <template #prefix>
-              <NIcon icon="carbon:search" class="text-green-600" />
+              <NIcon icon="carbon:search" class="text-black-600" />
             </template>
           </NInput>
         </div>
 
         <div class="lg:col-span-3">
-          <div class="text-xs font-bold text-green-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
             Thời gian áp dụng
           </div>
           <div class="flex items-center gap-2">
@@ -559,21 +586,21 @@ onMounted(() => fetchData())
         </div>
 
         <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-green-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
             Kiểu voucher
           </div>
           <NSelect v-model:value="filters.typeVoucher" :options="typeVoucherOptions" placeholder="Tất cả" />
         </div>
 
         <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-green-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
             Đối tượng
           </div>
           <NSelect v-model:value="filters.targetType" :options="targetTypeOptions" placeholder="Tất cả" />
         </div>
 
         <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-green-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
             Trạng thái
           </div>
           <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Tất cả" />
@@ -581,7 +608,7 @@ onMounted(() => fetchData())
 
         <div class="lg:col-span-3">
           <div class="flex justify-between items-center mb-1 ml-1">
-            <div class="text-xs font-bold text-green-600 uppercase">
+            <div class="text-xs font-bold text-black-600 uppercase">
               Giảm tối đa
             </div>
             <div class="text-[10px] text-green-700 font-mono bg-green-50 px-1 rounded">
