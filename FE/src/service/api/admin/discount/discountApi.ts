@@ -20,6 +20,8 @@ export interface DiscountResponse {
   endTime: number
   percentage: number
   description: string
+
+  productCount?: number;   
 }
 
 

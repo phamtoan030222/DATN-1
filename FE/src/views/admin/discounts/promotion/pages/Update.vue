@@ -8,7 +8,7 @@
         <NIcon size="24"><Icon icon="carbon:edit" /></NIcon>
         <span class="header-title">Sửa đợt giảm giá</span>
       </NSpace>
-      <span class="sub-title">Chỉnh sửa thông tin và quản lý sản phẩm áp dụng</span>
+      <span class="sub-title">Chỉnh sửa thông tin (Hệ thống tự động lọc bỏ sản phẩm trùng lịch)</span>
     </NSpace>
   </n-card>
 
@@ -18,25 +18,14 @@
         <NSkeleton v-if="loadingDiscount" text :repeat="6" />
         <NForm v-else ref="formRef" :model="formData" :rules="formRules">
           <NSpace vertical :size="16">
-            
             <NFormItem label="Trạng thái hiện tại">
-              <NTag :type="getStatusType()" :bordered="false" style="font-weight: 600;">
-                {{ getStatusText() }}
-              </NTag>
-              <span v-if="!canUpdateInfo && getDiscountStatus() === 'active'" style="margin-left: 10px; color: #d03050; font-size: 12px;">
-                * Đang diễn ra: Chỉ được sửa danh sách sản phẩm.
-              </span>
+              <NTag :type="getStatusType()" :bordered="false" style="font-weight: 600;">{{ getStatusText() }}</NTag>
+              <span v-if="!canUpdateInfo && getDiscountStatus() === 'active'" style="margin-left: 10px; color: #d03050; font-size: 12px;">* Đang diễn ra: Chỉ sửa sản phẩm.</span>
             </NFormItem>
 
             <div class="form-row">
               <NFormItem label="Tên đợt giảm giá" path="discountName" required>
-                <NInput 
-                  v-model:value="formData.discountName" 
-                  placeholder="Nhập tên" 
-                  maxlength="100" 
-                  show-count 
-                  :disabled="!canUpdateInfo" 
-                />
+                <NInput v-model:value="formData.discountName" placeholder="Nhập tên" maxlength="100" show-count :disabled="!canUpdateInfo" />
               </NFormItem>
               <NFormItem label="Mã giảm giá" required>
                 <NInput v-model:value="formData.discountCode" placeholder="Mã giảm giá" disabled />
@@ -45,64 +34,30 @@
 
             <div class="form-row">
               <NFormItem label="Ngày bắt đầu" path="startDate" required>
-                <NDatePicker 
-                  v-model:value="formData.startDate" 
-                  type="datetime" 
-                  style="width: 100%" 
-                  :disabled="!canUpdateInfo" 
-                />
+                <NDatePicker v-model:value="formData.startDate" type="datetime" style="width: 100%" :disabled="!canUpdateInfo" />
               </NFormItem>
               <NFormItem label="Ngày kết thúc" path="endDate" required>
-                <NDatePicker 
-                  v-model:value="formData.endDate" 
-                  type="datetime" 
-                  style="width: 100%" 
-                  :is-date-disabled="(ts) => ts <= formData.startDate" 
-                  :disabled="!canUpdateInfo" 
-                />
+                <NDatePicker v-model:value="formData.endDate" type="datetime" style="width: 100%" :is-date-disabled="(ts) => ts <= formData.startDate" :disabled="!canUpdateInfo" />
               </NFormItem>
             </div>
 
             <NFormItem label="Phần trăm giảm giá (%)" path="percentage" required>
-              <NInputNumber 
-                v-model:value="formData.percentage" 
-                :min="1" :max="100" 
-                style="width: 100%" 
-                :disabled="!canUpdateInfo" 
-              />
+              <NInputNumber v-model:value="formData.percentage" :min="1" :max="100" style="width: 100%" :disabled="!canUpdateInfo" />
             </NFormItem>
 
             <NFormItem label="Mô tả">
-              <NInput 
-                v-model:value="formData.description" 
-                type="textarea" 
-                placeholder="Mô tả..." 
-                :rows="3" 
-                :disabled="!canUpdateInfo" 
-              />
+              <NInput v-model:value="formData.description" type="textarea" placeholder="Mô tả..." :rows="3" :disabled="!canUpdateInfo" />
             </NFormItem>
 
             <NSpace justify="space-between" style="margin-top: 12px;">
               <NButton @click="$router.back()">Thoát</NButton>
-              
-              <NPopconfirm 
-                v-if="canUpdateInfo"
-                @positive-click="handleSubmit" 
-                positive-text="Đồng ý" 
-                negative-text="Hủy"
-              >
+              <NPopconfirm v-if="canUpdateInfo" @positive-click="handleSubmit" positive-text="Đồng ý" negative-text="Hủy">
                 <template #trigger>
-                  <NButton type="primary" :loading="submitting">
-                    <template #icon><NIcon><Icon icon="carbon:save" /></NIcon></template> Cập nhật thông tin
-                  </NButton>
+                  <NButton type="primary" :loading="submitting"><template #icon><NIcon><Icon icon="carbon:save" /></NIcon></template> Cập nhật thông tin</NButton>
                 </template>
                 Bạn có chắc chắn muốn cập nhật thông tin này?
               </NPopconfirm>
-              
-              <NButton v-else disabled secondary type="warning">
-                <template #icon><NIcon><Icon icon="carbon:locked" /></NIcon></template>
-                {{ getDiscountStatus() === 'active' ? 'Đã khóa thông tin' : 'Đã kết thúc' }}
-              </NButton>
+              <NButton v-else disabled secondary type="warning"><template #icon><NIcon><Icon icon="carbon:locked" /></NIcon></template> {{ getDiscountStatus() === 'active' ? 'Đã khóa thông tin' : 'Đã kết thúc' }}</NButton>
             </NSpace>
           </NSpace>
         </NForm>
@@ -110,50 +65,25 @@
     </div>
 
     <div class="products-section">
-      <NCard title="Danh sách Sản Phẩm">
+      <NCard title="Danh sách Sản Phẩm Gốc">
         <template #header-extra>
           <div style="width: 200px">
-            <NInput 
-              v-model:value="productSearchKeyword" 
-              placeholder="Tìm tên/mã..." 
-              clearable 
-      
-            >
+            <NInput v-model:value="productSearchKeyword" placeholder="Tìm tên/mã..." clearable>
               <template #prefix><NIcon><Icon icon="carbon:search" /></NIcon></template>
             </NInput>
           </div>
         </template>
-
         <div :style="!canUpdateProducts ? 'opacity: 0.6; pointer-events: none;' : ''">
-          <NDataTable
-            :columns="productColumns"
-            :data="paginatedRawProducts" 
-            :loading="loadingProducts"
-            :row-key="(row) => row.id"
-            v-model:checked-row-keys="checkedProductKeys" 
-            :pagination="false"
-            size="small"
-            max-height="400px"
-          />
+          <NDataTable :columns="productColumns" :data="paginatedRawProducts" :loading="loadingProducts" :row-key="(row) => row.id" v-model:checked-row-keys="checkedProductKeys" :pagination="false" size="small" max-height="400px" />
         </div>
-
         <div class="flex justify-end mt-4" v-if="filteredRawProducts.length > productPageSize">
-          <NPagination
-            :page="productCurrentPage"
-            :page-size="productPageSize"
-            :page-count="Math.ceil(filteredRawProducts.length / productPageSize)"
-            @update:page="(p) => productCurrentPage = p"
-          />
+          <NPagination :page="productCurrentPage" :page-size="productPageSize" :page-count="Math.ceil(filteredRawProducts.length / productPageSize)" @update:page="(p) => productCurrentPage = p" />
         </div>
       </NCard>
     </div>
   </div>
 
-  <NCard 
-    v-if="unappliedProducts.length > 0" 
-    title="Danh sách Sản Phẩm Chi Tiết chưa áp dụng" 
-    style="margin-top: 16px;"
-  >
+  <NCard v-if="unappliedProducts.length > 0" title="Danh sách Sản Phẩm Chi Tiết chưa áp dụng (Đã lọc trùng)" style="margin-top: 16px;">
     <div class="filter-container mb-4">
       <NGrid :x-gap="12" :y-gap="8" :cols="24">
         <NGridItem :span="5"><div class="filter-label">Tên SPCT</div><NInput v-model:value="filterUnapplied.name" placeholder="Tìm tên..." size="small" /></NGridItem>
@@ -171,55 +101,25 @@
     <div class="flex justify-between items-center mb-2">
       <NSpace>
         <NTag type="warning" size="small">Hiển thị: {{ filteredUnapplied.length }} | Đang chọn: {{ selectedUnappliedKeys.length }}</NTag>
-        
         <NPopconfirm @positive-click="handleBulkApply" positive-text="Đồng ý" negative-text="Hủy">
           <template #trigger>
-            <NButton 
-              type="primary" size="small" 
-              :disabled="selectedUnappliedKeys.length === 0 || !canUpdateProducts" 
-              :loading="bulkApplying"
-            >
+            <NButton type="primary" size="small" :disabled="selectedUnappliedKeys.length === 0 || !canUpdateProducts" :loading="bulkApplying">
               <template #icon><NIcon><Icon icon="carbon:checkmark-outline" /></NIcon></template> Áp dụng ngay ({{ selectedUnappliedKeys.length }})
             </NButton>
           </template>
           Áp dụng giảm giá cho các sản phẩm đã chọn?
         </NPopconfirm>
       </NSpace>
-
-
-<NPopconfirm 
-  @positive-click="clearUnapplied" 
-  positive-text="Xóa" 
-  negative-text="Hủy"
->
-  <template #trigger>
-    <NButton quaternary size="small">
-      <template #icon><NIcon><Icon icon="carbon:close" /></NIcon></template>
-      Xóa hết danh sách này
-    </NButton>
-  </template>
-  Bạn có chắc chắn muốn xóa toàn bộ danh sách chờ này không?
-</NPopconfirm>
+      <NPopconfirm @positive-click="clearUnapplied" positive-text="Xóa" negative-text="Hủy">
+        <template #trigger>
+          <NButton quaternary size="small"><template #icon><NIcon><Icon icon="carbon:close" /></NIcon></template> Xóa hết danh sách này</NButton>
+        </template>
+        Bạn có chắc chắn muốn xóa toàn bộ danh sách chờ này không?
+      </NPopconfirm>
     </div>
 
-    <NDataTable
-      :columns="unappliedProductColumns"
-      :data="paginatedUnapplied"
-      :row-key="(row) => row.id"
-      v-model:checked-row-keys="selectedUnappliedKeys"
-      :pagination="false"
-      size="small"
-      max-height="400"
-    />
-
-    <div class="flex justify-end mt-4" >
-      <NPagination
-        :page="unappliedCurrentPage"
-        :page-size="unappliedPageSize"
-        :page-count="Math.ceil(filteredUnapplied.length / unappliedPageSize)"
-        @update:page="(p) => unappliedCurrentPage = p"
-      />
-    </div>
+    <NDataTable :columns="unappliedProductColumns" :data="paginatedUnapplied" :row-key="(row) => row.id" v-model:checked-row-keys="selectedUnappliedKeys" :pagination="false" size="small" max-height="400" />
+    <div class="flex justify-end mt-4"><NPagination :page="unappliedCurrentPage" :page-size="unappliedPageSize" :page-count="Math.ceil(filteredUnapplied.length / unappliedPageSize)" @update:page="(p) => unappliedCurrentPage = p" /></div>
   </NCard>
 
   <NCard title="Danh sách Sản Phẩm Chi Tiết đã áp dụng" style="margin-top: 16px;">
@@ -241,11 +141,7 @@
       <NSpace>
         <NPopconfirm @positive-click="handleBulkRemove" positive-text="Xóa" negative-text="Hủy">
           <template #trigger>
-            <NButton 
-              type="error" secondary 
-              :disabled="selectedAppliedKeys.length === 0 || !canUpdateProducts" 
-              :loading="bulkRemoving"
-            >
+            <NButton type="error" secondary :disabled="selectedAppliedKeys.length === 0 || !canUpdateProducts" :loading="bulkRemoving">
               <template #icon><NIcon><Icon icon="carbon:trash-can" /></NIcon></template> Gỡ bỏ ({{ selectedAppliedKeys.length }})
             </NButton>
           </template>
@@ -254,24 +150,8 @@
       </NSpace>
     </template>
 
-    <NDataTable
-      :columns="appliedProductColumns"
-      :data="paginatedApplied"
-      :loading="loadingApplied"
-      :row-key="(row) => row.id"
-      v-model:checked-row-keys="selectedAppliedKeys"
-      :pagination="false"
-      max-height="400px"
-    />
-
-    <div class="flex justify-end mt-4">
-      <NPagination
-        :page="appliedCurrentPage"
-        :page-size="appliedPageSize"
-        :page-count="Math.ceil(filteredAppliedProducts.length / appliedPageSize)"
-        @update:page="(p) => appliedCurrentPage = p"
-      />
-    </div>
+    <NDataTable :columns="appliedProductColumns" :data="paginatedApplied" :loading="loadingApplied" :row-key="(row) => row.id" v-model:checked-row-keys="selectedAppliedKeys" :pagination="false" max-height="400px" />
+    <div class="flex justify-end mt-4"><NPagination :page="appliedCurrentPage" :page-size="appliedPageSize" :page-count="Math.ceil(filteredAppliedProducts.length / appliedPageSize)" @update:page="(p) => appliedCurrentPage = p" /></div>
   </NCard>
 </template>
 
@@ -286,12 +166,8 @@ import {
 } from "naive-ui";
 import { Icon } from "@iconify/vue";
 import {
-  updateDiscount, 
-  getAppliedProducts, 
-  getUnappliedProducts,
-  getAllDiscounts,
-  getAllProducts, 
-  applyMultipleProducts, 
+  updateDiscount, getAppliedProducts, getUnappliedProducts,
+  getAllDiscounts, getAllProducts, applyMultipleProducts, 
   removeProductsFromDiscount,
   type UpdateDiscountRequest, type DiscountResponse,
   type ProductDetailResponse, type AppliedProductResponse, type ProductResponse,
@@ -310,36 +186,97 @@ const loadingDiscount = ref(false);
 const bulkRemoving = ref(false);
 const bulkApplying = ref(false);
 
+const formData = reactive<UpdateDiscountRequest>({
+  discountName: "", discountCode: "", percentage: 0,
+  startDate: Date.now(), endDate: Date.now() + 86400000, description: ""
+});
+
+const formRules: FormRules = {
+  discountName: [{ required: true, message: "Nhập tên đợt", trigger: "blur" }],
+  startDate: [{ required: true, type: 'number', message: "Chọn ngày bắt đầu", trigger: "blur" }],
+  endDate: [{ required: true, type: 'number', message: "Chọn ngày kết thúc", trigger: "blur" }, { validator: (_r, v) => v > formData.startDate || new Error("Phải sau ngày bắt đầu"), trigger: "blur" }],
+  percentage: [{ required: true, type: 'number', message: "Nhập % giảm", trigger: "blur" }]
+};
 
 const originalDiscount = ref<DiscountResponse | null>(null);
 const appliedProducts = ref<AppliedProductResponse[]>([]);
-const allRawProducts = ref<ProductResponse[]>([]); // Chứa toàn bộ SP cha
+const allRawProducts = ref<ProductResponse[]>([]); 
 const unappliedProducts = ref<ExtendedProductDetail[]>([]);
-
 
 const checkedProductKeys = ref<(string | number)[]>([]); 
 const selectedAppliedKeys = ref<(string | number)[]>([]);
 const selectedUnappliedKeys = ref<(string | number)[]>([]);
 
-
 const unappliedCurrentPage = ref(1);
 const unappliedPageSize = ref(10);
-
 const appliedCurrentPage = ref(1);
 const appliedPageSize = ref(10);
 const loadingApplied = ref(false);
-
 const productCurrentPage = ref(1);
 const productPageSize = ref(10);
 const loadingProducts = ref(false);
 
+// === LOGIC TẠO CHỮ KÝ ===
+const getProductSignature = (item: any) => {
+    const code = (item.productCode || '').trim();
+    const color = (item.colorName || item.color || '').trim();
+    const ram = (item.ramName || item.ram || '').trim();
+    const hdd = (item.hardDriveName || item.hardDrive || '').trim();
+    const gpu = (item.gpuName || item.gpu || '').trim();
+    const cpu = (item.cpuName || item.cpu || '').trim();
+    return `${code}_${color}_${ram}_${hdd}_${gpu}_${cpu}`.toUpperCase();
+};
+
+const busySignatures = ref<Set<string>>(new Set());
+
+// === LOGIC CHECK TRÙNG (UPDATE) ===
+const fetchBusyProducts = async () => {
+  if (!formData.startDate || !formData.endDate) return;
+  
+  busySignatures.value.clear();
+  try {
+    const res = await getAllDiscounts({ page: 1, size: 2000 });
+    const allDiscounts = res.items || [];
+    
+    const currentStart = Number(formData.startDate);
+    const currentEnd = Number(formData.endDate);
+
+    const conflictingDiscounts = allDiscounts.filter((d: any) => {
+        if (d.id === discountId) return false; 
+        const dStart = new Date(d.startTime).getTime();
+        const dEnd = new Date(d.endTime).getTime();
+        return (currentStart <= dEnd) && (currentEnd >= dStart);
+    });
+
+    if (conflictingDiscounts.length > 0) {
+        const promises = conflictingDiscounts.map((d: any) => 
+            getAppliedProducts(d.id, { page: 1, size: 5000 })
+        );
+        const results = await Promise.all(promises);
+        results.forEach(res => {
+            const items = res.items || [];
+            items.forEach((item: any) => {
+                busySignatures.value.add(getProductSignature(item));
+            });
+        });
+    }
+
+    // Tự động dọn dẹp danh sách chờ
+    const conflictInUnapplied = unappliedProducts.value.filter(d => busySignatures.value.has(getProductSignature(d)));
+    if (conflictInUnapplied.length > 0) {
+        unappliedProducts.value = unappliedProducts.value.filter(d => !busySignatures.value.has(getProductSignature(d)));
+        selectedUnappliedKeys.value = unappliedProducts.value.map(d => d.id);
+        message.warning(`Đã ẩn ${conflictInUnapplied.length} sản phẩm chờ do xung đột thời gian mới!`);
+    }
+
+  } catch (e) { console.error(e); }
+};
 
 const getDiscountStatus = () => {
   if (!originalDiscount.value) return 'unknown';
   const now = Date.now();
   const start = Number(originalDiscount.value.startTime);
   const end = Number(originalDiscount.value.endTime);
-  
   if (now < start) return 'upcoming';
   if (now >= start && now <= end) return 'active';
   return 'expired';
@@ -347,25 +284,20 @@ const getDiscountStatus = () => {
 
 const getStatusType = () => { const s = getDiscountStatus(); return s === 'active' ? 'success' : s === 'upcoming' ? 'info' : 'default'; };
 const getStatusText = () => { const s = getDiscountStatus(); return s === 'active' ? 'Đang diễn ra' : s === 'upcoming' ? 'Sắp diễn ra' : 'Đã kết thúc'; };
-
 const canUpdateInfo = computed(() => getDiscountStatus() === 'upcoming');
 const canUpdateProducts = computed(() => getDiscountStatus() === 'upcoming' || getDiscountStatus() === 'active');
 
+watch([() => formData.startDate, () => formData.endDate], () => {
+    if (canUpdateInfo.value) fetchBusyProducts();
+});
 
 const productSearchKeyword = ref('');
-
 const filteredRawProducts = computed(() => {
   if (!productSearchKeyword.value) return allRawProducts.value;
   const kw = productSearchKeyword.value.toLowerCase();
-
-  return allRawProducts.value.filter(p => 
-    p.productName.toLowerCase().includes(kw) || 
-    p.productCode.toLowerCase().includes(kw)
-  );
+  return allRawProducts.value.filter(p => p.productName.toLowerCase().includes(kw) || p.productCode.toLowerCase().includes(kw));
 });
-
 watch(filteredRawProducts, () => productCurrentPage.value = 1);
-
 const paginatedRawProducts = computed(() => {
   const start = (productCurrentPage.value - 1) * productPageSize.value;
   return filteredRawProducts.value.slice(start, start + productPageSize.value);
@@ -379,18 +311,13 @@ const fetchProducts = async () => {
   } catch (e) { message.error('Lỗi tải danh sách SP'); } finally { loadingProducts.value = false; }
 };
 
-
 const filterUnapplied = reactive({ name: '', color: null, ram: null, hardDrive: null, gpu: null, cpu: null });
 const uniqueColorsUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.colorName).filter(Boolean))].map(c => ({ label: c, value: c })));
 const uniqueRamsUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.ramName).filter(Boolean))].map(r => ({ label: r, value: r })));
 const uniqueHardDrivesUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.hardDriveName).filter(Boolean))].map(h => ({ label: h, value: h })));
 const uniqueGpusUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.gpuName).filter(Boolean))].map(g => ({ label: g, value: g })));
 const uniqueCpusUnapplied = computed(() => [...new Set(unappliedProducts.value.map(d => d.cpuName).filter(Boolean))].map(c => ({ label: c, value: c })));
-
-const resetUnappliedFilters = () => {
-  filterUnapplied.name = ''; filterUnapplied.color = null; filterUnapplied.ram = null;
-  filterUnapplied.hardDrive = null; filterUnapplied.gpu = null; filterUnapplied.cpu = null;
-};
+const resetUnappliedFilters = () => { filterUnapplied.name = ''; filterUnapplied.color = null; filterUnapplied.ram = null; filterUnapplied.hardDrive = null; filterUnapplied.gpu = null; filterUnapplied.cpu = null; };
 
 const filteredUnapplied = computed(() => {
   return unappliedProducts.value.filter(item => {
@@ -415,17 +342,11 @@ const uniqueRamsApplied = computed(() => [...new Set(appliedProducts.value.map(d
 const uniqueHardDrivesApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.hardDriveName).filter(Boolean))].map(h => ({ label: h, value: h })));
 const uniqueGpusApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.gpuName).filter(Boolean))].map(g => ({ label: g, value: g })));
 const uniqueCpusApplied = computed(() => [...new Set(appliedProducts.value.map(d => d.cpuName).filter(Boolean))].map(c => ({ label: c, value: c })));
-
-const resetAppliedFilters = () => {
-  filterApplied.name = ''; filterApplied.color = null; filterApplied.ram = null;
-  filterApplied.hardDrive = null; filterApplied.gpu = null; filterApplied.cpu = null;
-};
+const resetAppliedFilters = () => { filterApplied.name = ''; filterApplied.color = null; filterApplied.ram = null; filterApplied.hardDrive = null; filterApplied.gpu = null; filterApplied.cpu = null; };
 
 const filteredAppliedProducts = computed(() => {
   return appliedProducts.value.filter(item => {
-    const matchName = !filterApplied.name || 
-                      item.productName.toLowerCase().includes(filterApplied.name.toLowerCase()) ||
-                      item.productCode.toLowerCase().includes(filterApplied.name.toLowerCase());
+    const matchName = !filterApplied.name || item.productName.toLowerCase().includes(filterApplied.name.toLowerCase()) || item.productCode.toLowerCase().includes(filterApplied.name.toLowerCase());
     const matchColor = !filterApplied.color || item.colorName === filterApplied.color;
     const matchRam = !filterApplied.ram || item.ramName === filterApplied.ram;
     const matchHDD = !filterApplied.hardDrive || item.hardDriveName === filterApplied.hardDrive;
@@ -440,22 +361,15 @@ const paginatedApplied = computed(() => {
   return filteredAppliedProducts.value.slice(start, start + appliedPageSize.value);
 });
 
-
 watch(checkedProductKeys, async (newKeys, oldKeys) => {
   const addedIds = newKeys.filter(id => !oldKeys.includes(id));
   const removedIds = oldKeys.filter(id => !newKeys.includes(id));
 
-  for (const id of addedIds) {
-    await fetchAndAddUnappliedDetails(id.toString());
-  }
+  for (const id of addedIds) { await fetchAndAddUnappliedDetails(id.toString()); }
 
   if (removedIds.length > 0) {
-    unappliedProducts.value = unappliedProducts.value.filter(d => 
-      !d._parentId || !removedIds.includes(d._parentId)
-    );
-    selectedUnappliedKeys.value = selectedUnappliedKeys.value.filter(k => 
-      unappliedProducts.value.some(d => d.id === k)
-    );
+    unappliedProducts.value = unappliedProducts.value.filter(d => !d._parentId || !removedIds.includes(d._parentId));
+    selectedUnappliedKeys.value = selectedUnappliedKeys.value.filter(k => unappliedProducts.value.some(d => d.id === k));
   }
 });
 
@@ -466,12 +380,22 @@ const fetchAndAddUnappliedDetails = async (productId: string) => {
   try {
     const res = await getUnappliedProducts(discountId, { page: 1, size: 500, q: parentProduct.productCode });
     const details = res.items || [];
+    
     if (details.length > 0) {
       const correctDetails = details.filter((d: any) => d.productCode === parentProduct.productCode);
-      const detailsWithParent: ExtendedProductDetail[] = correctDetails.map((d: any) => ({...d, _parentId: productId}));
-      const newDetails = detailsWithParent.filter(d => !unappliedProducts.value.some(ex => ex.id === d.id));
+      
+      // LOGIC LỌC BẰNG CHỮ KÝ
+      const cleanDetails = correctDetails.filter((d: any) => !busySignatures.value.has(getProductSignature(d)));
+
+      if (cleanDetails.length === 0 && correctDetails.length > 0) {
+         message.warning('Tất cả biến thể của sản phẩm này đã thuộc về CTKM khác trong thời gian này.');
+      }
+
+      const detailsWithParent = cleanDetails.map((d: any) => ({...d, _parentId: productId}));
+      const newDetails = detailsWithParent.filter((d: any) => !unappliedProducts.value.some(ex => ex.id === d.id));
+      
       unappliedProducts.value = [...unappliedProducts.value, ...newDetails];
-      selectedUnappliedKeys.value = [...selectedUnappliedKeys.value, ...newDetails.map(d => d.id)];
+      selectedUnappliedKeys.value = [...selectedUnappliedKeys.value, ...newDetails.map((d:any) => d.id)];
     }
   } catch (e) { message.error('Lỗi tải biến thể'); }
 };
@@ -482,22 +406,7 @@ const clearUnapplied = () => {
   checkedProductKeys.value = [];
 };
 
-
-const formData = reactive<UpdateDiscountRequest>({
-  discountName: "", discountCode: "", percentage: 0,
-  startDate: Date.now(), endDate: Date.now() + 86400000, description: ""
-});
-
-const formRules: FormRules = {
-  discountName: [{ required: true, message: "Nhập tên đợt", trigger: "blur" }],
-  startDate: [{ required: true, type: 'number', message: "Chọn ngày bắt đầu", trigger: "blur" }],
-  endDate: [{ required: true, type: 'number', message: "Chọn ngày kết thúc", trigger: "blur" }, { validator: (_r, v) => v > formData.startDate || new Error("Phải sau ngày bắt đầu"), trigger: "blur" }],
-  percentage: [{ required: true, type: 'number', message: "Nhập % giảm", trigger: "blur" }]
-};
-
-
 const formatPrice = (p: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p);
-
 
 const fetchDiscount = async () => {
   if (!discountId) return router.back();
@@ -523,7 +432,6 @@ const fetchAppliedProducts = async () => {
     appliedProducts.value = res.items; 
   } catch (e) { message.error('Lỗi tải SP đã áp dụng'); } finally { loadingApplied.value = false; }
 };
-
 
 const handleBulkApply = async () => {
   if (!canUpdateProducts.value) return; 
@@ -574,8 +482,7 @@ const handleSubmit = async () => {
   finally { submitting.value = false; }
 };
 
-const handleAppliedPageChange = (p: number) => { appliedCurrentPage.value = p; };
-
+// --- TABLE COLUMNS ---
 const productColumns: DataTableColumns<ProductResponse> = [
   { type: 'selection', disabled: () => !canUpdateProducts.value }, 
    { title: "STT", key: "stt", width: 50, align: "center", render: (_, i) => (productCurrentPage.value - 1) * productPageSize.value + i + 1 },
@@ -588,12 +495,11 @@ const unappliedProductColumns: DataTableColumns<ExtendedProductDetail> = [
   { type: 'selection' },
   { title: "STT", width: 50, align: "center", render: (_, i) => (unappliedCurrentPage.value - 1) * unappliedPageSize.value + i + 1 },
   { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
-  
-  { title: 'Màu', key: 'colorName', align: 'center', render: r => r.colorName || '-' },
-  { title: 'RAM', key: 'ramName', align: 'center', render: r => r.ramName || '-' },
-  { title: 'Ổ cứng', key: 'hardDriveName', align: 'center', render: r => r.hardDriveName || '-' },
-  { title: 'GPU', key: 'gpuName', align: 'center', render: r => r.gpuName || '-' },
-  { title: 'CPU', key: 'cpuName', align: 'center', render: r => r.cpuName || '-' },
+  { title: 'Màu', key: 'colorName', align: 'center', render: (r:any) => r.colorName || r.color || '-' },
+  { title: 'RAM', key: 'ramName', align: 'center', render: (r:any) => r.ramName || r.ram || '-' },
+  { title: 'HDD', key: 'hardDriveName', align: 'center', render: (r:any) => r.hardDriveName || r.hardDrive || '-' },
+  { title: 'GPU', key: 'gpuName', align: 'center', render: (r:any) => r.gpuName || r.gpu || '-' },
+  { title: 'CPU', key: 'cpuName', align: 'center', render: (r:any) => r.cpuName || r.cpu || '-' },
   { title: 'Giá giảm', key: 'salePrice', width: 120, align: 'right', render: r => 
     h('div', { class: 'price-cell' }, [
       h('div', { style: 'text-decoration:line-through;color:#999;font-size:11px' }, formatPrice(r.price)),
@@ -606,13 +512,11 @@ const appliedProductColumns: DataTableColumns<AppliedProductResponse> = [
   { type: 'selection', disabled: () => !canUpdateProducts.value },
   { title: "STT", key: "stt", width: 50, align: "center", render: (_, i) => (appliedCurrentPage.value - 1) * appliedPageSize.value + i + 1 },
   { title: 'Tên SPCT', key: 'productName', ellipsis: { tooltip: true } },
-  
-
-  { title: 'Màu', key: 'colorName', align: 'center', render: r => r.colorName || '-' },
-  { title: 'RAM', key: 'ramName', align: 'center', render: r => r.ramName || '-' },
-  { title: 'Ổ cứng', key: 'hardDriveName', align: 'center', render: r => r.hardDriveName || '-' },
-  { title: 'GPU', key: 'gpuName', align: 'center', render: r => r.gpuName || '-' },
-  { title: 'CPU', key: 'cpuName', align: 'center', render: r => r.cpuName || '-' },
+  { title: 'Màu', key: 'colorName', align: 'center', render: (r:any) => r.colorName || r.color || '-' },
+  { title: 'RAM', key: 'ramName', align: 'center', render: (r:any) => r.ramName || r.ram || '-' },
+  { title: 'HDD', key: 'hardDriveName', align: 'center', render: (r:any) => r.hardDriveName || r.hardDrive || '-' },
+  { title: 'GPU', key: 'gpuName', align: 'center', render: (r:any) => r.gpuName || r.gpu || '-' },
+  { title: 'CPU', key: 'cpuName', align: 'center', render: (r:any) => r.cpuName || r.cpu || '-' },
   { title: 'Giá giảm', key: 'salePrice', width: 120, align: 'right', render: r => 
     h('div', [
       h('div', { style: 'color:#d03050;font-weight:bold' }, formatPrice(Math.round(r.price * (100 - r.percentageDiscount) / 100))),
@@ -620,11 +524,8 @@ const appliedProductColumns: DataTableColumns<AppliedProductResponse> = [
     ]) 
   },
   { 
-    title: '', 
-    key: 'actions', 
-    width: 60, 
+    title: '', key: 'actions', width: 60, 
     render: r => {
-
       if (!canUpdateProducts.value) return null;
       return h(NPopconfirm, { onPositiveClick: () => handleRemoveProduct(r.id), positiveText: 'Xóa', negativeText: 'Hủy' }, { trigger: () => h(NButton, { size: 'small', type: 'error', quaternary: true, circle: true }, { icon: () => h(Icon, { icon: 'carbon:trash-can' }) }), default: () => 'Gỡ sản phẩm này?' });
     }
@@ -635,7 +536,12 @@ watch(() => formData.percentage, () => {
   if (unappliedProducts.value.length > 0) unappliedProducts.value = [...unappliedProducts.value];
 });
 
-onMounted(() => { fetchDiscount(); fetchAppliedProducts(); fetchProducts(); });
+onMounted(async () => { 
+    await fetchDiscount(); 
+    await fetchBusyProducts();
+    fetchAppliedProducts(); 
+    fetchProducts(); 
+});
 </script>
 
 <style scoped>
@@ -644,7 +550,7 @@ onMounted(() => { fetchDiscount(); fetchAppliedProducts(); fetchProducts(); });
 .sub-title { color: #666; font-size: 13px; }
 .main-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.flex { display: flex; } .items-center { align-items: center; } .justify-between { justify-content: space-between; }
+.flex { display: flex; } .items-end { align-items: flex-end; } .justify-between { justify-content: space-between; }
 .filter-label { font-size: 11px; color: #666; margin-bottom: 2px; font-weight: 500; }
 :deep(.n-card .n-card__content) { padding: 20px; } :deep(.n-form-item-label) { font-weight: 500; }
 @media (max-width: 1024px) { .main-layout { grid-template-columns: 1fr; } }

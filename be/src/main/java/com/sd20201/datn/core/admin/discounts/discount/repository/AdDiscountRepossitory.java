@@ -22,7 +22,10 @@ public interface AdDiscountRepossitory  extends DiscountRepository {
                   c.endDate AS endTime,
                   c.percentage AS percentage,
                   c.description AS description,
-                  c.status AS discountStatus
+                  c.status AS discountStatus ,
+               (SELECT COUNT(DISTINCT pdd.productDetail.product.id)\s
+                                     FROM ProductDetailDiscount pdd\s
+                                     WHERE pdd.discount.id = c.id AND pdd.status=0) AS productCount
            FROM Discount c 
            WHERE (:discountName IS NULL OR c.name LIKE CONCAT('%', :discountName, '%'))
                  AND (:discountStatus IS NULL OR c.status = :discountStatus)
