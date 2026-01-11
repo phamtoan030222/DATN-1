@@ -40,6 +40,7 @@ import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.TechnolyCharging;
 import com.sd20201.datn.infrastructure.constant.TypeBattery;
 import com.sd20201.datn.infrastructure.constant.TypeScreenResolution;
+import com.sd20201.datn.infrastructure.exception.BusinessException;
 import com.sd20201.datn.repository.ImageProductRepository;
 import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
@@ -366,10 +367,33 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
             }
 
             case BRAND -> {
+
+                // 1. Validate rỗng
+                if (request.getNameProperty() == null || request.getNameProperty().trim().isEmpty()) {
+                    throw new BusinessException("Tên thương hiệu không được để trống");
+                }
+
+                // 2. Chuẩn hóa tên
+                String normalizedName = request.getNameProperty()
+                        .trim()
+                        .replaceAll("\\s+", " ");
+
+                // 3. Check trùng (không phân biệt hoa thường)
+                boolean exists = brandRepository.existsByNameIgnoreCase(normalizedName);
+                if (exists) {
+                    throw new BusinessException(
+                            "Tên thương hiệu '" + normalizedName + "' đã tồn tại"
+                    );
+                }
+
+                // 4. Tạo brand mới
                 Brand brand = new Brand();
-                brand.setName(request.getNameProperty());
-                brand = brandRepository.save(brand);
-                return ResponseObject.successForward(brand.getId(),"Quick add brand success");
+                brand.setName(normalizedName);
+
+                brandRepository.save(brand);
+
+                return ResponseObject.successForward(brand.getId(),"Quick add battery success");
+
             }
 
             case BATTERY -> {

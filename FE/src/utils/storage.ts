@@ -4,6 +4,15 @@ interface StorageData<T> {
   value: T;
   expire: number | null;
 }
+export const localStorageAction = {
+  get: (key: string, defaultValue = null) => {
+    const value = localStorage.getItem(key)
+    return value ? JSON.parse(value) : defaultValue;
+  },
+  set: (key: string, value: any) => localStorage.setItem(key, JSON.stringify(value)),
+  remove: (key: string) => sessionStorage.removeItem(key),
+  clear: () => sessionStorage.clear(),
+}
 
 function createLocalStorage<T extends Storage.Local>() {
   function set<K extends keyof T>(

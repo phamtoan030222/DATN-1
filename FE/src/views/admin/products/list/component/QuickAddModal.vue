@@ -48,27 +48,46 @@ const handleClickCancel = () => {
 }
 
 const notification = useNotification();
-
 const handleClickOK = async () => {
     if (!data.value || !props.type) {
         notification.error({ content: `Vui lòng nhập giá trị ${translateProperty(props.type as ProductPropertiesType)}`, duration: 3000 })
         return;
     }
 
-    const res = await quickAddProperties(data.value.trim(), props.type as ProductPropertiesType);
+    try {
+        const res = await quickAddProperties(data.value.trim(), props.type as ProductPropertiesType);
 
-    if (res.success) {
-        notification.success({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thành công`, duration: 3000 })
-        emit('success');
+        if (res.success) {
+            notification.success({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thành công`, duration: 3000 })
+            emit('success');
+        } else {
+            // Hiển thị message lỗi từ backend nếu có
+            const errorMessage = res.message || `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thất bại`;
+            notification.error({ content: errorMessage, duration: 3000 });
+        }
+    } catch (error: any) {
+        // Xử lý lỗi từ API call
+        console.error('Lỗi khi thêm nhanh thuộc tính:', error);
+        
+        // Lấy message lỗi từ response backend
+        const backendErrorMessage = error.response?.data?.message || 
+                                   error.response?.data?.error || 
+                                   error.message || 
+                                   `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thất bại`;
+        
+        notification.error({ 
+            content: backendErrorMessage, 
+            duration: 3000 
+        });
+    } finally {
+        emit('close');
+        clearData();
     }
-    else notification.error({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thất bại`, duration: 3000 })
-    emit('close');
-    clearData();
 }
+
 const clearData = () => {
     data.value = '';
 }
-
 const data = ref<string>('');
 
 const getTextByProductPropertiesType = computed(() => {

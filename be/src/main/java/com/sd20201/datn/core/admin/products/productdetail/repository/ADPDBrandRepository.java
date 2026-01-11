@@ -1,10 +1,13 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
 import com.sd20201.datn.core.admin.products.product.model.response.ADPRPropertyComboboxResponse;
+import com.sd20201.datn.entity.Brand;
 import com.sd20201.datn.repository.BrandRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ADPDBrandRepository extends BrandRepository {
 
@@ -16,5 +19,9 @@ public interface ADPDBrandRepository extends BrandRepository {
     ORDER BY b.createdDate desc
     """)
     List<ADPRPropertyComboboxResponse> getBrandComboboxResponse();
+
+    Optional<Brand> findByNameIgnoreCase(String name);
+
+    boolean existsByNameIgnoreCase(String name);
 
 }

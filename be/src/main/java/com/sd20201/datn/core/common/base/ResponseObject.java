@@ -63,7 +63,7 @@ public class ResponseObject<T> {
         return this;
     }
 
-    public ResponseObject<T> error(HttpStatus status, String message) {
+    public ResponseObject<T> error(String message) {
         this.status = status;
         this.message = message;
         return this;

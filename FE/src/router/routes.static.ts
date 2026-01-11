@@ -198,9 +198,21 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     requiresAuth: true,
     icon: 'icon-park-outline:list',
     menuType: 'page',
-    componentPath: '/admin/orders/list/index.vue',
+    componentPath: '/admin/hoadon/index.vue',
     id: 4,
     pid: null,
+  },
+  {
+    name: 'orders_detail',
+    path: '/orders/detail/:id',  // QUAN TRỌNG: Đây là URL sẽ dùng
+
+    title: 'Chi tiết đơn hàng',
+    requiresAuth: true,
+    hide: true,
+    componentPath: '/admin/hoadon/HoaDonDetailAdmin.vue',
+
+    id: 4,
+    pid: 401,
   },
 
   // Quản lý người dùng

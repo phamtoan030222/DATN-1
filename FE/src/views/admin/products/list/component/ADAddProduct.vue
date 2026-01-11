@@ -266,10 +266,13 @@ import ADImeiProductDetail from './ADImeiProductDetail.vue'
 import QuickAddModal from './QuickAddModal.vue'
 import { ProductPropertiesType } from '@/constants/ProductPropertiesType'
 import _ from 'lodash'
+import { useMessage } from 'naive-ui'
 
 const route = useRoute()
 
 const router = useRouter()
+
+const message = useMessage()
 
 const idProduct: Ref<string> = ref(route.params.id as string)
 const isOpenQuickAddModal = ref<boolean>(false)
@@ -480,40 +483,65 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     },
 ]
 
-const createVariant = () => {
+const createVariant = async () => {
+  try {
+    // reset state
     if (productDetails.length > 0) {
-        productDetails.splice(0, productDetails.length)
-        statePaginationVariantByColor.splice(0, statePaginationVariantByColor.length)
+      productDetails.splice(0, productDetails.length)
+      statePaginationVariantByColor.splice(0, statePaginationVariantByColor.length)
     }
 
-    if (!formDataVariantRef.value?.validate(
-        error => !!(error && error?.length > 0)
-    )) return;
+    // validate form
+    const isInvalid = !formDataVariantRef.value?.validate(
+      error => !!(error && error.length > 0)
+    )
+    if (isInvalid) return
 
+    // build variants
     if (formDataVariant.idColor) {
-        formDataVariant.idColor.forEach((idColor) => {
-            statePaginationVariantByColor.push({ idColor: idColor, currentPage: 1, priceCommonVariant: ref(0).value });
-
-            formDataVariant.idCpu?.forEach((cpu) => {
-                formDataVariant.idGpu?.forEach((gpu) => {
-                    formDataVariant.idHardDrive?.forEach((hardDrive) => {
-                        formDataVariant.idMaterial?.forEach((material) => {
-                            formDataVariant.idRam?.forEach((ram) => {
-                                productDetails.push({
-                                    idColor: idColor,
-                                    idCPU: cpu,
-                                    idGPU: gpu,
-                                    idHardDrive: hardDrive,
-                                    idMaterial: material,
-                                    idRAM: ram,
-                                })
-                            })
-                        })
-                    })
-                })
-            })
+      formDataVariant.idColor.forEach((idColor) => {
+        statePaginationVariantByColor.push({
+          idColor,
+          currentPage: 1,
+          priceCommonVariant: 0,
         })
+
+        formDataVariant.idCpu?.forEach((cpu) => {
+          formDataVariant.idGpu?.forEach((gpu) => {
+            formDataVariant.idHardDrive?.forEach((hardDrive) => {
+              formDataVariant.idMaterial?.forEach((material) => {
+                formDataVariant.idRam?.forEach((ram) => {
+                  productDetails.push({
+                    idColor,
+                    idCPU: cpu,
+                    idGPU: gpu,
+                    idHardDrive: hardDrive,
+                    idMaterial: material,
+                    idRAM: ram,
+                  })
+                })
+              })
+            })
+          })
+        })
+      })
     }
+
+    // 🔥 GỌI API TẠO VARIANT
+    const requests = productDetails.map((detail) =>
+      createProductVariant(
+        idNewProduct!,
+        detail as ADProductDetailCreateUpdateRequest
+      )
+    )
+
+    await Promise.all(requests)
+
+    message.success('Tạo biến thể thành công')
+  } catch (err: any) {
+    // 👈 CHỖ NÀY SẼ HIỂN THỊ
+    message.error(err.message)
+  }
 }
 
 
@@ -588,12 +616,20 @@ const submitVariantHandler = async () => {
             });
         });
 
-        const requests = productDetails.map((productDetail, index) =>
-            createProductVariant(
-                idNewProduct!,
-                productDetail as ADProductDetailCreateUpdateRequest,
-            )
-        );
+try {
+  const requests = productDetails.map((productDetail) =>
+    createProductVariant(
+      idNewProduct!,
+      productDetail as ADProductDetailCreateUpdateRequest
+    )
+  )
+
+  await Promise.all(requests)
+
+  message.success('Tạo tất cả biến thể thành công')
+} catch (err: any) {
+  message.error(err.message) // message từ backend
+}
 
         // Gửi đồng thời
         await Promise.all(requests);

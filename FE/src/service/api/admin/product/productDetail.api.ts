@@ -166,23 +166,42 @@ export async function modifyProductDetail(data: ADProductDetailCreateUpdateReque
   return res.data
 }
 
-export async function createProductVariant(idProduct: string, variant: ADProductDetailCreateUpdateRequest) {
-  const formData = new FormData()
-  formData.append('variant', new Blob([JSON.stringify(variant)], { type: 'application/json' }))
-  formData.append('idProduct', new Blob([idProduct], { type: 'application/json' }))
-  // images.forEach(image => formData.append('images', image))
+export async function createProductVariant(
+  idProduct: string,
+  variant: ADProductDetailCreateUpdateRequest
+): Promise<DefaultResponse<string>> {
+  try {
+    const formData = new FormData()
 
-  const res = (await request({
-    url: `${API_ADMIN_PRODUCT_DETAIL}/variant`,
-    method: 'POST',
-    data: formData,
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  })) as AxiosResponse<DefaultResponse<string>>
+    formData.append(
+      'variant',
+      new Blob([JSON.stringify(variant)], { type: 'application/json' })
+    )
 
-  return res.data
+    formData.append(
+      'idProduct',
+      new Blob([idProduct], { type: 'application/json' })
+    )
+
+    const res = (await request({
+      url: `${API_ADMIN_PRODUCT_DETAIL}/variant`,
+      method: 'POST',
+      data: formData,
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    })) as AxiosResponse<DefaultResponse<string>>
+
+    return res.data
+  } catch (error: any) {
+  const backendMessage =
+    error?.response?.data?.message ||
+    'Có lỗi xảy ra'
+
+  throw new Error(backendMessage)
 }
+}
+
 
 export async function changeProductDetailStatus(id: string) {
   const res = (await request({
