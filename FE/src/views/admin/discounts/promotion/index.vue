@@ -176,15 +176,6 @@ const columns: DataTableColumns<DiscountResponse> = [
     render: row => row.discountName,
   },
   {
-    title: 'SL Sản phẩm',
-    key: 'productCount',
-    width: 120,
-    align: 'center',
-    render: row => {
-      return `${row.productCount || 0} `;
-    }
-  },
-  {
     title: 'Giá trị',
     key: 'percentage',
     width: 150,
@@ -416,6 +407,8 @@ watch(searchForm, () => { currentPage.value = 1 })
         :pagination="false"
         striped
         :scroll-x="1000"
+        style="width: 100%; min-width: 580px;"
+        class="no-scroll-table"
       />
 
 
