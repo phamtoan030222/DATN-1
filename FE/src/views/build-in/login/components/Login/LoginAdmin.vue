@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import { URL_OAUTH2_GOOGLE_ADMIN, VITE_BASE_URL_CLIENT } from "@/constants/url";
 import { postLogin } from "@/service/api/auth/auth.api";
-import { useAuthStore } from "@/store";
 import { local } from "@/utils";
-import { getUserInformation } from "@/utils/token.helper";
-import { use } from "echarts";
 import type { FormInst } from "naive-ui";
 
 const emit = defineEmits(["update:modelValue"]);
@@ -12,8 +9,6 @@ const emit = defineEmits(["update:modelValue"]);
 function toOtherForm(type: any) {
     emit("update:modelValue", type);
 }
-
-const authStore = useAuthStore();
 
 const { t } = useI18n();
 const rules = computed(() => {

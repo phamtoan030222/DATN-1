@@ -3,76 +3,79 @@ import { API_ADMIN_PRODUCT_DETAIL } from '@/constants/url'
 import request from '@/service/request'
 import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import type { AxiosResponse } from 'axios'
+import { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 export type ADProductDetailRequest = PaginationParams & {
-  idProduct?: string | null
-  idCPU?: string | null
-  idGPU?: string | null
-  idColor?: string | null
-  idRAM?: string | null
-  idHardDrive?: string | null
-  idMaterial?: string | null
-  minPrice: number
-  maxPrice: number
+  readonly idProduct?: string | null
+  readonly idCPU?: string | null
+  readonly idGPU?: string | null
+  readonly idColor?: string | null
+  readonly idRAM?: string | null
+  readonly idHardDrive?: string | null
+  readonly idMaterial?: string | null
+  readonly minPrice: number
+  readonly maxPrice: number
 }
 
 export interface ADProductDetailCreateUpdateRequest {
-  id?: string
-  code?: string
-  idProduct?: string
-  imei: string[]
-  idColor: string
-  idRAM: string
-  idHardDrive: string
-  idMaterial: string
-  idGPU: string
-  idCPU: string
-  price: number
-  description?: string
-  publicId?: string
-  urlImage?: string
+  readonly id?: string
+  readonly code?: string
+  readonly idProduct?: string
+  readonly imei: readonly string[]
+  readonly idColor: string
+  readonly idRAM: string
+  readonly idHardDrive: string
+  readonly idMaterial: string
+  readonly idGPU: string
+  readonly idCPU: string
+  readonly price: number
+  readonly description?: string
+  readonly publicId?: string
+  readonly urlImage?: string
 }
 
 export interface ADProductDetailResponse {
-  id: string
-  code: string
-  product: string
-  quantity: number
-  color: string
-  ram: string
-  hardDrive: string
-  material: string
-  cpu: string
-  gpu: string
-  price: number
-  description: string
-  status: string
-  urlImage: string
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly product: string
+  readonly quantity: number
+  readonly color: string
+  readonly ram: string
+  readonly hardDrive: string
+  readonly material: string
+  readonly cpu: string
+  readonly gpu: string
+  readonly price: number
+  readonly description: string
+  readonly status: string
+  readonly urlImage: string;
+  readonly salePrice?: number;
 }
 
 export interface ADProductDetailDetailResponse {
-  id?: string
-  code: string
-  name: string
-  idCPU: string
-  idGPU: string
-  idColor: string
-  idRAM: string
-  idHardDrive: string
-  idMaterial: string
-  price: number
+  readonly id?: string
+  readonly code: string
+  readonly name: string
+  readonly idCPU: string
+  readonly idGPU: string
+  readonly idColor: string
+  readonly idRAM: string
+  readonly idHardDrive: string
+  readonly idMaterial: string
+  readonly price: number
 }
 
-export interface ADPRPropertiesComboboxResponse {
-  label: string
-  value: string
+export type ADPRPropertiesComboboxResponse = Readonly<SelectMixedOption> & {
+  readonly label: string
+  readonly value: string
 }
 
 export interface ADPDImeiResponse {
-  id: string
-  code: string
-  name: string
-  status: string
+  readonly id: string
+  readonly code: string
+  readonly name: string
+  readonly status: string
 }
 
 export interface IMEIExcelResponse {

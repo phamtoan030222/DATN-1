@@ -20,7 +20,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { getAllDiscounts } from '@/service/api/admin/discount/discountApi'
+import { getAllDiscounts,deleteDiscount } from '@/service/api/admin/discount/discountApi'
 import type { DiscountResponse, ParamsGetDiscount } from '@/service/api/admin/discount/discountApi'
 import { useRouter } from 'vue-router'
 
@@ -42,6 +42,8 @@ const searchForm = reactive({
   dateRange: null as [number, number] | null,
   sortBy: 'createdDate_desc',
 })
+
+
 
 // ================= HELPERS =================
 function formatDateTime(timestamp: number | undefined) {
@@ -151,53 +153,52 @@ const paginatedData = computed(() => {
 
 const totalFiltered = computed(() => filteredTableData.value.length)
 
-// ================= COLUMNS =================
+
 const columns: DataTableColumns<DiscountResponse> = [
   {
     title: 'STT',
     key: 'stt',
-    width: 100,
+    width: 60,
     align: 'center',
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
     title: 'Mã giảm giá',
     key: 'discountCode',
-    width: 250,
+    width: 200,
     render: row => h('strong', { class: 'text-primary' }, row.discountCode.toUpperCase()),
   },
   {
     title: 'Tên chương trình',
     key: 'discountName',
-    minWidth: 300,
+    minWidth: 200,
     ellipsis: { tooltip: true },
     render: row => row.discountName,
   },
   {
     title: 'Giá trị',
     key: 'percentage',
-    width: 200,
+    width: 150,
     align: 'center',
     render: row => h(NTag, { type: 'error', size: 'small' }, { default: () => `${row.percentage}%` }),
   },
-  // --- TÁCH CỘT THỜI GIAN ---
   {
     title: 'Ngày bắt đầu',
     key: 'startTime',
-    width: 250,
+    width: 180,
     render: row => formatDateTime(row.startTime),
   },
   {
     title: 'Ngày kết thúc',
     key: 'endTime',
-    width: 250,
+    width: 170,
     render: row => formatDateTime(row.endTime),
   },
   // --------------------------
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 200,
+    width: 150,
     align: 'center',
     render: (row) => {
       const statusInfo = getStatusInfo(row)
@@ -313,13 +314,13 @@ watch(searchForm, () => { currentPage.value = 1 })
                   Tất cả
                 </NRadio>
                 <NRadio :value="1">
-                  Sắp tới
+                  Sắp diễn ra
                 </NRadio>
                 <NRadio :value="0">
-                  Đang chạy
+                  Đang diễn ra
                 </NRadio>
                 <NRadio :value="3">
-                  Kết thúc
+                  Đã kết thúc
                 </NRadio>
               </div>
             </NRadioGroup>
@@ -406,7 +407,10 @@ watch(searchForm, () => { currentPage.value = 1 })
         :pagination="false"
         striped
         :scroll-x="1000"
+        style="width: 100%; min-width: 580px;"
+        class="no-scroll-table"
       />
+
 
       <div class="flex justify-end mt-4">
         <NPagination

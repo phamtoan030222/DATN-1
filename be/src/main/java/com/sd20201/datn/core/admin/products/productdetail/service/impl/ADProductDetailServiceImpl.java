@@ -8,6 +8,7 @@ import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBattery
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBrandRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDCPURepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDColorRepository;
+import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailDiscountRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDGPURepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDHardDriveRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDImeiRepository;
@@ -88,8 +89,20 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
     private final ADPDBrandRepository brandRepository;
 
+    private final ADPDProductDetailDiscountRepository productDetailDiscountRepository;
+
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
+        Long currentTime = System.currentTimeMillis();
+        List<String> idCurrentDiscounts = productDetailDiscountRepository.getIdByDate(currentTime);
+
+        if (!idCurrentDiscounts.isEmpty()) {
+            return ResponseObject.successForward(
+                    PageableObject.of(productDetailRepository.getProductDetailsDiscount(Helper.createPageable(request), request, idCurrentDiscounts)),
+                    "OKE"
+            );
+        }
+
         return ResponseObject.successForward(
                 PageableObject.of(productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
                 "OKE"
