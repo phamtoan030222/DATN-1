@@ -120,7 +120,6 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     },
   },
   { title: 'Mã', key: 'code', width: 100, fixed: 'left' },
-  { title: 'Tên', key: 'name', width: 100 },
   {
     title: 'Ảnh sản phẩm',
     key: 'brand',
@@ -151,12 +150,12 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     width: 150,
     align: 'center',
     render: (data: ADProductDetailResponse) => h('div', { style: { display: 'flex', flexDirection: 'column', justifyContent: 'start' } }, [
-      h('span',{ style: 'text-decoration: line-through; color: #999; font-size: 11px;' }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
+      h('span',{ style:  data.salePrice ? {textDecoration: 'line-through', color: '#999', fontSize: '11px'} : {textDecoration: 'none', color: 'black', fontSize: '15px'} }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
         if ((arr.length - index) % 3 == 0)
           return `${prev} ${curr}`
         return prev + curr
       }, '')} vnđ`),
-      h('span', { style: 'color: #d03050; font-weight: bold;' },`${(`${data.salePrice}`).split('').reduce((prev, curr, index, arr) => {
+      data.salePrice && h('span', { style: {color: '#d03050', fontWeight: 'bold'} }, `${(`${data.salePrice}`).split('').reduce((prev, curr, index, arr) => {
         if ((arr.length - index) % 3 == 0)
           return `${prev} ${curr}`
         return prev + curr
