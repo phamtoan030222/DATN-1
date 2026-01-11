@@ -7,7 +7,7 @@
                         <n-form-item-gi :span="24" label="Tên sản phẩm" path="name">
                             <n-input placeholder="Nhập tên sản phẩm" v-model:value="formDataBasic.name"></n-input>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" >
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Hãng</span>
@@ -20,7 +20,7 @@
                             <n-select v-model:value="formDataBasic.idBrand" filterable placeholder="Chọn hãng"
                                 :options="dataProperties.basicInformation.brands"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" >
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Pin</span>
@@ -33,7 +33,7 @@
                             <n-select v-model:value="formDataBasic.idBattery" filterable placeholder="Chọn pin"
                                 :options="dataProperties.basicInformation.batteries"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" >
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Màn hình</span>
@@ -46,7 +46,7 @@
                             <n-select v-model:value="formDataBasic.idScreen" filterable placeholder="Chọn màn hình"
                                 :options="dataProperties.basicInformation.screens"></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" >
+                        <n-form-item-gi :span="12">
                             <template #label>
                                 <n-space class="w-full" justify="space-between">
                                     <span>Hệ điều hành</span>
@@ -168,15 +168,16 @@
             v-for="productDetailList in partitionProductDetailsByColor" class="mt-20px">
             <template #header>
                 <n-space justify="space-between">
-                    <span>Danh sách biến thể màu {{ getNameColorById(productDetailList[0].idColor) }}</span>
+                    <n-space align="center">
+                        <span>Danh sách biến thể màu {{ getNameColorById(productDetailList[0].idColor) }}</span>
+                        <div class="circle" :style="{ backgroundColor: dataProperties.variantInformation.colors.find(color => color.value === productDetailList[0].idColor)?.code }"></div>
+                    </n-space>
 
                     <n-space>
                         <n-input-number
                             :value="statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor)?.priceCommonVariant || 0"
                             placeholder="Nhập giá chung" clearable @update:value="val => {
                                 const state = statePaginationVariantByColor.find(item => item.idColor === productDetailList[0].idColor);
-                                console.log('val', val);
-                                console.log('state', state);
                                 if (state) {
                                     state.priceCommonVariant = val as number;
                                 }
@@ -199,9 +200,47 @@
             }"></n-data-table>
         </n-card>
 
+        <n-card class="mt-20px" v-if="productDetails && productDetails.length > 0">
+            <n-h4>Thêm ảnh biến thể sản phẩm</n-h4>
+            <div class="images-variant">
+                <n-card v-for="(productDetails, key) in partitionProductDetailsByColor" :key="key">
+                    <template #header>
+                        <n-space align="center" justify="space-around" style="font-size: 12px;">
+                            <div style="display: flex; align-items: center;">
+                                <div class="circle"
+                                    :style="{ backgroundColor: dataProperties.variantInformation.colors.find(color => color.value === key)?.code }">
+                                </div>
+                                <span style="margin: 10px 4px;">
+                                    {{dataProperties.variantInformation.colors.find(color => color.value === key)?.label
+                                    }}
+                                </span>
+                            </div>
+
+                            <n-tag round :bordered="false"
+                                :color="{ color: '#19bf67', textColor: '#fff', borderColor: '#10b981' }">
+                                {{ productDetails.length }} phiên bản
+                            </n-tag>
+                        </n-space>
+                    </template>
+
+                    <template #default>
+                        <div>
+                            <n-upload style="width: 100%;" :max="1" :default-upload="false" list-type="image-card"
+                                :on-change="(data: { fileList: UploadFileInfo[] }) => handleChangeProductDetail(data, key)">
+                            </n-upload>
+                        </div>
+                    </template>
+                </n-card>
+            </div>
+
+            <template #footer>
+                <span> <strong style="color: red;">* Chú ý:</strong> Kích thước tối đa của ảnh: 5MB</span>
+            </template>
+        </n-card>
+
         <n-space class="mt-20px" v-if="productDetails && productDetails.length > 0">
             <n-button>Hủy</n-button>
-            <n-popconfirm @positive-click="submitVariantHandler" positive-text="Xác nhận" negative-text="Hủy">
+            <n-popconfirm :positive-text="'Xác nhận'" :negative-text="'Hủy'" @positive-click="submitVariantHandler">
                 <template #trigger>
                     <n-button :loading="loadingCreateVariant" type="success">Xác nhận</n-button>
                 </template>
@@ -234,8 +273,8 @@ const router = useRouter()
 
 const idProduct: Ref<string> = ref(route.params.id as string)
 const isOpenQuickAddModal = ref<boolean>(false)
-const isEditPriceInputTable: Ref<{idColor: string | undefined, index: number}> = ref({idColor: '', index: -1})
-const priceTableValue: Ref<{idColor: string, value: number}[]> = ref([])
+const isEditPriceInputTable: Ref<{ idColor: string | undefined, index: number }> = ref({ idColor: '', index: -1 })
+const priceTableValue: Ref<{ idColor: string, value: number }[]> = ref([])
 const isOpenModalIMEIProduct = ref<boolean>(false)
 const indexRowDataImei = ref<number>()
 const idColorImei = ref<string>()
@@ -367,18 +406,32 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     { type: 'selection', width: 50, fixed: 'left' },
     {
         title: '#', key: 'orderNumber', width: 50, align: 'center', fixed: 'left',
-        render: (data, index) => h('span', { innerText: index + 1 })
+        render: (_, index) => h('span', { innerText: index + 1 })
     },
     {
         title: 'Cấu hình', key: 'configuration', width: 200, align: 'left',
         render: (row: ADPRTableProductDetail) => h('div',
             [
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'iconoir:fill-color' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.label) })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'solar:cpu-bold' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.cpus.filter(data => data.value == row.idCPU).map(data => data.label) })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'gravity-ui:gpu' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.gpus.filter(data => data.value == row.idGPU).map(data => data.label) })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'material-symbols:hard-drive-outline-sharp' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.hardDrives.filter(data => data.value == row.idHardDrive).map(data => data.label) })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'lets-icons:materials' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.materials.filter(data => data.value == row.idMaterial).map(data => data.label) })]),
-                h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: dataProperties.variantInformation.rams.filter(data => data.value == row.idRAM).map(data => data.label) })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [
+                    h(Icon, { icon: 'iconoir:fill-color' }),
+                    h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.label)}` }),
+                    // h('div', {
+                    //     class: 'circle',
+                    //     style: {
+                    //         backgroundColor: dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.code)[0],
+                    //         marginLeft: '8px',
+                    //         width: '12px',
+                    //         height: '12px',
+                    //         borderRadius: '50%',
+                    //         border: '1px solid #00000033'
+                    //     }
+                    // })
+                ]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'solar:cpu-bold' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${dataProperties.variantInformation.cpus.filter(data => data.value == row.idCPU).map(data => data.label)}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'gravity-ui:gpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${dataProperties.variantInformation.gpus.filter(data => data.value == row.idGPU).map(data => data.label)}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'material-symbols:hard-drive-outline-sharp' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${dataProperties.variantInformation.hardDrives.filter(data => data.value == row.idHardDrive).map(data => data.label)}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'lets-icons:materials' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${dataProperties.variantInformation.materials.filter(data => data.value == row.idMaterial).map(data => data.label)}` })]),
+                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${dataProperties.variantInformation.rams.filter(data => data.value == row.idRAM).map(data => data.label)}` })]),
             ]
         )
     },
@@ -425,24 +478,6 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
             ]
         )
     },
-    {
-        title: 'Ảnh biến thể',
-        key: 'imageProductDetail',
-        className: 'rowspan-top',
-        width: 150,
-        rowSpan: (_) => productDetails.length,
-        render: (dataProduct: ADPRTableProductDetail) => {
-            return h('div',
-                { style: { display: 'flex', justifyContent: 'start' } },
-                h(NUpload, {
-                    max: 1,
-                    defaultUpload: false,
-                    listType: "image-card",
-                    onChange: (data: { fileList: UploadFileInfo[] }) => handleChangeProductDetail(data, dataProduct.idColor)
-                })
-            )
-        },
-    },
 ]
 
 const createVariant = () => {
@@ -452,7 +487,7 @@ const createVariant = () => {
     }
 
     if (!formDataVariantRef.value?.validate(
-        error => !!( error && error?.length > 0)
+        error => !!(error && error?.length > 0)
     )) return;
 
     if (formDataVariant.idColor) {
@@ -596,7 +631,7 @@ const validateSubmitVariantHandler: () => boolean = () => {
         return false;
     }
 
-    if(productDetails.some(productDetail => !productDetail.imei || productDetail.imei.length === 0)) {
+    if (productDetails.some(productDetail => !productDetail.imei || productDetail.imei.length === 0)) {
         notification.error({ content: 'Vui lòng thêm IMEI cho tất cả biến thể', duration: 3000 })
         return false;
     }
@@ -747,5 +782,41 @@ const deleteProductDetail = (idColor: string, index: number) => {
 
 :deep(.n-input-number .n-input-number-control) {
     display: none !important;
+}
+
+.images-variant {
+    width: 100%;
+    gap: 3rem;
+    overflow-x: auto;
+    display: flex;
+}
+
+.images-variant>div {
+    flex-shrink: 0;
+}
+
+.circle {
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 1px solid #00000033;
+}
+
+:deep(.images-variant .n-card) {
+    width: auto
+}
+
+:deep(.images-variant .n-card-header) {
+    width: 100%
+}
+
+:deep(.images-variant .n-card__content) {
+    display: flex;
+    justify-content: center;
+}
+
+:deep(.images-variant .n-upload) {
+    width: 100%;
+    height: 100%;
 }
 </style>

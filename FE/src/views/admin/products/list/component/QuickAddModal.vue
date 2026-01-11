@@ -1,6 +1,6 @@
 <template>
     <n-modal :show="isOpen">
-        <n-card style="width: 40%" :title="getTextByProductPropertiesType" :bordered="false" size="huge" role="dialog"
+        <n-card style="width: 30%" :title="getTextByProductPropertiesType" :bordered="false" size="huge" role="dialog"
             aria-modal="true">
             <template #header-extra>
                 <n-button @click="handleClickCancel">
@@ -18,7 +18,7 @@
                 <n-space justify="end">
                     <n-button @click="handleClickCancel">Hủy</n-button>
                     <n-popconfirm @positive-click="handleClickOK" @negative-click="handleClickCancel"
-                        :positive-button-props="{ type: 'info' }">
+                        :positive-text="'Xác nhận'" :negative-text="'Hủy'">
                         <template #trigger>
                             <n-button type="success">Xác nhận</n-button>
                         </template>
@@ -50,7 +50,12 @@ const handleClickCancel = () => {
 const notification = useNotification();
 
 const handleClickOK = async () => {
-    const res = await quickAddProperties(data.value, props.type as ProductPropertiesType);
+    if (!data.value || !props.type) {
+        notification.error({ content: `Vui lòng nhập giá trị ${translateProperty(props.type as ProductPropertiesType)}`, duration: 3000 })
+        return;
+    }
+
+    const res = await quickAddProperties(data.value.trim(), props.type as ProductPropertiesType);
 
     if (res.success) {
         notification.success({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thành công`, duration: 3000 })

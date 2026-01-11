@@ -109,22 +109,6 @@ function refreshFilter() {
 const expandedKeys = ref<Array<string>>([])
 
 const columns: DataTableColumns<ADProductDetailResponse> = [
-  { type: 'selection', fixed: 'left' },
-  {
-    type: 'expand',
-    renderExpand: (rowData: ADProductDetailResponse) => h('div', { style: { margin: '20px 80px', display: 'flex', gap: '100px' } }, [
-      h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
-      ]),
-      h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
-      ]),
-    ]),
-  },
   {
     title: '#',
     key: 'orderNumber',
@@ -144,6 +128,21 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     render: (data: ADProductDetailResponse) => {
       return h(NImage, { width: 200, src: data.urlImage })
     },
+  },
+  {
+    title: 'Cấu hình', key: 'configuration', width: 200, align: 'left',
+    render: (rowData: ADProductDetailResponse) => h('div', { style: {  } }, [
+      h('div', [
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
+      ]),
+      h('div', [
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
+      ]),
+    ]),
   },
   {
     title: 'Giá',
@@ -295,12 +294,9 @@ async function fetchProductsCombobox() {
             </span>
           </div>
           <div>
-            <n-select
-              v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
-              placeholder="Chọn sản phẩm" style="width: 500px;" clearable
-              :options="state.data.productsCombobox"
-              @update:value="() => { fetchProductDetails(); fetchProduct(); }"
-            />
+            <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
+              placeholder="Chọn sản phẩm" style="width: 500px;" clearable :options="state.data.productsCombobox"
+              @update:value="() => { fetchProductDetails(); fetchProduct(); }" />
           </div>
         </NSpace>
         <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
@@ -321,120 +317,95 @@ async function fetchProductsCombobox() {
         </n-col>
         <n-col :span="4">
           <span>CPU</span>
-          <n-select
-            v-model:value="state.search.cpu" placeholder="Tìm kiếm CPU" :options="state.data.cpus"
-            clearable
-          />
+          <n-select v-model:value="state.search.cpu" placeholder="Tìm kiếm CPU" :options="state.data.cpus" clearable />
         </n-col>
         <n-col :span="4">
           <span>GPU</span>
-          <n-select
-            v-model:value="state.search.gpu" placeholder="Tìm kiếm GPU" :options="state.data.gpus"
-            clearable
-          />
+          <n-select v-model:value="state.search.gpu" placeholder="Tìm kiếm GPU" :options="state.data.gpus" clearable />
         </n-col>
         <n-col :span="4">
           <span>Màu sắc</span>
-          <n-select
-            v-model:value="state.search.color" placeholder="Tìm kiếm màu sắc"
-            :options="state.data.colors" clearable
-          />
+          <n-select v-model:value="state.search.color" placeholder="Tìm kiếm màu sắc" :options="state.data.colors"
+            clearable />
         </n-col>
         <n-col :span="4">
           <span>ổ cứng</span>
-          <n-select
-            v-model:value="state.search.hardDrive" placeholder="Tìm kiếm ổ cứng"
-            :options="state.data.hardDrives" clearable
-          />
+          <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm ổ cứng"
+            :options="state.data.hardDrives" clearable />
         </n-col>
       </n-row>
       <div class="mt-20px">
         <n-row :gutter="12">
           <n-col :span="16">
             <span>Khoảng giá</span>
-            <n-slider
-              v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range
-              :step="1000" :min="stateMinMaxPrice.priceMin ?? 0"
-              :max="stateMinMaxPrice.priceMax ?? 50000000"
-            />
+            <n-slider v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range :step="1000"
+              :min="stateMinMaxPrice.priceMin ?? 0" :max="stateMinMaxPrice.priceMax ?? 50000000" />
           </n-col>
           <n-col :span="4">
             <span>Chất liệu</span>
-            <n-select
-              v-model:value="state.search.material" placeholder="Tìm kiếm chất liệu"
-              :options="state.data.materials" clearable
-            />
+            <n-select v-model:value="state.search.material" placeholder="Tìm kiếm chất liệu"
+              :options="state.data.materials" clearable />
           </n-col>
           <n-col :span="4">
             <span>RAM</span>
-            <n-select
-              v-model:value="state.search.ram" placeholder="Tìm kiếm RAM" :options="state.data.rams"
-              clearable
-            />
+            <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm RAM" :options="state.data.rams"
+              clearable />
           </n-col>
         </n-row>
       </div>
     </n-card>
     <n-card class="mt-20px" title="Danh sách biến thể">
-      <n-data-table
-        :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
-        :row-key="(row) => row.id"
-        @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
-      />
+      <n-data-table :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
+        :row-key="(row) => row.id" @update:expanded-row-keys="key => expandedKeys = key as Array<string>" />
 
       <NSpace justify="center" class="mt-20px">
-        <NPagination
-          :page="state.pagination.page" :page-size="state.pagination.size"
-          :page-count="state.pagination.totalPages" @update:page="handlePageChange"
-        />
+        <NPagination :page="state.pagination.page" :page-size="state.pagination.size"
+          :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
       </NSpace>
     </n-card>
 
-    <ADProductVariantModal
-      :id="productDetailIdSelected" :is-open="isOpenModal" :cpus="state.data.cpus"
+    <ADProductVariantModal :id="productDetailIdSelected" :is-open="isOpenModal" :cpus="state.data.cpus"
       :gpus="state.data.gpus" :hard-drives="state.data.hardDrives" :materials="state.data.materials"
-      :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal"
-      @close="closeModal"
-    />
+      :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal" @close="closeModal" />
   </div>
 </template>
 
 <style scoped>
 .container {
-    padding: 0 20px 20px;
+  padding: 0 20px 20px;
 }
 
 .size-upload-image {
-    width: 100% !important;
-    height: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .ml-32px {
-    margin-left: 32px;
+  margin-left: 32px;
 }
 
 .mb-64px {
-    margin-bottom: 64px;
+  margin-bottom: 64px;
 }
 
 .mb-32px {
-    margin-bottom: 32px;
+  margin-bottom: 32px;
 }
 
 .ml-8px {
-    margin-left: 8px;
+  margin-left: 8px;
 }
 
 .mt-20px {
-    margin-top: 20px;
+  margin-top: 20px;
 }
 
 .size-icon {
-    width: 16px;
-    height: 16px;
+  width: 16px;
+  height: 16px;
 }
 
 .price-hover:hover {
-    cursor: pointer;
+  cursor: pointer;
 }
 </style>

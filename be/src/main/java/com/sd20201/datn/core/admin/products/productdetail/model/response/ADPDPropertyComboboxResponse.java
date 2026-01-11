@@ -5,5 +5,6 @@ public interface ADPDPropertyComboboxResponse {
     String getValue();
 
     String getLabel();
-    
+
+    String getCode();
 }

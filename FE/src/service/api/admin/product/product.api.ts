@@ -2,6 +2,7 @@ import { API_ADMIN_PRODUCTS } from '@/constants/url'
 import request from '@/service/request'
 import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import type { AxiosResponse } from 'axios'
+import { SelectMixedOption } from 'naive-ui/es/select/src/interface';
 
 export type ADProductRequest = PaginationParams & {
   idBattery: string
@@ -46,9 +47,10 @@ export interface ADProductDetailResponse {
   idOperatingSystem: string
 }
 
-export interface ADPRPropertiesComboboxResponse {
-  label: string
-  value: string
+export type ADPRPropertiesComboboxResponse = SelectMixedOption & {
+  readonly label: string
+  readonly value: string
+  readonly code?: string
 }
 
 export async function getProducts(params: ADProductRequest) {

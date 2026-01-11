@@ -9,7 +9,7 @@ import java.util.List;
 public interface ADPDColorRepository extends ColorRepository {
 
     @Query(value = """ 
-    SELECT c.id as value, c.name as label FROM Color c
+    SELECT c.id as value, c.name as label, c.code as code FROM Color c
     ORDER BY c.createdDate desc
     """)
     List<ADPDPropertyComboboxResponse> getColors();
