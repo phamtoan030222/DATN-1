@@ -391,11 +391,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     align: 'center',
     width: 90,
     key: 'remainingQuantity',
-    render: (row) => {
-      if (row.targetType === 'INDIVIDUAL')
-        return 'Riêng'
-      return row.quantity !== null ? `${row.remainingQuantity ?? 0}/${row.quantity}` : '∞'
-    },
   },
   {
     title: 'Chi tiết ưu đãi',
