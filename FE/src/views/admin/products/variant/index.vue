@@ -10,6 +10,7 @@ import { NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import type { Ref } from 'vue'
 import { onMounted, reactive, ref } from 'vue'
 import ADProductVariantModal from './component/ADProductVariantModal.vue'
+import { exportToExcel } from '@/utils/excel.helper'
 
 const route = useRoute()
 
@@ -109,22 +110,6 @@ function refreshFilter() {
 const expandedKeys = ref<Array<string>>([])
 
 const columns: DataTableColumns<ADProductDetailResponse> = [
-  { type: 'selection', fixed: 'left' },
-  {
-    type: 'expand',
-    renderExpand: (rowData: ADProductDetailResponse) => h('div', { style: { margin: '20px 80px', display: 'flex', gap: '100px' } }, [
-      h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
-      ]),
-      h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
-      ]),
-    ]),
-  },
   {
     title: '#',
     key: 'orderNumber',
@@ -146,15 +131,37 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     },
   },
   {
+    title: 'Cấu hình', key: 'configuration', width: 200, align: 'left',
+    render: (rowData: ADProductDetailResponse) => h('div', { style: {} }, [
+      h('div', [
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
+      ]),
+      h('div', [
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
+      ]),
+    ]),
+  },
+  {
     title: 'Giá',
     key: 'price',
     width: 150,
     align: 'center',
-    render: (data: ADProductDetailResponse) => h('span', `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
-      if ((arr.length - index) % 3 == 0)
-        return `${prev} ${curr}`
-      return prev + curr
-    }, '')} vnđ`),
+    render: (data: ADProductDetailResponse) => h('div', { style: { display: 'flex', flexDirection: 'column', justifyContent: 'start' } }, [
+      h('span',{ style: 'text-decoration: line-through; color: #999; font-size: 11px;' }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
+        if ((arr.length - index) % 3 == 0)
+          return `${prev} ${curr}`
+        return prev + curr
+      }, '')} vnđ`),
+      h('span', { style: 'color: #d03050; font-weight: bold;' },`${(`${data.salePrice}`).split('').reduce((prev, curr, index, arr) => {
+        if ((arr.length - index) % 3 == 0)
+          return `${prev} ${curr}`
+        return prev + curr
+      }, '')} vnđ`),
+    ]),
   },
   {
     title: 'Tồn kho',
@@ -279,6 +286,25 @@ async function fetchProductsCombobox() {
 
   state.data.productsCombobox = res.data
 }
+
+const exportExcelHandler = () => {
+  const excelData = state.data.productDetails.map((item, index) => ({
+    'STT': index + 1,
+    'Mã biến thể': item.code,
+    'Tên biến thể': item.name,
+    'Màu sắc': item.color,
+    'CPU': item.cpu,
+    'GPU': item.gpu,
+    'RAM': item.ram,
+    'Ổ cứng': item.hardDrive,
+    'Chất liệu': item.material,
+    'Giá': item.price,
+    'Giá khuyến mãi': item.salePrice,
+    'Tồn kho': item.quantity,
+  }))
+
+  exportToExcel(excelData, `Danh_sach_bien_the_san_pham_${product.value ? product.value.code : ''}`)
+}
 </script>
 
 <template>
@@ -295,12 +321,9 @@ async function fetchProductsCombobox() {
             </span>
           </div>
           <div>
-            <n-select
-              v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
-              placeholder="Chọn sản phẩm" style="width: 500px;" clearable
-              :options="state.data.productsCombobox"
-              @update:value="() => { fetchProductDetails(); fetchProduct(); }"
-            />
+            <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
+              placeholder="Chọn sản phẩm" style="width: 500px;" clearable :options="state.data.productsCombobox"
+              @update:value="() => { fetchProductDetails(); fetchProduct(); }" />
           </div>
         </NSpace>
         <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
@@ -321,120 +344,112 @@ async function fetchProductsCombobox() {
         </n-col>
         <n-col :span="4">
           <span>CPU</span>
-          <n-select
-            v-model:value="state.search.cpu" placeholder="Tìm kiếm CPU" :options="state.data.cpus"
-            clearable
-          />
+          <n-select v-model:value="state.search.cpu" placeholder="Tìm kiếm CPU" :options="state.data.cpus" clearable />
         </n-col>
         <n-col :span="4">
           <span>GPU</span>
-          <n-select
-            v-model:value="state.search.gpu" placeholder="Tìm kiếm GPU" :options="state.data.gpus"
-            clearable
-          />
+          <n-select v-model:value="state.search.gpu" placeholder="Tìm kiếm GPU" :options="state.data.gpus" clearable />
         </n-col>
         <n-col :span="4">
           <span>Màu sắc</span>
-          <n-select
-            v-model:value="state.search.color" placeholder="Tìm kiếm màu sắc"
-            :options="state.data.colors" clearable
-          />
+          <n-select v-model:value="state.search.color" placeholder="Tìm kiếm màu sắc" :options="state.data.colors"
+            clearable />
         </n-col>
         <n-col :span="4">
           <span>ổ cứng</span>
-          <n-select
-            v-model:value="state.search.hardDrive" placeholder="Tìm kiếm ổ cứng"
-            :options="state.data.hardDrives" clearable
-          />
+          <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm ổ cứng"
+            :options="state.data.hardDrives" clearable />
         </n-col>
       </n-row>
       <div class="mt-20px">
         <n-row :gutter="12">
           <n-col :span="16">
             <span>Khoảng giá</span>
-            <n-slider
-              v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range
-              :step="1000" :min="stateMinMaxPrice.priceMin ?? 0"
-              :max="stateMinMaxPrice.priceMax ?? 50000000"
-            />
+            <n-slider v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range :step="1000"
+              :min="stateMinMaxPrice.priceMin ?? 0" :max="stateMinMaxPrice.priceMax ?? 50000000" />
           </n-col>
           <n-col :span="4">
             <span>Chất liệu</span>
-            <n-select
-              v-model:value="state.search.material" placeholder="Tìm kiếm chất liệu"
-              :options="state.data.materials" clearable
-            />
+            <n-select v-model:value="state.search.material" placeholder="Tìm kiếm chất liệu"
+              :options="state.data.materials" clearable />
           </n-col>
           <n-col :span="4">
             <span>RAM</span>
-            <n-select
-              v-model:value="state.search.ram" placeholder="Tìm kiếm RAM" :options="state.data.rams"
-              clearable
-            />
+            <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm RAM" :options="state.data.rams"
+              clearable />
           </n-col>
         </n-row>
       </div>
     </n-card>
     <n-card class="mt-20px" title="Danh sách biến thể">
-      <n-data-table
-        :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
-        :row-key="(row) => row.id"
-        @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
-      />
+      <template #header-extra>
+        <div class="mr-5">
+          <NSpace>
+            <NButton @click="exportExcelHandler" type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="file-icons:microsoft-excel" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Xuất Excel
+              </span>
+            </NButton>
+          </NSpace>
+        </div>
+      </template>
+      <n-data-table :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
+        :row-key="(row) => row.id" @update:expanded-row-keys="key => expandedKeys = key as Array<string>" />
 
-      <NSpace justify="center" class="mt-20px">
-        <NPagination
-          :page="state.pagination.page" :page-size="state.pagination.size"
-          :page-count="state.pagination.totalPages" @update:page="handlePageChange"
-        />
+      <NSpace justify="end" class="mt-20px">
+        <NPagination :page="state.pagination.page" :page-size="state.pagination.size" :page-sizes="[5, 10, 20, 50]"
+          show-size-picker :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
       </NSpace>
     </n-card>
 
-    <ADProductVariantModal
-      :id="productDetailIdSelected" :is-open="isOpenModal" :cpus="state.data.cpus"
+    <ADProductVariantModal :id="productDetailIdSelected" :is-open="isOpenModal" :cpus="state.data.cpus"
       :gpus="state.data.gpus" :hard-drives="state.data.hardDrives" :materials="state.data.materials"
-      :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal"
-      @close="closeModal"
-    />
+      :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal" @close="closeModal" />
   </div>
 </template>
 
 <style scoped>
 .container {
-    padding: 0 20px 20px;
+  padding: 0 20px 20px;
 }
 
 .size-upload-image {
-    width: 100% !important;
-    height: 100% !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .ml-32px {
-    margin-left: 32px;
+  margin-left: 32px;
 }
 
 .mb-64px {
-    margin-bottom: 64px;
+  margin-bottom: 64px;
 }
 
 .mb-32px {
-    margin-bottom: 32px;
+  margin-bottom: 32px;
 }
 
 .ml-8px {
-    margin-left: 8px;
+  margin-left: 8px;
 }
 
 .mt-20px {
-    margin-top: 20px;
+  margin-top: 20px;
 }
 
 .size-icon {
-    width: 16px;
-    height: 16px;
+  width: 16px;
+  height: 16px;
 }
 
 .price-hover:hover {
-    cursor: pointer;
+  cursor: pointer;
 }
 </style>

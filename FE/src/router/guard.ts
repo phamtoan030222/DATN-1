@@ -1,6 +1,8 @@
 import type { Router } from 'vue-router'
 import { useAppStore, useRouteStore, useTabStore } from '@/store'
 import { local } from '@/utils'
+import { localStorageAction } from '@/utils/storage.helper'
+import { ACCESS_TOKEN_STORAGE_KEY } from '@/constants/storageKey'
 
 const title = import.meta.env.VITE_APP_NAME
 
@@ -17,7 +19,7 @@ export function setupRouterGuard(router: Router) {
     }
     appStore.showProgress && window.$loadingBar?.start()
 
-    const isLogin = Boolean(local.get('accessToken'))
+    const isLogin = Boolean(localStorageAction.get(ACCESS_TOKEN_STORAGE_KEY))
 
     if (to.name === 'root') {
       if (isLogin) {
@@ -35,7 +37,7 @@ export function setupRouterGuard(router: Router) {
     }
     else if (to.meta.requiresAuth === true && !isLogin) {
       const redirect = to.name === 'not-found' ? undefined : to.fullPath
-      next({ path: '/login', query: { redirect } })
+      next({ path: '/login-admin', query: { redirect } })
       return
     }
 

@@ -9,4 +9,5 @@ public interface AdDiscountResponse {
     Long getEndTime();
     Integer getPercentage();
     String getDescription();
+    Long getProductCount();
 }

@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.login.model.request;
+package com.sd20201.datn.core.auth.model.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,10 +9,8 @@ import lombok.Setter;
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class LoginRequest {
+public class AuthRefreshRequest {
 
-    private String username;
-
-    private String password;
+    private String refreshToken;
 
 }

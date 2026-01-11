@@ -24,6 +24,7 @@ import {
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
+import * as XLSX from 'xlsx'
 
 // API
 import {
@@ -225,21 +226,6 @@ onMounted(() => {
 // ================= COLUMNS =================
 const columns: DataTableColumns<ADProductResponse> = [
   {
-    type: 'expand',
-    renderExpand: (rowData) => {
-      return h('div', { class: 'p-4 bg-gray-50 rounded-lg ml-10 mr-4' }, [
-        h(NRow, { gutter: 12 }, {
-          default: () => [
-            h(NCol, { span: 6 }, { default: () => h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:tag' }), h('span', `Hãng: ${rowData.brand}`)]) }),
-            h(NCol, { span: 6 }, { default: () => h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', `Pin: ${rowData.battery}`)]) }),
-            h(NCol, { span: 6 }, { default: () => h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:carbon-for-ibm-dotcom' }), h('span', `OS: ${rowData.operatingSystem}`)]) }),
-            h(NCol, { span: 6 }, { default: () => h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'icon-park-outline:monitor' }), h('span', `Màn hình: ${rowData.screen}`)]) }),
-          ],
-        }),
-      ])
-    },
-  },
-  {
     title: 'STT',
     key: 'orderNumber',
     fixed: 'left',
@@ -267,8 +253,22 @@ const columns: DataTableColumns<ADProductResponse> = [
   {
     title: 'Tên sản phẩm',
     key: 'name',
-    minWidth: 250,
+    minWidth: 200,
     ellipsis: { tooltip: true },
+  },
+  {
+    title: 'Cấu hình',
+    key: 'configuration',
+    width: 300,
+    align: 'left',
+    render: (row: ADProductResponse) => h('div',
+      [
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:tag' }), h('span', `Hãng: ${row.brand}`)])]),
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:battery-half' }), h('span', `Pin: ${row.battery}`)])]),
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'carbon:carbon-for-ibm-dotcom' }), h('span', `OS: ${row.operatingSystem}`)])]),
+        h('div', { span: 6 }, [h('div', { class: 'flex items-center gap-2' }, [h(Icon, { icon: 'icon-park-outline:monitor' }), h('span', `Màn hình: ${row.screen}`)])]),
+      ],
+    )
   },
   {
     title: 'Khoảng giá',
@@ -351,6 +351,36 @@ const columns: DataTableColumns<ADProductResponse> = [
     },
   },
 ]
+
+function exportToExcel(dataList: ADProductResponse[], fileName: string) {
+  const excelData = dataList.map((item, index) => {
+    return {
+      'STT': index + 1,
+      'Mã sản phẩm': item.code,
+      'Tên sản phẩm': item.name,
+      'Hãng': item.brand,
+      'Pin': item.battery,
+      'Màn hình': item.screen,
+      'Hệ điều hành': item.operatingSystem,
+      'Giá nhỏ nhất': item.minPrice,
+      'Giá lớn nhất': item.maxPrice,
+      'Số lượng': item.quantity,
+      'Link ảnh sản phẩm': item.urlImage,
+    }
+  })
+
+  const ws = XLSX.utils.json_to_sheet(excelData)
+  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 }, { wch: 30 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Data')
+  XLSX.writeFile(wb, `${fileName}_${new Date().getTime()}.xlsx`)
+  notification.success({ content: 'Xuất Excel thành công', duration: 3000 })
+}
+
+const exportExcelHandler = () => {
+  exportToExcel(state.data.products, 'Danh_sach_san_pham')
+}
 </script>
 
 <template>
@@ -374,14 +404,8 @@ const columns: DataTableColumns<ADProductResponse> = [
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
-              <NButton
-                size="large"
-                circle
-                secondary
-                type="primary"
-                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
-                @click="refreshFilter"
-              >
+              <NButton size="large" circle secondary type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="refreshFilter">
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
                 </NIcon>
@@ -396,11 +420,7 @@ const columns: DataTableColumns<ADProductResponse> = [
         <NRow :gutter="24">
           <NCol :span="8">
             <NFormItem label="Tìm kiếm">
-              <NInput
-                v-model:value="state.search.q"
-                placeholder="Tên sản phẩm, mã sản phẩm..."
-                clearable
-              >
+              <NInput v-model:value="state.search.q" placeholder="Tên sản phẩm, mã sản phẩm..." clearable>
                 <template #prefix>
                   <Icon icon="carbon:search" />
                 </template>
@@ -410,62 +430,36 @@ const columns: DataTableColumns<ADProductResponse> = [
 
           <NCol :span="4">
             <NFormItem label="Thương hiệu">
-              <NSelect
-                v-model:value="state.search.brand"
-                :options="state.data.brands"
-                placeholder="Chọn hãng"
-                clearable
-                filterable
-              />
+              <NSelect v-model:value="state.search.brand" :options="state.data.brands" placeholder="Chọn hãng" clearable
+                filterable />
             </NFormItem>
           </NCol>
 
           <NCol :span="4">
             <NFormItem label="Hệ điều hành">
-              <NSelect
-                v-model:value="state.search.operatingSystem"
-                :options="state.data.operatingSystems"
-                placeholder="Chọn OS"
-                clearable
-                filterable
-              />
+              <NSelect v-model:value="state.search.operatingSystem" :options="state.data.operatingSystems"
+                placeholder="Chọn OS" clearable filterable />
             </NFormItem>
           </NCol>
 
           <NCol :span="4">
             <NFormItem label="Loại Pin">
-              <NSelect
-                v-model:value="state.search.battery"
-                :options="state.data.batteries"
-                placeholder="Chọn pin"
-                clearable
-                filterable
-              />
+              <NSelect v-model:value="state.search.battery" :options="state.data.batteries" placeholder="Chọn pin"
+                clearable filterable />
             </NFormItem>
           </NCol>
 
           <NCol :span="4">
             <NFormItem label="Màn hình">
-              <NSelect
-                v-model:value="state.search.screen"
-                :options="state.data.screens"
-                placeholder="Chọn màn hình"
-                clearable
-                filterable
-              />
+              <NSelect v-model:value="state.search.screen" :options="state.data.screens" placeholder="Chọn màn hình"
+                clearable filterable />
             </NFormItem>
           </NCol>
 
           <NCol :span="24">
             <NFormItem label="Khoảng giá">
-              <NSlider
-                v-model:value="state.search.price"
-                range
-                :step="100000"
-                :min="stateMinMaxPrice.priceMin"
-                :max="stateMinMaxPrice.priceMax"
-                :format-tooltip="formatTooltipRangePrice"
-              />
+              <NSlider v-model:value="state.search.price" range :step="100000" :min="stateMinMaxPrice.priceMin"
+                :max="stateMinMaxPrice.priceMax" :format-tooltip="formatTooltipRangePrice" />
             </NFormItem>
           </NCol>
         </NRow>
@@ -476,33 +470,38 @@ const columns: DataTableColumns<ADProductResponse> = [
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton
-              type="primary"
-              secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
-              @click="handleClickAddProduct()"
-            >
+            <NButton type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+              <template #icon>
+                <NIcon size="24">
+                  <Icon icon="file-icons:microsoft-excel" />
+                </NIcon>
+              </template>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Xuất Excel
+              </span>
+            </NButton>
+            <NButton type="primary" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="handleClickAddProduct()">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
                 Thêm sản phẩm
               </span>
             </NButton>
-            <NButton
-              type="info"
-              secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
-              @click="fetchProducts"
-            >
+            <NButton type="info" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="fetchProducts">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
                 Tải lại
               </span>
             </NButton>
@@ -510,40 +509,20 @@ const columns: DataTableColumns<ADProductResponse> = [
         </div>
       </template>
 
-      <NDataTable
-        v-model:expanded-row-keys="expandedKeys"
-        :columns="columns"
-        :data="state.data.products"
-        :loading="loading"
-        :row-key="(row) => row.id"
-        :pagination="false"
-        striped
-      />
+      <NDataTable v-model:expanded-row-keys="expandedKeys" :columns="columns" :data="state.data.products"
+        :loading="loading" :row-key="(row) => row.id" :pagination="false" striped />
 
       <div class="flex justify-end mt-4">
-        <NPagination
-          v-model:page="state.pagination.page"
-          v-model:page-size="state.pagination.size"
-          :page-count="state.pagination.totalPages"
-          :page-sizes="[5, 10, 20, 50]"
-          show-size-picker
+        <NPagination v-model:page="state.pagination.page" v-model:page-size="state.pagination.size"
+          :page-count="state.pagination.totalPages" :page-sizes="[5, 10, 20, 50]" show-size-picker
           @update:page="fetchProducts"
-          @update:page-size="(val) => { state.pagination.size = val; state.pagination.page = 1; fetchProducts() }"
-        />
+          @update:page-size="(val) => { state.pagination.size = val; state.pagination.page = 1; fetchProducts() }" />
       </div>
     </NCard>
 
-    <ADProductModal
-      :id="productIdSelected"
-      :is-open="isOpenModal"
-      :is-detail="true"
-      :screens="state.data.screens"
-      :batteries="state.data.batteries"
-      :brands="state.data.brands"
-      :operating-systems="state.data.operatingSystems"
-      @close="handleCloseModal"
-      @success="fetchProducts"
-    />
+    <ADProductModal :id="productIdSelected" :is-open="isOpenModal" :is-detail="true" :screens="state.data.screens"
+      :batteries="state.data.batteries" :brands="state.data.brands" :operating-systems="state.data.operatingSystems"
+      @close="handleCloseModal" @success="fetchProducts" />
   </div>
 </template>
 

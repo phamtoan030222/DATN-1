@@ -31,4 +31,8 @@ public class TokenUriResponse {
         return tokenUriResponse.getTokenAuthorizationSimple();
     }
 
+    public static TokenUriResponse of(String accessToken, String refreshToken) {
+        return new TokenUriResponse(accessToken, refreshToken);
+    }
+
 }

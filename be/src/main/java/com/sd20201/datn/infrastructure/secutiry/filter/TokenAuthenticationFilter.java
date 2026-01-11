@@ -30,7 +30,8 @@ import java.util.List;
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final List<String> EXCLUDED_PATHS = List.of(
-        MappingConstants.API_LOGIN
+        MappingConstants.API_LOGIN,
+            "/api/v1/auth/refresh"
     );
 
     @Setter(onMethod = @__({@Autowired}))
@@ -53,7 +54,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
             String jwt = getJwtFromRequest(request);
 
-            log.info("doFilter internal ===> jwt = {}", jwt);
+            log.info("start authenticate from jwt");
 
             if(StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);

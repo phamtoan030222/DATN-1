@@ -1,6 +1,6 @@
 <template>
     <n-modal :show="isOpen">
-        <n-card style="width: 800px" title="Quản lý IMEI biến thể sản phẩm" :bordered="false" size="huge" role="dialog"
+        <n-card style="width: 800px; height: 600px" title="Quản lý IMEI biến thể sản phẩm" :bordered="false" size="huge" role="dialog"
             aria-modal="true">
             <template #header-extra>
                 <n-button @click="handleClickCancel">
@@ -13,9 +13,6 @@
                 <n-flex>
                     <n-input style="flex: 1;" placeholder="Nhập giá trị imei" v-model:value="imei">
                     </n-input>
-                    <n-button @click="clickAddIMEIHandler" type="primary">
-                        Thêm
-                    </n-button>
                 </n-flex>
                 <n-space class="mt-20px">
                     <n-button @click="downloadIMEITemplate">Tải template IMEI</n-button>
@@ -31,7 +28,7 @@
                     </div>
                 </div>
 
-                <n-data-table class="mt-20px" :columns="columns" :data="data">
+                <n-data-table :loading="isLoadingTable" class="mt-20px" :columns="columns" max-height="220px" :data="data">
 
                 </n-data-table>
             </div>
@@ -41,9 +38,11 @@
                 <n-space justify="end">
                     <n-button @click="handleClickCancel">Hủy</n-button>
                     <n-popconfirm @positive-click="handleClickOK" @negative-click="handleClickCancel"
-                        :positive-button-props="{ type: 'info' }">
+                        :positive-text="'Xác nhận'" :negative-text="'Hủy'"
+                        
+                        >
                         <template #trigger>
-                            <n-button>Xác nhận</n-button>
+                            <n-button type="success">Xác nhận</n-button>
                         </template>
                         Bạn chắc chắn muốn thao tác
                     </n-popconfirm>
@@ -57,6 +56,7 @@
 import { Regex } from '@/constants';
 import { checkIMEIExist, downloadTemplateImei, importIMEIExcel } from '@/service/api/admin/product/productDetail.api';
 import { Icon } from '@iconify/vue';
+import _ from 'lodash';
 import { DataTableColumns, NButton, NTag, UploadCustomRequestOptions } from 'naive-ui';
 import { Reactive, Ref } from 'vue';
 import { QrcodeStream } from 'vue-qrcode-reader';
@@ -72,6 +72,7 @@ const emit = defineEmits(['success', 'close', 'update:imei'])
 const notification = useNotification()
 
 const imei: Ref<string | undefined> = ref()
+const isLoadingTable: Ref<boolean> = ref(false)
 
 const handleClickCancel = () => {
     emit('close')
@@ -91,8 +92,25 @@ type IMEITableType = {
 const data: Reactive<IMEITableType[]> = reactive([])
 
 const clickAddIMEIHandler = async () => {
-    const imeis = imei.value?.split(/[,;|]/);
+    if (!imei.value) {
+        return
+    }
+
+    const imeis = imei.value?.split(/[,;|]/)
+                    .map(imei => imei.trim())
+                    .filter(imei => imei);
+
     const imeiExists = (await checkIMEIExist(imeis as string[])).data;
+
+    const serialNumberDuplicate = new Map<string, number>();
+
+    imeis.forEach(ele => {
+        if (serialNumberDuplicate.has(ele)) {
+            serialNumberDuplicate.set(ele, (serialNumberDuplicate.get(ele) as number) + 1);
+        } else {
+            serialNumberDuplicate.set(ele, 1);
+        }
+    });
 
     imeis?.forEach(ele => {
         let isValid = true;
@@ -108,6 +126,11 @@ const clickAddIMEIHandler = async () => {
             note = 'Số serial đã tồn tại';
         }
 
+        if (serialNumberDuplicate.get(ele) && serialNumberDuplicate.get(ele)! > 1) {
+            isValid = false;
+            note = 'Số serial bị trùng lặp trong danh sách nhập';
+        }
+
         data.push({
             imei: ele,
             isValid: isValid,
@@ -116,6 +139,8 @@ const clickAddIMEIHandler = async () => {
     })
     resetField()
 }
+
+const debouncedClickAddIMEIHandler = _.debounce(clickAddIMEIHandler, 300);
 
 const handleClickOK = () => {
     if (data.some(ele => !ele.isValid)) {
@@ -132,10 +157,10 @@ const handleClickOK = () => {
 const columns: DataTableColumns<IMEITableType> = [
     {
         title: '#', key: 'orderNumber', width: 30, align: 'left',
-        render: (data, index) => h('span', { innerText: index + 1 })
+        render: (_, index) => h('span', { innerText: index + 1 })
     },
     {
-        title: 'Giá trị', key: 'imei', width: 150, align: 'center',
+        title: 'Giá trị', key: 'imei', width: 100, align: 'center',
     },
     {
         title: 'Trạng thái', key: 'isValid', width: 50, align: 'center',
@@ -147,7 +172,10 @@ const columns: DataTableColumns<IMEITableType> = [
     },
     {
         title: 'Thao tác', key: 'status', width: 50, align: 'center',
-        render: (rowData, index) => h(NButton, { quaternary: true, onClick: () => { data.splice(index, 1) } },
+        render: (_, index) => h(NButton, { quaternary: true, onClick: () => { 
+            data.splice(index, 1)
+            imei.value = data.map(ele => ele.imei).join(', ')
+         } },
             {
                 default: () => h(Icon, { icon: 'tabler:trash' })
             }
@@ -208,6 +236,14 @@ function onDetect(detectedCodes: any) {
     clickAddIMEIHandler();
 }
 
+watch(imei, async () => {
+    if (imei.value) {
+        data.splice(0, data.length);
+        isLoadingTable.value = true;
+        await debouncedClickAddIMEIHandler();
+        isLoadingTable.value = false;
+    }
+});
 </script>
 
 <style scoped>
