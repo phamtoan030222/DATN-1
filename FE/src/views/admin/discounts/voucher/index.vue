@@ -6,13 +6,11 @@ import {
   NButton,
   NCard,
   NDataTable,
-  NDatePicker,
   NIcon,
   NInput,
   NPagination,
   NPopconfirm,
   NSelect,
-  NSlider,
   NSpace,
   NTag,
   NTooltip,
@@ -33,8 +31,6 @@ import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/disc
 /* ===================== Config & Router ===================== */
 const router = useRouter()
 const message = useMessage()
-
-const STEP_PRICE = 10000
 
 /* ===================== Formatters ===================== */
 function formatDateTime(timestamp: number | undefined) {
@@ -111,6 +107,7 @@ const dynamicMaxPrice = computed(() => {
 /* ===================== Actions ===================== */
 function openAddPage() { router.push({ name: 'discounts_voucher_add' }) }
 function openEditPage(id: string) { router.push({ name: 'discounts_voucher_edit', params: { id } }) }
+function openDetailPage(id: string) { router.push({ name: 'discounts_voucher_detail', params: { id } }) }
 
 async function handleStartVoucher(id: string) {
   loading.value = true
@@ -396,8 +393,9 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     title: 'Mã',
     key: 'code',
     fixed: 'left',
-    width: 120,
-    render: row => h('strong', { class: 'text-primary cursor-pointer', onClick: () => openEditPage(row.id!) }, row.code),
+    width: 100,
+    // SỬA: Bấm vào Mã thì chuyển sang trang Detail cho an toàn, hoặc dùng logic tương tự nút Action
+    render: row => h('strong', { class: 'text-primary cursor-pointer', onClick: () => openDetailPage(row.id!) }, row.code),
   },
   {
     title: 'Tên',
@@ -500,7 +498,8 @@ const columns: DataTableColumns<ADVoucherResponse> = [
           secondary: true,
           circle: true,
           class: 'transition-all duration-200 hover:scale-[1.3] hover:shadow-lg',
-          onClick: () => openEditPage(id),
+          // SỬA Ở ĐÂY: Nếu đang diễn ra hoặc đã kết thúc thì gọi openDetailPage
+          onClick: () => isUpcoming ? openEditPage(id) : openDetailPage(id),
         }, { icon: () => h(Icon, { icon: btnConfig.icon }) }),
         default: () => btnConfig.tooltip,
       }))
@@ -569,20 +568,11 @@ onMounted(() => fetchData())
             @input="handleSearch"
           >
             <template #prefix>
-              <NIcon icon="carbon:search" class="text-black-600" />
+              <NIcon>
+                <Icon icon="carbon:search" class="text-gray-600" />
+              </NIcon>
             </template>
           </NInput>
-        </div>
-
-        <div class="lg:col-span-3">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
-            Thời gian áp dụng
-          </div>
-          <div class="flex items-center gap-2">
-            <NDatePicker v-model:value="filters.startDate" type="date" placeholder="Từ ngày" class="w-full" clearable />
-            <span class="text-gray-400">-</span>
-            <NDatePicker v-model:value="filters.endDate" type="date" placeholder="Đến ngày" class="w-full" clearable />
-          </div>
         </div>
 
         <div class="lg:col-span-1">
@@ -604,23 +594,6 @@ onMounted(() => fetchData())
             Trạng thái
           </div>
           <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Tất cả" />
-        </div>
-
-        <div class="lg:col-span-3">
-          <div class="flex justify-between items-center mb-1 ml-1">
-            <div class="text-xs font-bold text-black-600 uppercase">
-              Giảm tối đa
-            </div>
-            <div class="text-[10px] text-green-700 font-mono bg-green-50 px-1 rounded">
-              {{ formatCurrency(filters.maxDiscountRange[0]) }} - {{ formatCurrency(filters.maxDiscountRange[1]) }}
-            </div>
-          </div>
-          <div class="px-2 pt-1">
-            <NSlider
-              v-model:value="filters.maxDiscountRange" range :min="0" :max="dynamicMaxPrice" :step="STEP_PRICE"
-              :tooltip="false"
-            />
-          </div>
         </div>
       </div>
     </NCard>

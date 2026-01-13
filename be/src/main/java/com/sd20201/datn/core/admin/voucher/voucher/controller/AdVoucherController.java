@@ -57,7 +57,7 @@ public class AdVoucherController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateVoucher(@PathVariable String id, @RequestBody AdVoucherCreateUpdateRequest request) throws BadRequestException {
+    public ResponseEntity<?> updateVoucher(@PathVariable String id,@Valid @RequestBody AdVoucherCreateUpdateRequest request) throws BadRequestException {
         return Helper.createResponseEntity(voucherService.update(id, request));
     }
 
@@ -84,7 +84,6 @@ public class AdVoucherController {
         }
     }
 
-    // 👇👇👇 ĐÃ SỬA LỖI TẠI ĐÂY 👇👇👇
     @GetMapping("/{id}/customers")
     public ResponseEntity<?> customersByVoucher(
             @PathVariable String id,

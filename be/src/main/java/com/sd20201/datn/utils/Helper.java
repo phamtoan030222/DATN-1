@@ -212,7 +212,7 @@ public class Helper {
 
     // 2. Logic Map Request -> Entity
     public static void mapRequestToVoucher(AdVoucherCreateUpdateRequest request, Voucher voucher) {
-        voucher.setName(request.getName());
+        voucher.setName(request.getName().trim());
         voucher.setTargetType(request.getTargetType());
         voucher.setTypeVoucher(request.getTypeVoucher());
         voucher.setDiscountValue(request.getDiscountValue());
