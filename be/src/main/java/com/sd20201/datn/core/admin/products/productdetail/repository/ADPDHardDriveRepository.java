@@ -1,10 +1,13 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDPropertyComboboxResponse;
+import com.sd20201.datn.entity.CPU;
+import com.sd20201.datn.entity.HardDrive;
 import com.sd20201.datn.repository.HardDriveRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ADPDHardDriveRepository extends HardDriveRepository {
 
@@ -14,4 +17,9 @@ public interface ADPDHardDriveRepository extends HardDriveRepository {
     """)
     List<ADPDPropertyComboboxResponse> getHardDrives();
 
+    @Query(value = """ 
+    SELECT h FROM HardDrive h
+    WHERE LOWER(h.name) = LOWER(:name)
+    """)
+    Optional<HardDrive> findByName(String name);
 }

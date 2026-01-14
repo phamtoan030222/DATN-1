@@ -50,7 +50,6 @@ public class AdDiscountDetailServiceImpl implements AdDiscountDetailService {
         productDetailDiscount.setOriginalPrice(request.getOriginalPrice());
         productDetailDiscount.setSalePrice(request.getSalePrice());
         productDetailDiscount.setDescription(request.getDescription());
-        productDetailDiscount.setCreatedBy(System.currentTimeMillis());
         productDetailDiscount.setCreatedDate(System.currentTimeMillis());
         productDetailDiscount.setStatus(EntityStatus.ACTIVE);
         crudDiscountRepository.save(productDetailDiscount);
@@ -80,7 +79,6 @@ public class AdDiscountDetailServiceImpl implements AdDiscountDetailService {
             productDetailDiscount.setOriginalPrice(request.getOriginalPrice());
             productDetailDiscount.setSalePrice(request.getSalePrice());
             productDetailDiscount.setDescription(request.getDescription());
-            productDetailDiscount.setCreatedBy(System.currentTimeMillis());
             productDetailDiscount.setCreatedDate(System.currentTimeMillis());
             productDetailDiscount.setStatus(EntityStatus.ACTIVE);
 
@@ -107,8 +105,6 @@ public class AdDiscountDetailServiceImpl implements AdDiscountDetailService {
             productDetailDiscount.setStatus(EntityStatus.ACTIVE);
         }
 
-
-        productDetailDiscount.setCreatedBy(System.currentTimeMillis());
         crudDiscountRepository.save(productDetailDiscount);
 
         return new ResponseObject<>(

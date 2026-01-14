@@ -1,10 +1,13 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDPropertyComboboxResponse;
+import com.sd20201.datn.entity.CPU;
+import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.repository.RAMRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ADPDRAMRepository extends RAMRepository {
 
@@ -14,4 +17,9 @@ public interface ADPDRAMRepository extends RAMRepository {
     """)
     List<ADPDPropertyComboboxResponse> getRAMs();
 
+    @Query(value = """ 
+        SELECT r FROM RAM r
+        WHERE LOWER(r.name) = LOWER(:name)
+    """)
+    Optional<RAM> findByName(String name);
 }

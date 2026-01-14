@@ -9,8 +9,18 @@
             </template>
 
             <!-- content -->
-            <div :style="{}">
-                <n-input v-model:value="data" placeholder="Nhập giá trị" />
+            <div>
+                <div>
+                    <n-input v-model:value="data" placeholder="Nhập giá trị" />
+                </div>
+
+                <div v-if="type === ProductPropertiesType.COLOR" class="w-100px mt-5">
+                    <span>Chọn mã màu</span>
+                    <n-color-picker v-model:value="hexColor" placeholder="Chọn màu sắc" type="color" :modes="['hex']"
+                        :show-alpha="false">
+                    </n-color-picker>
+                </div>
+
             </div>
 
             <!-- footer -->
@@ -47,47 +57,40 @@ const handleClickCancel = () => {
     emit('close');
 }
 
+const hexColor = ref<string | null>('#FFFFFF');
+
 const notification = useNotification();
+
 const handleClickOK = async () => {
     if (!data.value || !props.type) {
-        notification.error({ content: `Vui lòng nhập giá trị ${translateProperty(props.type as ProductPropertiesType)}`, duration: 3000 })
+        notification.error({ content: `Vui lòng nhập giá trị ${translateProperty(props.type as ProductPropertiesType).toLowerCase()}`, duration: 3000 })
         return;
     }
 
     try {
-        const res = await quickAddProperties(data.value.trim(), props.type as ProductPropertiesType);
-
-        if (res.success) {
-            notification.success({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thành công`, duration: 3000 })
-            emit('success');
+        if (props.type === ProductPropertiesType.COLOR) {
+            await quickAddProperties(data.value, props.type, hexColor.value || undefined);
         } else {
-            // Hiển thị message lỗi từ backend nếu có
-            const errorMessage = res.message || `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thất bại`;
-            notification.error({ content: errorMessage, duration: 3000 });
+            await quickAddProperties(data.value, props.type);
         }
-    } catch (error: any) {
-        // Xử lý lỗi từ API call
-        console.error('Lỗi khi thêm nhanh thuộc tính:', error);
-        
-        // Lấy message lỗi từ response backend
-        const backendErrorMessage = error.response?.data?.message || 
-                                   error.response?.data?.error || 
-                                   error.message || 
-                                   `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType)} thất bại`;
-        
-        notification.error({ 
-            content: backendErrorMessage, 
-            duration: 3000 
-        });
-    } finally {
-        emit('close');
-        clearData();
-    }
-}
 
+        notification.success({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType).toLowerCase()} thành công`, duration: 3000 })
+        emit('success');
+        handleClickCancel();
+    } catch (error: any) {
+        console.log(error);
+        if (error.status === 409) {
+            notification.error({ content: `Giá trị ${translateProperty(props.type as ProductPropertiesType).toLowerCase()} đã tồn tại`, duration: 3000 })
+        } else if (error.status === 404) {
+            notification.error({ content: `Thêm nhanh ${translateProperty(props.type as ProductPropertiesType).toLowerCase()} thất bại`, duration: 3000 })
+        }
+    }
+    clearData();
+}
 const clearData = () => {
     data.value = '';
 }
+
 const data = ref<string>('');
 
 const getTextByProductPropertiesType = computed(() => {

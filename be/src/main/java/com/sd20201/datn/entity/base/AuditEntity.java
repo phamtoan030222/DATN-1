@@ -19,10 +19,4 @@ public abstract class AuditEntity {
     @Column
     private Long lastModifiedDate;
 
-    @Column
-    private Long createdBy;
-
-    @Column
-    private Long lastModifiedBy;
-
 }

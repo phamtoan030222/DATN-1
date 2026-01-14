@@ -245,13 +245,14 @@ export async function checkIMEIExist(ids: Array<string>) {
   return res.data
 }
 
-export async function quickAddProperties(nameProperty: string, type: ProductPropertiesType) {
+export async function quickAddProperties(nameProperty: string, type: ProductPropertiesType, hex?: string ) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_DETAIL}/quick-add`,
     method: 'POST',
     data: {
       nameProperty,
       type,
+      hex,
     },
   })) as AxiosResponse<DefaultResponse<Array<string>>>
 
