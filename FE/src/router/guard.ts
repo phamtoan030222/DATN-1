@@ -1,8 +1,7 @@
-import type { Router } from 'vue-router'
+import { ACCESS_TOKEN_STORAGE_KEY, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import { useAppStore, useRouteStore, useTabStore } from '@/store'
-import { local } from '@/utils'
 import { localStorageAction } from '@/utils/storage.helper'
-import { ACCESS_TOKEN_STORAGE_KEY } from '@/constants/storageKey'
+import type { Router } from 'vue-router'
 
 const title = import.meta.env.VITE_APP_NAME
 
@@ -19,8 +18,8 @@ export function setupRouterGuard(router: Router) {
     }
     appStore.showProgress && window.$loadingBar?.start()
 
-    const isLogin = Boolean(localStorageAction.get(ACCESS_TOKEN_STORAGE_KEY))
-
+    const isLogin = !!(localStorageAction.get(ACCESS_TOKEN_STORAGE_KEY))
+    const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY)
     if (to.name === 'root') {
       if (isLogin) {
         next({ path: import.meta.env.VITE_HOME_PATH, replace: true })
@@ -38,6 +37,9 @@ export function setupRouterGuard(router: Router) {
     else if (to.meta.requiresAuth === true && !isLogin) {
       const redirect = to.name === 'not-found' ? undefined : to.fullPath
       next({ path: '/login-admin', query: { redirect } })
+      return
+    } else if (to.meta.roles && !to.meta.roles.includes(userInfo.rolesCodes[0])) {
+      next({ name: 'forbidden' })
       return
     }
 
