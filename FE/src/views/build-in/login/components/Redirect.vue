@@ -13,7 +13,7 @@ const authStore = useAuthStore()
 
 const { state } = route.query
 
-onMounted(() => {
+onMounted( async () => {
   if (state) {
     const decodedState = atob(state as string)
 
@@ -21,7 +21,7 @@ onMounted(() => {
 
     const user = getUserInformation(accessToken)
 
-    authStore.login(
+    await authStore.login(
       user,
       accessToken,
       refreshToken,

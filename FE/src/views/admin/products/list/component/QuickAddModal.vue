@@ -20,7 +20,6 @@
                         :show-alpha="false">
                     </n-color-picker>
                 </div>
-
             </div>
 
             <!-- footer -->
