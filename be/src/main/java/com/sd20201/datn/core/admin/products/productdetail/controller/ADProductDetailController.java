@@ -1,6 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.controller;
 
-import com.sd20201.datn.core.admin.products.product.model.request.ADQuickAddProductRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_PRODUCTS_DETAIL)
@@ -102,7 +103,7 @@ public class ADProductDetailController {
     }
 
     @PostMapping("/quick-add")
-    ResponseEntity<?> quickAddPropertiesProduct(@RequestBody ADQuickAddProductRequest request) {
+    ResponseEntity<?> quickAddPropertiesProduct(@RequestBody Map<String, Object> request) {
         return Helper.createResponseEntity(productDetailService.quickAddPropertiesProduct(request));
     }
 

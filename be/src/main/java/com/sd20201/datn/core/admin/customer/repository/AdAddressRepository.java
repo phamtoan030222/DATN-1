@@ -19,9 +19,7 @@ public interface AdAddressRepository extends com.sd20201.datn.repository.Address
                    a.addressDetail AS addressDetail,
                    a.isDefault AS isDefault,
                    a.customer.id AS customerId,
-                   a.createdBy AS createdBy,
                    a.createdDate AS createdDate,
-                   a.lastModifiedBy AS modifiedBy,
                    a.lastModifiedDate AS modifiedDate
             FROM Address a
             WHERE (:customerId IS NULL OR a.customer.id = :customerId)

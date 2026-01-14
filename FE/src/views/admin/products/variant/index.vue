@@ -130,8 +130,8 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     },
   },
   {
-    title: 'Cấu hình', key: 'configuration', width: 200, align: 'left',
-    render: (rowData: ADProductDetailResponse) => h('div', { style: {} }, [
+    title: 'Cấu hình', key: 'configuration', width: 400, align: 'left', titleAlign: 'center',
+    render: (rowData: ADProductDetailResponse) => h('div', { class: 'flex gap-1 justify-around' }, [
       h('div', [
         h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
         h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),

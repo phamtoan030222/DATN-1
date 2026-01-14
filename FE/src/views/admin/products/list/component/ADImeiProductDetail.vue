@@ -86,7 +86,7 @@ const resetField = () => {
 type IMEITableType = {
     imei: string,
     isValid: boolean,
-    note: string | undefined,
+    // note: string | undefined,
 }
 
 const data: Reactive<IMEITableType[]> = reactive([])
@@ -118,23 +118,23 @@ const clickAddIMEIHandler = async () => {
 
         if (!validateSerialNumber(ele)) {
             isValid = false;
-            note = 'Số serial không hợp lệ! Số serial chỉ bao gồm chữ hoa, số và dấu gạch ngang, độ dài từ 5-30 ký tự';
+            // note = 'Số serial không hợp lệ! Số serial chỉ bao gồm chữ hoa, số và dấu gạch ngang, độ dài từ 5-30 ký tự';
         }
 
         if (imeiExists.includes(ele)) {
             isValid = false;
-            note = 'Số serial đã tồn tại';
+            // note = 'Số serial đã tồn tại';
         }
 
         if (serialNumberDuplicate.get(ele) && serialNumberDuplicate.get(ele)! > 1) {
             isValid = false;
-            note = 'Số serial bị trùng lặp trong danh sách nhập';
+            // note = 'Số serial bị trùng lặp trong danh sách nhập';
         }
 
-        data.push({
+        if (isValid) data.push({
             imei: ele,
             isValid: isValid,
-            note: note,
+            // note: note,
         })
     })
     resetField()
@@ -166,10 +166,10 @@ const columns: DataTableColumns<IMEITableType> = [
         title: 'Trạng thái', key: 'isValid', width: 50, align: 'center',
         render: (data: IMEITableType) => h(NTag, { type: data.isValid ? 'success' : 'error', innerText: data.isValid ? 'Hợp lệ' : 'Không hợp lệ' })
     },
-    {
-        title: 'Ghi chú', key: 'note', width: 150, align: 'center',
-        render: (data: IMEITableType) => h('span', { innerText: data.note })
-    },
+    // {
+    //     title: 'Ghi chú', key: 'note', width: 150, align: 'center',
+    //     render: (data: IMEITableType) => h('span', { innerText: data.note })
+    // },
     {
         title: 'Thao tác', key: 'status', width: 50, align: 'center',
         render: (_, index) => h(NButton, { quaternary: true, onClick: () => { 

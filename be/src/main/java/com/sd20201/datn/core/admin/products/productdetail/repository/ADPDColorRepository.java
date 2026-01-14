@@ -1,10 +1,13 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDPropertyComboboxResponse;
+import com.sd20201.datn.entity.CPU;
+import com.sd20201.datn.entity.Color;
 import com.sd20201.datn.repository.ColorRepository;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ADPDColorRepository extends ColorRepository {
 
@@ -14,4 +17,12 @@ public interface ADPDColorRepository extends ColorRepository {
     """)
     List<ADPDPropertyComboboxResponse> getColors();
 
+
+    @Query(value = """ 
+        SELECT c as code FROM Color c
+        WHERE LOWER(c.name) = LOWER(:name)
+    """)
+    Optional<Color> findByName(String name);
+
+    Optional<Color> findByCode(String code);
 }

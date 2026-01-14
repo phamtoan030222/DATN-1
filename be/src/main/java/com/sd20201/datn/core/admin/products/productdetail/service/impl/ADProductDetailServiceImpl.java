@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.productdetail.service.impl;
 
-import com.sd20201.datn.core.admin.products.product.model.request.ADQuickAddProductRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddColorProductRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
@@ -37,6 +38,7 @@ import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.entity.Screen;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
+import com.sd20201.datn.infrastructure.constant.ProductPropertiesType;
 import com.sd20201.datn.infrastructure.constant.TechnolyCharging;
 import com.sd20201.datn.infrastructure.constant.TypeBattery;
 import com.sd20201.datn.infrastructure.constant.TypeScreenResolution;
@@ -53,6 +55,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -262,7 +265,6 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
     @Transactional(rollbackFor = Exception.class)
     @Override
-//    public ResponseObject<?> createVariant(String idProduct, ADPDVariantRequest variant, List<MultipartFile> images) {
     public ResponseObject<?> createVariant(String idProduct, ADPDVariantRequest variant) {
         Optional<Product> optionalProduct = productRepository.findById(idProduct);
 
@@ -324,20 +326,6 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         productDetail = productDetailRepository.save(productDetail);
 
         final String idProductDetail = productDetail.getId();
-//        MultipartFile image = images.get(0);
-//        CloudinaryResponse cloudinaryResponse = uploadImage(image);
-//        log.info("{}", cloudinaryResponse);
-//        Optional<ProductDetail> optionalProductDetail = productDetailRepository.findById(idProductDetail);
-//
-//        if (optionalProductDetail.isPresent()) {
-//            ProductDetail productDetailEntity = optionalProductDetail.get();
-//
-//            productDetailEntity.setCloudinaryImageId(cloudinaryResponse.getPublicId());
-//            productDetailEntity.setUrlImage(cloudinaryResponse.getUrl());
-//
-//            productDetailRepository.save(productDetailEntity);
-//            log.info("save image product detail");
-//        }
 
         return ResponseObject.successForward(idProductDetail, "Create variant success");
     }
@@ -355,118 +343,146 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     }
 
     @Override
-    public ResponseObject<?> quickAddPropertiesProduct(ADQuickAddProductRequest request ) {
-        switch (request.getType()) {
+    public ResponseObject<?> quickAddPropertiesProduct(Map<String, ?> request) {
+        String nameProperty = String.valueOf(request.get("nameProperty")).trim();
+
+        if (nameProperty.isBlank()) return ResponseObject.errorForward("Name property must be not blank", HttpStatus.CONFLICT);
+
+        ProductPropertiesType type = ProductPropertiesType.valueOf((String) request.get("type"));
+        switch (type) {
             case CPU -> {
+                Optional<CPU> cpuOptional = cpuRepository.findByName(nameProperty);
+                if (cpuOptional.isPresent()) return ResponseObject.errorForward("CPU is exist", HttpStatus.CONFLICT);
+
                 CPU cpu = new CPU();
 
-                cpu.setName(request.getNameProperty());
+                cpu.setName(nameProperty);
 
                 cpu = cpuRepository.save(cpu);
-                return ResponseObject.successForward(cpu.getId(),"Quick add CPU success");
+                return ResponseObject.successForward(cpu.getId(), "Quick add CPU success");
             }
 
             case BRAND -> {
+                Optional<Brand> brandOptional = brandRepository.findByName(nameProperty);
+                if (brandOptional.isPresent())
+                    return ResponseObject.errorForward("Brand is exist", HttpStatus.CONFLICT);
 
-                // 1. Validate rỗng
-                if (request.getNameProperty() == null || request.getNameProperty().trim().isEmpty()) {
-                    throw new BusinessException("Tên thương hiệu không được để trống");
-                }
-
-                // 2. Chuẩn hóa tên
-                String normalizedName = request.getNameProperty()
-                        .trim()
-                        .replaceAll("\\s+", " ");
-
-                // 3. Check trùng (không phân biệt hoa thường)
-                boolean exists = brandRepository.existsByNameIgnoreCase(normalizedName);
-                if (exists) {
-                    throw new BusinessException(
-                            "Tên thương hiệu '" + normalizedName + "' đã tồn tại"
-                    );
-                }
-
-                // 4. Tạo brand mới
                 Brand brand = new Brand();
-                brand.setName(normalizedName);
+                brand.setName(nameProperty);
+                brand = brandRepository.save(brand);
 
-                brandRepository.save(brand);
-
-                return ResponseObject.successForward(brand.getId(),"Quick add battery success");
-
+                return ResponseObject.successForward(brand.getId(), "Quick add brand success");
             }
 
             case BATTERY -> {
+                Optional<Battery> batteryOptional = batteryRepository.findByName(nameProperty);
+                if (batteryOptional.isPresent())
+                    return ResponseObject.errorForward("Battery is exist", HttpStatus.CONFLICT);
+
                 Battery battery = new Battery();
 
-                battery.setName(request.getNameProperty());
+                battery.setName(nameProperty);
                 battery.setTechnolyCharging(TechnolyCharging.STANDARD);
                 battery.setTypeBattery(TypeBattery.LI_ION);
 
                 battery = batteryRepository.save(battery);
-                return ResponseObject.successForward(battery.getId(),"Quick add battery success");
+                return ResponseObject.successForward(battery.getId(), "Quick add battery success");
             }
 
             case SCREEN -> {
+                Optional<Screen> screenOptional = screenRepository.findByName(nameProperty);
+                if (screenOptional.isPresent())
+                    return ResponseObject.errorForward("Screen is exist", HttpStatus.CONFLICT);
+
                 Screen screen = new Screen();
 
-                screen.setName(request.getNameProperty());
+                screen.setName(nameProperty);
                 screen.setResolution(TypeScreenResolution.HD);
 
                 screen = screenRepository.save(screen);
-                return ResponseObject.successForward(screen.getId(),"Quick add screen success");
+                return ResponseObject.successForward(screen.getId(), "Quick add screen success");
             }
 
             case OPERATING_SYSTEM -> {
+                Optional<OperatingSystem> operatingSystemOptional = operatingSystemRepository.findByName(nameProperty);
+                if (operatingSystemOptional.isPresent())
+                    return ResponseObject.errorForward("OperatingSystem is exist", HttpStatus.CONFLICT);
+
                 OperatingSystem os = new OperatingSystem();
 
-                os.setName(request.getNameProperty());
+                os.setName(nameProperty);
 
                 os = operatingSystemRepository.save(os);
-                return ResponseObject.successForward(os.getId(),"Quick add operating system success");
+                return ResponseObject.successForward(os.getId(), "Quick add operating system success");
             }
 
             case COLOR -> {
+                Optional<Color> colorOptional = colorRepository.findByName(nameProperty);
+                if (colorOptional.isPresent())
+                    return ResponseObject.errorForward("Color is exist", HttpStatus.CONFLICT);
+
+                String hexCode = String.valueOf(request.get("hex")).trim().toUpperCase();
+                Optional<Color> colorCodeOptional = colorRepository.findByCode(hexCode);
+                if (colorCodeOptional.isPresent())
+                    return ResponseObject.errorForward("Color hex is exist", HttpStatus.CONFLICT);
+
                 Color color = new Color();
 
-                color.setName(request.getNameProperty());
+                color.setName(nameProperty);
+                color.setCode(hexCode);
 
                 color = colorRepository.save(color);
-                return ResponseObject.successForward(color.getId(),"Quick add color success");
+                return ResponseObject.successForward(color.getId(), "Quick add color success");
             }
 
             case GPU -> {
+                Optional<GPU> gpuOptional = gpuRepository.findByName(nameProperty.toLowerCase());
+                if (gpuOptional.isPresent()) return ResponseObject.errorForward("GPU is exist", HttpStatus.CONFLICT);
+
                 GPU gpu = new GPU();
 
-                gpu.setName(request.getNameProperty());
+                gpu.setName(nameProperty);
 
                 gpu = gpuRepository.save(gpu);
-                return ResponseObject.successForward(gpu.getId(),"Quick add gpu success");
+                return ResponseObject.successForward(gpu.getId(), "Quick add gpu success");
             }
 
             case MATERIAL -> {
+                Optional<Material> materialOptional = materialRepository.findByName(nameProperty.toLowerCase());
+                if (materialOptional.isPresent())
+                    return ResponseObject.errorForward("Material is exist", HttpStatus.CONFLICT);
+
                 Material material = new Material();
-                material.setName(request.getNameProperty());
+                material.setName(nameProperty);
                 material = materialRepository.save(material);
-                return ResponseObject.successForward(material.getId(),"Quick material CPU success");
+                return ResponseObject.successForward(material.getId(), "Quick material CPU success");
             }
 
             case RAM -> {
+                Optional<RAM> ramOptional = ramRepository.findByName(nameProperty.toLowerCase());
+                if (ramOptional.isPresent()) return ResponseObject.errorForward("RAM is exist", HttpStatus.CONFLICT);
+
                 RAM ram = new RAM();
-                ram.setName(request.getNameProperty());
+                ram.setName(nameProperty);
                 ram = ramRepository.save(ram);
-                return ResponseObject.successForward(ram.getId(),"Quick add ram success");
+                return ResponseObject.successForward(ram.getId(), "Quick add ram success");
             }
 
             case HARD_DRIVE -> {
+                Optional<HardDrive> hardDriveOptional = hardDriveRepository.findByName(nameProperty.toLowerCase());
+                if (hardDriveOptional.isPresent())
+                    return ResponseObject.errorForward("HardDrive is exist", HttpStatus.CONFLICT);
+
                 HardDrive hardDrive = new HardDrive();
-                hardDrive.setName(request.getNameProperty());
+                hardDrive.setName(nameProperty);
                 hardDrive = hardDriveRepository.save(hardDrive);
-                return ResponseObject.successForward(hardDrive.getId(),"Quick add hard drive success");
+                return ResponseObject.successForward(hardDrive.getId(), "Quick add hard drive success");
+            }
+
+            default -> {
+                return ResponseObject.errorForward("Unknown operation", HttpStatus.CONFLICT);
             }
         }
-
-        return ResponseObject.errorForward("Error", HttpStatus.NOT_FOUND);
     }
 
     @Override

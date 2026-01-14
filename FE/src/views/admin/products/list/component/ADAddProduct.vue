@@ -170,7 +170,9 @@
                 <n-space justify="space-between">
                     <n-space align="center">
                         <span>Danh sách biến thể màu {{ getNameColorById(productDetailList[0].idColor) }}</span>
-                        <div class="circle" :style="{ backgroundColor: dataProperties.variantInformation.colors.find(color => color.value === productDetailList[0].idColor)?.code }"></div>
+                        <div class="circle"
+                            :style="{ backgroundColor: dataProperties.variantInformation.colors.find(color => color.value === productDetailList[0].idColor)?.code }">
+                        </div>
                     </n-space>
 
                     <n-space>
@@ -412,29 +414,22 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
         render: (_, index) => h('span', { innerText: index + 1 })
     },
     {
-        title: 'Cấu hình', key: 'configuration', width: 200, align: 'left',
-        render: (row: ADPRTableProductDetail) => h('div',
+        title: 'Cấu hình', key: 'configuration', width: 400, align: 'left',
+        render: (row: ADPRTableProductDetail) => h('div', {class: 'flex gap-2 justify-around'} ,
             [
-                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [
-                    h(Icon, { icon: 'iconoir:fill-color' }),
-                    h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.label)}` }),
-                    // h('div', {
-                    //     class: 'circle',
-                    //     style: {
-                    //         backgroundColor: dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.code)[0],
-                    //         marginLeft: '8px',
-                    //         width: '12px',
-                    //         height: '12px',
-                    //         borderRadius: '50%',
-                    //         border: '1px solid #00000033'
-                    //     }
-                    // })
+                h('div',[
+                    h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [
+                        h(Icon, { icon: 'iconoir:fill-color' }),
+                        h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.label)}` }),
+                    ]),
+                    h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'solar:cpu-bold' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${dataProperties.variantInformation.cpus.filter(data => data.value == row.idCPU).map(data => data.label)}` })]),
+                    h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'gravity-ui:gpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${dataProperties.variantInformation.gpus.filter(data => data.value == row.idGPU).map(data => data.label)}` })]),
                 ]),
-                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'solar:cpu-bold' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${dataProperties.variantInformation.cpus.filter(data => data.value == row.idCPU).map(data => data.label)}` })]),
-                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'gravity-ui:gpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${dataProperties.variantInformation.gpus.filter(data => data.value == row.idGPU).map(data => data.label)}` })]),
-                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'material-symbols:hard-drive-outline-sharp' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${dataProperties.variantInformation.hardDrives.filter(data => data.value == row.idHardDrive).map(data => data.label)}` })]),
-                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'lets-icons:materials' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${dataProperties.variantInformation.materials.filter(data => data.value == row.idMaterial).map(data => data.label)}` })]),
-                h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${dataProperties.variantInformation.rams.filter(data => data.value == row.idRAM).map(data => data.label)}` })]),
+                h('div', [
+                    h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'material-symbols:hard-drive-outline-sharp' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${dataProperties.variantInformation.hardDrives.filter(data => data.value == row.idHardDrive).map(data => data.label)}` })]),
+                    h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'lets-icons:materials' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${dataProperties.variantInformation.materials.filter(data => data.value == row.idMaterial).map(data => data.label)}` })]),
+                    h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${dataProperties.variantInformation.rams.filter(data => data.value == row.idRAM).map(data => data.label)}` })]),
+                ])
             ]
         )
     },

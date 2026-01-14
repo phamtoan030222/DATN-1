@@ -38,9 +38,6 @@ public class CreatePrimaryEntityListener {
             case "OperatingSystem" -> {
                 return "OS" + generateCode();
             }
-            case "Color" -> {
-                return "CL" + generateCode();
-            }
             case "CPU" -> {
                 return "CPU" + generateCode();
             }

@@ -24,9 +24,7 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
                            c.gender AS customerGender,
                            CASE WHEN c.status = 0 THEN 1 ELSE 0 END AS customerStatus,
                            c.birthday AS customerBirthday,
-                           c.createdBy AS customerCreatedBy,
                            c.createdDate AS customerCreatedDate,
-                           c.lastModifiedBy AS customerModifiedBy,
                            c.lastModifiedDate AS customerModifiedDate
                     FROM Customer c
                     WHERE
@@ -123,9 +121,7 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
                    c.gender AS customerGender,
                    CASE WHEN c.status = 0 THEN 1 ELSE 0 END AS customerStatus,
                    c.birthday AS customerBirthday,
-                   c.createdBy AS customerCreatedBy,
                    c.createdDate AS customerCreatedDate,
-                   c.lastModifiedBy AS customerModifiedBy,
                    c.lastModifiedDate AS customerModifiedDate
             FROM Customer c
             WHERE c.id = :id
