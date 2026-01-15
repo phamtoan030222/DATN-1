@@ -110,7 +110,28 @@ const selectedCustomers = computed(() => {
 
 /* ===================== Rules (VALIDATION) ===================== */
 const addVoucherRules: FormRules = {
-  name: { required: true, message: 'Nhập tên phiếu', trigger: ['input', 'blur'] },
+  name: [
+    { required: true, message: 'Vui lòng nhập tên phiếu', trigger: ['blur', 'input'] },
+    {
+      validator: (_rule, value) => {
+        if (!value)
+          return true // Để rule required xử lý
+
+        // Kiểm tra khoảng trắng ở đầu
+        if (value.startsWith(' ')) {
+          return new Error('Tên không được bắt đầu bằng khoảng trắng')
+        }
+
+        // Kiểm tra chỉ toàn khoảng trắng (nếu cần)
+        if (value.trim().length === 0) {
+          return new Error('Tên không được để trống')
+        }
+
+        return true
+      },
+      trigger: ['input', 'blur'], // Kiểm tra ngay khi gõ
+    },
+  ],
   typeVoucher: { required: true, message: 'Chọn loại', trigger: ['change'] },
   discountValue: {
     required: true,
