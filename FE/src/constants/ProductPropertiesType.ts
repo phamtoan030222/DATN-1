@@ -85,6 +85,6 @@ export function withCallbackOnEachProperty(
             callback(type);
             break;
         default:
-            return
+            return nu
     }
 }

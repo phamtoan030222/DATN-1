@@ -120,8 +120,13 @@ function resetFilters() {
 }
 
 /* ===================== Actions ===================== */
+// TRONG FILE invoiceList.vue
+
 function openDetailPage(id: string) {
-  router.push({ name: 'invoice_detail', params: { id } })
+  router.push({
+    name: 'invoice_list_detail',
+    params: { id },
+  })
 }
 
 // --- LOGIC XUẤT EXCEL ---

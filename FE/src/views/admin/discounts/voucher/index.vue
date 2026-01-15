@@ -152,9 +152,24 @@ watch(dynamicMaxPrice, (newMax) => {
   }
 })
 
-const typeVoucherOptions = [{ label: 'Tất cả', value: null }, { label: 'Giảm tiền', value: 'FIXED_AMOUNT' }, { label: 'Giảm %', value: 'PERCENTAGE' }]
-const targetTypeOptions = [{ label: 'Tất cả', value: null }, { label: 'Công khai', value: 'ALL_CUSTOMERS' }, { label: 'Cá nhân', value: 'INDIVIDUAL' }]
-const statusOptions = [{ label: 'Tất cả', value: null }, { label: 'Sắp diễn ra', value: 'UPCOMING' }, { label: 'Đang diễn ra', value: 'ONGOING' }, { label: 'Đã kết thúc', value: 'ENDED' }]
+const typeVoucherOptions = [
+  { label: 'Tất cả', value: null },
+  { label: 'Giảm tiền', value: 'FIXED_AMOUNT' },
+  { label: 'Giảm %', value: 'PERCENTAGE' },
+]
+
+const targetTypeOptions = [
+  { label: 'Tất cả', value: null },
+  { label: 'Công khai', value: 'ALL_CUSTOMERS' },
+  { label: 'Cá nhân', value: 'INDIVIDUAL' },
+]
+
+const statusOptions = [
+  { label: 'Tất cả', value: null },
+  { label: 'Sắp diễn ra', value: 'UPCOMING' },
+  { label: 'Đang diễn ra', value: 'ONGOING' },
+  { label: 'Đã kết thúc', value: 'ENDED' },
+]
 
 const handleSearch = debounce(() => {
   pagination.value.page = 1
@@ -327,7 +342,7 @@ async function handleExportExcel() {
         value: isPercent ? `${item.discountValue}%` : formatCurrency(item.discountValue || 0),
         maxValue: isPercent && item.maxValue ? formatCurrency(item.maxValue) : '-',
         condition: item.conditions ? formatCurrency(item.conditions) : 'Không có',
-        quantity: item.targetType === 'INDIVIDUAL' ? 'Riêng' : (item.remainingQuantity ?? '∞'),
+        quantity: item.remainingQuantity,
         // Sử dụng helper formatDateTime để giống giao diện
         startDate: formatDateTime(item.startDate),
         endDate: formatDateTime(item.endDate),
@@ -622,16 +637,16 @@ onMounted(() => fetchData())
             <NButton
               type="warning" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
-              :loading="exportLoading"
-              :disabled="loading"
-              @click="handleExportExcel"
+              :loading="exportLoading" :disabled="loading" @click="handleExportExcel"
             >
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="file-icons:microsoft-excel" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
                 Xuất Excel
               </span>
             </NButton>
@@ -658,8 +673,7 @@ onMounted(() => fetchData())
 
       <NDataTable
         v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading"
-        :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200"
-        class="rounded-lg overflow-hidden"
+        :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" class="rounded-lg overflow-hidden"
       />
 
       <div class="flex justify-end mt-4">

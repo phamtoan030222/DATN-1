@@ -1,42 +1,43 @@
 <script setup lang="ts">
-import { useAuthStore } from "@/store";
+import { useAuthStore } from '@/store'
 
-const authStore = useAuthStore();
-const { userInfo } = authStore;
+const authStore = useAuthStore()
+const { userInfo } = authStore
 
-const formRef = ref();
+const formRef = ref()
 const formValue = ref({
   user: {
-    name: "",
-    age: "",
+    name: '',
+    age: '',
   },
-  phone: "",
-});
+  phone: '',
+})
 const rules = {
   user: {
     name: {
       required: true,
-      message: "Vui lòng nhập tên",
-      trigger: "blur",
+      message: 'Vui lòng nhập tên',
+      trigger: 'blur',
     },
     age: {
       required: true,
-      message: "Vui lòng nhập tuổi",
-      trigger: ["input", "blur"],
+      message: 'Vui lòng nhập tuổi',
+      trigger: ['input', 'blur'],
     },
   },
   phone: {
     required: true,
-    message: "Vui lòng nhập số điện thoại",
-    trigger: ["input"],
+    message: 'Vui lòng nhập số điện thoại',
+    trigger: ['input'],
   },
-};
+}
 
 function handleValidateClick() {
   formRef.value?.validate((errors: any) => {
-    if (!errors) window.$message.success("Xác thực thành công");
-    else window.$message.error("Xác thực không thành công");
-  });
+    if (!errors)
+      window.$message.success('Xác thực thành công')
+    else window.$message.error('Xác thực không thành công')
+  })
 }
 </script>
 
