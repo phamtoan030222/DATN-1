@@ -106,7 +106,6 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                     p.id as id
                         , p.code as code
                         , p.name as name
-                        , p.description as description
                         , p.hardDrive.name as hardDrive
                         , p.material.name as material
                         , p.color.name as color
@@ -117,10 +116,11 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , p.status as status
                         , COUNT(i.id) as quantity
                         , p.urlImage as urlImage
-                        , pdd.salePrice as salePrice
+                        , MAX(d.percentage) as percentage
             FROM ProductDetail p
                 LEFT join IMEI i on p.id = i.productDetail.id
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
+                LEFT JOIN Discount d on pdd.discount.id = d.id
             where
                 (
                     :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -132,11 +132,10 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                    AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
+                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
             GROUP BY     p.id,
                          p.code,
                          p.name,
-                         p.description,
                          p.hardDrive,
                          p.material,
                          p.color,
@@ -145,43 +144,41 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                          p.ram,
                          p.price,
                          p.status,
-                         p.urlImage,
-                         pdd.salePrice
+                         p.urlImage
             HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
             ORDER BY p.createdDate DESC
             """, countQuery = """
             SELECT
-                COUNT(1)
+                COUNT (p.id)
             FROM ProductDetail p
                 LEFT join IMEI i on p.id = i.productDetail.id
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
+                LEFT JOIN Discount d on pdd.discount.id = d.id
             where
-            (
-                :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
-                OR :#{#request.q} is null or p.code like concat('%',:#{#request.q},'%')
-            ) AND (:#{#request.idGPU} is NULL OR p.gpu.id like concat('%',:#{#request.idGPU},'%'))
-              AND (:#{#request.idCPU} is NULL OR p.cpu.id like concat('%',:#{#request.idCPU},'%'))
-              AND (:#{#request.idColor} is NULL OR p.color.id like concat('%',:#{#request.idColor},'%'))
-              AND (:#{#request.idMaterial} is NULL OR p.material.id like concat('%',:#{#request.idMaterial},'%'))
-              AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
-              AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
-              AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-              AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
-            GROUP BY p.id,
-                     p.code,
-                     p.name,
-                     p.description,
-                     p.hardDrive,
-                     p.material,
-                     p.color,
-                     p.gpu,
-                     p.cpu,
-                     p.ram,
-                     p.price,
-                     p.status,
-                     p.urlImage,
-                     pdd.salePrice
-           HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
+                (
+                    :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
+                    OR :#{#request.q} is null or p.code like concat('%',:#{#request.q},'%')
+                ) AND (:#{#request.idGPU} is NULL OR p.gpu.id like concat('%',:#{#request.idGPU},'%'))
+                  AND (:#{#request.idCPU} is NULL OR p.cpu.id like concat('%',:#{#request.idCPU},'%'))
+                  AND (:#{#request.idColor} is NULL OR p.color.id like concat('%',:#{#request.idColor},'%'))
+                  AND (:#{#request.idMaterial} is NULL OR p.material.id like concat('%',:#{#request.idMaterial},'%'))
+                  AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
+                  AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
+                  AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
+                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
+            GROUP BY     p.id,
+                         p.code,
+                         p.name,
+                         p.hardDrive,
+                         p.material,
+                         p.color,
+                         p.gpu,
+                         p.cpu,
+                         p.ram,
+                         p.price,
+                         p.status,
+                         p.urlImage
+            HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     """)
     Page<ADPDProductDetailResponse> getProductDetailsDiscount(Pageable pageable, ADPDProductDetailRequest request, List<String> idProductDetailDiscount);
 

@@ -35,6 +35,7 @@ export interface ADProductResponse {
   maxPrice: number
   quantity: number
   urlImage: string
+  percentage?: number
 }
 
 export interface ADProductDetailResponse {

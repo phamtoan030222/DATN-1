@@ -2,6 +2,7 @@
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  NBadge,
   NButton,
   NCard,
   NCol,
@@ -234,11 +235,13 @@ const columns: DataTableColumns<ADProductResponse> = [
     title: 'Ảnh',
     key: 'image',
     align: 'center',
-    render: row => h(NImage, {
-      width: 80,
-      src: row.urlImage || 'https://via.placeholder.com/50',
-      style: { borderRadius: '4px' },
-    }),
+    render: row => h(NBadge, { value: row.percentage ? `-${row.percentage}%` : undefined }, [
+        h(NImage, {
+        width: 80,
+        src: row.urlImage || 'https://via.placeholder.com/50',
+        style: { borderRadius: '4px' },
+      })
+    ]),
   },
   {
     title: 'Mã sản phẩm',

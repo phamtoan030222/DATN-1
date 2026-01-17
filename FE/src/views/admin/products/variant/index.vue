@@ -6,7 +6,7 @@ import { getProductById, getProductsCombobox } from '@/service/api/admin/product
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
-import { NButton, NImage, NSpace, NSwitch } from 'naive-ui'
+import { NBadge, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
 import type { Ref } from 'vue'
 import { onMounted, reactive, ref } from 'vue'
 import ADProductVariantModal from './component/ADProductVariantModal.vue'
@@ -126,7 +126,9 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     width: 80,
     align: 'center',
     render: (data: ADProductDetailResponse) => {
-      return h(NImage, { width: 200, src: data.urlImage })
+      return h(NBadge, { value: data.percentage ? `-${data.percentage}%` : undefined }, [
+        h(NImage, { width: 200, src: data.urlImage })
+      ])
     },
   },
   {
@@ -150,12 +152,12 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     width: 150,
     align: 'center',
     render: (data: ADProductDetailResponse) => h('div', { style: { display: 'flex', flexDirection: 'column', justifyContent: 'start' } }, [
-      h('span',{ style:  data.salePrice ? {textDecoration: 'line-through', color: '#999', fontSize: '11px'} : {textDecoration: 'none', color: 'black', fontSize: '15px'} }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
+      h('span',{ style:  data.percentage ? {textDecoration: 'line-through', color: '#999', fontSize: '11px'} : {textDecoration: 'none', color: 'black', fontSize: '15px'} }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
         if ((arr.length - index) % 3 == 0)
           return `${prev} ${curr}`
         return prev + curr
       }, '')} vnđ`),
-      data.salePrice && h('span', { style: {color: '#d03050', fontWeight: 'bold'} }, `${(`${data.salePrice}`).split('').reduce((prev, curr, index, arr) => {
+      data.percentage && h('span', { style: {color: '#d03050', fontWeight: 'bold'} }, `${(`${data.price * (100 - data.percentage) / 100}`).split('').reduce((prev, curr, index, arr) => {
         if ((arr.length - index) % 3 == 0)
           return `${prev} ${curr}`
         return prev + curr
@@ -298,7 +300,7 @@ const exportExcelHandler = () => {
     'Ổ cứng': item.hardDrive,
     'Chất liệu': item.material,
     'Giá': item.price,
-    'Giá khuyến mãi': item.salePrice,
+    'Giá khuyến mãi': `${item.percentage}%`,
     'Tồn kho': item.quantity,
   }))
 

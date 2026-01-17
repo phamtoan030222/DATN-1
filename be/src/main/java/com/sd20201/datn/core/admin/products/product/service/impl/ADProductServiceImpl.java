@@ -55,8 +55,10 @@ public class ADProductServiceImpl implements ADProductService {
 
     @Override
     public ResponseObject<?> getProducts(ADProductRequest request) {
+        Long currentTime = System.currentTimeMillis();
+
         return ResponseObject.successForward(
-                PageableObject.of(productRepository.getProducts(Helper.createPageable(request), request)),
+                PageableObject.of(productRepository.getProducts(Helper.createPageable(request), request, currentTime)),
                 "OKE"
         );
     }
