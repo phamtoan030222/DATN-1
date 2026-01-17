@@ -56,7 +56,7 @@ export const API_ADMIN_DISCOUNTS_VOUCHER
   = `${API_ADMIN_DISCOUNTS}/voucher` as string
 
   export const API_ADMIN_STATISTICS = `${PREFIX_API_ADMIN}/statistics` as string
-
+export const PREFIX_API_BAN_HANG_ADMIN = `${PREFIX_API_ADMIN}/ban-hang` as string;
   
 // export const API_ADMIN_SALES = `${}`
 

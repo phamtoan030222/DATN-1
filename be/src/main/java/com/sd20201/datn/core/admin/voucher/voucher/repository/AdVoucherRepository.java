@@ -132,5 +132,23 @@ public interface AdVoucherRepository extends VoucherRepository {
                     """
     )
     Page<AdCustomerResponse> findUsedCustomersByVoucherCode(@Param("code") String code, Pageable pageable);
+
+    @Query("""
+    SELECT DISTINCT p FROM Voucher p
+    LEFT JOIN VoucherDetail pggct ON p.id = pggct.voucher.id
+    WHERE p.status = 0
+    AND p.quantity > 0
+    AND (
+        p.targetType = 0
+        OR (p.targetType = 1 AND pggct.customer.id = :id)  
+        )
+    AND NOT EXISTS (
+        SELECT 1 FROM Invoice  hd
+        WHERE hd.voucher.id = p.id
+        AND hd.customer.id = : id
+        AND hd.entityTrangThaiHoaDon = 4 
+        )
+    """)
+    List<Voucher> findAvailableVouchers(@Param("id") String id);
 }
 

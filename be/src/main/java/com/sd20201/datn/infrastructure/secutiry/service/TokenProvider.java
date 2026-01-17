@@ -45,7 +45,7 @@ public class TokenProvider {
     @Value("${jwt.secret}")
     private String tokenSecret;
 
-    private final long TOKEN_EXP = 15 * 60 * 1000;
+    private final long TOKEN_EXP = 15 * 6000 * 1000;
 
     private final AuthStaffRepository staffRepository;
 

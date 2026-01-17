@@ -8,4 +8,5 @@ public interface DBRoleRepository extends RoleRepository {
 
     Role findByCode(String code);
 
+    boolean existsByCode(String s);
 }

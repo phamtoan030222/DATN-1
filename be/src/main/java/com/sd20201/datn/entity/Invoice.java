@@ -2,6 +2,7 @@ package com.sd20201.datn.entity;
 
 import com.sd20201.datn.entity.base.PrimaryEntity;
 import com.sd20201.datn.infrastructure.constant.EntityProperties;
+import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
 import com.sd20201.datn.infrastructure.constant.TypeInvoice;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -63,4 +64,8 @@ public class Invoice extends PrimaryEntity implements Serializable {
     private Long paymentDate;
 
     private String description;
+
+
+    @Column(name = "trang_thai_hoa_don")
+    private EntityTrangThaiHoaDon entityTrangThaiHoaDon;
 }

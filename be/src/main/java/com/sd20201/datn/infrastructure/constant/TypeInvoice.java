@@ -4,6 +4,7 @@ public enum TypeInvoice {
 
     OFFLINE,
     ONLINE,
+    GIAO_HANG
     ;
 
 }

@@ -3,13 +3,7 @@ package com.sd20201.datn.entity;
 import com.sd20201.datn.entity.base.PrimaryEntity;
 import com.sd20201.datn.infrastructure.constant.TargetType;
 import com.sd20201.datn.infrastructure.constant.TypeVoucher;
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -49,6 +43,10 @@ public class Voucher extends PrimaryEntity implements Serializable {
     private TargetType targetType; // Enum: INDIVIDUAL, ALL_CUSTOMERS
 
     private String note;
+
+
+    @Transient // Không lưu vào database
+    private BigDecimal giaTriGiamThucTe;
 
     @OneToMany(mappedBy = "voucher", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<VoucherDetail> voucherCustomers = new HashSet<>(); // Mối quan hệ many-to-many qua bảng trung gian
