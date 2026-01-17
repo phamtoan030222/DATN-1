@@ -194,12 +194,12 @@ export async function createProductVariant(
 
     return res.data
   } catch (error: any) {
-  const backendMessage =
-    error?.response?.data?.message ||
-    'Có lỗi xảy ra'
+    const backendMessage =
+      error?.response?.data?.message ||
+      'Có lỗi xảy ra'
 
-  throw new Error(backendMessage)
-}
+    throw new Error(backendMessage)
+  }
 }
 
 
@@ -245,7 +245,7 @@ export async function checkIMEIExist(ids: Array<string>) {
   return res.data
 }
 
-export async function quickAddProperties(nameProperty: string, type: ProductPropertiesType, hex?: string ) {
+export async function quickAddProperties(nameProperty: string, type: ProductPropertiesType, hex?: string) {
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_DETAIL}/quick-add`,
     method: 'POST',
@@ -299,6 +299,25 @@ export async function saveImage(file: any) {
       'Content-Type': 'multipart/form-data',
     },
   })) as AxiosResponse<DefaultResponse<{ publicId: string, url: string }>>
+
+  return res.data
+}
+
+export async function checkExistVariant(productId: string, listPropertiesVariant: Array<{
+  idColor: string, idRAM: string, idHardDrive: string, idMaterial: string, idCPU: string, idGPU: string
+}>) {
+
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/exist-variant`,
+    method: 'POST',
+    data: {
+      productId,
+      listPropertiesVariant,
+    },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })) as AxiosResponse<DefaultResponse<Array<boolean>>>
 
   return res.data
 }

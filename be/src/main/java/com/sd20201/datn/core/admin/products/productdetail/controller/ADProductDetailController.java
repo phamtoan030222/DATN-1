@@ -1,10 +1,12 @@
 package com.sd20201.datn.core.admin.products.productdetail.controller;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.service.ADProductDetailService;
+import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
@@ -87,11 +89,6 @@ public class ADProductDetailController {
         return Helper.createResponseEntity(productDetailService.update(request));
     }
 
-//    @PostMapping(value = "/variant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-//    ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ADPDVariantRequest variant, @RequestPart List<MultipartFile> images) {
-//        return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant, images));
-//    }
-
     @PostMapping(value = "/variant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ADPDVariantRequest variant) {
         return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant));
@@ -125,5 +122,10 @@ public class ADProductDetailController {
     @PostMapping("/save-image")
     ResponseEntity<?> saveImage(@RequestPart MultipartFile file) {
         return Helper.createResponseEntity(productDetailService.saveImage(file));
+    }
+
+    @PostMapping("/exist-variant")
+    ResponseEntity<?> checkExistVariant(@RequestBody ADPDExistVariantRequest request) {
+        return Helper.createResponseEntity(productDetailService.checkExistVariant(request));
     }
 }

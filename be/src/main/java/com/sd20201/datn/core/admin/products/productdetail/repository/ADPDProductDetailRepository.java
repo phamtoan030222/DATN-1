@@ -1,10 +1,18 @@
 package com.sd20201.datn.core.admin.products.productdetail.repository;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDPriceMinMaxResponse;
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDProductDetailDetailResponse;
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDProductDetailResponse;
+import com.sd20201.datn.entity.CPU;
+import com.sd20201.datn.entity.Color;
+import com.sd20201.datn.entity.GPU;
+import com.sd20201.datn.entity.HardDrive;
+import com.sd20201.datn.entity.Material;
+import com.sd20201.datn.entity.Product;
 import com.sd20201.datn.entity.ProductDetail;
+import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.repository.ProductDetailRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -33,7 +41,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                 , COUNT(i.id) as quantity
                 , p.urlImage as urlImage
     FROM ProductDetail p
-        join IMEI i on p.id = i.productDetail.id
+        LEFT join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -64,7 +72,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
     SELECT
         COUNT(1)
     FROM ProductDetail p
-        join IMEI i on p.id = i.productDetail.id
+        LEFT join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -111,8 +119,8 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , p.urlImage as urlImage
                         , pdd.salePrice as salePrice
             FROM ProductDetail p
-                join IMEI i on p.id = i.productDetail.id
-                join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
+                LEFT join IMEI i on p.id = i.productDetail.id
+                LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
             where
                 (
                     :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -124,7 +132,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                  AND pdd.id IN :idProductDetailDiscount
+                    AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
             GROUP BY     p.id,
                          p.code,
                          p.name,
@@ -142,38 +150,38 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
             ORDER BY p.createdDate DESC
             """, countQuery = """
-    SELECT
-        COUNT(1)
-    FROM ProductDetail p
-        join IMEI i on p.id = i.productDetail.id
-        join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
-    where
-        (
-            :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
-            OR :#{#request.q} is null or p.code like concat('%',:#{#request.q},'%')
-        ) AND (:#{#request.idGPU} is NULL OR p.gpu.id like concat('%',:#{#request.idGPU},'%'))
-          AND (:#{#request.idCPU} is NULL OR p.cpu.id like concat('%',:#{#request.idCPU},'%'))
-          AND (:#{#request.idColor} is NULL OR p.color.id like concat('%',:#{#request.idColor},'%'))
-          AND (:#{#request.idMaterial} is NULL OR p.material.id like concat('%',:#{#request.idMaterial},'%'))
-          AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
-          AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
-          AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-          AND pdd.id IN :idProductDetailDiscount
-        GROUP BY p.id,
-                 p.code,
-                 p.name,
-                 p.description,
-                 p.hardDrive,
-                 p.material,
-                 p.color,
-                 p.gpu,
-                 p.cpu,
-                 p.ram,
-                 p.price,
-                 p.status,
-                 p.urlImage,
-                 pdd.salePrice
-       HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
+            SELECT
+                COUNT(1)
+            FROM ProductDetail p
+                LEFT join IMEI i on p.id = i.productDetail.id
+                LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
+            where
+            (
+                :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
+                OR :#{#request.q} is null or p.code like concat('%',:#{#request.q},'%')
+            ) AND (:#{#request.idGPU} is NULL OR p.gpu.id like concat('%',:#{#request.idGPU},'%'))
+              AND (:#{#request.idCPU} is NULL OR p.cpu.id like concat('%',:#{#request.idCPU},'%'))
+              AND (:#{#request.idColor} is NULL OR p.color.id like concat('%',:#{#request.idColor},'%'))
+              AND (:#{#request.idMaterial} is NULL OR p.material.id like concat('%',:#{#request.idMaterial},'%'))
+              AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
+              AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
+              AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
+              AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
+            GROUP BY p.id,
+                     p.code,
+                     p.name,
+                     p.description,
+                     p.hardDrive,
+                     p.material,
+                     p.color,
+                     p.gpu,
+                     p.cpu,
+                     p.ram,
+                     p.price,
+                     p.status,
+                     p.urlImage,
+                     pdd.salePrice
+           HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     """)
     Page<ADPDProductDetailResponse> getProductDetailsDiscount(Pageable pageable, ADPDProductDetailRequest request, List<String> idProductDetailDiscount);
 
@@ -203,4 +211,20 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
     FROM ProductDetail p
     """)
     Optional<ADPDPriceMinMaxResponse> findPriceMinMax();
+
+    Optional<ProductDetail> findByHardDriveAndMaterialAndColorAndGpuAndCpuAndRamAndProduct(HardDrive hardDrive, Material material, Color color, GPU gpu, CPU cpu, RAM ram, Product product);
+
+    @Query(value = """
+    SELECT
+        pd.id
+    FROM ProductDetail pd
+    WHERE pd.product.id = :idProduct
+        AND pd.hardDrive.id = (:#{#request.idHardDrive})
+        AND pd.material.id = (:#{#request.idMaterial})
+        AND pd.color.id = (:#{#request.idColor})
+        AND pd.gpu.id = (:#{#request.idGPU})
+        AND pd.cpu.id = (:#{#request.idCPU})
+        AND pd.ram.id = (:#{#request.idRAM})
+    """)
+    Optional<String> checkExistByHardDriveAndMaterialAndColorAndGpuAndCpuAndRamAndProduct(String idProduct, ADPDExistVariantRequest.PropertiesVariant request);
 }

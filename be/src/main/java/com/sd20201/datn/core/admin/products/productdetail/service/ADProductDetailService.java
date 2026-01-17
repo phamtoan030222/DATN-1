@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.service;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
@@ -48,4 +49,6 @@ public interface ADProductDetailService {
     ResponseObject<?> update(ADPDProductDetailCreateUpdateRequest request);
 
     ResponseObject<?> saveImage(MultipartFile file);
+
+    ResponseObject<?> checkExistVariant(ADPDExistVariantRequest request);
 }

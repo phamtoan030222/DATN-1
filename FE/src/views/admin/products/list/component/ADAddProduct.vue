@@ -260,7 +260,7 @@
 
 <script lang="ts" setup>
 import { ADProductCreateUpdateRequest, ADPRPropertiesComboboxResponse, getBatteries, getBrands, getOperatingSystems, getProductById, getScreens, modifyProduct } from '@/service/api/admin/product/product.api'
-import { ADProductDetailCreateUpdateRequest, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs, saveImage } from '@/service/api/admin/product/productDetail.api'
+import { ADProductDetailCreateUpdateRequest, checkExistVariant, createProductVariant, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getRAMs, saveImage } from '@/service/api/admin/product/productDetail.api'
 import { Icon } from '@iconify/vue'
 import { DataTableColumns, FormInst, FormRules, NButton, NInput, NInputNumber, NSpace, NUpload, UploadFileInfo } from 'naive-ui'
 import { Reactive } from 'vue'
@@ -268,13 +268,10 @@ import ADImeiProductDetail from './ADImeiProductDetail.vue'
 import QuickAddModal from './QuickAddModal.vue'
 import { ProductPropertiesType } from '@/constants/ProductPropertiesType'
 import _ from 'lodash'
-import { useMessage } from 'naive-ui'
 
 const route = useRoute()
 
 const router = useRouter()
-
-const message = useMessage()
 
 const idProduct: Ref<string> = ref(route.params.id as string)
 const isOpenQuickAddModal = ref<boolean>(false)
@@ -403,6 +400,7 @@ type ADPRTableProductDetail = {
     imei?: string[],
     urlImage?: string,
     publicId?: string,
+    isExist?: boolean
 }
 
 const productDetails: Reactive<ADPRTableProductDetail[]> = reactive([])
@@ -415,9 +413,9 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     },
     {
         title: 'Cấu hình', key: 'configuration', width: 400, align: 'left',
-        render: (row: ADPRTableProductDetail) => h('div', {class: 'flex gap-2 justify-around'} ,
+        render: (row: ADPRTableProductDetail) => h('div', { class: 'flex gap-2 justify-around' },
             [
-                h('div',[
+                h('div', [
                     h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [
                         h(Icon, { icon: 'iconoir:fill-color' }),
                         h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${dataProperties.variantInformation.colors.filter(data => data.value == row.idColor).map(data => data.label)}` }),
@@ -435,8 +433,8 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     },
     {
         title: 'Giá bán', key: 'price', width: 200, align: 'center',
-        render: (data: ADPRTableProductDetail, index: number) => {
-            return !(isEditPriceInputTable.value.idColor === data.idColor && isEditPriceInputTable.value.index === index) ?
+        render: (data: ADPRTableProductDetail, index: number) =>  {
+            return !data.isExist ? ( !(isEditPriceInputTable.value.idColor === data.idColor && isEditPriceInputTable.value.index === index) ?
                 h('span', {
                     innerText: data.price ? (data.price + '').split('').reduce((prev, curr, index, arr) => {
                         if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
@@ -460,7 +458,7 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
                         handleEnterPrice(data.idColor, index)
                     },
                 },
-                )
+                )) : h('span', { style: { color: 'red' }, innerText: 'Biến thể đã tồn tại trong hệ thống' })
         }
     },
     {
@@ -479,66 +477,51 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
 ]
 
 const createVariant = async () => {
-  try {
-    // reset state
     if (productDetails.length > 0) {
-      productDetails.splice(0, productDetails.length)
-      statePaginationVariantByColor.splice(0, statePaginationVariantByColor.length)
+        productDetails.splice(0, productDetails.length)
+        statePaginationVariantByColor.splice(0, statePaginationVariantByColor.length)
     }
 
     // validate form
     const isInvalid = !formDataVariantRef.value?.validate(
-      error => !!(error && error.length > 0)
+        error => !!(error && error.length > 0)
     )
     if (isInvalid) return
 
     // build variants
     if (formDataVariant.idColor) {
-      formDataVariant.idColor.forEach((idColor) => {
-        statePaginationVariantByColor.push({
-          idColor,
-          currentPage: 1,
-          priceCommonVariant: 0,
-        })
-
-        formDataVariant.idCpu?.forEach((cpu) => {
-          formDataVariant.idGpu?.forEach((gpu) => {
-            formDataVariant.idHardDrive?.forEach((hardDrive) => {
-              formDataVariant.idMaterial?.forEach((material) => {
-                formDataVariant.idRam?.forEach((ram) => {
-                  productDetails.push({
-                    idColor,
-                    idCPU: cpu,
-                    idGPU: gpu,
-                    idHardDrive: hardDrive,
-                    idMaterial: material,
-                    idRAM: ram,
-                  })
-                })
-              })
+        formDataVariant.idColor.forEach((idColor) => {
+            statePaginationVariantByColor.push({
+                idColor,
+                currentPage: 1,
+                priceCommonVariant: 0,
             })
-          })
+
+            formDataVariant.idCpu?.forEach((cpu) => {
+                formDataVariant.idGpu?.forEach((gpu) => {
+                    formDataVariant.idHardDrive?.forEach((hardDrive) => {
+                        formDataVariant.idMaterial?.forEach((material) => {
+                            formDataVariant.idRam?.forEach((ram) => {
+                                productDetails.push({
+                                    idColor,
+                                    idCPU: cpu,
+                                    idGPU: gpu,
+                                    idHardDrive: hardDrive,
+                                    idMaterial: material,
+                                    idRAM: ram,
+                                })
+                            })
+                        })
+                    })
+                })
+            })
         })
-      })
+
+        const res = await checkExistVariant(idProduct.value || '', productDetails);
+        const productDetailsWithExist = productDetails.map((productDetail, index) => ({ ...productDetail, isExist: res.data[index] }));
+        productDetails.splice(0, productDetails.length, ...productDetailsWithExist);
     }
-
-    // 🔥 GỌI API TẠO VARIANT
-    const requests = productDetails.map((detail) =>
-      createProductVariant(
-        idNewProduct!,
-        detail as ADProductDetailCreateUpdateRequest
-      )
-    )
-
-    await Promise.all(requests)
-
-    message.success('Tạo biến thể thành công')
-  } catch (err: any) {
-    // 👈 CHỖ NÀY SẼ HIỂN THỊ
-    message.error(err.message)
-  }
 }
-
 
 const handleClickPriceTable = (idColor: string, index: number) => {
     isEditPriceInputTable.value = { idColor, index }
@@ -611,30 +594,23 @@ const submitVariantHandler = async () => {
             });
         });
 
-try {
-  const requests = productDetails.map((productDetail) =>
-    createProductVariant(
-      idNewProduct!,
-      productDetail as ADProductDetailCreateUpdateRequest
-    )
-  )
+        try {
+            const requests = productDetails.map((productDetail) =>
+                createProductVariant(
+                    idNewProduct!,
+                    productDetail as ADProductDetailCreateUpdateRequest
+                )
+            )
 
-  await Promise.all(requests)
+            await Promise.all(requests)
 
-  message.success('Tạo tất cả biến thể thành công')
-} catch (err: any) {
-  message.error(err.message) // message từ backend
-}
-
-        // Gửi đồng thời
-        await Promise.all(requests);
-
-        if (idNewProduct) notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
-        else notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
+            notification.success({ content: 'Thêm sản phẩm thành công', duration: 3000 })
+        } catch (err: any) {
+        }
 
         router.push({ name: 'products_list' })
     } catch (e) {
-        notification.error({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
+        notification.success({ content: 'Thêm sản phẩm thất bại', duration: 3000 })
     } finally {
         loadingCreateVariant.value = false;
     }
@@ -657,7 +633,7 @@ const validateSubmitVariantHandler: () => boolean = () => {
         return false;
     }
 
-    if (productDetails.some(productDetail => !productDetail.price)) {
+    if (productDetails.some(productDetail => !productDetail.price && !productDetail.isExist)) {
         notification.error({ content: 'Vui lòng nhập giá cho tất cả biến thể', duration: 3000 })
         return false;
     }

@@ -24,7 +24,7 @@ import java.io.Serializable;
 @Entity
 @Table(name = "account")
 @ToString
-//@EntityListeners(CreateAccountEntityListener.class)
+@EntityListeners(CreateAccountEntityListener.class)
 public class Account extends PrimaryEntity implements Serializable {
 
     private RoleConstant roleConstant;

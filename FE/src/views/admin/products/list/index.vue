@@ -17,7 +17,6 @@ import {
   NSlider,
   NSpace,
   NSwitch,
-  NTag,
   NTooltip,
   useNotification,
 } from 'naive-ui'
@@ -228,15 +227,12 @@ const columns: DataTableColumns<ADProductResponse> = [
   {
     title: 'STT',
     key: 'orderNumber',
-    fixed: 'left',
-    width: 100,
     align: 'center',
     render: (_, index) => (state.pagination.page - 1) * state.pagination.size + index + 1,
   },
   {
     title: 'Ảnh',
     key: 'image',
-    width: 150,
     align: 'center',
     render: row => h(NImage, {
       width: 80,
@@ -247,13 +243,11 @@ const columns: DataTableColumns<ADProductResponse> = [
   {
     title: 'Mã sản phẩm',
     key: 'code',
-    width: 150,
     render: row => h('strong', { class: 'text-primary' }, row.code),
   },
   {
     title: 'Tên sản phẩm',
     key: 'name',
-    minWidth: 200,
     ellipsis: { tooltip: true },
   },
   {
@@ -273,7 +267,7 @@ const columns: DataTableColumns<ADProductResponse> = [
   {
     title: 'Khoảng giá',
     key: 'price',
-    width: 200,
+    width: 130,
     render: (row) => {
       if (row.minPrice === row.maxPrice)
         return h('span', { class: 'font-medium text-red-600' }, formatCurrency(row.minPrice))
@@ -286,15 +280,15 @@ const columns: DataTableColumns<ADProductResponse> = [
   {
     title: 'Số lượng',
     key: 'quantity',
-    width: 100,
+    width: 70,
     align: 'center',
     render: row => h('span', { class: 'font-medium' }, row.quantity),
   },
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 100,
     align: 'center',
+    width: 70,
     render: row => h(NSwitch, {
       value: row.status === 'ACTIVE',
       size: 'small',
@@ -304,8 +298,8 @@ const columns: DataTableColumns<ADProductResponse> = [
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 150, // Tăng độ rộng để khi nút phóng to không bị che
     align: 'center',
+    width: 150,
     fixed: 'right',
     render: (row) => {
       return h('div', { class: 'flex justify-center gap-3' }, [
@@ -470,7 +464,7 @@ const exportExcelHandler = () => {
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+            <NButton type="success" @click="exportExcelHandler" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="file-icons:microsoft-excel" />
