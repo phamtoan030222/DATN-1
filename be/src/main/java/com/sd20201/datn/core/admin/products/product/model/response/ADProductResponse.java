@@ -27,4 +27,5 @@ public interface ADProductResponse extends IsIdentify, IsEntityStatus {
 
     String getUrlImage();
 
+    Integer getPercentage();
 }

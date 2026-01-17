@@ -30,10 +30,13 @@ public interface ADProductRepository extends ProductRepository {
         , MAX(pd.price) as maxPrice
         , COUNT(i.id) as quantity
         , ip.url as urlImage
+        , MAX(d.percentage) as percentage
     FROM Product p
         LEFT JOIN ProductDetail pd on p.id = pd.product.id
         LEFT JOIN IMEI i on pd.id = i.productDetail.id
         LEFT JOIN ImageProduct ip on p.id = ip.product.id
+        LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
+        LEFT JOIN Discount d on pdd.discount.id = d.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -43,6 +46,7 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
           AND (ip.index = 1 or ip.id is null)
+          AND (d.startDate <= :date and :date <= d.endDate OR d.id IS NULL)
     GROUP BY     p.id,
                  p.code,
                  p.name,
@@ -61,15 +65,18 @@ public interface ADProductRepository extends ProductRepository {
         LEFT JOIN ProductDetail pd on p.id = pd.product.id
         LEFT JOIN IMEI i on pd.id = i.productDetail.id
         LEFT JOIN ImageProduct ip on p.id = ip.product.id
+        LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
+        LEFT JOIN Discount d on pdd.discount.id = d.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
             OR :#{#request.q} is null or p.code like concat('%',:#{#request.q},'%')
         ) AND (:#{#request.idBrand} is NULL OR p.brand.id like concat('%',:#{#request.idBrand},'%'))
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
-          AND (:#{#request.idScreen} is NULL OR p.screen.id = :#{#request.idScreen})
+          AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
           AND (ip.index = 1 or ip.id is null)
+          AND (d.startDate <= :date and :date <= d.endDate OR d.id IS NULL)
     GROUP BY     p.id,
                  p.code,
                  p.name,
@@ -81,7 +88,7 @@ public interface ADProductRepository extends ProductRepository {
                  ip.url
     HAVING (:#{#request.minPrice} <= MIN(pd.price) AND MAX(pd.price) <= :#{#request.maxPrice})
     """)
-    Page<ADProductResponse> getProducts(Pageable pageable, ADProductRequest request);
+    Page<ADProductResponse> getProducts(Pageable pageable, ADProductRequest request, Long date);
 
     @Query(value = """
         SELECT

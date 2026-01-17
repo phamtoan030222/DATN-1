@@ -50,7 +50,7 @@ export interface ADProductDetailResponse {
   readonly description: string
   readonly status: string
   readonly urlImage: string;
-  readonly salePrice?: number;
+  readonly percentage?: number;
 }
 
 export interface ADProductDetailDetailResponse {
