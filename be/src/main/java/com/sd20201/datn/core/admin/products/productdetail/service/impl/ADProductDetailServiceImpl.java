@@ -1,7 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.service.impl;
 
-import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddColorProductRequest;
-import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddProductRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
@@ -9,12 +8,12 @@ import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBattery
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBrandRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDCPURepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDColorRepository;
-import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailDiscountRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDGPURepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDHardDriveRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDImeiRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDMaterialRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDOperatingSystemRepository;
+import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailDiscountRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDRAMRepository;
@@ -42,7 +41,7 @@ import com.sd20201.datn.infrastructure.constant.ProductPropertiesType;
 import com.sd20201.datn.infrastructure.constant.TechnolyCharging;
 import com.sd20201.datn.infrastructure.constant.TypeBattery;
 import com.sd20201.datn.infrastructure.constant.TypeScreenResolution;
-import com.sd20201.datn.infrastructure.exception.BusinessException;
+import com.sd20201.datn.repository.IMEIRepository;
 import com.sd20201.datn.repository.ImageProductRepository;
 import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
@@ -169,8 +168,6 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
         Optional<Product> productOptional = productRepository.findById(request.getIdProduct());
         if (productOptional.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND);
-        {
-        }
 
         Optional<RAM> ramOptional = ramRepository.findById(request.getIdRAM());
         if (ramOptional.isEmpty()) return ResponseObject.errorForward("RAM not found", HttpStatus.NOT_FOUND);
@@ -292,6 +289,21 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         if (hardDriveOptional.isEmpty())
             return ResponseObject.errorForward("HardDrive not found", HttpStatus.NOT_FOUND);
 
+        Optional<ProductDetail> existProductDetailOptional = productDetailRepository.findByHardDriveAndMaterialAndColorAndGpuAndCpuAndRamAndProduct(
+                hardDriveOptional.get(),
+                materialOptional.get(),
+                colorOptional.get(),
+                gpuOptional.get(),
+                cpuOptional.get(),
+                ramOptional.get(),
+                product
+        );
+
+        if (existProductDetailOptional.isPresent()) {
+            addImeiToProductDetail(existProductDetailOptional.get(), variant.getImei());
+            return ResponseObject.successForward(existProductDetailOptional.get().getId(),"Variant is exist. Update quantity variant to exist variant");
+        }
+
         ProductDetail productDetail = new ProductDetail();
 
         productDetail.setCode(Helper.generateCodeProductDetail());
@@ -308,20 +320,7 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
         productDetailRepository.save(productDetail);
 
-        List<String> imeiVariant = variant.getImei();
-
-        for (String imeiValue : imeiVariant) {
-            Optional<IMEI> imeiOptional = imeiRepository.findByCode(imeiValue);
-            if (imeiOptional.isPresent())
-                return ResponseObject.errorForward("Imei duplicated", HttpStatus.NOT_FOUND);
-
-            IMEI imei = new IMEI();
-            imei.setCode(imeiValue);
-            imei.setName(imeiValue);
-            imei.setProductDetail(productDetail);
-
-            imeiRepository.save(imei);
-        }
+        addImeiToProductDetail(productDetail, variant.getImei());
 
         productDetail = productDetailRepository.save(productDetail);
 
@@ -340,6 +339,22 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     @Override
     public ResponseObject<?> isIMEIExist(List<String> ids) {
         return ResponseObject.successForward(imeiRepository.findByCode(ids), "OKE");
+    }
+
+    private void addImeiToProductDetail(ProductDetail productDetail,List<String> imeiVariants) {
+        imeiRepository.saveAll(
+                imeiVariants.stream()
+                        .filter(imeiValue -> imeiRepository.findByCode(imeiValue).isEmpty())
+                        .map(imeiValue -> {
+                                    IMEI imei = new IMEI();
+                                    imei.setCode(imeiValue);
+                                    imei.setName(imeiValue);
+                                    imei.setProductDetail(productDetail);
+                                    return imei;
+                                }
+                        )
+                        .toList()
+        );
     }
 
     @Override
@@ -511,5 +526,18 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         CloudinaryResponse cloudinaryResponse = uploadImage(file);
 
         return ResponseObject.successForward(cloudinaryResponse, "Save image success");
+    }
+
+    @Override
+    public ResponseObject<?> checkExistVariant(ADPDExistVariantRequest request) {
+        return ResponseObject.successForward(
+                request.getListPropertiesVariant().stream()
+                        .map(propertiesVariant -> productDetailRepository.checkExistByHardDriveAndMaterialAndColorAndGpuAndCpuAndRamAndProduct(
+                                request.getProductId(),
+                                propertiesVariant
+                        ).isPresent())
+                        .toList(),
+                "OKE"
+        );
     }
 }

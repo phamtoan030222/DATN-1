@@ -119,11 +119,11 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
       return h('span', { innerText: index + 1 })
     },
   },
-  { title: 'Mã', key: 'code', width: 100, fixed: 'left' },
+  { title: 'Mã', key: 'code', width: 120, fixed: 'left' },
   {
     title: 'Ảnh sản phẩm',
     key: 'brand',
-    width: 100,
+    width: 80,
     align: 'center',
     render: (data: ADProductDetailResponse) => {
       return h(NImage, { width: 200, src: data.urlImage })
@@ -133,14 +133,14 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     title: 'Cấu hình', key: 'configuration', width: 400, align: 'left', titleAlign: 'center',
     render: (rowData: ADProductDetailResponse) => h('div', { class: 'flex gap-1 justify-around' }, [
       h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
       ]),
       h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center', margin: '10px 0' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
+        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
       ]),
     ]),
   },
@@ -200,14 +200,14 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
   },
 ]
 
-onMounted(() => {
-  fetchProductDetails()
+onMounted(async () => {
+  await initSearchPrice()
   fetchProductsCombobox()
   if (idProduct.value) {
     fetchProduct()
   }
   fetchComboboxProperties()
-  initSearchPrice()
+  fetchProductDetails()
 })
 
 async function initSearchPrice() {
