@@ -29,6 +29,6 @@ public interface ADPDProductDetailResponse extends IsIdentify, IsEntityStatus {
 
     String getUrlImage();
 
-    Double getSalePrice();
+    Integer getPercentage();
 
 }
