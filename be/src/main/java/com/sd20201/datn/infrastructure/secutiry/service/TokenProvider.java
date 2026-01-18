@@ -109,13 +109,13 @@ public class TokenProvider {
             if (optionalStaff.isPresent()) {
                 tokenInfoResponse = getTokenSubjectResponse(optionalStaff.get());
                 tokenInfoResponse.setRoleScreen(screenForRole.get());
-            }
+            } else {
+                Optional<Customer> optionalCustomer = customerRepository.findByEmail(userPrincipal.getEmail());
 
-            Optional<Customer> optionalCustomer = customerRepository.findByEmail(userPrincipal.getEmail());
-
-            if (optionalCustomer.isPresent()) {
-                tokenInfoResponse = getTokenSubjectResponse(optionalCustomer.get());
-                tokenInfoResponse.setRoleScreen(screenForRole.get());
+                if (optionalCustomer.isPresent()) {
+                    tokenInfoResponse = getTokenSubjectResponse(optionalCustomer.get());
+                    tokenInfoResponse.setRoleScreen(screenForRole.get());
+                }
             }
         }
 
@@ -149,13 +149,13 @@ public class TokenProvider {
             if (optionalStaff.isPresent()) {
                 tokenInfoResponse = getTokenSubjectResponse(optionalStaff.get());
                 tokenInfoResponse.setRoleScreen(screenForRole.get());
-            }
+            } else {
+                Optional<Customer> optionalCustomer = customerRepository.findByEmail(userPrincipal.getEmail());
 
-            Optional<Customer> optionalCustomer = customerRepository.findByEmail(userPrincipal.getEmail());
-
-            if (optionalCustomer.isPresent()) {
-                tokenInfoResponse = getTokenSubjectResponse(optionalCustomer.get());
-                tokenInfoResponse.setRoleScreen(screenForRole.get());
+                if (optionalCustomer.isPresent()) {
+                    tokenInfoResponse = getTokenSubjectResponse(optionalCustomer.get());
+                    tokenInfoResponse.setRoleScreen(screenForRole.get());
+                }
             }
         }
 
