@@ -94,7 +94,7 @@ export const getOverview = async () => {
     )
     return res.data.data
   } catch (error) {
-    console.error("❌ Error fetching overview:", error)
+    console.error("Error fetching overview:", error)
     return null
   }
 }
@@ -107,7 +107,7 @@ export const getGrowthStats = async () => {
     )
     return res.data.data || []
   } catch (error) {
-    console.error("❌ Error fetching growth stats:", error)
+    console.error("Error fetching growth stats:", error)
     return []
   }
 }
@@ -141,7 +141,7 @@ export const getLowStockProducts = async (
       currentPage: (responseData?.number ?? page) + 1,
     }
   } catch (error) {
-    console.error("❌ Error fetching low stock products:", error)
+    console.error("Error fetching low stock products:", error)
     return { items: [], totalItems: 0, totalPages: 0, currentPage: 1 }
   }
 }
@@ -155,7 +155,7 @@ export const getRevenueChart = async (type: string = 'week') => {
     )
     return res.data.data
   } catch (error) {
-    console.error("❌ Error fetching revenue chart:", error)
+    console.error("Error fetching revenue chart:", error)
     return { timeLabels: [], currentData: [], previousData: [] }
   }
 }
@@ -169,7 +169,7 @@ export const getOrderStatusChart = async (type: string = 'week') => {
     )
     return res.data.data || []
   } catch (error) {
-    console.error("❌ Error fetching order status chart:", error)
+    console.error("Error fetching order status chart:", error)
     return []
   }
 }
@@ -183,7 +183,7 @@ export const getTopProductsChart = async (type: string = 'week') => {
     )
     return res.data.data || []
   } catch (error) {
-    console.error("❌ Error fetching top products chart:", error)
+    console.error("Error fetching top products chart:", error)
     return []
   }
 }

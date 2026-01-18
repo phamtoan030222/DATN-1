@@ -7,6 +7,10 @@ public interface AdDiscountDetailRespone {
 
     String getProductCode();
 
+    String getProductDetailCode();
+
+    String getImage();
+
     String getProductName();
 
     String getDiscountName();

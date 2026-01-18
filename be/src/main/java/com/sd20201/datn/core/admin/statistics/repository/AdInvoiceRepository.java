@@ -20,7 +20,7 @@ public interface AdInvoiceRepository extends InvoiceRepository {
     """, nativeQuery = true)
     List<AdChartResponse> getRawRevenueData(@Param("start") Long start, @Param("end") Long end);
 
-    // 2. Chart Trạng thái đơn hàng
+    // 2. Chart trạng thái đơn hàng
     @Query(value = """
         SELECT 
            (CASE WHEN status = 0 THEN 'Đã thanh toán' 

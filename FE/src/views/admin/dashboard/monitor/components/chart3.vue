@@ -32,7 +32,7 @@ const pieOptions = ref<any>({
         formatter: "{b}\n{c}",
         color: "#666"
       },
-      data: [] // Sẽ được điền từ API
+      data: [] 
     }
   ]
 });

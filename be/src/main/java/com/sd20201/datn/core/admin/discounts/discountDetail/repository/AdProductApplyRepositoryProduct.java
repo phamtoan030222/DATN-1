@@ -11,6 +11,8 @@ public interface AdProductApplyRepositoryProduct extends ProductDiscountDetailRe
         @Query(value = """
             SELECT c.id AS id,
                    p.code AS productCode,
+                   pd.urlImage AS image,
+                   pd.code AS productDetailCode,
                    p.name AS productName,
                    d.name AS discountName,
                    d.code AS discountCode,

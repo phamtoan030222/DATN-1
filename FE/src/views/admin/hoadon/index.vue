@@ -205,55 +205,40 @@ enum EntityTrangThaiHoaDon {
   DA_HUY = 5,
 }
 
-enum EntityLoaiHoaDon {
-  OFFLINE = "OFFLINE",
-  GIAO_HANG = "GIAO_HANG",
-  ONLINE = "ONLINE",
-}
+const EntityLoaiHoaDon = {
+  OFFLINE: 'OFFLINE',
+  GIAO_HANG: 'GIAO_HANG',
+  ONLINE: 'ONLINE'
+};
 
-// Fake data for invoices với đầy đủ thông tin và cấu trúc phù hợp với trang chi tiết
-const fakeInvoices = Array.from({ length: 50 }, (_, index) => {
-  const id = index + 1
-  const maHoaDon = `HD${String(id).padStart(3, '0')}`
-  const invoiceTypes = [EntityLoaiHoaDon.OFFLINE, EntityLoaiHoaDon.GIAO_HANG, EntityLoaiHoaDon.ONLINE]
-  const statuses = ['0', '1', '2', '3', '4', '5'] // String values để phù hợp với API
-  const paymentStatuses = ['0', '1'] // 0: Chưa thanh toán, 1: Đã thanh toán
-  
-  // Tạo ngày ngẫu nhiên trong 30 ngày qua
-  const daysAgo = Math.floor(Math.random() * 30)
-  const createdDate = Date.now() - (daysAgo * 86400000)
-  const updatedDate = createdDate + Math.floor(Math.random() * 86400000)
-  
-  const loaiHoaDon = invoiceTypes[Math.floor(Math.random() * invoiceTypes.length)]
-  const trangThaiHoaDon = statuses[Math.floor(Math.random() * statuses.length)]
-  const phuongThucThanhToan = Math.random() > 0.5 ? '0' : '1' // 0: Tiền mặt, 1: Chuyển khoản
-  
-  const tongTienHang = Math.floor(Math.random() * (50000000 - 1000000) + 1000000)
-  const phiVanChuyen = loaiHoaDon === EntityLoaiHoaDon.GIAO_HANG ? Math.floor(Math.random() * 50000) : 0
-  const giaTriPGG = Math.floor(Math.random() * 1000000)
-  const thanhTien = tongTienHang - giaTriPGG + phiVanChuyen
-  
-  // Tạo tên khách hàng ngẫu nhiên
-  const firstName = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Phan', 'Vũ', 'Đặng', 'Bùi', 'Đỗ']
-  const middleName = ['Văn', 'Thị', 'Minh', 'Hoàng', 'Hữu', 'Công', 'Kim', 'Thanh']
-  const lastName = ['An', 'Bình', 'Chi', 'Dũng', 'Giang', 'Hương', 'Khoa', 'Long', 'Mai', 'Nam']
-  
-  const tenKhachHang = `${firstName[Math.floor(Math.random() * firstName.length)]} ${middleName[Math.floor(Math.random() * middleName.length)]} ${lastName[Math.floor(Math.random() * lastName.length)]}`
-  const sdtKhachHang = `09${Math.floor(Math.random() * 90000000 + 10000000)}`
-  
-  // Tạo nhân viên
-  const maNhanVien = `NV${String(Math.floor(Math.random() * 10) + 1).padStart(3, '0')}`
-  const nhanVienNames = ['Nguyễn Thị Mai', 'Trần Văn Nam', 'Lê Thị Hồng', 'Phạm Văn Đức', 'Hoàng Thị Lan', 'Phan Công Minh', 'Vũ Thị Ngọc', 'Đặng Văn Hải', 'Bùi Thị Thu', 'Đỗ Văn Tùng']
-  const tenNhanVien = nhanVienNames[Math.floor(Math.random() * nhanVienNames.length)]
-  
-  // Tạo chi nhánh
-  const chiNhanhNames = ['Chi nhánh Quận 1', 'Chi nhánh Quận 3', 'Chi nhánh Quận 5', 'Chi nhánh Quận 7', 'Chi nhánh Quận 10']
-  const chiNhanh = chiNhanhNames[Math.floor(Math.random() * chiNhanhNames.length)]
-  
-  // Tạo dữ liệu sản phẩm mẫu
+
+// 1. Dữ liệu nguồn (Thứ tự nhập không quan trọng, code sẽ tự sắp xếp lại)
+const fixedSourceData = [
+  { id: 1,  date: '2026-01-01T08:30:00Z', status: '4', pay: '1', type: 'OFFLINE',   name: 'Nguyễn Văn An',      total: 32500000 },
+  { id: 2,  date: '2026-01-02T09:15:00Z', status: '4', pay: '1', type: 'ONLINE',    name: 'Trần Thị Bình',      total: 15400000 },
+  { id: 3,  date: '2026-01-05T14:20:00Z', status: '4', pay: '1', type: 'GIAO_HANG', name: 'Lê Hoàng Cường',     total: 32000000 },
+  { id: 4,  date: '2026-01-10T10:00:00Z', status: '4', pay: '1', type: 'ONLINE',    name: 'Phạm Thị Dung',      total: 550000   },
+  { id: 5,  date: '2026-01-15T16:45:00Z', status: '4', pay: '1', type: 'GIAO_HANG', name: 'Hoàng Văn Em',       total: 64500000 },
+  { id: 6,  date: '2026-01-15T11:30:00Z', status: '4', pay: '1', type: 'OFFLINE',    name: 'Vũ Thị Phương',      total: 32500000 },
+  { id: 7,  date: '2026-01-15T19:00:00Z', status: '4', pay: '1', type: 'OFFLINE',   name: 'Đặng Văn Giang',     total: 1200000  },
+  { id: 8,  date: '2026-01-16T08:10:00Z', status: '4', pay: '1', type: 'OFFLINE',    name: 'Bùi Thị Hương',      total: 32000000 },
+  { id: 9,  date: '2026-01-17T10:05:00Z', status: '4', pay: '1', type: 'OFFLINE',    name: 'Ngô Thị Khánh',      total: 32500000 },
+  { id: 10, date: '2026-01-17T10:20:00Z', status: '4', pay: '1', type: 'OFFLINE', name: 'Đỗ Văn Hùng',        total: 35000000 },
+];
+
+// 2. SẮP XẾP TĂNG DẦN (ASCENDING)
+// Logic: (a - b) sẽ xếp số nhỏ (giờ cũ/sớm) lên trước, số lớn (giờ mới/muộn) ra sau
+fixedSourceData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+// 3. Map dữ liệu
+const fakeInvoices = fixedSourceData.map((data) => {
+  const maHoaDon = `HD${String(data.id).padStart(3, '0')}`;
+  const phiVanChuyen = data.type === EntityLoaiHoaDon.GIAO_HANG ? 30000 : 0;
+  const thanhTien = data.total + phiVanChuyen;
+
   const products = [
     {
-      maHoaDonChiTiet: `HDCT${String(id).padStart(3, '0')}-1`,
+      maHoaDonChiTiet: `HDCT${String(data.id).padStart(3, '0')}-1`,
       maHoaDon: maHoaDon,
       tenSanPham: 'iPhone 15 Pro Max 256GB',
       thuongHieu: 'Apple',
@@ -263,120 +248,107 @@ const fakeInvoices = Array.from({ length: 50 }, (_, index) => {
       soLuong: 1,
       thanhTien: 32000000,
       anhSanPham: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400&h=400&fit=crop'
-    },
-    {
-      maHoaDonChiTiet: `HDCT${String(id).padStart(3, '0')}-2`,
-      maHoaDon: maHoaDon,
-      tenSanPham: 'Ốp lưng iPhone 15 Pro Max',
-      thuongHieu: 'Spigen',
-      mauSac: 'Đen',
-      size: '15 Pro Max',
-      giaBan: 500000,
-      soLuong: 1,
-      thanhTien: 500000,
-      anhSanPham: 'https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&h=400&fit=crop'
     }
-  ]
-  
+  ];
+
   return {
-    id: id.toString(),
+    id: data.id.toString(),
     maHoaDon: maHoaDon,
-    maDonHang: `DH${String(id).padStart(4, '0')}`,
+    maDonHang: `DH${String(data.id).padStart(4, '0')}`,
     tenHoaDon: `Hóa đơn ${maHoaDon}`,
-    tenKhachHang: tenKhachHang,
-    sdtKH: sdtKhachHang,
-    email: `${tenKhachHang.replace(/\s+/g, '').toLowerCase()}@gmail.com`,
-    diaChi: loaiHoaDon !== EntityLoaiHoaDon.OFFLINE ? 
-      `Số ${Math.floor(Math.random() * 100)}, Đường ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}, Quận ${Math.floor(Math.random() * 12) + 1}, TP.HCM` : 
-      null,
-    tenKhachHang2: tenKhachHang,
-    sdtKH2: sdtKhachHang,
-    email2: `${tenKhachHang.replace(/\s+/g, '').toLowerCase()}@email.com`,
-    diaChi2: loaiHoaDon === EntityLoaiHoaDon.OFFLINE ? 'Mua tại quầy' : 
-      `Số ${Math.floor(Math.random() * 100)}, Đường ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}, Quận ${Math.floor(Math.random() * 12) + 1}, TP.HCM`,
-    loaiHoaDon: loaiHoaDon,
-    trangThaiHoaDon: trangThaiHoaDon,
-    phuongThucThanhToan: phuongThucThanhToan,
-    ngayTao: new Date(createdDate).toISOString(),
-    ngayCapNhat: new Date(updatedDate).toISOString(),
+    tenKhachHang: data.name,
+    sdtKH: '0987654321',
+    email: 'khachhang@gmail.com',
+    diaChi: data.type !== EntityLoaiHoaDon.OFFLINE ? 'Số 10, Đường Lê Lợi, Quận 1, TP.HCM' : null,
+    
+    tenKhachHang2: data.name,
+    sdtKH2: '0987654321',
+    email2: 'khachhang@email.com',
+    diaChi2: data.type === EntityLoaiHoaDon.OFFLINE ? 'Mua tại quầy' : 'Số 10, Đường Lê Lợi, Quận 1, TP.HCM',
+    
+    loaiHoaDon: data.type,
+    trangThaiHoaDon: data.status,
+    phuongThucThanhToan: data.pay,
+    
+    ngayTao: data.date,
+    ngayCapNhat: data.date,
+    
     phiVanChuyen: phiVanChuyen,
-    maPGG: Math.random() > 0.7 ? `VOUCHER${Math.floor(Math.random() * 1000)}` : null,
-    tenPGG: Math.random() > 0.7 ? ['Giảm giá 10%', 'Giảm giá mùa hè', 'Khuyến mãi đặc biệt', 'Giảm giá thân thiết'][Math.floor(Math.random() * 4)] : null,
-    giaTriPGG: giaTriPGG,
+    maPGG: null,
+    tenPGG: null,
+    giaTriPGG: 0,
+    
     thanhTien: thanhTien,
-    tongTienHang: tongTienHang,
+    tongTienHang: data.total,
     giamGiaSanPham: 0,
-    giamGiaHoaDon: giaTriPGG,
-    daThanhToan: Math.random() > 0.5 ? thanhTien : Math.floor(thanhTien * 0.7),
-    conNo: Math.random() > 0.5 ? 0 : Math.floor(thanhTien * 0.3),
-    ghiChuKhachHang: Math.random() > 0.8 ? 'Giao hàng trước 17h' : null,
-    ghiChuNoiBo: Math.random() > 0.8 ? 'Khách hàng VIP' : null,
+    giamGiaHoaDon: 0,
+    
+    daThanhToan: data.pay === '1' ? thanhTien : 0,
+    conNo: data.pay === '1' ? 0 : thanhTien,
+    
+    ghiChuKhachHang: null,
+    ghiChuNoiBo: null,
+    
     nhanVien: {
-      ten: tenNhanVien,
-      ma: maNhanVien,
-      avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
+      ten: 'Nguyễn Thị Nhân Viên',
+      ma: 'NV001',
+      avatar: 'https://i.pravatar.cc/150?img=32'
     },
     chiNhanh: {
-      ten: chiNhanh
+      ten: 'Chi nhánh Trung tâm'
     },
-    kenhBanHang: ['WEBSITE', 'TRUC_TIEP', 'FACEBOOK', 'ZALO'][Math.floor(Math.random() * 4)],
-    hinhThucThanhToan: phuongThucThanhToan === '0' ? 'TIEN_MAT' : 'CHUYEN_KHOAN',
+    kenhBanHang: 'WEBSITE',
+    hinhThucThanhToan: data.pay === '0' ? 'TIEN_MAT' : 'CHUYEN_KHOAN',
     chiTietList: products,
     
-    // Các field cũ để tương thích với bảng hiện tại
-    tenKhachHangOld: tenKhachHang,
-    sdtKhachHangOld: sdtKhachHang,
-    loaiHoaDonOld: loaiHoaDon,
-    maNhanVienOld: maNhanVien,
-    tenNhanVienOld: tenNhanVien,
-    tongTienOld: tongTienHang,
+    tenKhachHangOld: data.name,
+    sdtKhachHangOld: '0987654321',
+    loaiHoaDonOld: data.type,
+    maNhanVienOld: 'NV001',
+    tenNhanVienOld: 'Nguyễn Thị Nhân Viên',
+    tongTienOld: data.total,
     tienShipOld: phiVanChuyen,
-    tienGiamOld: giaTriPGG,
+    tienGiamOld: 0,
     thanhTienOld: thanhTien,
-    createdDateOld: createdDate,
-    updatedDateOld: updatedDate,
-    statusOld: trangThaiHoaDon === '0' ? 'CHO_XAC_NHAN' : 
-               trangThaiHoaDon === '1' ? 'DA_XAC_NHAN' :
-               trangThaiHoaDon === '2' ? 'CHO_GIAO' :
-               trangThaiHoaDon === '3' ? 'DANG_GIAO' :
-               trangThaiHoaDon === '4' ? 'HOAN_THANH' : 'DA_HUY',
-    paymentStatusOld: phuongThucThanhToan === '0' ? 'CHUA_THANH_TOAN' : 'DA_THANH_TOAN',
-    phuongThucThanhToanOld: phuongThucThanhToan === '0' ? 'TIEN_MAT' : 'CHUYEN_KHOAN',
-    diaChiGiaoHangOld: loaiHoaDon !== EntityLoaiHoaDon.OFFLINE ? 
-      `Số ${Math.floor(Math.random() * 100)}, Đường ${String.fromCharCode(65 + Math.floor(Math.random() * 26))}, Quận ${Math.floor(Math.random() * 12) + 1}, TP.HCM` : 
-      null,
-    itemsCount: Math.floor(Math.random() * 5) + 1,
+    createdDateOld: new Date(data.date).getTime(),
+    updatedDateOld: new Date(data.date).getTime(),
+    statusOld: data.status === '0' ? 'CHO_XAC_NHAN' : 
+               data.status === '1' ? 'DA_XAC_NHAN' :
+               data.status === '2' ? 'CHO_GIAO' :
+               data.status === '3' ? 'DANG_GIAO' :
+               data.status === '4' ? 'HOAN_THANH' : 'DA_HUY',
+    paymentStatusOld: data.pay === '0' ? 'CHUA_THANH_TOAN' : 'DA_THANH_TOAN',
+    phuongThucThanhToanOld: data.pay === '0' ? 'TIEN_MAT' : 'CHUYEN_KHOAN',
+    diaChiGiaoHangOld: data.type !== EntityLoaiHoaDon.OFFLINE ? 'Số 10, Đường Lê Lợi, Quận 1, TP.HCM' : null,
+    itemsCount: 1,
     
-    // Thêm dữ liệu cho timeline
     timelineStatusData: [
       {
-        trangThai: trangThaiHoaDon,
-        note: 'Đơn hàng được tạo',
-        thoiGian: new Date(createdDate).toISOString(),
+        trangThai: '0',
+        note: 'Tạo đơn hàng',
+        thoiGian: data.date,
         nguoiThucHien: 'Hệ thống'
       }
     ],
     
-    // Thêm lịch sử thanh toán
-    lichSuThanhToan: phuongThucThanhToan === '1' ? [
+    lichSuThanhToan: data.pay === '1' ? [
       {
         id: 1,
         soTien: thanhTien,
-        thoiGian: new Date(createdDate).toISOString(),
-        loaiGiaoDich: phuongThucThanhToan,
-        tenNhanVien: tenNhanVien,
-        ghiChu: 'Thanh toán đầy đủ'
+        thoiGian: data.date,
+        loaiGiaoDich: '1',
+        tenNhanVien: 'Nguyễn Thị Nhân Viên',
+        ghiChu: 'Thanh toán'
       }
     ] : []
-  }
-})
-
+  };
+});
 // State
 const state = reactive({
   searchQuery: '',
   searchStatus: null as string | null,
   loaiHoaDon: null as string | null,
-  sortOrder: 'desc' as 'asc' | 'desc',
+  sortOrder: 'asc' as 'asc' | 'desc',
   loading: false,
   selectedProductId: null as string | null,
   products: [] as any[],
@@ -788,11 +760,11 @@ const createColumns = (): DataTableColumns => [
     )
   },
   {
-    title: 'Mã hóa đơn',
+    title: 'Mã HĐ',
     key: 'maHoaDon',
     width: 120,
     ellipsis: true,
-    sorter: (a, b) => a.maHoaDon.localeCompare(b.maHoaDon),
+    sorter: (a, b) => a.maHoaDon.localeCompare(a.maHoaDon),
     render: (row) => h(NText, { 
       type: 'primary', 
       strong: true,

@@ -389,7 +389,7 @@ const exportExcelHandler = () => {
             <Icon icon="icon-park-outline:ad-product" />
           </NIcon>
           <span style="font-weight: 600; font-size: 24px">
-            Quản lý Sản phẩm
+            Quản lý Sản phẩm 
           </span>
         </NSpace>
         <span>Quản lý danh sách sản phẩm và các biến thể trong cửa hàng</span>
