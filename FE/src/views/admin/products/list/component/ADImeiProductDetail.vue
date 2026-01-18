@@ -1,6 +1,6 @@
 <template>
     <n-modal :show="isOpen">
-        <n-card style="width: 800px; height: 600px" title="Quản lý IMEI biến thể sản phẩm" :bordered="false" size="huge" role="dialog"
+        <n-card style="width: 800px; height: 600px" title="Quản lý Serial biến thể sản phẩm" :bordered="false" size="huge" role="dialog"
             aria-modal="true">
             <template #header-extra>
                 <n-button @click="handleClickCancel">
@@ -11,11 +11,11 @@
             <!-- content -->
             <div :style="{ maxHeight: '400px', overflowY: 'auto' }">
                 <n-flex>
-                    <n-input style="flex: 1;" placeholder="Nhập giá trị imei" v-model:value="imei">
+                    <n-input style="flex: 1;" placeholder="Nhập giá trị serial" v-model:value="imei">
                     </n-input>
                 </n-flex>
                 <n-space class="mt-20px">
-                    <n-button @click="downloadIMEITemplate">Tải template IMEI</n-button>
+                    <n-button @click="downloadIMEITemplate">Tải template serial</n-button>
                     <n-upload :custom-request="handleUploadImportExcel" accept=".xls,.xlsx" :show-file-list="false">
                         <n-button> Upload File </n-button>
                     </n-upload>
