@@ -647,7 +647,7 @@ onMounted(() => fetchData())
             </NButton>
 
             <NButton
-              type="warning" secondary
+              type="success" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
               :loading="exportLoading"
               :disabled="loading"

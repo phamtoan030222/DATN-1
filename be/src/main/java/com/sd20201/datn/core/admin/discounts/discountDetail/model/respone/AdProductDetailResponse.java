@@ -7,6 +7,10 @@ public interface AdProductDetailResponse {
 
     String getProductCode();
 
+    String getProductDetailCode();
+
+    String getImage();
+
     String getProductName();
 
     String getColorName();

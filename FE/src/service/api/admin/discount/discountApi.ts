@@ -47,6 +47,8 @@ export interface UpdateDiscountRequest {
 export interface ProductDetailResponse {
   id: string
   productCode: string
+  image : string
+  productDetailCode: string
   productName: string
   colorName?: string
   ramName?: string
@@ -61,6 +63,8 @@ export interface ProductDetailResponse {
 export interface AppliedProductResponse {
   id: string
   productCode: string
+  image : string
+  productDetailCode: string
   productName: string
   discountName: string
   discountCode: string
@@ -314,6 +318,8 @@ export interface ProductResponse {
 export interface ProductDetailResponse {
   id: string
   productCode: string
+  image : string
+  productDetailCode: string
   productName: string
   colorName?: string
   ramName?: string

@@ -11,6 +11,8 @@ public interface AdProductNotApplyRepositoryProduct extends ProductDiscountDetai
     @Query(value = """
         SELECT pd.id AS id,
                p.code AS productCode,
+               pd.code AS productDetailCode,
+               pd.urlImage AS image,
                p.name AS productName,
                c.name AS colorName,
                r.name AS ramName,

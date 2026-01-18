@@ -12,7 +12,7 @@ import {
   LogoUsd, CubeOutline, PeopleOutline, CartOutline, 
   TrendingUpOutline, TrendingDownOutline, BarChartOutline ,CloudDownloadOutline
 } from '@vicons/ionicons5';
-
+import { Icon } from '@iconify/vue'
 import { NTag } from "naive-ui";
 import { NDatePicker } from "naive-ui";
 
@@ -221,7 +221,7 @@ const filterOptions = [
             <div v-for="(item, index) in overviewData.topSellingProducts" :key="index" class="top-item">
               <span class="rank-badge">{{ index + 1 }}</span>
               <span class="item-name n-ellipsis" :title="item.name">{{ item.name }}</span>
-              <span class="count-badge green light">{{ item.count }}</span>
+              <span class="count-badge green light" >{{ item.count }}</span>
             </div>
             <div v-if="overviewData.topSellingProducts.length === 0" class="no-data">Chưa có dữ liệu</div>
           </div>
@@ -287,12 +287,21 @@ const filterOptions = [
            <span style="font-weight: 700; font-size: 16px;">Thống kê chi tiết</span>
            
            <div style="display: flex; gap: 10px; align-items: center;">
-            <n-button type="primary" size="small" @click="handleExportExcel" style="margin-right: 12px;">
-               <template #icon>
-                 <n-icon><cloud-download-outline /></n-icon>
-               </template>
-               Xuất Excel
-             </n-button>
+            <NButton
+              type="success"
+               secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="handleExportExcel"
+            >
+              <template #icon>
+                <NIcon size="15">
+                  <Icon icon="file-icons:microsoft-excel" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Xuất Excel
+              </span>
+            </NButton>
              <n-radio-group v-model:value="filterType" size="small">
                 <n-radio-button 
                   v-for="opt in filterOptions" 
@@ -380,10 +389,9 @@ const filterOptions = [
 .product-overview-section {
   display: flex;
   flex-direction: column;
-  gap: 16px; /* Tăng khoảng cách giữa các phần */
+  gap: 16px;
 }
 
-/* Row Sắp hết hàng */
 .overview-item-row {
   display: flex;
   justify-content: space-between;
@@ -391,18 +399,14 @@ const filterOptions = [
   font-size: 13px;
   color: #374151;
   padding-bottom: 8px;
-  border-bottom: 1px dashed #f3f4f6; /* Đường kẻ mờ ngăn cách */
+  border-bottom: 1px dashed #f3f4f6; 
 }
-
-/* Tiêu đề các mục con */
 .section-title {
   font-weight: 700;
   font-size: 13px;
   color: #111827;
-  margin-bottom: -4px; /* Thu gọn khoảng cách với list bên dưới */
+  margin-bottom: -4px; 
 }
-
-/* Danh sách item */
 .top-list {
   display: flex;
   flex-direction: column;
@@ -416,7 +420,6 @@ const filterOptions = [
   color: #4b5563;
 }
 
-/* Badge số thứ tự (1, 2, 3) */
 .rank-badge {
   background-color: #ffedd5;
   color: #c2410c;
@@ -437,7 +440,6 @@ const filterOptions = [
   margin-right: 8px;
 }
 
-/* Badge số lượng bên phải */
 .count-badge {
   padding: 2px 8px;
   border-radius: 6px;
