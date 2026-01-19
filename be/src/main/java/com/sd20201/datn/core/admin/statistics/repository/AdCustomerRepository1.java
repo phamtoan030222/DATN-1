@@ -12,7 +12,7 @@ import java.util.List;
 @Repository
 public interface AdCustomerRepository1 extends JpaRepository<Customer, String> {
     // Đếm tổng khách hàng
-    @Query(value = "SELECT COUNT(*) FROM customer", nativeQuery = true)
+    @Query(value = "SELECT COUNT(*) FROM customer WHERE status = 0 ", nativeQuery = true)
     Integer countAllCustomers();
 
     // Đếm khách hàng mới đăng ký trong khoảng thời gia
