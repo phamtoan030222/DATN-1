@@ -199,7 +199,8 @@ import {
   NIcon, NDatePicker, NDataTable, NTag, NPagination, NSkeleton,
   NPopconfirm, NGrid, NGridItem, NSelect, useMessage,
   type FormInst, type FormRules, type DataTableColumns,
-  NImage
+  NImage,
+  NBadge
 } from "naive-ui";
 import { Icon } from "@iconify/vue";
 import {
@@ -605,52 +606,19 @@ const appliedProductColumns: DataTableColumns<AppliedProductResponse> = [
     align: "center", 
     render: (_, i) => (appliedCurrentPage.value - 1) * appliedPageSize.value + i + 1 
   },
- {
+{
   title: 'Ảnh',
   key: 'image',
-  width: 150, 
+  width: 120,
   align: 'center',
-  render: (r: any) => {
-    return h('div', 
-      { 
-        style: { 
-          position: 'relative', 
-          display: 'inline-block', 
-          width: '80px', 
-          height: '80px' 
-        } 
-      }, 
-      [
+   render: row => h(NBadge, { value: formData.percentage ? `-${formData.percentage}%` : undefined }, [
         h(NImage, {
-          width: 80,
-          height: 80,
-          src: r.image || 'https://via.placeholder.com/80',
-          objectFit: 'cover', 
-          style: { borderRadius: '4px' },
-        }),
+        width: 80,
+        src: row.image || 'https://via.placeholder.com/50',
+        style: { borderRadius: '4px' },
+      })
+    ]),
 
-        formData.percentage > 0 ? h('div', 
-          {
-            style: {
-              position: 'absolute',
-              top: '0',
-              right: '0',
-              backgroundColor: '#d03050', 
-              color: '#fff',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              lineHeight: '1.2',
-              padding: '2px 5px',
-              borderRadius: '0 4px 0 8px', 
-              zIndex: 1,
-              boxShadow: '0 1px 2px rgba(0,0,0,0.3)'
-            }
-          }, 
-          `-${formData.percentage}%` 
-        ) : null
-      ]
-    );
-  }
 },
   { 
     title: 'Mã', 
