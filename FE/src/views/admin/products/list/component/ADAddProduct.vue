@@ -574,8 +574,19 @@ const submitVariantHandler = async () => {
     try {
         let idNewProduct: string = "";
         if (!idProduct.value) {
-            const resCreateProduct = await modifyProduct(formDataBasic as ADProductCreateUpdateRequest, imageProduct);
-            idNewProduct = resCreateProduct.data;
+            try {
+                const resCreateProduct = await modifyProduct(formDataBasic as ADProductCreateUpdateRequest, imageProduct);
+                idNewProduct = resCreateProduct.data;
+            } catch (e: any) {
+                switch(e.response.status as number) {
+                    case 413:
+                        notification.error({content: "Thêm sản phẩm thất bại. Ảnh quá lớn",duration:3000})
+                        break;
+                    default:
+                        break;
+                }
+                return;
+            }
         } else {
             idNewProduct = idProduct.value;
         }
