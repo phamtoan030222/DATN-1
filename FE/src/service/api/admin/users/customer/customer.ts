@@ -32,6 +32,9 @@ export interface CustomerFilterParams {
   keyword?: string
   customerGender?: number | null
   customerStatus?: number | null
+  timeRange?: 'MONTH' | 'YEAR'
+  sortField?: string // 'totalOrders' hoặc 'totalSpending'
+  sortDirection?: string // 'ASC' hoặc 'DESC'
 }
 
 // -----------------------------
@@ -99,4 +102,19 @@ export async function uploadAvatar(file: File): Promise<{ url: string }> {
     console.error('Upload avatar error:', error)
     throw error
   }
+}
+
+export function getCustomersVoucher(params: CustomerFilterParams) {
+  // SỬA: Dùng API_ADMIN_CUSTOMERS và nối chuỗi
+  // Nếu API_ADMIN_CUSTOMERS = '/api/admin/customers' thì kết quả sẽ đúng
+  return request.get(`${API_ADMIN_CUSTOMERS}/filter-with-stats`, {
+    params: {
+      page: params.page,
+      size: params.size,
+      keyword: params.keyword,
+      timeRange: params.timeRange,
+      sortField: params.sortField,
+      sortDirection: params.sortDirection,
+    },
+  })
 }

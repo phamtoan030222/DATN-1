@@ -16,49 +16,65 @@ import java.util.Optional;
 
 public interface AdVoucherRepository extends VoucherRepository {
 
-    /* ===================== VOUCHER LIST (projection) ===================== */
     @Query(
             value = """
                         SELECT
-                          v.id as id,
-                          v.code as code,
-                          v.name as name,
-                          v.typeVoucher as typeVoucher,
-                          v.discountValue as discountValue,
-                          v.targetType as targetType,
-                          v.quantity as quantity,
-                          v.remainingQuantity as remainingQuantity,
-                          v.maxValue as maxValue,
-                          v.startDate as startDate,
-                          v.endDate as endDate,
-                          v.conditions as conditions,
-                          v.status as status,
-                          v.createdDate as createdDate
+                          v.id as id, v.code as code, v.name as name,
+                          v.typeVoucher as typeVoucher, v.discountValue as discountValue,
+                          v.targetType as targetType, v.quantity as quantity,
+                          v.remainingQuantity as remainingQuantity, v.maxValue as maxValue,
+                          v.startDate as startDate, v.endDate as endDate,
+                          v.conditions as conditions, v.status as status,
+                          v.createdDate as createdDate,
+                          v.note as note
                         FROM Voucher v
                         WHERE
                           ( :#{#request.q} IS NULL
                             OR v.name LIKE CONCAT('%', :#{#request.q}, '%')
                             OR v.code LIKE CONCAT('%', :#{#request.q}, '%')
                           )
-                          AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
-                          AND ( :#{#request.endDate}   IS NULL OR v.endDate   <= :#{#request.endDate} )
-                          AND ( :#{#request.conditions} IS NULL OR v.conditions <= :#{#request.conditions})
-                          AND ( :#{#request.status} IS NULL OR :#{#request.status} = v.status )
+                          AND ( :#{#request.startDate}   IS NULL OR v.startDate >= :#{#request.startDate} )
+                          AND ( :#{#request.endDate}     IS NULL OR v.endDate   <= :#{#request.endDate} )
+                          AND ( :#{#request.typeVoucher} IS NULL OR v.typeVoucher = :#{#request.typeVoucher} )
+                          AND ( :#{#request.targetType}  IS NULL OR v.targetType  = :#{#request.targetType} )
+                          AND ( :#{#request.status}      IS NULL OR v.status      = :#{#request.status} )
+                          AND (
+                              :#{#request.period} IS NULL 
+                              OR (:#{#request.period} = 'UPCOMING' AND v.startDate > :#{#request.now})
+                              OR (:#{#request.period} = 'ENDED'    AND (v.endDate < :#{#request.now} OR v.remainingQuantity <= 0))
+                              OR (:#{#request.period} = 'ONGOING'  
+                                  AND v.startDate <= :#{#request.now} 
+                                  AND v.endDate >= :#{#request.now} 
+                                  AND v.remainingQuantity > 0
+                                  AND v.status = 0 
+                              )
+                              OR (:#{#request.period} = 'PAUSED'   
+                                  AND v.startDate <= :#{#request.now} 
+                                  AND v.endDate >= :#{#request.now} 
+                                  AND v.remainingQuantity > 0
+                                  AND v.status = 1 
+                              )
+                          )
                         ORDER BY v.createdDate DESC
                     """,
             countQuery = """
-                        SELECT COUNT(v)
-                        FROM Voucher v
-                        WHERE
-                          ( :#{#request.q} IS NULL
-                            OR v.name LIKE CONCAT('%', :#{#request.q}, '%')
-                            OR v.code LIKE CONCAT('%', :#{#request.q}, '%')
-                          )
-                          AND ( :#{#request.startDate} IS NULL OR v.startDate >= :#{#request.startDate} )
-                          AND ( :#{#request.endDate}   IS NULL OR v.endDate   <= :#{#request.endDate} )
-                          AND ( :#{#request.conditions} IS NULL OR v.conditions <= :#{#request.conditions})
-                          AND ( :#{#request.status} IS NULL OR :#{#request.status} = v.status )
-                    """
+        SELECT COUNT(v)
+        FROM Voucher v
+        WHERE
+          ( :#{#request.q} IS NULL OR v.name LIKE CONCAT('%', :#{#request.q}, '%') OR v.code LIKE CONCAT('%', :#{#request.q}, '%') )
+          AND ( :#{#request.startDate}   IS NULL OR v.startDate >= :#{#request.startDate} )
+          AND ( :#{#request.endDate}     IS NULL OR v.endDate   <= :#{#request.endDate} )
+          AND ( :#{#request.typeVoucher} IS NULL OR v.typeVoucher = :#{#request.typeVoucher} )
+          AND ( :#{#request.targetType}  IS NULL OR v.targetType  = :#{#request.targetType} )
+          AND ( :#{#request.status}      IS NULL OR v.status      = :#{#request.status} )
+          AND (
+              :#{#request.period} IS NULL 
+              OR (:#{#request.period} = 'UPCOMING' AND v.startDate > :#{#request.now})
+              OR (:#{#request.period} = 'ENDED'    AND (v.endDate < :#{#request.now} OR v.remainingQuantity <= 0))
+              OR (:#{#request.period} = 'ONGOING'  AND v.startDate <= :#{#request.now} AND v.endDate >= :#{#request.now} AND v.remainingQuantity > 0 AND v.status = 0)
+              OR (:#{#request.period} = 'PAUSED'   AND v.startDate <= :#{#request.now} AND v.endDate >= :#{#request.now} AND v.remainingQuantity > 0 AND v.status = 1)
+          )
+    """
     )
     Page<AdVoucherResponse> getVouchers(Pageable pageable, @Param("request") AdVoucherRequest request);
 
@@ -68,7 +84,7 @@ public interface AdVoucherRepository extends VoucherRepository {
                   v.discountValue as discountValue, v.targetType as targetType, v.quantity as quantity,
                   v.remainingQuantity as remainingQuantity, v.maxValue as maxValue,
                   v.startDate as startDate, v.endDate as endDate, v.conditions as conditions,
-                  v.status as status, v.createdDate as createdDate
+                  v.status as status, v.createdDate as createdDate, v.note as note
                 FROM Voucher v WHERE v.id = :id
             """)
     Optional<AdVoucherResponse> getVoucherById(@Param("id") String id);

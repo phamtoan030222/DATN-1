@@ -9,24 +9,27 @@ import {
   NIcon,
   NInput,
   NPagination,
-  NPopconfirm,
+  NPopconfirm, // Đã thêm
   NSelect,
   NSpace,
+  NSwitch, // Đã thêm
   NTag,
   NTooltip,
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
-import ExcelJS from 'exceljs'
 import { saveAs } from 'file-saver'
 
+// API
 import {
+  changeStatusVoucher,
   getVouchers,
-  updateVoucherToEnd,
   updateVoucherToStart,
 } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
+import request from '@/service/request' // Import request để gọi API export blob
+import { API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
 
 /* ===================== Config & Router ===================== */
 const router = useRouter()
@@ -49,30 +52,30 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 }
 
-/* ===================== Utility Functions ===================== */
+/* ===================== Logic Trạng Thái (CORE) ===================== */
 function getVoucherStatus(row: ADVoucherResponse) {
   const now = Date.now()
-  const startDate = row.startDate
-  const endDate = row.endDate
+  const startDate = row.startDate || 0
+  const endDate = row.endDate || Infinity
   const remainingQuantity = row.remainingQuantity
-  const targetType = row.targetType
 
-  if (startDate && startDate > now)
+  // 1. Sắp diễn ra
+  if (startDate > now)
     return { text: 'Sắp diễn ra', type: 'info', value: 'UPCOMING' }
 
-  const isExpiredByDate = endDate && endDate < now
-  const isExpiredByQuantity = targetType === 'ALL_CUSTOMERS' && (remainingQuantity === null || remainingQuantity <= 0)
-
-  if (isExpiredByDate || isExpiredByQuantity)
+  // 2. Đã kết thúc
+  const isExpired = endDate < now
+  const isOutOfStock = remainingQuantity !== null && remainingQuantity <= 0
+  if (isExpired || isOutOfStock)
     return { text: 'Đã kết thúc', type: 'default', value: 'ENDED' }
 
-  const isWithinTime = (startDate || 0) <= now && (endDate || Infinity) >= now
-  const hasRemainingQuantity = targetType === 'INDIVIDUAL' || (targetType === 'ALL_CUSTOMERS' && (remainingQuantity || 0) > 0)
+  // 3. Tạm dừng (Backend trả về status = 1 là INACTIVE)
+  const isPaused = row.status === 1 || row.status === 'INACTIVE'
+  if (isPaused)
+    return { text: 'Tạm dừng', type: 'warning', value: 'PAUSED' }
 
-  if (isWithinTime && hasRemainingQuantity)
-    return { text: 'Đang diễn ra', type: 'success', value: 'ONGOING' }
-
-  return { text: 'Không xác định', type: 'default', value: 'UNKNOWN' }
+  // 4. Đang diễn ra
+  return { text: 'Đang diễn ra', type: 'success', value: 'ONGOING' }
 }
 
 function getVoucherTypeText(row: ADVoucherResponse) {
@@ -85,8 +88,8 @@ function getVoucherTypeText(row: ADVoucherResponse) {
 
 /* ===================== State ===================== */
 const loading = ref(false)
-const exportLoading = ref(false) // Loading riêng cho nút xuất Excel
-const allData = ref<ADVoucherResponse[]>([])
+const exportLoading = ref(false)
+const allData = ref<ADVoucherResponse[]>([]) // Giữ nguyên logic load all client side
 const displayData = ref<ADVoucherResponse[]>([])
 const checkedRowKeys = ref<(string | number)[]>([])
 
@@ -109,6 +112,7 @@ function openAddPage() { router.push({ name: 'discounts_voucher_add' }) }
 function openEditPage(id: string) { router.push({ name: 'discounts_voucher_edit', params: { id } }) }
 function openDetailPage(id: string) { router.push({ name: 'discounts_voucher_detail', params: { id } }) }
 
+// Kích hoạt voucher Sắp diễn ra
 async function handleStartVoucher(id: string) {
   loading.value = true
   try {
@@ -122,17 +126,23 @@ async function handleStartVoucher(id: string) {
   finally { loading.value = false }
 }
 
-async function handleEndVoucher(id: string) {
-  loading.value = true
+// Switch: Đổi trạng thái (Đang diễn ra <-> Tạm dừng)
+async function handleSwitchStatus(row: ADVoucherResponse) {
+  const originalStatus = row.status
+  // Logic đảo status: Nếu đang 0 (Active) -> gửi request để thành 1 (Inactive)
+  const isCurrentlyActive = row.status === 0 || row.status === 'ACTIVE'
+
+  // Optimistic Update
+  row.status = isCurrentlyActive ? 1 : 0
+
   try {
-    await updateVoucherToEnd(id)
-    message.success('Đã kết thúc phiếu giảm giá!')
-    await fetchData()
+    await changeStatusVoucher(row.id!)
+    message.success(`Đã ${isCurrentlyActive ? 'tạm dừng' : 'tiếp tục'} voucher!`)
   }
   catch (err: any) {
-    message.error(err.response?.data?.message || 'Lỗi khi kết thúc')
+    row.status = originalStatus // Hoàn tác
+    message.error(err.response?.data?.message || 'Lỗi khi thay đổi trạng thái')
   }
-  finally { loading.value = false }
 }
 
 /* ===================== Filters ===================== */
@@ -168,6 +178,7 @@ const statusOptions = [
   { label: 'Tất cả', value: null },
   { label: 'Sắp diễn ra', value: 'UPCOMING' },
   { label: 'Đang diễn ra', value: 'ONGOING' },
+  { label: 'Tạm dừng', value: 'PAUSED' },
   { label: 'Đã kết thúc', value: 'ENDED' },
 ]
 
@@ -190,176 +201,74 @@ function resetFilters() {
   handleClientSideFilter()
 }
 
-// Logic lọc dữ liệu phía Client
+// Logic lọc Client-side (GIỮ NGUYÊN ĐỂ ĐẢM BẢO DỮ LIỆU KHÔNG BỊ LỖI)
 function handleClientSideFilter() {
   loading.value = true
-
-  // 1. Lọc từ dữ liệu gốc (allData)
   let filtered = allData.value
 
-  // Lọc Keyword
   if (filters.keyword) {
     const k = filters.keyword.toLowerCase()
     filtered = filtered.filter(item =>
-      (item.code && item.code.toLowerCase().includes(k))
-      || (item.name && item.name.toLowerCase().includes(k)),
+      (item.code && item.code.toLowerCase().includes(k)) || (item.name && item.name.toLowerCase().includes(k)),
     )
   }
 
-  // Lọc Ngày
   if (filters.startDate)
     filtered = filtered.filter(item => (item.startDate || 0) >= filters.startDate!)
   if (filters.endDate)
     filtered = filtered.filter(item => (item.endDate || 0) <= filters.endDate!)
-
-  // Lọc Dropdown
   if (filters.typeVoucher)
     filtered = filtered.filter(item => item.typeVoucher === filters.typeVoucher)
   if (filters.targetType)
     filtered = filtered.filter(item => item.targetType === filters.targetType)
-  if (filters.status)
-    filtered = filtered.filter(item => getVoucherStatus(item).value === filters.status)
 
-  // Lọc Slider (Giá)
+  // Lọc Status (Sử dụng hàm logic chung)
+  if (filters.status) {
+    filtered = filtered.filter(item => getVoucherStatus(item).value === filters.status)
+  }
+
   const [minPrice, maxPrice] = filters.maxDiscountRange
   filtered = filtered.filter((item) => {
     const val = item.maxValue || item.discountValue || 0
     return val >= minPrice && val <= maxPrice
   })
 
-  // 2. Cập nhật phân trang
   pagination.value.itemCount = filtered.length
   const startIndex = (pagination.value.page - 1) * pagination.value.pageSize
   const endIndex = startIndex + pagination.value.pageSize
-
-  // 3. Cắt dữ liệu để hiển thị
   displayData.value = filtered.slice(startIndex, endIndex)
   loading.value = false
 }
 
-// --- LOGIC XUẤT EXCEL (Đã sửa để lọc chính xác) ---
+// --- LOGIC XUẤT EXCEL TỪ BACKEND (MỚI) ---
 async function handleExportExcel() {
   exportLoading.value = true
-  message.loading('Đang xử lý dữ liệu xuất Excel...')
-
+  message.loading('Đang yêu cầu server xuất file...')
   try {
-    // 1. Lấy TOÀN BỘ dữ liệu về trước
-    const query: ADVoucherQuery = {
-      page: 1,
-      size: 100000, // Lấy hết
+    // Mapping params bộ lọc hiện tại để gửi lên BE
+    const params = {
+      q: filters.keyword || undefined,
+      typeVoucher: filters.typeVoucher || undefined,
+      targetType: filters.targetType || undefined,
+      // Map 'status' filter của frontend sang 'period' của backend (UPCOMING, PAUSED,...)
+      period: filters.status || undefined,
+      startDate: filters.startDate || undefined,
+      endDate: filters.endDate || undefined,
     }
 
-    const res = await getVouchers(query)
-    let dataToExport = res.content || []
-
-    // 2. ÁP DỤNG BỘ LỌC CLIENT (Giống hệt hàm filter hiển thị)
-    // ---------------------------------------------------------
-
-    // 2.1 Keyword
-    if (filters.keyword) {
-      const k = filters.keyword.toLowerCase().trim()
-      dataToExport = dataToExport.filter(item =>
-        (item.code && item.code.toLowerCase().includes(k))
-        || (item.name && item.name.toLowerCase().includes(k)),
-      )
-    }
-
-    // 2.2 Ngày tháng
-    if (filters.startDate) {
-      dataToExport = dataToExport.filter(item => (item.startDate || 0) >= filters.startDate!)
-    }
-    if (filters.endDate) {
-      dataToExport = dataToExport.filter(item => (item.endDate || 0) <= filters.endDate!)
-    }
-
-    // 2.3 Loại và Đối tượng
-    if (filters.typeVoucher) {
-      dataToExport = dataToExport.filter(item => item.typeVoucher === filters.typeVoucher)
-    }
-    if (filters.targetType) {
-      dataToExport = dataToExport.filter(item => item.targetType === filters.targetType)
-    }
-
-    // 2.4 Trạng thái
-    if (filters.status) {
-      dataToExport = dataToExport.filter(item => getVoucherStatus(item).value === filters.status)
-    }
-
-    // 2.5 Khoảng giá (Slider)
-    const [minPrice, maxPrice] = filters.maxDiscountRange
-    // Nếu khoảng giá khác mặc định mới lọc
-    if (minPrice > 0 || maxPrice < dynamicMaxPrice.value) {
-      dataToExport = dataToExport.filter((item) => {
-        const val = item.maxValue || item.discountValue || 0
-        return val >= minPrice && val <= maxPrice
-      })
-    }
-
-    // ---------------------------------------------------------
-
-    if (dataToExport.length === 0) {
-      message.warning('Không có dữ liệu nào phù hợp bộ lọc để xuất!')
-      exportLoading.value = false
-      return
-    }
-
-    // 3. Tạo file Excel
-    const workbook = new ExcelJS.Workbook()
-    const worksheet = workbook.addWorksheet('Danh sách Voucher')
-
-    // 4. Định nghĩa cột
-    worksheet.columns = [
-      { header: 'STT', key: 'stt', width: 8 },
-      { header: 'Mã Voucher', key: 'code', width: 15 },
-      { header: 'Tên Voucher', key: 'name', width: 25 },
-      { header: 'Loại', key: 'type', width: 15 },
-      { header: 'Đối tượng', key: 'target', width: 15 },
-      { header: 'Giá trị giảm', key: 'value', width: 15 },
-      { header: 'Giảm tối đa', key: 'maxValue', width: 15 },
-      { header: 'Đơn tối thiểu', key: 'condition', width: 18 },
-      { header: 'Số lượng', key: 'quantity', width: 12 },
-      { header: 'Bắt đầu', key: 'startDate', width: 20 },
-      { header: 'Kết thúc', key: 'endDate', width: 20 },
-      { header: 'Trạng thái', key: 'status', width: 15 },
-    ]
-
-    // Style Header (Màu xanh lá)
-    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } }
-    worksheet.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '16A34A' } }
-    worksheet.getRow(1).alignment = { vertical: 'middle', horizontal: 'center' }
-
-    // 5. Đổ dữ liệu vào dòng
-    dataToExport.forEach((item, index) => {
-      const isPercent = item.typeVoucher === 'PERCENTAGE'
-      const statusInfo = getVoucherStatus(item)
-
-      worksheet.addRow({
-        stt: index + 1,
-        code: item.code,
-        name: item.name,
-        type: isPercent ? 'Phần trăm (%)' : 'Tiền mặt',
-        target: item.targetType === 'INDIVIDUAL' ? 'Cá nhân' : 'Công khai',
-        value: isPercent ? `${item.discountValue}%` : formatCurrency(item.discountValue || 0),
-        maxValue: isPercent && item.maxValue ? formatCurrency(item.maxValue) : '-',
-        condition: item.conditions ? formatCurrency(item.conditions) : 'Không có',
-        quantity: item.remainingQuantity,
-        // Sử dụng helper formatDateTime để giống giao diện
-        startDate: formatDateTime(item.startDate),
-        endDate: formatDateTime(item.endDate),
-        status: statusInfo.text,
-      })
+    // Gọi API với responseType là blob để nhận file
+    const response = await request.get(`${API_ADMIN_DISCOUNTS_VOUCHER}/export`, {
+      params,
+      responseType: 'blob',
     })
 
-    // 6. Tải file về
-    const buffer = await workbook.xlsx.writeBuffer()
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     saveAs(blob, `Danh_Sach_Voucher_${new Date().toISOString().slice(0, 10)}.xlsx`)
-
-    message.success(`Đã xuất ${dataToExport.length} bản ghi thành công!`)
+    message.success(`Xuất ${pagination.value.itemCount} file thành công!`)
   }
   catch (error) {
     console.error(error)
-    message.error('Lỗi khi tạo file Excel')
+    message.error('Lỗi khi xuất file Excel từ server')
   }
   finally {
     exportLoading.value = false
@@ -378,7 +287,8 @@ watch(() => [pagination.value.page, pagination.value.pageSize], () => {
 async function fetchData() {
   loading.value = true
   try {
-    const query: ADVoucherQuery = { page: 1, size: 1000 }
+    // Load size lớn để lọc client-side (như code cũ của bạn)
+    const query: ADVoucherQuery = { page: 1, size: 2000 }
     const res = await getVouchers(query)
     allData.value = (res.content ?? []).map(item => ({ ...item }))
     handleClientSideFilter()
@@ -409,7 +319,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     key: 'code',
     fixed: 'left',
     width: 100,
-    // SỬA: Bấm vào Mã thì chuyển sang trang Detail cho an toàn, hoặc dùng logic tương tự nút Action
     render: row => h('strong', { class: 'text-primary cursor-pointer', onClick: () => openDetailPage(row.id!) }, row.code),
   },
   {
@@ -440,23 +349,17 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     render(row) {
       const isPercent = row.typeVoucher === 'PERCENTAGE'
       const nodes = []
-
       nodes.push(h(NTag, { type: isPercent ? 'error' : 'primary', size: 'small', class: 'font-bold' }, { default: () => isPercent ? `Giảm ${row.discountValue}%` : `Giảm ${formatCurrency(row.discountValue || 0)}` },
       ))
-
       if (isPercent) {
-        nodes.push(h('div', { class: 'text-[11px] text-gray-500 mt-1' }, row.maxValue ? `(Tối đa: ${formatCurrency(row.maxValue)})` : '(Không giới hạn)',
-        ))
+        nodes.push(h('div', { class: 'text-[11px] text-gray-500 mt-1' }, row.maxValue ? `(Tối đa: ${formatCurrency(row.maxValue)})` : '(Không giới hạn)'))
       }
-
       if (row.conditions) {
-        nodes.push(h('div', { class: 'text-[11px] text-gray-500 mt-0.5' }, `Đơn tối thiểu: ${formatCurrency(row.conditions)}`,
-        ))
+        nodes.push(h('div', { class: 'text-[11px] text-gray-500 mt-0.5' }, `Đơn tối thiểu: ${formatCurrency(row.conditions)}`))
       }
       else {
         nodes.push(h('div', { class: 'text-[11px] text-gray-400 mt-0.5 italic' }, 'Không yêu cầu đơn tối thiểu'))
       }
-
       return h('div', { class: 'flex flex-col items-start' }, nodes)
     },
   },
@@ -466,43 +369,47 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     width: 150,
     render: (row) => {
       return h('div', { class: 'flex flex-col text-xs' }, [
-        h('div', { class: 'text-gray-500' }, [
-          h('span', { class: 'font-semibold' }, 'Từ: '),
-          formatDateTime(row.startDate),
-        ]),
-        h('div', { class: 'text-gray-500 mt-1' }, [
-          h('span', { class: 'font-semibold' }, 'Đến: '),
-          formatDateTime(row.endDate),
-        ]),
+        h('div', { class: 'text-gray-500' }, [h('span', { class: 'font-semibold' }, 'Từ: '), formatDateTime(row.startDate)]),
+        h('div', { class: 'text-gray-500 mt-1' }, [h('span', { class: 'font-semibold' }, 'Đến: '), formatDateTime(row.endDate)]),
       ])
     },
   },
   {
     title: 'Trạng thái',
     key: 'computedStatus',
-    width: 110,
+    width: 100,
     align: 'center',
     render(row) {
       const statusInfo = getVoucherStatus(row)
-      return h(NTag, { type: statusInfo.type, size: 'small', style: { cursor: 'pointer' }, onClick: () => { filters.status = statusInfo.value } }, { default: () => statusInfo.text })
+      return h(NTag, {
+        type: statusInfo.type,
+        size: 'small',
+        style: { cursor: 'pointer' },
+        onClick: () => { filters.status = statusInfo.value },
+      }, { default: () => statusInfo.text })
     },
   },
+  // --- CỘT THAO TÁC (CHỈNH SỬA) ---
   {
     title: 'Thao tác',
     key: 'actions',
     align: 'center',
-    width: 100,
+    width: 80,
     fixed: 'right',
     render(row: ADVoucherResponse) {
       const id = row.id
       if (!id)
         return '-'
+
       const statusInfo = getVoucherStatus(row)
       const actions = []
-
       const isUpcoming = statusInfo.value === 'UPCOMING'
+      const isEnded = statusInfo.value === 'ENDED'
+      const cantEdit = statusInfo.value === 'ONGOING' || statusInfo.value === 'PAUSED'
+      const canEdit = !isEnded && !cantEdit
 
-      const btnConfig = isUpcoming
+      // 1. Nút Xem/Sửa
+      const btnConfig = canEdit
         ? { icon: 'carbon:edit', type: 'warning', tooltip: 'Sửa thông tin' }
         : { icon: 'carbon:view', type: 'info', tooltip: 'Xem chi tiết' }
 
@@ -512,26 +419,53 @@ const columns: DataTableColumns<ADVoucherResponse> = [
           type: btnConfig.type as any,
           secondary: true,
           circle: true,
-          class: 'transition-all duration-200 hover:scale-[1.3] hover:shadow-lg',
-          // SỬA Ở ĐÂY: Nếu đang diễn ra hoặc đã kết thúc thì gọi openDetailPage
-          onClick: () => isUpcoming ? openEditPage(id) : openDetailPage(id),
+          class: 'mr-2 transition-all duration-200 hover:scale-[1.3] hover:shadow-lg',
+          onClick: () => canEdit ? openEditPage(id) : openDetailPage(id),
         }, { icon: () => h(Icon, { icon: btnConfig.icon }) }),
         default: () => btnConfig.tooltip,
       }))
 
-      if (statusInfo.value === 'UPCOMING') {
+      // 2. Nút BẮT ĐẦU (Play) - Có Confirm
+      if (isUpcoming) {
         actions.push(h(NPopconfirm, { onPositiveClick: () => handleStartVoucher(id) }, {
-          trigger: () => h(NTooltip, { trigger: 'hover' }, { trigger: () => h(NButton, { size: 'small', type: 'success', secondary: true, circle: true, class: 'ml-2 hover:scale-[1.3]' }, { icon: () => h(Icon, { icon: 'carbon:play-filled-alt' }) }), default: () => 'Kích hoạt ngay' }),
+          trigger: () => h(NTooltip, { trigger: 'hover' }, {
+            trigger: () => h(NButton, {
+              size: 'small',
+              type: 'success',
+              secondary: true,
+              circle: true,
+              class: 'hover:scale-[1.3]',
+            }, { icon: () => h(Icon, { icon: 'carbon:play-filled-alt' }) }),
+            default: () => 'Kích hoạt ngay',
+          }),
           default: () => 'Kích hoạt Voucher này ngay bây giờ?',
         }))
       }
 
-      if (statusInfo.value === 'ONGOING') {
-        actions.push(h(NPopconfirm, { onPositiveClick: () => handleEndVoucher(id) }, {
-          trigger: () => h(NTooltip, { trigger: 'hover' }, { trigger: () => h(NButton, { size: 'small', type: 'error', secondary: true, circle: true, class: 'ml-2 hover:scale-[1.3]' }, { icon: () => h(Icon, { icon: 'carbon:stop-filled-alt' }) }), default: () => 'Kết thúc ngay' }),
-          default: () => 'Xác nhận kết thúc Voucher này?',
+      // 3. SWITCH (Dừng/Tiếp tục) - Có Confirm
+      else if (!isEnded) {
+        const isChecked = row.status === 0 || row.status === 'ACTIVE'
+
+        actions.push(h(NPopconfirm, {
+          onPositiveClick: () => handleSwitchStatus(row),
+        }, {
+          trigger: () => h(NTooltip, { trigger: 'hover' }, {
+            // Dùng div bọc switch và pointerEvents: none để bắt sự kiện click vào div -> kích hoạt Popconfirm
+            trigger: () => h('div', { style: 'display: inline-block; cursor: pointer' }, [
+              h(NSwitch, {
+                value: isChecked,
+                size: 'small',
+                style: { pointerEvents: 'none' }, // Vô hiệu hóa click trực tiếp lên switch
+              }),
+            ]),
+            default: () => isChecked ? 'Tạm dừng' : 'Tiếp tục',
+          }),
+          default: () => isChecked
+            ? 'Bạn có chắc chắn muốn TẠM DỪNG voucher này?'
+            : 'Bạn có chắc chắn muốn TIẾP TỤC voucher này?',
         }))
       }
+
       return h('div', { class: 'flex justify-center items-center' }, actions)
     },
   },
@@ -575,7 +509,7 @@ onMounted(() => fetchData())
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div class="lg:col-span-3">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Tìm kiếm chung
           </div>
           <NInput
@@ -591,21 +525,21 @@ onMounted(() => fetchData())
         </div>
 
         <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Kiểu voucher
           </div>
           <NSelect v-model:value="filters.typeVoucher" :options="typeVoucherOptions" placeholder="Tất cả" />
         </div>
 
         <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Đối tượng
           </div>
           <NSelect v-model:value="filters.targetType" :options="targetTypeOptions" placeholder="Tất cả" />
         </div>
 
         <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1 uppercase">
+          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Trạng thái
           </div>
           <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Tất cả" />

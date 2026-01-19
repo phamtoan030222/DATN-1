@@ -33,7 +33,7 @@ public interface AdVoucherResponse {
 
     String getNote();
 
-    String getStatus();
+    Integer getStatus();
 
     Long getCreatedDate();
 }

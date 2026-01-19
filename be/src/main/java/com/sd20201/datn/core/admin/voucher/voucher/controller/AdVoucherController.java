@@ -4,14 +4,17 @@ import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherCreate
 import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.admin.voucher.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.admin.voucher.voucher.service.AdVoucherService;
+import com.sd20201.datn.core.admin.voucher.voucher.service.impl.VoucherExportService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.apache.coyote.BadRequestException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -26,15 +29,23 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 
 @RestController
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_DISCOUNT_VOUCHER)
-@RequiredArgsConstructor
 public class AdVoucherController {
-    private final AdVoucherService voucherService;
-    private final AdVoucherRepository voucherRepository;
+    @Autowired
+    private AdVoucherService voucherService;
+
+    @Autowired
+    private AdVoucherRepository voucherRepository;
+
+    @Autowired
+    private VoucherExportService exportService;
 
     @GetMapping
     ResponseEntity<?> getAllVouchers(@ModelAttribute AdVoucherRequest request) {
@@ -57,7 +68,7 @@ public class AdVoucherController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateVoucher(@PathVariable String id,@Valid @RequestBody AdVoucherCreateUpdateRequest request) throws BadRequestException {
+    public ResponseEntity<?> updateVoucher(@PathVariable String id, @Valid @RequestBody AdVoucherCreateUpdateRequest request) throws BadRequestException {
         return Helper.createResponseEntity(voucherService.update(id, request));
     }
 
@@ -104,6 +115,28 @@ public class AdVoucherController {
     @PatchMapping("/{id}/end")
     public ResponseEntity<?> endVoucher(@PathVariable String id) {
         return Helper.createResponseEntity(voucherService.changeStatusVoucherToEnd(id));
+    }
+
+    @GetMapping("/export")
+    public void exportToExcel(HttpServletResponse response,
+                              @ModelAttribute AdVoucherRequest filter) { // Nhận filter từ URL
+        try {
+            // Cấu hình Header trả về file
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+
+            // Format tên file theo ngày giờ
+            String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+            String headerKey = "Content-Disposition";
+            String headerValue = "attachment; filename=Vouchers_" + currentDateTime + ".xlsx";
+            response.setHeader(headerKey, headerValue);
+
+            // Gọi service
+            exportService.exportVouchersToExcel(response, filter);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            // Xử lý lỗi nếu cần
+        }
     }
 
 }

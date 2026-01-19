@@ -97,6 +97,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         if (voucherRepository.findVoucherByName(request.getName()).isPresent()) {
             throw new DuplicateKeyException("Tên voucher đã tồn tại: " + request.getName());
         }
+
         Helper.validateVoucherDateRange(request.getStartDate(), request.getEndDate());
 
         // 2. Map dữ liệu

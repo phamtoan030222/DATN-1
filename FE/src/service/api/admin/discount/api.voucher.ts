@@ -162,3 +162,8 @@ export async function getVoucherCustomers(voucherId: string, onlyUsed = false): 
     }))
     .filter((c: { id: string }) => c.id !== '')
 }
+
+export function changeStatusVoucher(id: string) {
+  // Method PATCH như backend yêu cầu
+  return request.patch(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}/status`)
+}
