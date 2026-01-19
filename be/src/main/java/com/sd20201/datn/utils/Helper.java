@@ -222,8 +222,7 @@ public class Helper {
         voucher.setConditions(request.getConditions());
         voucher.setNote(request.getNote());
 
-        long now = DateTimeUtil.getCurrentTimeMillisecondsStamp();
-        voucher.setStatus((request.getStartDate() <= now && now <= request.getEndDate()) ? EntityStatus.ACTIVE : EntityStatus.INACTIVE);
+        voucher.setStatus(EntityStatus.ACTIVE);
     }
 
     // 3. Logic so sánh thay đổi nội dung (để quyết định gửi mail)

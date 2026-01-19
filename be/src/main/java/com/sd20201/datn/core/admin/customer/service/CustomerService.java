@@ -16,5 +16,5 @@ public interface CustomerService {
 
     ResponseObject<?> getCustomerById(String id);
 
-
+    ResponseObject<?> getCustomersWithStats(int page, int size, String keyword, String timeRange, String sortField, String sortDirection);
 }
