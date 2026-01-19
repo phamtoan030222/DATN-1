@@ -183,32 +183,33 @@ public class CustomerServiceImpl implements CustomerService {
             }
         }
 
-        // Xử lý account nếu có customerIdAccount
-        if (request.getCustomerIdAccount() != null) {
+        // ✅ ĐÃ SỬA: Chỉ cập nhật Account nếu có gửi ID mới. Tuyệt đối không set NULL.
+        if (request.getCustomerIdAccount() != null && !request.getCustomerIdAccount().trim().isEmpty()) {
             Account account = accountRepository.findById(request.getCustomerIdAccount()).orElse(null);
             if (account == null) {
                 return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
                         "Tài khoản không tồn tại", false, "ACCOUNT_NOT_FOUND");
             }
             customer.setAccount(account);
-        } else {
-            customer.setAccount(null);
         }
+        // Lưu ý: Đã bỏ nhánh else setAccount(null) để tránh lỗi database NOT NULL
 
         // Cập nhật thông tin khác
         customer.setName(request.getCustomerName());
         customer.setPhone(request.getCustomerPhone());
         customer.setEmail(request.getCustomerEmail());
+
         if (request.getCustomerAvatar() != null && !request.getCustomerAvatar().trim().isEmpty()) {
             customer.setAvatarUrl(request.getCustomerAvatar().trim());
         } else if (request.getCustomerAvatar() != null && request.getCustomerAvatar().trim().isEmpty()) {
             customer.setAvatarUrl(null); // Clear avatar nếu gửi empty string
         }
+
         customer.setBirthday(request.getCustomerBirthday());
         customer.setGender(request.getCustomerGender());
         customer.setDescription(request.getCustomerDescription());
 
-        // 🔥 THÊM DÒNG NÀY - Cập nhật status
+        // Cập nhật status
         if (request.getCustomerStatus() != null) {
             EntityStatus status = request.getCustomerStatus() == 1
                     ? EntityStatus.ACTIVE
