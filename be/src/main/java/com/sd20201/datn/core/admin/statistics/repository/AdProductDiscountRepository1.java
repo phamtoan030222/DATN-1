@@ -41,6 +41,7 @@ public interface AdProductDiscountRepository1 extends JpaRepository<Product, Str
         FROM product p
         LEFT JOIN product_detail pd ON p.id = pd.id_product AND pd.status = 0 
         LEFT JOIN brand b ON p.id_brand = b.id
+        WHERE p.status = 0 
         GROUP BY p.id, p.name, b.name
         HAVING COUNT(pd.id) <= :limit
         ORDER BY quantity ASC
@@ -57,7 +58,7 @@ public interface AdProductDiscountRepository1 extends JpaRepository<Product, Str
     Page<AdProductResponse> getLowStockProducts(@Param("limit") Integer limit, Pageable pageable);
 
     // 3. Count
-    @Query(value = "SELECT COUNT(*) FROM product", nativeQuery = true)
+    @Query(value = "SELECT COUNT(*) FROM product WHERE status = 0 ", nativeQuery = true)
     Integer countAllProducts();
 
     // 4. Count sắp hết
@@ -66,6 +67,7 @@ public interface AdProductDiscountRepository1 extends JpaRepository<Product, Str
             SELECT p.id 
             FROM product p
             LEFT JOIN product_detail pd ON p.id = pd.id_product AND pd.status = 0 
+            WHERE p.status = 0 
             GROUP BY p.id
             HAVING COUNT(pd.id) <= :limit
         ) as temp
@@ -93,6 +95,7 @@ public interface AdProductDiscountRepository1 extends JpaRepository<Product, Str
                CAST(COUNT(p.id) AS signed) AS value
         FROM brand b
         LEFT JOIN product p ON b.id = p.id_brand
+        WHERE p.status = 0
         GROUP BY b.id, b.name
         ORDER BY value DESC
         LIMIT 3
