@@ -1,6 +1,6 @@
 <script setup lang="tsx">
 import { h, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router' // Import Router
+import { useRouter } from 'vue-router'
 import {
   NAvatar,
   NButton,
@@ -23,15 +23,17 @@ import {
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 
-// API
+// API Import
 import { getAllStaff, updateStaffStatus } from '@/service/api/admin/users/staff.api'
 import type { ParamGetStaff, StaffResponse } from '@/service/api/admin/users/staff.api'
-import { getDistrictName, getProvinceName, getWardName, initLocationData } from '@/service/api/admin/users/location-service'
 
-const router = useRouter() // Khởi tạo router
+// --- CONSTANTS ---
+const API_GEO_V2 = 'https://provinces.open-api.vn/api/v2'
+
+const router = useRouter()
 const message = useMessage()
 
-// State
+// --- STATE ---
 const tableData = ref<StaffResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
@@ -39,13 +41,76 @@ const pageSize = ref(10)
 const loading = ref(false)
 const checkedRowKeys = ref<(string | number)[]>([])
 
+// Cache địa lý (Code -> Name)
+const provinceMap = ref<Record<number, string>>({})
+const communeMap = ref<Record<number, string>>({})
+const loadedProvinceDetails = new Set<number>() // Đánh dấu tỉnh nào đã tải chi tiết xã
+
 const filter = reactive({
   fullName: '',
   keyword: '',
   status: null as string | null,
 })
 
-// --- API FETCH ---
+// --- LOCATION LOGIC (FIX API V2) ---
+
+// 1. Tải danh sách Tỉnh (Chạy 1 lần đầu tiên)
+async function initProvinces() {
+  try {
+    const res = await fetch(`${API_GEO_V2}/p/?depth=1`)
+    const data = await res.json()
+    data.forEach((p: any) => {
+      provinceMap.value[p.code] = p.name
+    })
+  }
+  catch (e) { console.error('Lỗi tải tỉnh thành') }
+}
+
+// 2. Tải Xã cho các nhân viên trong trang hiện tại
+// (Chỉ tải chi tiết của những Tỉnh có trong danh sách hiển thị để tối ưu)
+async function fetchWardsForCurrentData(staffList: StaffResponse[]) {
+  // Lấy danh sách các mã tỉnh duy nhất trong trang hiện tại
+  const neededProvinces = new Set(
+    staffList
+      .map(s => Number(s.provinceCode))
+      .filter(c => c && !loadedProvinceDetails.has(c)), // Chỉ tải những tỉnh chưa tải
+  )
+
+  if (neededProvinces.size === 0)
+    return
+
+  // Gọi API lấy chi tiết từng tỉnh (kèm wards)
+  const promises = Array.from(neededProvinces).map(async (code) => {
+    try {
+      const res = await fetch(`${API_GEO_V2}/p/${code}?depth=2`)
+      const data = await res.json()
+      if (data.wards) {
+        data.wards.forEach((w: any) => {
+          communeMap.value[w.code] = w.name
+        })
+      }
+      loadedProvinceDetails.add(code) // Đánh dấu đã tải
+    }
+    catch (e) { console.error(`Lỗi tải xã của tỉnh ${code}`) }
+  })
+
+  await Promise.all(promises)
+}
+
+// 3. Hàm hiển thị địa chỉ full
+function resolveFullAddress(row: StaffResponse) {
+  const pCode = Number(row.provinceCode)
+  const cCode = Number(row.communeCode)
+
+  const provinceName = provinceMap.value[pCode] || ''
+  const communeName = communeMap.value[cCode] || ''
+  const detail = row.hometown || ''
+
+  // API v2 bỏ Quận/Huyện, nên chỉ ghép: Chi tiết - Xã - Tỉnh
+  return [detail, communeName, provinceName].filter(Boolean).join(', ')
+}
+
+// --- API FETCH STAFF ---
 async function fetchStaff() {
   loading.value = true
   try {
@@ -59,6 +124,9 @@ async function fetchStaff() {
     const res = await getAllStaff(params)
     tableData.value = res.items || []
     total.value = res.totalItems || 0
+
+    // Sau khi có dữ liệu nhân viên -> Tải dữ liệu địa lý tương ứng
+    await fetchWardsForCurrentData(tableData.value)
   }
   catch (err) {
     message.error('Lỗi tải danh sách nhân viên')
@@ -81,24 +149,11 @@ function resetFilters() {
   fetchStaff()
 }
 
-// --- NAVIGATION (THAY ĐỔI QUAN TRỌNG) ---
-function navigateToAdd() {
-  router.push('/users/staff/add')
-}
+// --- NAVIGATION ---
+function navigateToAdd() { router.push('/users/staff/add') }
+function navigateToEdit(row: StaffResponse) { router.push(`/users/staff/edit/${row.id}`) }
 
-function navigateToEdit(row: StaffResponse) {
-  router.push(`/users/staff/edit/${row.id}`)
-}
-
-// --- LOGIC KHÁC ---
-function resolveFullAddress(row: StaffResponse) {
-  const province = getProvinceName(row.provinceCode)
-  const district = getDistrictName(row.districtCode)
-  const ward = getWardName(row.communeCode)
-  const detail = row.hometown
-  return [detail, ward, district, province].filter(Boolean).join(', ')
-}
-
+// --- STATUS CHANGE ---
 async function handleStatusChange(row: StaffResponse) {
   if (!row.id)
     return
@@ -113,9 +168,7 @@ async function handleStatusChange(row: StaffResponse) {
     message.error('Cập nhật trạng thái thất bại')
     fetchStaff()
   }
-  finally {
-    loading.value = false
-  }
+  finally { loading.value = false }
 }
 
 function handlePageChange(page: number) {
@@ -124,8 +177,8 @@ function handlePageChange(page: number) {
 }
 
 onMounted(async () => {
-  await initLocationData()
-  fetchStaff()
+  await initProvinces() // Tải map Tỉnh trước
+  await fetchStaff() // Tải nhân viên -> trigger tải Xã
 })
 
 // --- COLUMNS ---
@@ -136,7 +189,7 @@ const columns = [
     width: 60,
     fixed: 'left',
     align: 'center',
-    render: (_, index) => index + 1 + (currentPage.value - 1) * pageSize.value,
+    render: (_: any, index: number) => index + 1 + (currentPage.value - 1) * pageSize.value,
   },
   {
     title: 'Nhân viên',
@@ -159,8 +212,9 @@ const columns = [
     align: 'center',
     width: 120,
     render: (row: StaffResponse) => {
-      const type = row.role === 'QUAN_LY' ? 'warning' : 'info'
-      const text = row.role === 'QUAN_LY' ? 'Quản lý' : 'Nhân viên'
+      const isManager = row.role === 'QUAN_LY' || (row.account && row.account.roleConstant === 'QUAN_LY')
+      const type = isManager ? 'warning' : 'info'
+      const text = isManager ? 'Quản lý' : 'Nhân viên'
       return h(NTag, { type, size: 'small', bordered: false }, { default: () => text })
     },
   },
@@ -185,6 +239,7 @@ const columns = [
     key: 'address',
     minWidth: 200,
     ellipsis: { tooltip: true },
+    // Gọi hàm resolveFullAddress đã được sửa lại
     render: (row: StaffResponse) => resolveFullAddress(row) || h('span', { class: 'text-gray-400 italic text-xs' }, 'Chưa cập nhật'),
   },
   {
@@ -290,9 +345,26 @@ const columns = [
           </NSpace>
         </div>
       </template>
-      <NDataTable v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="tableData" :row-key="(row) => row.id" :loading="loading" :pagination="false" :scroll-x="1200" striped />
+      <NDataTable
+        v-model:checked-row-keys="checkedRowKeys"
+        :columns="columns"
+        :data="tableData"
+        :row-key="(row) => row.id"
+        :loading="loading"
+        :pagination="false"
+        :scroll-x="1200"
+        striped
+      />
       <div class="flex justify-end mt-4">
-        <NPagination v-model:page="currentPage" v-model:page-size="pageSize" :item-count="total" :page-sizes="[5, 10, 20, 50]" show-size-picker @update:page="handlePageChange" @update:page-size="(val) => { pageSize = val; currentPage = 1; fetchStaff() }" />
+        <NPagination
+          v-model:page="currentPage"
+          v-model:page-size="pageSize"
+          :item-count="total"
+          :page-sizes="[5, 10, 20, 50]"
+          show-size-picker
+          @update:page="handlePageChange"
+          @update:page-size="(val) => { pageSize = val; currentPage = 1; fetchStaff() }"
+        />
       </div>
     </NCard>
   </div>

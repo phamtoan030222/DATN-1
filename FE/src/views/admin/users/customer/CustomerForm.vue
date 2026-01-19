@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import type { FormInst, FormItemRule, SelectOption, UploadFileInfo } from 'naive-ui'
+import type { FormInst, UploadFileInfo } from 'naive-ui'
 import {
   createDiscreteApi,
   NButton,
@@ -13,7 +13,6 @@ import {
   NIcon,
   NInput,
   NPopconfirm,
-  // Thêm mới cho Radio
   NRadio,
   NRadioGroup,
   NSelect,
@@ -46,9 +45,7 @@ const { message, dialog } = createDiscreteApi(['message', 'dialog'])
 // --- STATE ---
 const isAvatarUploading = ref(false)
 const uploadKey = ref(0)
-
 const GENDER = { MALE: 'true', FEMALE: 'false' } as const
-// Không cần GENDER_OPTIONS nữa vì dùng Radio trực tiếp
 
 // --- VALIDATION RULES ---
 const FORM_RULES = {
@@ -68,15 +65,22 @@ const FORM_RULES = {
   customerBirthdayStr: { required: true, message: 'Chưa chọn ngày sinh', trigger: ['blur', 'change'] },
 }
 
+// Validation cho địa chỉ (Đã bỏ district bắt buộc vì API v2 không có)
 const ADDRESS_FORM_RULES = {
   provinceCity: { required: true, message: 'Chọn Tỉnh/Thành phố', trigger: ['change'] },
-  district: { required: true, message: 'Chọn Quận/Huyện', trigger: ['change'] },
   wardCommune: { required: true, message: 'Chọn Phường/Xã', trigger: ['change'] },
   addressDetail: { required: true, message: 'Nhập địa chỉ chi tiết', trigger: 'blur' },
 }
 
-// Interfaces
-interface Province { name: string, name_with_type: string, code: number, division_type: string, codename: string, districts: any[] }
+// Interfaces (Cập nhật cho API v2)
+interface Province {
+  name: string
+  name_with_type: string
+  code: number
+  codename: string
+  wards: any[] // API v2: Tỉnh chứa trực tiếp Wards
+}
+
 interface CustomerForm { customerName: string, customerPhone: string, customerEmail: string, customerGender: string | null, customerBirthdayStr: string | null, customerAvatar: string }
 interface ExtendedAddress extends Omit<Address, 'provinceCity' | 'district' | 'wardCommune'> { provinceCity?: string | null, district?: string | null, wardCommune?: string | null, ward?: string }
 
@@ -153,6 +157,7 @@ async function handleUploadChange({ file }: { file: UploadFileInfo }) {
   if (avatarState.preview)
     URL.revokeObjectURL(avatarState.preview)
   avatarState.preview = URL.createObjectURL(rawFile)
+
   isAvatarUploading.value = true
   let loadingMsg: any = null
   try {
@@ -180,29 +185,75 @@ function triggerUpload() {
     fileInput.click()
 }
 
-// --- ADDRESS LOGIC ---
+// --- ADDRESS LOGIC (Dành riêng cho API v2) ---
+
+// 1. Load danh sách Tỉnh
 async function loadAddressData() {
   if (addressData.value.length > 0)
     return
   try {
     addressDataLoading.value = true
-    const res = await fetch('https://provinces.open-api.vn/api/?depth=3')
+    // API v2: Lấy danh sách tỉnh
+    const res = await fetch('https://provinces.open-api.vn/api/v2/p/?depth=1')
     if (!res.ok)
       throw new Error()
     addressData.value = await res.json()
   }
   catch {
-    addressData.value = [{ name: 'Hà Nội', codename: 'ha_noi', code: 1, division_type: 'tp', districts: [] } as any]
+    addressData.value = [{ name: 'Hà Nội', codename: 'ha_noi', code: 1, wards: [] } as any]
   }
-  finally { addressDataLoading.value = false }
+  finally {
+    addressDataLoading.value = false
+  }
 }
 
-function getDistrictOptions(p?: string) { return addressData.value.find(x => x.codename === p)?.districts.map(d => ({ label: d.name, value: d.codename })) || [] }
-function getWardOptions(p?: string, d?: string) { return addressData.value.find(x => x.codename === p)?.districts.find((x: any) => x.codename === d)?.wards.map((w: any) => ({ label: w.name, value: w.codename })) || [] }
-function onProvinceChange(a: ExtendedAddress, v: any) { a.district = null; a.wardCommune = null }
-function onDistrictChange(a: ExtendedAddress, v: any) { a.wardCommune = null }
+// 2. Logic khi chọn Tỉnh -> Tải luôn Wards (API v2 bỏ qua District)
+async function onProvinceChange(a: ExtendedAddress, codename: any) {
+  a.wardCommune = null // Reset xã
+  a.district = null // Reset huyện (dù không dùng)
 
-// === LOGIC MỚI: Toggle Mặc định (Khóa nút đang active) ===
+  if (!codename)
+    return
+
+  const index = addressData.value.findIndex(x => x.codename === codename)
+  if (index === -1)
+    return
+  const province = addressData.value[index]
+
+  // Nếu chưa có wards thì gọi API tải về
+  if (!province.wards || province.wards.length === 0) {
+    try {
+      addressDataLoading.value = true
+      // API v2: depth=2 lấy luôn wards của tỉnh
+      const res = await fetch(`https://provinces.open-api.vn/api/v2/p/${province.code}?depth=2`)
+      const data = await res.json()
+
+      // Cập nhật lại dữ liệu
+      addressData.value[index] = { ...province, wards: data.wards || [] }
+      addressData.value = [...addressData.value] // Trigger reactivity
+    }
+    catch (e) {
+      message.error('Lỗi tải danh sách Phường/Xã')
+    }
+    finally {
+      addressDataLoading.value = false
+    }
+  }
+}
+
+// 3. Hàm lấy Options cho Phường/Xã (Lấy trực tiếp từ Tỉnh)
+function getWardOptions(provinceCodename?: string) {
+  if (!provinceCodename)
+    return []
+  const province = addressData.value.find(x => x.codename === provinceCodename)
+  // Map trực tiếp từ province.wards (thêm ?. để an toàn)
+  return province?.wards?.map((w: any) => ({
+    label: w.name,
+    value: w.codename,
+  })) || []
+}
+
+// === LOGIC Toggle Mặc định ===
 function onDefaultChange(targetAddress: ExtendedAddress, val: boolean) {
   if (val) {
     addresses.value.forEach((addr) => {
@@ -210,7 +261,6 @@ function onDefaultChange(targetAddress: ExtendedAddress, val: boolean) {
     })
   }
   else {
-    // Không cho phép tắt trực tiếp, phải bật cái khác lên
     targetAddress.isDefault = true
     message.warning('Vui lòng chọn địa chỉ khác làm mặc định để thay thế!')
   }
@@ -261,6 +311,7 @@ async function handleValidateAndSubmit() {
     content: `Bạn có chắc chắn muốn ${actionText} thông tin này?`,
     positiveText: 'Đồng ý',
     negativeText: 'Hủy',
+    positiveButtonProps: { color: '#16a34a', textColor: '#ffffff', style: { fontWeight: 'bold' } },
     onPositiveClick: () => processSubmit(),
   })
 }
@@ -302,19 +353,26 @@ async function processSubmit() {
 }
 
 async function syncAddressesToBackend(custId: string) {
-  const promises = addresses.value.map((addr) => {
+  const sortedAddresses = [...addresses.value].sort((a, b) => {
+    return (a.isDefault === b.isDefault) ? 0 : a.isDefault ? 1 : -1
+  })
+
+  for (const addr of sortedAddresses) {
     const payload: Address = {
       provinceCity: addr.provinceCity!,
-      district: addr.district!,
+      district: addr.district || '', // Gửi chuỗi rỗng nếu không có district (để tránh lỗi backend nếu cần)
       wardCommune: addr.wardCommune!,
       addressDetail: addr.addressDetail!,
       isDefault: addr.isDefault,
     }
-    if (addr.id)
-      return updateAddress(custId, addr.id, payload)
-    else return createAddress(custId, payload)
-  })
-  await Promise.all(promises)
+
+    if (addr.id) {
+      await updateAddress(custId, addr.id, payload)
+    }
+    else {
+      await createAddress(custId, payload)
+    }
+  }
 }
 
 function resetForm() {
@@ -487,21 +545,18 @@ onMounted(async () => {
                   <span>Địa chỉ {{ index + 1 }}</span>
                 </div>
 
-                <div class="md:col-span-4">
+                <div class="md:col-span-6">
                   <NFormItem path="provinceCity" label="Tỉnh/Thành phố">
                     <NSelect v-model:value="address.provinceCity" :options="provinceOptions" filterable clearable :loading="addressDataLoading" placeholder="Chọn Tỉnh/Thành phố" @update:value="onProvinceChange(address, $event)" />
                   </NFormItem>
                 </div>
-                <div class="md:col-span-4">
-                  <NFormItem path="district" label="Quận/Huyện">
-                    <NSelect v-model:value="address.district" :options="getDistrictOptions(address.provinceCity)" filterable clearable :disabled="!address.provinceCity" placeholder="Chọn Quận/Huyện" @update:value="onDistrictChange(address, $event)" />
+
+                <div class="md:col-span-6">
+                  <NFormItem path="wardCommune" label="Phường/Xã/Thị trấn">
+                    <NSelect v-model:value="address.wardCommune" :options="getWardOptions(address.provinceCity)" filterable clearable :disabled="!address.provinceCity" placeholder="Chọn Phường/Xã" />
                   </NFormItem>
                 </div>
-                <div class="md:col-span-4">
-                  <NFormItem path="wardCommune" label="Phường/Xã">
-                    <NSelect v-model:value="address.wardCommune" :options="getWardOptions(address.provinceCity, address.district)" filterable clearable :disabled="!address.district" placeholder="Chọn Phường/Xã" />
-                  </NFormItem>
-                </div>
+
                 <div class="md:col-span-12">
                   <NFormItem path="addressDetail" label="Địa chỉ chi tiết">
                     <NInput v-model:value="address.addressDetail" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" placeholder="Số nhà, tên đường..." />
