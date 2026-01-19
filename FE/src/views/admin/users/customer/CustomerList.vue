@@ -2,7 +2,6 @@
 import { h, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
-  createDiscreteApi,
   NAvatar,
   NButton,
   NCard,
@@ -33,16 +32,25 @@ import type { Customer } from '@/service/api/admin/users/customer/customer'
 import type { Address } from '@/service/api/admin/users/customer/address'
 import { getCustomers, updateCustomer } from '@/service/api/admin/users/customer/customer'
 import { getAddressesByCustomer } from '@/service/api/admin/users/customer/address'
-import { getDistrictName, getProvinceName, getWardName, initLocationData } from '@/service/api/admin/users/location-service'
 
 // ================= CONSTANTS & STATE =================
+const API_GEO_V2 = 'https://provinces.open-api.vn/api/v2'
 const message = useMessage()
-const dialog = useDialog() // Init Dialog
+const dialog = useDialog()
 const router = useRouter()
 
 const customers = ref<Customer[]>([])
 const customerAddresses = ref<Record<string, Address[]>>({})
 const loading = ref(false)
+
+// --- BỘ TỪ ĐIỂN ĐỊA LÝ ĐA NĂNG ---
+// Map này sẽ lưu 2 key cho 1 giá trị. Ví dụ:
+// Key "1" -> "Thành phố Hà Nội"
+// Key "ha_noi" -> "Thành phố Hà Nội"
+const provinceNameMap = ref<Record<string, string>>({})
+const communeNameMap = ref<Record<string, string>>({})
+const provinceCodeLookup = ref<Record<string, number>>({}) // Dùng để tra cứu mã số khi cần gọi API
+const loadedProvinceDetails = new Set<string>() // Đánh dấu tỉnh nào đã tải xong xã
 
 // Pagination
 const currentPage = ref(1)
@@ -56,21 +64,93 @@ const filter = reactive({
   customerStatus: null as number | null,
 })
 
-// Options cho Dropdown Excel
 const exportOptions = [
   { label: 'Xuất trang hiện tại', key: 'current' },
   { label: 'Xuất theo bộ lọc (Tất cả)', key: 'filtered' },
   { label: 'Xuất TOÀN BỘ dữ liệu', key: 'all', props: { style: { color: 'red', fontWeight: 'bold' } } },
 ]
 
-// ================= HELPERS =================
+// ================= LOCATION LOGIC (FIX HIỂN THỊ) =================
+
+// 1. Tải danh sách Tỉnh (Chạy 1 lần)
+async function initProvinces() {
+  try {
+    const res = await fetch(`${API_GEO_V2}/p/?depth=1`)
+    const data = await res.json()
+    data.forEach((p: any) => {
+      // Lưu key là số (1)
+      provinceNameMap.value[String(p.code)] = p.name
+      // Lưu key là chữ (ha_noi) -> Đề phòng DB lưu chữ
+      provinceNameMap.value[p.codename] = p.name
+
+      // Lưu bảng tra cứu ngược để tìm ID
+      provinceCodeLookup.value[p.codename] = p.code
+      provinceCodeLookup.value[String(p.code)] = p.code
+    })
+  }
+  catch (e) { console.error('Lỗi tải tỉnh thành') }
+}
+
+// 2. Tải tên Xã/Phường dựa trên danh sách địa chỉ đang có
+async function fetchWardsForAddresses(addressList: Address[]) {
+  const neededCodes = new Set<number>()
+
+  addressList.forEach((addr) => {
+    const rawP = addr.provinceCity
+    if (!rawP)
+      return
+
+    // Cố gắng tìm ra Mã Số (code) của tỉnh đó
+    const code = provinceCodeLookup.value[String(rawP)]
+    if (code && !loadedProvinceDetails.has(String(code))) {
+      neededCodes.add(code)
+    }
+  })
+
+  if (neededCodes.size === 0)
+    return
+
+  const promises = Array.from(neededCodes).map(async (code) => {
+    try {
+      const res = await fetch(`${API_GEO_V2}/p/${code}?depth=2`)
+      const data = await res.json()
+      if (data.wards) {
+        data.wards.forEach((w: any) => {
+          // Lưu key là số (123)
+          communeNameMap.value[String(w.code)] = w.name
+          // Lưu key là chữ (phuong_ba_dinh)
+          communeNameMap.value[w.codename] = w.name
+        })
+      }
+      loadedProvinceDetails.add(String(code))
+    }
+    catch (e) { console.error(`Lỗi tải xã tỉnh ${code}`) }
+  })
+
+  await Promise.all(promises)
+}
+
+// 3. Hàm hiển thị thông minh (QUAN TRỌNG NHẤT)
 function resolveAddress(addr: Address): string {
   if (!addr)
     return 'Chưa cập nhật'
-  const p = getProvinceName(addr.provinceCity as any)
-  const d = getDistrictName(addr.district as any)
-  const w = getWardName(addr.wardCommune as any)
-  return [addr.addressDetail, w, d, p].filter(Boolean).join(', ')
+
+  // Tỉnh: Tìm trong từ điển -> Không thấy thì hiện nguyên gốc
+  const pRaw = String(addr.provinceCity || '')
+  const pName = provinceNameMap.value[pRaw] || pRaw
+
+  // Xã: Tìm trong từ điển -> Không thấy thì hiện nguyên gốc
+  const wRaw = String(addr.wardCommune || '')
+  const wName = communeNameMap.value[wRaw] || wRaw
+
+  // Chi tiết (Cái bạn nhập 1, 2, 123...)
+  const detail = addr.addressDetail || ''
+
+  // Ghép chuỗi: Chỉ hiện những phần có dữ liệu
+  // Filter Boolean sẽ loại bỏ null/undefined/rỗng, giữ lại text
+  return [detail, wName, pName]
+    .filter(part => part && part !== 'null' && part !== 'undefined')
+    .join(', ')
 }
 
 // ================= API CALLS =================
@@ -101,52 +181,36 @@ async function fetchCustomers() {
 }
 
 async function loadCustomerAddresses(list: Customer[]) {
+  const allLoadedAddresses: Address[] = []
   const promises = list.map(async (c) => {
     if (!c.id)
       return
     try {
-      if (!customerAddresses.value[c.id]) {
-        const res = await getAddressesByCustomer(c.id)
-        customerAddresses.value[c.id] = res.data.data || []
-      }
+      const res = await getAddressesByCustomer(c.id)
+      const addrList = res.data.data || []
+      customerAddresses.value[c.id] = addrList
+      allLoadedAddresses.push(...addrList)
     }
     catch { }
   })
+
   await Promise.all(promises)
+  // Tải tên Xã/Phường ngay sau khi có danh sách địa chỉ
+  await fetchWardsForAddresses(allLoadedAddresses)
 }
 
 // ================= ACTIONS =================
-const debouncedFetch = debounce(() => {
-  currentPage.value = 1
-  fetchCustomers()
-}, 500)
-
-function handlePageChange(page: number) {
-  currentPage.value = page
-  fetchCustomers()
-}
-
-function handlePageSizeChange(size: number) {
-  pageSize.value = size
-  currentPage.value = 1
-  fetchCustomers()
-}
+const debouncedFetch = debounce(() => { currentPage.value = 1; fetchCustomers() }, 500)
+function handlePageChange(page: number) { currentPage.value = page; fetchCustomers() }
+function handlePageSizeChange(size: number) { pageSize.value = size; currentPage.value = 1; fetchCustomers() }
 
 function resetFilters() {
-  filter.customerName = ''
-  filter.customerGender = null
-  filter.customerStatus = null
-  currentPage.value = 1
-  fetchCustomers()
+  filter.customerName = ''; filter.customerGender = null; filter.customerStatus = null
+  currentPage.value = 1; fetchCustomers()
 }
 
-function navigateToAdd() {
-  router.push('/users/customer/add')
-}
-
-function navigateToEdit(row: Customer) {
-  router.push(`/users/customer/edit/${row.id}`)
-}
+function navigateToAdd() { router.push('/users/customer/add') }
+function navigateToEdit(row: Customer) { router.push(`/users/customer/edit/${row.id}`) }
 
 async function handleStatusChange(row: Customer) {
   if (!row.id)
@@ -158,24 +222,13 @@ async function handleStatusChange(row: Customer) {
     message.success('Cập nhật trạng thái thành công')
     row.customerStatus = newStatus
   }
-  catch {
-    message.error('Cập nhật thất bại')
-  }
-  finally {
-    loading.value = false
-  }
+  catch { message.error('Cập nhật thất bại') }
+  finally { loading.value = false }
 }
 
-// Watch filters
-watch(
-  () => [filter.customerGender, filter.customerStatus],
-  () => {
-    currentPage.value = 1
-    fetchCustomers()
-  },
-)
+watch(() => [filter.customerGender, filter.customerStatus], () => { currentPage.value = 1; fetchCustomers() })
 
-// ================= EXCEL LOGIC =================
+// ================= EXCEL =================
 function handleSelectExport(key: string) {
   if (key === 'current') {
     if (customers.value.length === 0)
@@ -183,12 +236,9 @@ function handleSelectExport(key: string) {
     exportToExcel(customers.value, `DS_KhachHang_Trang_${currentPage.value}`)
   }
   else if (key === 'filtered' || key === 'all') {
-    const confirmMsg = key === 'all'
-      ? 'Bạn có chắc muốn tải TOÀN BỘ dữ liệu? Việc này có thể mất thời gian.'
-      : 'Tải toàn bộ kết quả theo bộ lọc hiện tại?'
-
+    const confirmMsg = key === 'all' ? 'Tải TOÀN BỘ dữ liệu?' : 'Tải kết quả theo bộ lọc?'
     dialog.info({
-      title: 'Xác nhận xuất dữ liệu',
+      title: 'Xác nhận xuất',
       content: confirmMsg,
       positiveText: 'Đồng ý',
       negativeText: 'Hủy',
@@ -200,36 +250,22 @@ function handleSelectExport(key: string) {
 async function processExportAll(isAll: boolean) {
   const loadingMsg = message.loading('Đang tải dữ liệu...', { duration: 0 })
   try {
-    const params: any = {
-      page: 1,
-      size: 10000,
-    }
-
+    const params: any = { page: 1, size: 10000 }
     if (!isAll) {
       params.customerName = filter.customerName || undefined
       params.customerGender = filter.customerGender
       params.customerStatus = filter.customerStatus
     }
-
     const res = await getCustomers(params)
     const dataList = res?.data?.data?.data || []
+    if (dataList.length === 0) { message.warning('Không tìm thấy dữ liệu!'); return }
 
-    if (dataList.length === 0) {
-      message.warning('Không tìm thấy dữ liệu nào!')
-      return
-    }
-
-    loadingMsg.content = `Đang xử lý ${dataList.length} dòng dữ liệu...`
+    loadingMsg.content = `Đang xử lý địa chỉ...`
     await loadCustomerAddresses(dataList)
-
     exportToExcel(dataList, isAll ? 'DS_ToanBo_KhachHang' : 'DS_KhachHang_TheoLoc')
   }
-  catch (e) {
-    message.error('Lỗi khi xuất dữ liệu')
-  }
-  finally {
-    loadingMsg.destroy()
-  }
+  catch (e) { message.error('Lỗi xuất dữ liệu') }
+  finally { loadingMsg.destroy() }
 }
 
 function exportToExcel(dataList: Customer[], fileName: string) {
@@ -251,10 +287,8 @@ function exportToExcel(dataList: Customer[], fileName: string) {
       'Trạng thái': item.customerStatus === 1 ? 'Hoạt động' : 'Ngưng',
     }
   })
-
   const ws = XLSX.utils.json_to_sheet(excelData)
-  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 40 }, { wch: 15 }]
-
+  ws['!cols'] = [{ wch: 5 }, { wch: 15 }, { wch: 25 }, { wch: 10 }, { wch: 15 }, { wch: 25 }, { wch: 50 }, { wch: 15 }]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Data')
   XLSX.writeFile(wb, `${fileName}_${new Date().getTime()}.xlsx`)
@@ -263,60 +297,31 @@ function exportToExcel(dataList: Customer[], fileName: string) {
 
 function handlePrint() {
   if (customers.value.length === 0)
-    return message.warning('Không có dữ liệu để in!')
+    return message.warning('Không có dữ liệu!')
   window.print()
 }
 
 onMounted(async () => {
-  await initLocationData()
+  await initProvinces()
   fetchCustomers()
 })
 
-// ================= TABLE COLUMNS =================
+// ================= COLUMNS =================
 const columns = [
-  {
-    title: 'STT',
-    key: 'stt',
-    width: 60,
-    align: 'center',
-    fixed: 'left',
-    render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
-  },
+  { title: 'STT', key: 'stt', width: 60, align: 'center', fixed: 'left', render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1 },
   {
     title: 'Khách hàng',
     key: 'info',
     width: 200,
     fixed: 'left',
-    render: (row: Customer) => h(
-      NSpace,
-      { align: 'center', justify: 'start' },
-      {
-        default: () => [
-          h(NAvatar, {
-            size: 'medium',
-            round: true,
-            src: row.customerAvatar || 'https://via.placeholder.com/150',
-            fallbackSrc: 'https://via.placeholder.com/150',
-          }),
-          h('div', [
-            h('div', { style: 'font-weight: 600' }, row.customerName),
-            h('div', { style: 'font-size: 12px; color: #888' }, row.customerCode),
-          ]),
-        ],
-      },
-    ),
+    render: (row: Customer) => h(NSpace, { align: 'center', justify: 'start' }, {
+      default: () => [
+        h(NAvatar, { size: 'medium', round: true, src: row.customerAvatar || 'https://via.placeholder.com/150', fallbackSrc: 'https://via.placeholder.com/150' }),
+        h('div', [h('div', { style: 'font-weight: 600' }, row.customerName), h('div', { style: 'font-size: 12px; color: #888' }, row.customerCode)]),
+      ],
+    }),
   },
-  {
-    title: 'Giới tính',
-    key: 'gender',
-    width: 90,
-    align: 'center',
-    render: (row: Customer) => h(NTag, {
-      type: row.customerGender ? 'success' : 'error',
-      size: 'small',
-      bordered: false,
-    }, { default: () => (row.customerGender ? 'Nam' : 'Nữ') }),
-  },
+  { title: 'Giới tính', key: 'gender', width: 90, align: 'center', render: (row: Customer) => h(NTag, { type: row.customerGender ? 'success' : 'error', size: 'small', bordered: false }, { default: () => (row.customerGender ? 'Nam' : 'Nữ') }) },
   {
     title: 'Ngày sinh',
     key: 'customerBirthday',
@@ -324,33 +329,18 @@ const columns = [
     align: 'center',
     render: (row: Customer) => {
       if (!row.customerBirthday)
-        return h('span', { class: 'text-gray-400 italic' }, 'Chưa cập nhật')
-      const date = new Date(row.customerBirthday)
-      if (isNaN(date.getTime()))
-        return h('span', { class: 'text-gray-400 italic' }, 'Lỗi ngày tháng')
-
-      const formatted = new Intl.DateTimeFormat('vi-VN', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-      }).format(date)
-
-      return h('span', { class: 'text-sm' }, formatted)
+        return h('span', { class: 'text-gray-400 italic' }, '---')
+      const d = new Date(row.customerBirthday)
+      return isNaN(d.getTime()) ? 'Lỗi' : h('span', { class: 'text-sm' }, new Intl.DateTimeFormat('vi-VN').format(d))
     },
   },
   {
     title: 'Liên hệ',
     key: 'contact',
-    mminWidth: 200,
+    minWidth: 200,
     render: (row: Customer) => h('div', [
-      h('div', { class: 'flex items-center gap-1 mb-1' }, [
-        h(Icon, { icon: 'carbon:phone', class: 'text-gray-400' }),
-        h('span', { class: 'text-sm' }, row.customerPhone || '---'),
-      ]),
-      h('div', { class: 'flex items-center gap-1' }, [
-        h(Icon, { icon: 'carbon:email', class: 'text-gray-400' }),
-        h('span', { class: 'text-sm' }, row.customerEmail || '---'),
-      ]),
+      h('div', { class: 'flex items-center gap-1 mb-1' }, [h(Icon, { icon: 'carbon:phone', class: 'text-gray-400' }), h('span', { class: 'text-sm' }, row.customerPhone || '---')]),
+      h('div', { class: 'flex items-center gap-1' }, [h(Icon, { icon: 'carbon:email', class: 'text-gray-400' }), h('span', { class: 'text-sm' }, row.customerEmail || '---')]),
     ]),
   },
   {
@@ -361,23 +351,17 @@ const columns = [
     render: (row: Customer) => {
       const addrs = customerAddresses.value[row.id as string] || []
       const def = addrs.find(a => a.isDefault) || addrs[0]
-
       if (!def)
         return h('span', { class: 'text-gray-400 italic text-xs' }, 'Chưa có địa chỉ')
 
-      const fullAddress = resolveAddress(def)
+      const fullAddress = resolveAddress(def) // Đã sửa lỗi hiển thị
 
       return h('div', { class: 'flex flex-col gap-1 py-1' }, [
-        h(
-          NTooltip,
-          { trigger: 'hover', style: { maxWidth: '400px' } },
-          {
-            trigger: () => h('span', { class: 'text-xs text-gray-700 cursor-help text-left' }, fullAddress),
-            default: () => fullAddress,
-          },
-        ),
-        h(NTag, { size: 'tiny', bordered: false, type: 'info', class: 'w-fit text-[10px]' }, { default: () => `Tổng: ${addrs.length} địa chỉ` },
-        ),
+        h(NTooltip, { trigger: 'hover', style: { maxWidth: '400px' } }, {
+          trigger: () => h('span', { class: 'text-xs text-gray-700 cursor-help text-left' }, fullAddress),
+          default: () => fullAddress,
+        }),
+        h(NTag, { size: 'tiny', bordered: false, type: 'info', class: 'w-fit text-[10px]' }, { default: () => `Tổng: ${addrs.length} địa chỉ` }),
       ])
     },
   },
@@ -386,23 +370,10 @@ const columns = [
     key: 'status',
     width: 120,
     align: 'center',
-    render: (row: Customer) => h(
-      NPopconfirm,
-      {
-        onPositiveClick: () => handleStatusChange(row),
-        positiveText: 'Đồng ý',
-        negativeText: 'Hủy',
-      },
-      {
-        trigger: () => h(NSwitch, {
-          value: row.customerStatus === 1,
-          size: 'small',
-          loading: loading.value,
-          // Không bind update trực tiếp
-        }),
-        default: () => `Bạn có chắc muốn ${row.customerStatus === 1 ? 'ngưng hoạt động' : 'kích hoạt'} khách hàng này?`,
-      },
-    ),
+    render: (row: Customer) => h(NPopconfirm, { onPositiveClick: () => handleStatusChange(row), positiveText: 'Đồng ý', negativeText: 'Hủy' }, {
+      trigger: () => h(NSwitch, { value: row.customerStatus === 1, size: 'small', loading: loading.value }),
+      default: () => `Bạn có chắc muốn ${row.customerStatus === 1 ? 'ngưng hoạt động' : 'kích hoạt'}?`,
+    }),
   },
   {
     title: 'Thao tác',
@@ -410,21 +381,10 @@ const columns = [
     width: 80,
     align: 'center',
     fixed: 'right',
-    render: (row: Customer) => h(
-      NTooltip,
-      { trigger: 'hover' },
-      {
-        trigger: () => h(NButton, {
-          size: 'small',
-          secondary: true,
-          type: 'warning',
-          circle: true,
-          class: 'scale-100 transition-all hover:scale-125 hover:shadow-lg',
-          onClick: () => navigateToEdit(row),
-        }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
-        default: () => 'Sửa thông tin',
-      },
-    ),
+    render: (row: Customer) => h(NTooltip, { trigger: 'hover' }, {
+      trigger: () => h(NButton, { size: 'small', secondary: true, type: 'warning', circle: true, class: 'hover:scale-125 transition-all', onClick: () => navigateToEdit(row) }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
+      default: () => 'Sửa thông tin',
+    }),
   },
 ]
 </script>
@@ -437,9 +397,7 @@ const columns = [
           <NIcon size="24" class="text-blue-600">
             <Icon icon="carbon:user-multiple" />
           </NIcon>
-          <span style="font-weight: 600; font-size: 24px">
-            Quản lý Khách hàng
-          </span>
+          <span style="font-weight: 600; font-size: 24px">Quản lý Khách hàng</span>
         </NSpace>
         <span>Quản lý thông tin khách hàng, lịch sử mua hàng và địa chỉ nhận hàng</span>
       </NSpace>
@@ -450,14 +408,7 @@ const columns = [
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
-              <NButton
-                size="large"
-                circle
-                secondary
-                type="primary"
-                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
-                @click="resetFilters"
-              >
+              <NButton size="large" circle secondary type="primary" class="transition-all hover:scale-110" @click="resetFilters">
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
                 </NIcon>
@@ -471,33 +422,17 @@ const columns = [
       <NForm label-placement="top" :model="filter">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
           <NFormItem label="Tìm kiếm chung">
-            <NInput
-              v-model:value="filter.customerName"
-              placeholder="Tên, mã khách hàng, SĐT..."
-              clearable
-              @input="debouncedFetch"
-              @keydown.enter="fetchCustomers"
-            >
+            <NInput v-model:value="filter.customerName" placeholder="Tên, mã khách hàng, SĐT..." clearable @input="debouncedFetch" @keydown.enter="fetchCustomers">
               <template #prefix>
                 <Icon icon="carbon:search" />
               </template>
             </NInput>
           </NFormItem>
-
           <NFormItem label="Giới tính">
-            <NSelect
-              v-model:value="filter.customerGender"
-              placeholder="Chọn giới tính"
-              clearable
-              :options="[
-                { label: 'Nam', value: 1 },
-                { label: 'Nữ', value: 0 },
-              ]"
-            />
+            <NSelect v-model:value="filter.customerGender" placeholder="Chọn giới tính" clearable :options="[{ label: 'Nam', value: 1 }, { label: 'Nữ', value: 0 }]" />
           </NFormItem>
-
           <NFormItem label="Trạng thái">
-            <NRadioGroup v-model:value="filter.customerStatus" name="radiogroup">
+            <NRadioGroup v-model:value="filter.customerStatus">
               <NSpace>
                 <NRadio :value="null">
                   Tất cả
@@ -519,93 +454,47 @@ const columns = [
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton
-              type="primary"
-              secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
-              @click="navigateToAdd"
-            >
+            <NButton type="primary" secondary class="rounded-full px-3 group" @click="navigateToAdd">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                Thêm mới
-              </span>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Thêm mới</span>
             </NButton>
-
             <NDropdown trigger="hover" :options="exportOptions" @select="handleSelectExport">
-              <NButton
-                type="success"
-                secondary
-                class="group rounded-full px-3 transition-all duration-300 ease-in-out"
-              >
+              <NButton type="success" secondary class="rounded-full px-3 group">
                 <template #icon>
                   <NIcon size="24">
                     <Icon icon="file-icons:microsoft-excel" />
                   </NIcon>
                 </template>
-                <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                  Xuất Excel
-                </span>
+                <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất Excel</span>
               </NButton>
             </NDropdown>
-
-            <NButton
-              type="info"
-              secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
-              @click="handlePrint"
-            >
+            <NButton type="info" secondary class="rounded-full px-3 group" @click="handlePrint">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:printer" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                In danh sách
-              </span>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">In danh sách</span>
             </NButton>
-            <NButton
-              type="info"
-              secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
-              @click="fetchCustomers"
-            >
+            <NButton type="info" secondary class="rounded-full px-3 group" @click="fetchCustomers">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                Tải lại
-              </span>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tải lại</span>
             </NButton>
           </NSpace>
         </div>
       </template>
 
-      <NDataTable
-        :columns="columns"
-        :data="customers"
-        :loading="loading"
-        :row-key="(row) => row.id"
-        :pagination="false"
-        striped
-        :scroll-x="1200"
-      />
-
+      <NDataTable :columns="columns" :data="customers" :loading="loading" :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" />
       <div class="flex justify-end mt-4">
-        <NPagination
-          v-model:page="currentPage"
-          v-model:page-size="pageSize"
-          :item-count="totalElements"
-          :page-sizes="[5, 10, 20, 50]"
-          show-size-picker
-          @update:page="handlePageChange"
-          @update:page-size="handlePageSizeChange"
-        />
+        <NPagination v-model:page="currentPage" v-model:page-size="pageSize" :item-count="totalElements" :page-sizes="[5, 10, 20, 50]" show-size-picker @update:page="handlePageChange" @update:page-size="handlePageSizeChange" />
       </div>
     </NCard>
   </div>
