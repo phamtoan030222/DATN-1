@@ -13,6 +13,7 @@ import {
   NImage,
   NInput,
   NPagination,
+  NPopconfirm,
   NRow,
   NSelect,
   NSlider,
@@ -292,10 +293,9 @@ const columns: DataTableColumns<ADProductResponse> = [
     key: 'status',
     align: 'center',
     width: 70,
-    render: row => h(NSwitch, {
-      value: row.status === 'ACTIVE',
-      size: 'small',
-      onUpdateValue: () => handleChangeStatus(row.id as string),
+    render: row => h(NPopconfirm, { onPositiveClick: () => handleChangeStatus(row.id as string), positiveText: 'Đồng ý', negativeText: 'Hủy' }, {
+      trigger: () => h(NSwitch, { value: row.status === 'ACTIVE', size: 'small', loading: loading.value }),
+      default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'}?`,
     }),
   },
   {

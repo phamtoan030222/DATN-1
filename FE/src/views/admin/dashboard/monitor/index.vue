@@ -367,8 +367,18 @@ const filterOptions = [
 </template>
 
 <style scoped>
-.card-header { display: flex; align-items: center; margin-bottom: 16px; }
-.card-title-group { margin-left: 12px; }
+
+.card-header 
+  {
+   display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+ }
+
+.card-title-group 
+   {
+     margin-left: 12px; 
+    }
 .card-title { font-weight: 700; font-size: 16px; line-height: 1.2; }
 .card-subtitle { font-size: 12px; color: #9ca3af; }
 .card-main-value { text-align: center; margin-bottom: 24px; font-size: 28px; font-weight: 800; line-height: 1.2; color: #18a058; }

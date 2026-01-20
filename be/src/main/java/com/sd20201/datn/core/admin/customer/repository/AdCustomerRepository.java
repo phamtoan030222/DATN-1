@@ -142,7 +142,7 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
                    c.birthday AS customerBirthday,
                    1 AS customerStatus,
                    c.createdDate AS customerCreatedDate,
-                   
+  
                    COUNT(CASE WHEN i.paymentDate BETWEEN :startDate AND :endDate THEN i.id END) AS totalOrders,
                    COALESCE(SUM(CASE WHEN i.paymentDate BETWEEN :startDate AND :endDate 
                                      THEN i.totalAmountAfterDecrease ELSE 0 END), 0) AS totalSpending

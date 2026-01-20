@@ -59,7 +59,7 @@
     </div>
 
     <div class="products-section">
-      <NCard title="Danh sách sản phẩm gốc">
+      <NCard title="Danh sách sản phẩm ">
         <template #header-extra>
           <div style="width: 250px">
             <NInput v-model:value="productFilterState.keyword" placeholder="Tìm tên/mã..." clearable size="small">
