@@ -15,7 +15,7 @@ public interface AdCustomerRepository1 extends JpaRepository<Customer, String> {
     @Query(value = "SELECT COUNT(*) FROM customer WHERE status = 0 ", nativeQuery = true)
     Integer countAllCustomers();
 
-    // Đếm khách hàng mới đăng ký trong khoảng thời gia
+    // Đếm khách hàng mới đăng ký trong khoảng thời gian
     @Query(value = "SELECT COUNT(*) FROM customer WHERE created_date BETWEEN :start AND :end", nativeQuery = true)
     Integer countNewCustomers(@Param("start") Long start, @Param("end") Long end);
 
