@@ -1,6 +1,5 @@
 package com.sd20201.datn.core.admin.customer.model.response;
 
-
 import java.math.BigDecimal;
 
 public interface CustomerResponse {
@@ -38,4 +37,3 @@ public interface CustomerResponse {
 
     BigDecimal getTotalSpending();
 }
-

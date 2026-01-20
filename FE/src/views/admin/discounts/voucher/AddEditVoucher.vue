@@ -80,14 +80,14 @@ const customerFilters = ref({ keyword: '', customerStatus: null as number | null
 const customerMap = ref<Record<string, Customer>>({})
 const initialAssignedCustomers = ref<Customer[]>([])
 
-// State sắp xếp
+// Tìm đoạn khai báo sortState
 const sortState = ref<{ columnKey: string | null, order: 'ascend' | 'descend' | false }>({
-  columnKey: null,
-  order: false,
+  columnKey: 'totalSpending', // 👉 Mặc định sort theo Tổng chi tiêu
+  order: 'descend', // 👉 Mặc định Giảm dần (Người mua nhiều nhất lên đầu)
 })
 
 // State bộ lọc thời gian
-const timeFilter = ref<'MONTH' | 'YEAR'>('YEAR') // Mặc định Năm nay
+const timeFilter = ref<'MONTH' | 'YEAR'>('MONTH') // Mặc định Năm nay
 const timeOptions = [
   { label: 'Tháng này', value: 'MONTH' },
   { label: 'Năm nay', value: 'YEAR' },
@@ -424,7 +424,7 @@ function handleValidateAndConfirm() {
     return
   addFormRef.value?.validate((errors) => {
     if (!errors) {
-      dialog.warning({
+      dialog.success({
         title: 'Xác nhận',
         content: `Bạn có chắc chắn muốn ${mode.value === 'add' ? 'thêm' : 'cập nhật'} phiếu giảm giá này?`,
         positiveText: 'Đồng ý',
@@ -532,14 +532,10 @@ const customerColumns: DataTableColumns<Customer> = [
   <NCard :title="pageTitle" class="mt-6">
     <NSpin :show="loading || isLoadingData">
       <div class="grid grid-cols-12 gap-6">
-        <div
-          class="col-span-12 transition-all duration-300"
-          :class="newVoucher.targetType === 'INDIVIDUAL' ? 'lg:col-span-7' : 'lg:col-start-3 lg:col-span-8'"
-        >
-          <NForm
-            ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top"
-            :disabled="isViewOnly" :class="{ 'view-only-form': isViewOnly }"
-          >
+        <div class="col-span-12 transition-all duration-300"
+          :class="newVoucher.targetType === 'INDIVIDUAL' ? 'lg:col-span-7' : 'lg:col-start-3 lg:col-span-8'">
+          <NForm ref="addFormRef" :model="newVoucher" :rules="addVoucherRules" label-placement="top"
+            :disabled="isViewOnly" :class="{ 'view-only-form': isViewOnly }">
             <NFormItem label="Tên phiếu" path="name">
               <NInput v-model:value="newVoucher.name" placeholder="Nhập tên phiếu ..." />
             </NFormItem>
@@ -560,10 +556,8 @@ const customerColumns: DataTableColumns<Customer> = [
               <NFormItem label="Đối tượng áp dụng" path="targetType">
                 <NRadioGroup v-model:value="newVoucher.targetType">
                   <NSpace>
-                    <NRadio
-                      value="ALL_CUSTOMERS"
-                      :disabled="isViewOnly || (mode === 'edit' && originalTargetType === 'INDIVIDUAL')"
-                    >
+                    <NRadio value="ALL_CUSTOMERS"
+                      :disabled="isViewOnly || (mode === 'edit' && originalTargetType === 'INDIVIDUAL')">
                       Tất cả
                     </NRadio>
                     <NRadio value="INDIVIDUAL">
@@ -576,20 +570,16 @@ const customerColumns: DataTableColumns<Customer> = [
 
             <div class="grid grid-cols-2 gap-4">
               <NFormItem label="Giá trị giảm" path="discountValue">
-                <NInputNumber
-                  v-model:value="newVoucher.discountValue" :min="0"
-                  :step="newVoucher.typeVoucher === 'PERCENTAGE' ? 5 : 50000" placeholder="Nhập giá trị ..."
-                >
+                <NInputNumber v-model:value="newVoucher.discountValue" :min="0"
+                  :step="newVoucher.typeVoucher === 'PERCENTAGE' ? 5 : 50000" placeholder="Nhập giá trị ...">
                   <template #suffix>
                     {{ newVoucher.typeVoucher === 'PERCENTAGE' ? '%' : '₫' }}
                   </template>
                 </NInputNumber>
               </NFormItem>
               <NFormItem label="Giảm tối đa" path="maxValue">
-                <NInputNumber
-                  v-model:value="newVoucher.maxValue" :min="0" :step="1000"
-                  :disabled="isViewOnly || newVoucher.typeVoucher === 'FIXED_AMOUNT'" placeholder="Nhập tối đa ..."
-                >
+                <NInputNumber v-model:value="newVoucher.maxValue" :min="0" :step="1000"
+                  :disabled="isViewOnly || newVoucher.typeVoucher === 'FIXED_AMOUNT'" placeholder="Nhập tối đa ...">
                   <template #suffix>
                     ₫
                   </template>
@@ -599,25 +589,19 @@ const customerColumns: DataTableColumns<Customer> = [
 
             <div class="grid grid-cols-2 gap-4">
               <NFormItem label="Ngày bắt đầu" path="startDate">
-                <NDatePicker
-                  v-model:value="newVoucher.startDate" type="datetime" style="width: 100%"
-                  placeholder="Ngày bắt đầu ..."
-                />
+                <NDatePicker v-model:value="newVoucher.startDate" type="datetime" style="width: 100%"
+                  placeholder="Ngày bắt đầu ..." />
               </NFormItem>
               <NFormItem label="Ngày kết thúc" path="endDate">
-                <NDatePicker
-                  v-model:value="newVoucher.endDate" type="datetime" style="width: 100%"
-                  placeholder="Ngày kết thúc ..."
-                />
+                <NDatePicker v-model:value="newVoucher.endDate" type="datetime" style="width: 100%"
+                  placeholder="Ngày kết thúc ..." />
               </NFormItem>
             </div>
 
             <div class="grid grid-cols-2 gap-4">
               <NFormItem ref="conditionsFormItemRef" label="Đơn hàng tối thiểu" path="conditions">
-                <NInputNumber
-                  v-model:value="newVoucher.conditions" :min="1" :step="10000"
-                  placeholder="Điều kiện đơn hàng ..."
-                />
+                <NInputNumber v-model:value="newVoucher.conditions" :min="1" :step="10000"
+                  placeholder="Điều kiện đơn hàng ..." />
               </NFormItem>
               <NFormItem v-if="showQuantity" ref="quantityFormItemRef" label="Số lượng phiếu" path="quantity">
                 <NInputNumber v-model:value="newVoucher.quantity" :min="1" placeholder="Số lượng phát hành ..." />
@@ -643,25 +627,19 @@ const customerColumns: DataTableColumns<Customer> = [
           <NCard title="Chọn khách hàng" size="small" class="mb-4">
             <NSpin :show="loadingCustomers">
               <div class="flex gap-2 mb-3">
-                <NInput
-                  v-model:value="customerFilters.keyword" placeholder="Tìm tên, mã, email..." class="flex-1"
-                  :disabled="isViewOnly"
-                />
+                <NInput v-model:value="customerFilters.keyword" placeholder="Tìm tên, mã, email..." class="flex-1"
+                  :disabled="isViewOnly" />
                 <NSelect v-model:value="timeFilter" :options="timeOptions" class="w-32" :disabled="isViewOnly" />
               </div>
 
-              <NDataTable
-                v-model:checked-row-keys="checkedCustomerKeys" :columns="customerColumns" :data="customers"
+              <NDataTable v-model:checked-row-keys="checkedCustomerKeys" :columns="customerColumns" :data="customers"
                 :row-key="(row: Customer) => row.id" :pagination="false" size="small" striped remote
-                @update:sorter="handleSorterChange" @update:checked-row-keys="onSelectionChange"
-              />
+                @update:sorter="handleSorterChange" @update:checked-row-keys="onSelectionChange" />
 
               <div class="flex justify-end mt-3">
-                <NPagination
-                  v-model:page="pagination.page" :page-size="pagination.pageSize"
+                <NPagination v-model:page="pagination.page" :page-size="pagination.pageSize"
                   :item-count="pagination.itemCount"
-                  @update:page-size="(s) => { pagination.pageSize = s; pagination.page = 1 }"
-                />
+                  @update:page-size="(s) => { pagination.pageSize = s; pagination.page = 1 }" />
               </div>
             </NSpin>
           </NCard>
@@ -669,10 +647,8 @@ const customerColumns: DataTableColumns<Customer> = [
           <NCard title="Danh sách đã chọn" size="small">
             <div v-if="(newVoucher.voucherUsers?.length || 0) > 0" class="max-h-48 overflow-y-auto">
               <NSpace wrap>
-                <NTag
-                  v-for="c in selectedCustomers" :key="c.id" type="success"
-                  :closable="!isFixedCustomer(c.id) && !isViewOnly" @close="unselectCustomer(c.id)"
-                >
+                <NTag v-for="c in selectedCustomers" :key="c.id" type="success"
+                  :closable="!isFixedCustomer(c.id) && !isViewOnly" @close="unselectCustomer(c.id)">
                   {{ c.customerName || c.id }}
                 </NTag>
               </NSpace>
