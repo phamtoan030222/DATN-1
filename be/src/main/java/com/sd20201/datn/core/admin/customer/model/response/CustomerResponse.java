@@ -37,5 +37,7 @@ public interface CustomerResponse {
     Long getTotalOrders();
 
     BigDecimal getTotalSpending();
+
+    BigDecimal getMaxInvoiceValue();
 }
 

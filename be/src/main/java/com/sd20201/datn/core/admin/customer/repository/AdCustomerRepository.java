@@ -142,11 +142,11 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
                    c.birthday AS customerBirthday,
                    1 AS customerStatus,
                    c.createdDate AS customerCreatedDate,
-                   
+            
                    COUNT(CASE WHEN i.paymentDate BETWEEN :startDate AND :endDate THEN i.id END) AS totalOrders,
                    COALESCE(SUM(CASE WHEN i.paymentDate BETWEEN :startDate AND :endDate 
                                      THEN i.totalAmountAfterDecrease ELSE 0 END), 0) AS totalSpending
-                   
+            
             FROM Customer c
             LEFT JOIN Invoice i ON c.id = i.customer.id
             WHERE c.status = 0 
@@ -160,16 +160,16 @@ public interface AdCustomerRepository extends com.sd20201.datn.repository.Custom
                      c.description, c.gender, c.birthday, c.createdDate
             """,
             countQuery = """
-            SELECT COUNT(DISTINCT c.id)
-            FROM Customer c
-            WHERE c.status = 0
-            AND (:keyword IS NULL OR (
-                  c.name LIKE CONCAT('%', :keyword, '%')
-                  OR c.phone LIKE CONCAT('%', :keyword, '%')
-                  OR c.code LIKE CONCAT('%', :keyword, '%')
-                  OR c.email LIKE CONCAT('%', :keyword, '%')
-            ))
-            """)
+                    SELECT COUNT(DISTINCT c.id)
+                    FROM Customer c
+                    WHERE c.status = 0
+                    AND (:keyword IS NULL OR (
+                          c.name LIKE CONCAT('%', :keyword, '%')
+                          OR c.phone LIKE CONCAT('%', :keyword, '%')
+                          OR c.code LIKE CONCAT('%', :keyword, '%')
+                          OR c.email LIKE CONCAT('%', :keyword, '%')
+                    ))
+                    """)
     Page<CustomerResponse> getCustomersWithStats(Pageable pageable,
                                                  @Param("keyword") String keyword,
                                                  @Param("startDate") Long startDate,

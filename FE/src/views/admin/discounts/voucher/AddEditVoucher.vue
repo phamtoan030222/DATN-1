@@ -80,14 +80,14 @@ const customerFilters = ref({ keyword: '', customerStatus: null as number | null
 const customerMap = ref<Record<string, Customer>>({})
 const initialAssignedCustomers = ref<Customer[]>([])
 
-// State sắp xếp
+// Tìm đoạn khai báo sortState
 const sortState = ref<{ columnKey: string | null, order: 'ascend' | 'descend' | false }>({
-  columnKey: null,
-  order: false,
+  columnKey: 'totalSpending', // 👉 Mặc định sort theo Tổng chi tiêu
+  order: 'descend', // 👉 Mặc định Giảm dần (Người mua nhiều nhất lên đầu)
 })
 
 // State bộ lọc thời gian
-const timeFilter = ref<'MONTH' | 'YEAR'>('YEAR') // Mặc định Năm nay
+const timeFilter = ref<'MONTH' | 'YEAR'>('MONTH') // Mặc định Năm nay
 const timeOptions = [
   { label: 'Tháng này', value: 'MONTH' },
   { label: 'Năm nay', value: 'YEAR' },
@@ -424,7 +424,7 @@ function handleValidateAndConfirm() {
     return
   addFormRef.value?.validate((errors) => {
     if (!errors) {
-      dialog.warning({
+      dialog.success({
         title: 'Xác nhận',
         content: `Bạn có chắc chắn muốn ${mode.value === 'add' ? 'thêm' : 'cập nhật'} phiếu giảm giá này?`,
         positiveText: 'Đồng ý',
