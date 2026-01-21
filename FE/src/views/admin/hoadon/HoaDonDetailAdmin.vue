@@ -196,60 +196,6 @@
       </div>
     </n-card>
 
-    <!-- Thông tin bảo hành -->
-    <n-card title="THÔNG TIN BẢO HÀNH" bordered>
-      <div class="space-y-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="p-4 bg-blue-50 rounded-lg">
-            <h4 class="font-semibold text-blue-800 mb-2">Chính sách bảo hành</h4>
-            <ul class="text-sm text-blue-700 space-y-1">
-              <li>✓ Bảo hành chính hãng 12 tháng</li>
-              <li>✓ 1 đổi 1 trong 30 ngày đầu</li>
-              <li>✓ Hỗ trợ kỹ thuật 24/7</li>
-              <li>✓ Miễn phí vệ sinh trong 6 tháng</li>
-            </ul>
-          </div>
-          
-          <div class="p-4 bg-green-50 rounded-lg">
-            <h4 class="font-semibold text-green-800 mb-2">Thông tin bảo hành sản phẩm</h4>
-            <div class="text-sm text-green-700">
-              <p>• Ngày bắt đầu: {{ formatDate(hoaDon?.ngayTao) }}</p>
-              <p>• Ngày hết hạn: {{ formatDate(getWarrantyEndDate()) }}</p>
-              <p>• Số phiếu bảo hành: BH{{ hoaDon?.maHoaDon }}</p>
-            </div>
-          </div>
-        </div>
-        
-        <div class="text-sm text-gray-600">
-          <p class="font-medium mb-1">Lưu ý:</p>
-          <p>• Xuất trình hóa đơn khi bảo hành</p>
-          <p>• Không bảo hành các lỗi do người dùng gây ra</p>
-          <p>• Liên hệ hotline: 1800-1234 để được hỗ trợ</p>
-        </div>
-      </div>
-    </n-card>
-
-    <!-- Thông tin phụ kiện kèm theo -->
-    <n-card title="PHỤ KIỆN KÈM THEO" bordered>
-      <div class="space-y-3">
-        <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-          <span class="font-medium">Balo laptop</span>
-          <span class="text-green-600 font-medium">Tặng kèm</span>
-        </div>
-        <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-          <span class="font-medium">Chuột không dây</span>
-          <span class="text-green-600 font-medium">Tặng kèm</span>
-        </div>
-        <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-          <span class="font-medium">Tấm lót chuột</span>
-          <span class="text-green-600 font-medium">Tặng kèm</span>
-        </div>
-        <div class="flex justify-between items-center p-3 bg-gray-50 rounded">
-          <span class="font-medium">Miếng dán màn hình</span>
-          <span class="text-blue-600 font-medium">+{{ formatCurrency(150000) }}</span>
-        </div>
-      </div>
-    </n-card>
 
     <!-- Ghi chú -->
     <n-card title="GHI CHÚ" bordered>
