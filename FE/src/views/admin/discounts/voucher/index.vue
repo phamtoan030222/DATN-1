@@ -425,9 +425,10 @@ const columns: DataTableColumns<ADVoucherResponse> = [
         default: () => btnConfig.tooltip,
       }))
 
-      // 2. Nút BẮT ĐẦU (Play) - Có Confirm
+      // 2. Nút BẮT ĐẦU (Play) - Có
+
       if (isUpcoming) {
-        actions.push(h(NPopconfirm, { onPositiveClick: () => handleStartVoucher(id) }, {
+        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleStartVoucher(id) }, {
           trigger: () => h(NTooltip, { trigger: 'hover' }, {
             trigger: () => h(NButton, {
               size: 'small',
@@ -446,9 +447,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       else if (!isEnded) {
         const isChecked = row.status === 0 || row.status === 'ACTIVE'
 
-        actions.push(h(NPopconfirm, {
-          onPositiveClick: () => handleSwitchStatus(row),
-        }, {
+        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleSwitchStatus(row) }, {
           trigger: () => h(NTooltip, { trigger: 'hover' }, {
             // Dùng div bọc switch và pointerEvents: none để bắt sự kiện click vào div -> kích hoạt Popconfirm
             trigger: () => h('div', { style: 'display: inline-block; cursor: pointer' }, [
