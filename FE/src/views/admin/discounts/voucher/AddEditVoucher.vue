@@ -29,7 +29,7 @@ import type { ADVoucherResponse, ADVoucherUpsertPayload } from '@/service/api/ad
 import { createVoucher, getVoucherById, getVoucherCustomers, updateVoucher } from '@/service/api/admin/discount/api.voucher'
 import type { Customer, CustomerFilterParams } from '@/service/api/admin/users/customer/customer'
 
-// ✅ IMPORT HÀM GỌI API MỚI (Đã định nghĩa trong file customer.ts)
+// ✅ IMPORT HÀM GỌI API MỚI
 import { getCustomersVoucher } from '@/service/api/admin/users/customer/customer'
 
 /* ===================== Routing Setup ===================== */
@@ -48,6 +48,9 @@ const voucherUsersFormItemRef = ref<FormItemInst | null>(null)
 const isLoadingData = ref(false)
 const loading = ref(false)
 const loadingCustomers = ref(false)
+
+// Biến chặn spam click bằng thời gian (Throttle)
+let lastSubmissionTime = 0
 
 // Biến kiểm tra chế độ xem chi tiết
 const isViewOnly = ref(false)
@@ -80,14 +83,12 @@ const customerFilters = ref({ keyword: '', customerStatus: null as number | null
 const customerMap = ref<Record<string, Customer>>({})
 const initialAssignedCustomers = ref<Customer[]>([])
 
-// Tìm đoạn khai báo sortState
 const sortState = ref<{ columnKey: string | null, order: 'ascend' | 'descend' | false }>({
-  columnKey: 'totalSpending', // 👉 Mặc định sort theo Tổng chi tiêu
-  order: 'descend', // 👉 Mặc định Giảm dần (Người mua nhiều nhất lên đầu)
+  columnKey: 'totalSpending',
+  order: 'descend',
 })
 
-// State bộ lọc thời gian
-const timeFilter = ref<'MONTH' | 'YEAR'>('MONTH') // Mặc định Năm nay
+const timeFilter = ref<'MONTH' | 'YEAR'>('MONTH')
 const timeOptions = [
   { label: 'Tháng này', value: 'MONTH' },
   { label: 'Năm nay', value: 'YEAR' },
@@ -209,7 +210,6 @@ function handleCancel() {
   router.push('/discounts/voucher')
 }
 
-// Xử lý sự kiện khi click header bảng để sort
 function handleSorterChange(sorter: { columnKey: string, order: 'ascend' | 'descend' | false } | null) {
   if (!sorter) {
     sortState.value = { columnKey: null, order: false }
@@ -231,10 +231,6 @@ async function loadVoucherData() {
       const res = await getVoucherById(voucherId.value)
       if (res?.data) {
         const v = res.data
-
-        // eslint-disable-next-line no-console
-        console.log('Dữ liệu API trả về:', v)
-
         isViewOnly.value = !!(v.startDate && v.startDate <= Date.now())
 
         const validType = (['PERCENTAGE', 'FIXED_AMOUNT'] as const).includes(v.typeVoucher) ? v.typeVoucher : 'PERCENTAGE'
@@ -249,9 +245,7 @@ async function loadVoucherData() {
         }
 
         if (newVoucher.value.targetType === 'INDIVIDUAL') {
-          // Chỉ load danh sách nếu cần thiết, nhưng nên gọi fetchCustomers để hiển thị lại đúng state
           await fetchCustomers()
-
           try {
             const customersRes: Customer[] = await getVoucherCustomers(voucherId.value, false)
             const extractedIds: string[] = []
@@ -281,7 +275,6 @@ async function loadVoucherData() {
   }
 }
 
-// ✅ HÀM FETCH CUSTOMERS ĐÃ SỬA LẠI LOGIC MAP DỮ LIỆU
 async function fetchCustomers() {
   loadingCustomers.value = true
   try {
@@ -297,35 +290,26 @@ async function fetchCustomers() {
     const res: AxiosResponse<any, any> = await getCustomersVoucher(params)
 
     let data: Customer[] = []
-
-    // 🛠️ XỬ LÝ RESPONSE: Kiểm tra đúng cấu trúc trả về từ Spring Boot (ResponseObject -> Page -> content)
-    // res.data là ResponseObject
-    // res.data.data là Page object
     const pageData = res.data?.data
 
     if (pageData && Array.isArray(pageData.content)) {
-      // Trường hợp trả về Page (có content, totalElements)
       data = pageData.content
       pagination.value.itemCount = pageData.totalElements || 0
     }
     else if (Array.isArray(pageData)) {
-      // Trường hợp trả về List trực tiếp
       data = pageData
       pagination.value.itemCount = data.length
     }
     else if (res.data && Array.isArray(res.data)) {
-      // Trường hợp API trả về mảng ngay ở root (hiếm gặp ở project này nhưng cứ đề phòng)
       data = res.data
       pagination.value.itemCount = data.length
     }
 
-    // Map ID thành string để NaiveUI hoạt động trơn tru
     customers.value = data.map(it => ({
       ...it,
       id: String(it.id || it.customerCode || `tmp-${Math.random()}`),
     }))
 
-    // Cập nhật map để hiển thị ở phần "Đã chọn"
     customers.value.forEach((c) => {
       if (c.id)
         customerMap.value[String(c.id)] = c
@@ -407,36 +391,60 @@ watch(() => newVoucher.value.endDate, () => {
     addFormRef.value?.validate(undefined, rule => rule.key === 'startDate').catch(() => { })
 })
 
-// Khi đổi keyword, time filter hoặc status -> reset page về 1
 watch([() => customerFilters.value.keyword, timeFilter, () => customerFilters.value.customerStatus], () => {
   pagination.value.page = 1
   fetchCustomers()
 })
 
-// Khi đổi trang
 watch(() => pagination.value.page, fetchCustomers)
 
 onMounted(() => { loadVoucherData() })
 
-/* ====== Save Logic ====== */
+/* ====== 🔥 SAVE LOGIC (UX: Close Modal -> Spin Main Button) ====== */
+
 function handleValidateAndConfirm() {
   if (isViewOnly.value)
     return
+  if (loading.value)
+    return
+
   addFormRef.value?.validate((errors) => {
-    if (!errors) {
-      dialog.success({
-        title: 'Xác nhận',
-        content: `Bạn có chắc chắn muốn ${mode.value === 'add' ? 'thêm' : 'cập nhật'} phiếu giảm giá này?`,
-        positiveText: 'Đồng ý',
-        negativeText: 'Hủy',
-        onPositiveClick: handleSaveVoucher,
-      })
-    }
+    if (errors)
+      return
+
+    dialog.success({
+      title: 'Xác nhận',
+      content: `Bạn có chắc chắn muốn ${mode.value === 'add' ? 'thêm' : 'cập nhật'} phiếu giảm giá này?`,
+      positiveText: 'Đồng ý',
+      negativeText: 'Hủy',
+
+      // ✅ LOGIC MỚI:
+      onPositiveClick: () => {
+        // 1. Gọi hàm lưu (Nó sẽ set loading = true ngay lập tức)
+        handleSaveVoucher()
+
+        // 2. Return true để ĐÓNG MODAL NGAY LẬP TỨC
+        // Modal biến mất -> Người dùng thấy màn hình chính với nút Save đang xoay
+        return true
+      },
+    })
   })
 }
 
+// Hàm xử lý lưu
 async function handleSaveVoucher() {
+  // 🔥 THROTTLE: Chặn click liên tiếp dưới 1s
+  const now = Date.now()
+  if (now - lastSubmissionTime < 1000)
+    return
+  lastSubmissionTime = now
+
+  if (loading.value)
+    return
+
+  // ✅ Bật loading ngay lập tức -> Nút "Lưu dữ liệu" sẽ xoay và disabled
   loading.value = true
+
   try {
     const base: ADVoucherUpsertPayload = {
       name: newVoucher.value.name!,
@@ -470,9 +478,11 @@ async function handleSaveVoucher() {
     handleCancel()
   }
   catch (err: any) {
-    message.error(err.response?.data?.message || err.message || 'Lỗi hệ thống')
+    const msg = err.response?.data?.message || err.message || 'Lỗi hệ thống'
+    message.error(msg)
   }
   finally {
+    // Tắt loading khi xong (hoặc khi lỗi)
     loading.value = false
   }
 }
@@ -490,8 +500,6 @@ const customerColumns: DataTableColumns<Customer> = [
     render: (row, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize,
   },
   { title: 'Mã KH', key: 'customerCode', width: 90 },
-
-  // --- CỘT MERGE: TÊN + EMAIL + SĐT ---
   {
     title: 'Thông tin khách hàng',
     key: 'customerName',
@@ -506,8 +514,6 @@ const customerColumns: DataTableColumns<Customer> = [
       ])
     },
   },
-
-  // --- CỘT SỐ ĐƠN (Dynamic Title & Sort) ---
   {
     title: () => timeFilter.value === 'MONTH' ? 'Đơn (Tháng)' : 'Đơn (Năm)',
     key: 'totalOrders',
@@ -515,8 +521,6 @@ const customerColumns: DataTableColumns<Customer> = [
     align: 'center',
     sorter: true,
   },
-
-  // --- CỘT CHI TIÊU (Dynamic Title & Sort) ---
   {
     title: () => timeFilter.value === 'MONTH' ? 'Chi tiêu (Tháng)' : 'Chi tiêu (Năm)',
     key: 'totalSpending',
@@ -616,7 +620,10 @@ const customerColumns: DataTableColumns<Customer> = [
               <NButton @click="handleCancel">
                 Quay lại
               </NButton>
-              <NButton v-if="!isViewOnly" type="primary" :loading="loading" @click="handleValidateAndConfirm">
+              <NButton
+                v-if="!isViewOnly" type="primary" :loading="loading" :disabled="loading"
+                @click="handleValidateAndConfirm"
+              >
                 Lưu dữ liệu
               </NButton>
             </div>
@@ -668,7 +675,6 @@ const customerColumns: DataTableColumns<Customer> = [
 </template>
 
 <style scoped>
-/* Styles cho chế độ View Only */
 :deep(.view-only-form .n-input--disabled),
 :deep(.view-only-form .n-input-number--disabled),
 :deep(.view-only-form .n-date-picker--disabled),
