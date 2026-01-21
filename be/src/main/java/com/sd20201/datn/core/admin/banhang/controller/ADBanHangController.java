@@ -24,7 +24,7 @@ public class ADBanHangController {
 
     public final ADBanHangService adBanHangService;
 
-   @Autowired
+   @Autowired   
     private PhieuGiamGiaService phieuGiamGiaService;
 
     @GetMapping("/list-hoa-don")
@@ -80,6 +80,5 @@ public class ADBanHangController {
     public ResponseEntity<?>  thanhToanThanhCong(@RequestBody ADThanhToanRequest id) throws BadRequestException {
         return Helper.createResponseEntity(adBanHangService.thanhToanThanhCong(id));
     }
-
 
 }
