@@ -9,4 +9,6 @@ public interface ADPDImeiResponse {
     String getName();
 
     String getStatus();
+
+    String getImeiStatus();
 }

@@ -9,4 +9,6 @@ public class ADNhanVienRequest {
 
     private String idNV;
 
+    private String ma;
+
 }

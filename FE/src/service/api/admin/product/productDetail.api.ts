@@ -76,6 +76,7 @@ export interface ADPDImeiResponse {
   readonly code: string
   readonly name: string
   readonly status: string
+  readonly imeiStatus: string
 }
 
 export interface IMEIExcelResponse {
