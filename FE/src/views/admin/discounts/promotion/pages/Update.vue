@@ -8,7 +8,7 @@
         <NIcon size="24"><Icon icon="carbon:edit" /></NIcon>
         <span class="header-title">Sửa đợt giảm giá</span>
       </NSpace>
-      <span class="sub-title">Chỉnh sửa thông tin (Hệ thống tự động lọc bỏ sản phẩm trùng lịch)</span>
+      <span class="sub-title">Chỉnh sửa thông tin và quản lý sản phẩm khuyến mãi</span>
     </NSpace>
   </n-card>
 
@@ -22,6 +22,8 @@
               <NTag :type="getStatusType()" :bordered="false" style="font-weight: 600;">{{ getStatusText() }}</NTag>
               <span v-if="!canUpdateInfo && getDiscountStatus() === 'active'" style="margin-left: 10px; color: #d03050; font-size: 12px;">* Đang diễn ra: Chỉ sửa sản phẩm.</span>
             </NFormItem>
+
+            
 
             <div class="form-row">
               <NFormItem label="Tên đợt giảm giá" path="discountName" required>
@@ -51,13 +53,47 @@
 
             <NSpace justify="space-between" style="margin-top: 12px;">
               <NButton @click="$router.back()">Thoát</NButton>
-              <NPopconfirm v-if="canUpdateInfo" @positive-click="handleSubmit" positive-text="Đồng ý" negative-text="Hủy">
+              <NSpace>
+                <NButton 
+                  type="success" 
+                  secondary 
+                   class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+                  @click="handleExportAppliedExcel"
+                  :disabled="appliedProducts.length === 0"
+                >
+                  <template #icon>
+                      <NIcon size="20">
+                        <Icon icon="file-icons:microsoft-excel" />
+                      </NIcon>
+                  </template>
+                   <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Xuất Excel
+              </span>
+                </NButton>
+              <NPopconfirm 
+              v-if="canUpdateInfo"
+                @positive-click="handleSubmit"
+                positive-text="Đồng ý"
+                 negative-text="Hủy">
                 <template #trigger>
-                  <NButton type="primary" :loading="submitting"><template #icon><NIcon><Icon icon="carbon:save" /></NIcon></template> Cập nhật thông tin</NButton>
+                  <NButton type="primary" :loading="submitting">
+                    <template #icon>
+                      <NIcon>
+                        <Icon icon="carbon:save" />
+                      </NIcon>
+                    </template> Cập nhật thông tin
+                  </NButton>
                 </template>
                 Bạn có chắc chắn muốn cập nhật thông tin này?
               </NPopconfirm>
-              <NButton v-else disabled secondary type="warning"><template #icon><NIcon><Icon icon="carbon:locked" /></NIcon></template> {{ getDiscountStatus() === 'active' ? 'Đã khóa thông tin' : 'Đã kết thúc' }}</NButton>
+              <NButton v-else disabled secondary type="warning">
+                <template #icon>
+                  <NIcon>
+                  <Icon icon="carbon:locked" />
+                </NIcon>
+              </template> {{ getDiscountStatus() === 'active' ? 'Đã khóa thông tin' : 'Đã kết thúc' }}
+            </NButton>
+            </NSpace>
             </NSpace>
           </NSpace>
         </NForm>
@@ -65,7 +101,7 @@
     </div>
 
     <div class="products-section">
-      <NCard title="Danh sách Sản Phẩm Gốc">
+      <NCard title="Danh sách sản phẩm ">
         <template #header-extra>
           <div style="width: 200px">
             <NInput v-model:value="productSearchKeyword" placeholder="Tìm tên/mã..." clearable>
@@ -83,7 +119,7 @@
     </div>
   </div>
 
-  <NCard v-if="unappliedProducts.length > 0" title="Danh sách Sản Phẩm Chi Tiết chưa áp dụng (Đã lọc trùng)" style="margin-top: 16px;">
+  <NCard v-if="unappliedProducts.length > 0" title="Danh sách Sản Phẩm Chi Tiết chưa áp dụng" style="margin-top: 16px;">
     <div class="filter-container mb-4">
       <NGrid :x-gap="12" :y-gap="8" :cols="24">
         <NGridItem :span="5"><div class="filter-label">Tên SPCT</div><NInput v-model:value="filterUnapplied.name" placeholder="Tìm tên..." size="small" /></NGridItem>
@@ -139,7 +175,7 @@
 
     <template #header-extra>
       <NSpace>
-        <NPopconfirm @positive-click="handleBulkRemove" positive-text="Xóa" negative-text="Hủy">
+        <NPopconfirm @positive-click="handleBulkRemove" positive-text="Gỡ bỏ" negative-text="Hủy">
           <template #trigger>
             <NButton type="error" secondary :disabled="selectedAppliedKeys.length === 0 || !canUpdateProducts" :loading="bulkRemoving">
               <template #icon><NIcon><Icon icon="carbon:trash-can" /></NIcon></template> Gỡ bỏ ({{ selectedAppliedKeys.length }})
@@ -162,7 +198,9 @@ import {
   NButton, NSpace, NCard, NForm, NFormItem, NInput, NInputNumber,
   NIcon, NDatePicker, NDataTable, NTag, NPagination, NSkeleton,
   NPopconfirm, NGrid, NGridItem, NSelect, useMessage,
-  type FormInst, type FormRules, type DataTableColumns
+  type FormInst, type FormRules, type DataTableColumns,
+  NImage,
+  NBadge
 } from "naive-ui";
 import { Icon } from "@iconify/vue";
 import {
@@ -172,6 +210,68 @@ import {
   type UpdateDiscountRequest, type DiscountResponse,
   type ProductDetailResponse, type AppliedProductResponse, type ProductResponse,
 } from '@/service/api/admin/discount/discountApi';
+import * as XLSX from 'xlsx';
+
+const handleExportAppliedExcel = () => {
+  // Lấy danh sách sản phẩm (ưu tiên danh sách đang lọc nếu muốn, hoặc lấy tất cả appliedProducts.value)
+  const dataToExport = filteredAppliedProducts.value.length > 0 ? filteredAppliedProducts.value : appliedProducts.value;
+
+  if (dataToExport.length === 0) {
+    message.warning("Không có dữ liệu sản phẩm đã áp dụng để xuất!");
+    return;
+  }
+
+  // Map dữ liệu sang format Excel
+  const excelData = dataToExport.map((item:any, index) => {
+    // Tính giá sau giảm
+    const originalPrice = item.price;
+    const discountPercent = item.percentageDiscount || 0;
+    const salePrice = Math.round(originalPrice * (100 - discountPercent) / 100);
+
+    return {
+      'STT': index + 1,
+      'Mã SP': item.productCode,
+      'Tên Sản Phẩm': item.productName,
+      'Màu sắc': item.colorName || item.color || '-',
+      'RAM': item.ramName || item.ram || '-',
+      'Ổ cứng': item.hardDriveName || item.hardDrive || '-',
+      'GPU': item.gpuName || item.gpu || '-',
+      'CPU': item.cpuName || item.cpu || '-',
+      'Giá gốc (VNĐ)': originalPrice,
+      'Mức giảm (%)': `${discountPercent}%`,
+      'Giá sau giảm (VNĐ)': salePrice,
+    };
+  });
+
+  // tạo Worksheet
+  const worksheet = XLSX.utils.json_to_sheet(excelData);
+
+  // chỉnh độ rộng cột  
+  const wscols = [
+    { wch: 5 },  
+    { wch: 15 }, 
+    { wch: 30 }, 
+    { wch: 10 }, 
+    { wch: 10 }, 
+    { wch: 10 }, 
+    { wch: 15 }, 
+    { wch: 15 }, 
+    { wch: 15 }, 
+    { wch: 10 }, 
+    { wch: 15 },
+  ];
+  worksheet['!cols'] = wscols;
+
+  // tạo workbook và xuất file
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "SP_Da_Ap_Dung");
+
+  // tên file
+  const dateStr = new Date().toLocaleDateString('vi-VN').replace(/\//g, '-');
+  XLSX.writeFile(workbook, `DS_GiamGia_${formData.discountCode || 'Campaign'}_${dateStr}.xlsx`);
+  
+  message.success("Đã xuất file Excel thành công!");
+};
 
 interface ExtendedProductDetail extends ProductDetailResponse { _parentId?: string | number; }
 
@@ -216,61 +316,7 @@ const productCurrentPage = ref(1);
 const productPageSize = ref(10);
 const loadingProducts = ref(false);
 
-// === LOGIC TẠO CHỮ KÝ ===
-const getProductSignature = (item: any) => {
-    const code = (item.productCode || '').trim();
-    const color = (item.colorName || item.color || '').trim();
-    const ram = (item.ramName || item.ram || '').trim();
-    const hdd = (item.hardDriveName || item.hardDrive || '').trim();
-    const gpu = (item.gpuName || item.gpu || '').trim();
-    const cpu = (item.cpuName || item.cpu || '').trim();
-    return `${code}_${color}_${ram}_${hdd}_${gpu}_${cpu}`.toUpperCase();
-};
-
-const busySignatures = ref<Set<string>>(new Set());
-
-// === LOGIC CHECK TRÙNG (UPDATE) ===
-const fetchBusyProducts = async () => {
-  if (!formData.startDate || !formData.endDate) return;
-  
-  busySignatures.value.clear();
-  try {
-    const res = await getAllDiscounts({ page: 1, size: 2000 });
-    const allDiscounts = res.items || [];
-    
-    const currentStart = Number(formData.startDate);
-    const currentEnd = Number(formData.endDate);
-
-    const conflictingDiscounts = allDiscounts.filter((d: any) => {
-        if (d.id === discountId) return false; 
-        const dStart = new Date(d.startTime).getTime();
-        const dEnd = new Date(d.endTime).getTime();
-        return (currentStart <= dEnd) && (currentEnd >= dStart);
-    });
-
-    if (conflictingDiscounts.length > 0) {
-        const promises = conflictingDiscounts.map((d: any) => 
-            getAppliedProducts(d.id, { page: 1, size: 5000 })
-        );
-        const results = await Promise.all(promises);
-        results.forEach(res => {
-            const items = res.items || [];
-            items.forEach((item: any) => {
-                busySignatures.value.add(getProductSignature(item));
-            });
-        });
-    }
-
-    // Tự động dọn dẹp danh sách chờ
-    const conflictInUnapplied = unappliedProducts.value.filter(d => busySignatures.value.has(getProductSignature(d)));
-    if (conflictInUnapplied.length > 0) {
-        unappliedProducts.value = unappliedProducts.value.filter(d => !busySignatures.value.has(getProductSignature(d)));
-        selectedUnappliedKeys.value = unappliedProducts.value.map(d => d.id);
-        message.warning(`Đã ẩn ${conflictInUnapplied.length} sản phẩm chờ do xung đột thời gian mới!`);
-    }
-
-  } catch (e) { console.error(e); }
-};
+// --- ĐÃ XÓA LOGIC CHECK TRÙNG (BUSY CHECK) ---
 
 const getDiscountStatus = () => {
   if (!originalDiscount.value) return 'unknown';
@@ -286,10 +332,6 @@ const getStatusType = () => { const s = getDiscountStatus(); return s === 'activ
 const getStatusText = () => { const s = getDiscountStatus(); return s === 'active' ? 'Đang diễn ra' : s === 'upcoming' ? 'Sắp diễn ra' : 'Đã kết thúc'; };
 const canUpdateInfo = computed(() => getDiscountStatus() === 'upcoming');
 const canUpdateProducts = computed(() => getDiscountStatus() === 'upcoming' || getDiscountStatus() === 'active');
-
-watch([() => formData.startDate, () => formData.endDate], () => {
-    if (canUpdateInfo.value) fetchBusyProducts();
-});
 
 const productSearchKeyword = ref('');
 const filteredRawProducts = computed(() => {
@@ -384,14 +426,9 @@ const fetchAndAddUnappliedDetails = async (productId: string) => {
     if (details.length > 0) {
       const correctDetails = details.filter((d: any) => d.productCode === parentProduct.productCode);
       
-      // LOGIC LỌC BẰNG CHỮ KÝ
-      const cleanDetails = correctDetails.filter((d: any) => !busySignatures.value.has(getProductSignature(d)));
-
-      if (cleanDetails.length === 0 && correctDetails.length > 0) {
-         message.warning('Tất cả biến thể của sản phẩm này đã thuộc về CTKM khác trong thời gian này.');
-      }
-
-      const detailsWithParent = cleanDetails.map((d: any) => ({...d, _parentId: productId}));
+      // --- ĐÃ BỎ LOGIC LỌC BẰNG CHỮ KÝ ---
+      // Lấy tất cả, không loại bỏ biến thể trùng
+      const detailsWithParent = correctDetails.map((d: any) => ({...d, _parentId: productId}));
       const newDetails = detailsWithParent.filter((d: any) => !unappliedProducts.value.some(ex => ex.id === d.id));
       
       unappliedProducts.value = [...unappliedProducts.value, ...newDetails];
@@ -501,11 +538,22 @@ const unappliedProductColumns: DataTableColumns<ExtendedProductDetail> = [
     align: "center", 
     render: (_, i) => (unappliedCurrentPage.value - 1) * unappliedPageSize.value + i + 1 
   },
+  {
+  title: 'Ảnh',
+  key: 'image',
+  width: 150, 
+  align: 'center',
+  render: (r: any) => h(NImage, {
+    width: 80, 
+    src: r.image || 'https://via.placeholder.com/50', 
+    style: { borderRadius: '4px' }, 
+  }),
+  },
   { 
     title: 'Mã', 
     key: 'productCode', 
     width: 200, 
-    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productCode) 
+    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productDetailCode) 
   },
   { 
     title: 'Tên SP', 
@@ -558,11 +606,25 @@ const appliedProductColumns: DataTableColumns<AppliedProductResponse> = [
     align: "center", 
     render: (_, i) => (appliedCurrentPage.value - 1) * appliedPageSize.value + i + 1 
   },
+{
+  title: 'Ảnh',
+  key: 'image',
+  width: 120,
+  align: 'center',
+   render: row => h(NBadge, { value: formData.percentage ? `-${formData.percentage}%` : undefined }, [
+        h(NImage, {
+        width: 80,
+        src: row.image || 'https://via.placeholder.com/50',
+        style: { borderRadius: '4px' },
+      })
+    ]),
+
+},
   { 
     title: 'Mã', 
     key: 'productCode', 
     width: 200, 
-    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productCode) 
+    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productDetailCode) 
   },
   { 
     title: 'Tên SP', 
@@ -596,11 +658,11 @@ const appliedProductColumns: DataTableColumns<AppliedProductResponse> = [
     width: 140, 
     align: 'right', 
     render: r => {
-       const salePrice = Math.round(r.price * (100 - r.percentageDiscount) / 100);
-       return h('div', { style: 'padding-right: 20px;' }, [
-         h('div', { style: 'color:#d03050;font-weight:bold;font-size:14px' }, formatPrice(salePrice)),
-         h('div', { style: 'font-size:11px;color:#666' }, `Giảm: ${r.percentageDiscount}%`)
-       ]);
+      const sale = Math.round(r.price * (100 - formData.percentage) / 100);
+      return h('div', { style: 'padding-right: 20px;' }, [
+        h('div', { style: 'text-decoration:line-through;color:#999;font-size:12px' }, formatPrice(r.price)),
+        h('div', { style: 'color:#d03050;font-weight:bold;font-size:14px' }, formatPrice(sale))
+      ]);
     } 
   },
   { 
@@ -625,7 +687,7 @@ watch(() => formData.percentage, () => {
 
 onMounted(async () => { 
     await fetchDiscount(); 
-    await fetchBusyProducts();
+    // Không gọi fetchBusyProducts nữa
     fetchAppliedProducts(); 
     fetchProducts(); 
 });

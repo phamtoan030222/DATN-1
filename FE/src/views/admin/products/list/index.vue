@@ -13,6 +13,7 @@ import {
   NImage,
   NInput,
   NPagination,
+  NPopconfirm,
   NRow,
   NSelect,
   NSlider,
@@ -292,10 +293,9 @@ const columns: DataTableColumns<ADProductResponse> = [
     key: 'status',
     align: 'center',
     width: 70,
-    render: row => h(NSwitch, {
-      value: row.status === 'ACTIVE',
-      size: 'small',
-      onUpdateValue: () => handleChangeStatus(row.id as string),
+    render: row => h(NPopconfirm, { onPositiveClick: () => handleChangeStatus(row.id as string), positiveText: 'Đồng ý', negativeText: 'Hủy' }, {
+      trigger: () => h(NSwitch, { value: row.status === 'ACTIVE', size: 'small', loading: loading.value }),
+      default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'}?`,
     }),
   },
   {
@@ -389,7 +389,7 @@ const exportExcelHandler = () => {
             <Icon icon="icon-park-outline:ad-product" />
           </NIcon>
           <span style="font-weight: 600; font-size: 24px">
-            Quản lý Sản phẩm
+            Quản lý Sản phẩm 
           </span>
         </NSpace>
         <span>Quản lý danh sách sản phẩm và các biến thể trong cửa hàng</span>

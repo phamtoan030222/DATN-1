@@ -11,6 +11,8 @@ public interface AdProductDetailRepository extends ProductDetailRepository {
     @Query("""
             SELECT pd.id AS id,
                    p.code AS productCode,
+                   pd.urlImage AS image,
+                   pd.code AS productDetailCode,
                    p.name AS productName,
                    c.name AS colorName,
                    r.name AS ramName,

@@ -23,11 +23,16 @@ public class ADBanHangController {
 
     public final ADBanHangService adBanHangService;
 
+<<<<<<< HEAD
     @GetMapping("/san-pham-chi-tiet")
     public ResponseEntity<?> getProductDetails(ADPDProductDetailRequest request) {
         return Helper.createResponseEntity(adBanHangService.getProductDetails(request));
     }
 
+=======
+   @Autowired   
+    private PhieuGiamGiaService phieuGiamGiaService;
+>>>>>>> d72cc722b3c5f5b35c40bf64646a23150eeb89d9
 
     @GetMapping("/list-hoa-don")
     public List<ListHoaDon> getListHoaDon() {
@@ -71,6 +76,7 @@ public class ADBanHangController {
         return Helper.createResponseEntity(adBanHangService.thanhToanThanhCong(id));
     }
 
+<<<<<<< HEAD
     @PostMapping("/them-khach-hang")
     public void getListKhachHang(ADThemKhachHangRequest id) {
         adBanHangService.themKhachHang(id);
@@ -84,4 +90,6 @@ public class ADBanHangController {
     }
 
 
+=======
+>>>>>>> d72cc722b3c5f5b35c40bf64646a23150eeb89d9
 }

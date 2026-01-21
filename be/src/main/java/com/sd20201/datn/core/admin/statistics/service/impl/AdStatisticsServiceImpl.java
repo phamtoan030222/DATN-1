@@ -85,9 +85,9 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 .revenueWeek(invoiceRepo.sumTotalAmountBetween(startWeek, nowMs))
                 .revenueMonth(invoiceRepo.sumTotalAmountBetween(startMonth, nowMs))
                 .totalOrders(Math.toIntExact(invoiceRepo.countAllInvoices()))
-                .successfulOrders(invoiceRepo.countByStatus(0))
-                .pendingOrders(invoiceRepo.countByStatus(1))
-                .processingOrders(invoiceRepo.countByStatus(3))
+                .successfulOrders(invoiceRepo.countByStatus(1))
+                .pendingOrders(invoiceRepo.countByStatus(3))
+                .processingOrders(invoiceRepo.countByStatus(0))
                 .cancelledOrders(invoiceRepo.countByStatus(2))
                 .totalProducts(productRepo.countAllProducts())
                 .lowStockProducts(productRepo.countLowStockProducts(10))
@@ -106,7 +106,7 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
         LocalDateTime now = LocalDateTime.now();
         Long nowMs = toMilis(now);
 
-        // FIX LỖI: Logic ngày tháng chuẩn
+        // logic ngày tháng chuẩn
         Long startToday = toMilis(now.toLocalDate().atStartOfDay());
         Long startYesterday = toMilis(now.minusDays(1).toLocalDate().atStartOfDay());
         Long endYesterday = startToday - 1;
@@ -141,7 +141,7 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 .label(label).value(valStr).percent(String.format("%.2f%%", Math.abs(percent))).trend(trend).build();
     }
 
-    // --- 3. BIỂU ĐỒ DOANH THU ---
+    // BIỂU ĐỒ DOANH THU
     @Override
     public AdRevenueChartResponse getRevenueChart(String type) {
         LocalDateTime now = LocalDateTime.now();
@@ -222,11 +222,11 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
 
                     // Tạo key gom nhóm dữ liệu
                     if ("hour".equals(groupBy)) {
-                        key = String.valueOf(dt.getHour()); // Key: 0, 1... 23
+                        key = String.valueOf(dt.getHour());
                     } else if ("month".equals(groupBy)) {
-                        key = String.valueOf(dt.getMonthValue()); // Key: 1... 12
-                    } else { // day
-                        key = dt.toLocalDate().toString(); // Key: 2026-01-09
+                        key = String.valueOf(dt.getMonthValue());
+                    } else {
+                        key = dt.toLocalDate().toString();
                     }
 
                     dataMap.put(key, dataMap.getOrDefault(key, 0L) + amount);
@@ -238,9 +238,9 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
         for (int i = 0; i < steps; i++) {
             String keyCheck = "";
             if ("hour".equals(groupBy)) {
-                keyCheck = String.valueOf(i); // Check key 0..23
+                keyCheck = String.valueOf(i);
             } else if ("month".equals(groupBy)) {
-                keyCheck = String.valueOf(i + 1); // Check key 1..12
+                keyCheck = String.valueOf(i + 1);
             } else { // day
                 keyCheck = start.toLocalDate().plusDays(i).toString();
             }
@@ -270,32 +270,25 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
 
     @Override
     public byte[] exportRevenueToExcel() throws IOException {
-        // 1. Lấy dữ liệu (Ví dụ: Lấy 30 ngày gần nhất tính từ hôm nay)
         LocalDateTime end = LocalDateTime.now();
         LocalDateTime start = end.minusYears(1);
-
-        // A. Lấy dữ liệu từ các Repo
         List<AdChartResponse> revenueData = invoiceRepo.getRawRevenueData(toMilis(start), toMilis(end));
         List<AdChartResponse> topSelling = productRepo.getTopSellingProductsChart(toMilis(start), toMilis(end), PageRequest.of(0, 20));
         List<AdProductResponse> lowStock = productRepo.getLowStockProducts(10, PageRequest.of(0, 100)).getContent();
         List<AdChartResponse> topBrands = productRepo.getTop3Brands();
         List<Object[]> recentOrders = invoiceRepo.getRecentOrdersForExport();
 
-        // F. Khách hàng: Lấy danh sách ngày tạo
         List<Long> customerDates = customerRepo.getAllCustomerCreatedDates();
 
-        // B. Tạo File Excel
         try (Workbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 
-            // Tạo các Sheet
-            createRevenueSheet(workbook, revenueData);      // Sheet 1: Doanh thu
-            createTopSellingSheet(workbook, topSelling);    // Sheet 2: Bán chạy
-            createLowStockSheet(workbook, lowStock);        // Sheet 3: Sắp hết
-            createTopBrandsSheet(workbook, topBrands);      // Sheet 4: Thương hiệu
-            createOrdersSheet(workbook, recentOrders);      // Sheet 5: Đơn hàng
+            createRevenueSheet(workbook, revenueData);
+            createTopSellingSheet(workbook, topSelling);
+            createLowStockSheet(workbook, lowStock);
+            createTopBrandsSheet(workbook, topBrands);
+            createOrdersSheet(workbook, recentOrders);
 
-            // === SHEET 6: KHÁCH HÀNG (THỐNG KÊ THEO THÁNG) ===
             createCustomersSheet(workbook, customerDates);
 
             workbook.write(out);
@@ -316,15 +309,12 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
         if (dates != null) {
             for (Long timestamp : dates) {
                 if(timestamp == null) continue;
-
                 // Convert Timestamp -> LocalDate
                 LocalDate date = Instant.ofEpochMilli(timestamp)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate();
-
-                // Tạo Key định dạng "MM/yyyy" (Ví dụ: 01/2026)
+                // Tạo Key định dạng "MM/yyyy"
                 String key = String.format("%02d/%d", date.getMonthValue(), date.getYear());
-
                 // Cộng dồn số lượng vào Map
                 countMap.put(key, countMap.getOrDefault(key, 0) + 1);
             }
@@ -334,19 +324,15 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
         int rowIdx = 1;
         for (Map.Entry<String, Integer> entry : countMap.entrySet()) {
             Row row = sheet.createRow(rowIdx++);
-
             // Cột 1: Tháng (Key)
             row.createCell(0).setCellValue(entry.getKey());
-
             // Cột 2: Số lượng (Value)
             row.createCell(1).setCellValue(entry.getValue());
         }
-
         // Auto resize cột
         sheet.autoSizeColumn(0);
         sheet.autoSizeColumn(1);
     }
-
 
     private void createRevenueSheet(Workbook wb, List<AdChartResponse> data) {
         Sheet sheet = wb.createSheet("Doanh Thu");

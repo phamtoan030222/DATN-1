@@ -14,9 +14,14 @@ import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import com.sd20201.datn.repository.AccountRepository;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+
+import java.util.Calendar;
 import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -183,32 +188,33 @@ public class CustomerServiceImpl implements CustomerService {
             }
         }
 
-        // Xử lý account nếu có customerIdAccount
-        if (request.getCustomerIdAccount() != null) {
+        // ✅ ĐÃ SỬA: Chỉ cập nhật Account nếu có gửi ID mới. Tuyệt đối không set NULL.
+        if (request.getCustomerIdAccount() != null && !request.getCustomerIdAccount().trim().isEmpty()) {
             Account account = accountRepository.findById(request.getCustomerIdAccount()).orElse(null);
             if (account == null) {
                 return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
                         "Tài khoản không tồn tại", false, "ACCOUNT_NOT_FOUND");
             }
             customer.setAccount(account);
-        } else {
-            customer.setAccount(null);
         }
+        // Lưu ý: Đã bỏ nhánh else setAccount(null) để tránh lỗi database NOT NULL
 
         // Cập nhật thông tin khác
         customer.setName(request.getCustomerName());
         customer.setPhone(request.getCustomerPhone());
         customer.setEmail(request.getCustomerEmail());
+
         if (request.getCustomerAvatar() != null && !request.getCustomerAvatar().trim().isEmpty()) {
             customer.setAvatarUrl(request.getCustomerAvatar().trim());
         } else if (request.getCustomerAvatar() != null && request.getCustomerAvatar().trim().isEmpty()) {
             customer.setAvatarUrl(null); // Clear avatar nếu gửi empty string
         }
+
         customer.setBirthday(request.getCustomerBirthday());
         customer.setGender(request.getCustomerGender());
         customer.setDescription(request.getCustomerDescription());
 
-        // 🔥 THÊM DÒNG NÀY - Cập nhật status
+        // Cập nhật status
         if (request.getCustomerStatus() != null) {
             EntityStatus status = request.getCustomerStatus() == 1
                     ? EntityStatus.ACTIVE
@@ -267,6 +273,50 @@ public class CustomerServiceImpl implements CustomerService {
         }
 
         return new ResponseObject<>(customer, HttpStatus.OK, "Lấy thông tin khách hàng thành công", true, null);
+    }
+
+    @Override
+    public ResponseObject<?> getCustomersWithStats(int page, int size, String keyword, String timeRange, String sortField, String sortDirection) {
+
+        // 1. Xử lý thời gian (startDate - endDate)
+        long endDate = System.currentTimeMillis(); // Mặc định endDate là thời điểm hiện tại
+        long startDate = 0L;
+
+
+
+        Calendar calendar = Calendar.getInstance();
+        // Reset giờ về 00:00:00 để lấy trọn vẹn ngày đầu tháng/năm
+        calendar.set(Calendar.HOUR_OF_DAY, 0);
+        calendar.set(Calendar.MINUTE, 0);
+        calendar.set(Calendar.SECOND, 0);
+        calendar.set(Calendar.MILLISECOND, 0);
+
+        if ("MONTH".equalsIgnoreCase(timeRange)) {
+            calendar.set(Calendar.DAY_OF_MONTH, 1); // Ngày mùng 1 tháng này
+            startDate = calendar.getTimeInMillis();
+        } else if ("YEAR".equalsIgnoreCase(timeRange)) {
+            calendar.set(Calendar.DAY_OF_YEAR, 1); // Ngày mùng 1 tháng 1 năm nay
+            startDate = calendar.getTimeInMillis();
+        } else {
+            // Nếu không chọn gì (hoặc ALL), startDate = 0 (lấy từ đầu)
+            startDate = 0L;
+        }
+
+        // 2. Xử lý Sắp xếp (Sort)
+        Sort sort = Sort.unsorted();
+        if (sortField != null && !sortField.isEmpty()) {
+            // Mapping tên field từ FE gửi lên trùng với alias trong câu Query SQL (totalOrders, totalSpending)
+            Sort.Direction direction = "asc".equalsIgnoreCase(sortDirection) ? Sort.Direction.ASC : Sort.Direction.DESC;
+            sort = Sort.by(direction, sortField);
+        } else {
+            // Mặc định sắp xếp theo ngày tạo mới nhất nếu không chọn sort
+            sort = Sort.by(Sort.Direction.DESC, "createdDate");
+        }
+
+        Pageable pageable = PageRequest.of(page - 1, size, sort); // Lưu ý: PageRequest của Spring bắt đầu từ 0, FE thường gửi từ 1
+        Page<CustomerResponse> result = adCustomerRepository.getCustomersWithStats(pageable, keyword, startDate, endDate);
+        // 3. Gọi Repository
+        return new ResponseObject<>(result, HttpStatus.OK, "Lấy dữ liệu thành công", true, null);
     }
 
     private String generateCustomerCode(String customerName) {

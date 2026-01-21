@@ -32,7 +32,7 @@ const pieOptions = ref<any>({
         formatter: "{b}\n{c}",
         color: "#666"
       },
-      data: [] // Sẽ được điền từ API
+      data: [] 
     }
   ]
 });
@@ -41,7 +41,20 @@ const fetchPieData = async () => {
   try {
     const res = await statisticsApi.getOrderStatusChart(props.filterType);
     if (res) {
-      pieOptions.value.series[0].data = res;
+      const coloredData = res.map((item: any) => {
+        let color = '#ccc'; 
+        if (item.name === 'Đã thanh toán') color = '#00c292'; // Xanh lá
+        if (item.name === 'Đơn huỷ') color = '#f56c6c';     // Đỏ
+        if (item.name === 'Đang xử lý') color = '#409eff';// Xanh dương
+         if (item.name === 'Chờ xác nhận') color = '#f5c242'; 
+        
+        return {
+          ...item,
+          itemStyle: { color: color } 
+        };
+      });
+
+      pieOptions.value.series[0].data = coloredData;
       pieOptions.value = { ...pieOptions.value };
     }
   } catch(e) { console.error(e); }

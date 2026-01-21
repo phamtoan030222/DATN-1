@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.staff.repository;
 
 import com.sd20201.datn.core.admin.staff.model.response.ADStaffResponse;
+import com.sd20201.datn.entity.Staff;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import com.sd20201.datn.repository.StaffRepository;
@@ -9,6 +10,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
 
 @Repository
 public interface ADStaffRepository extends StaffRepository {
@@ -54,4 +57,13 @@ public interface ADStaffRepository extends StaffRepository {
             @Param("status") EntityStatus status,
             @Param("role") RoleConstant role
     );
+
+    // 1. Tìm theo SĐT
+    Optional<Staff> findByPhone(String phone);
+
+    // 2. Tìm theo Email
+    Optional<Staff> findByEmail(String email);
+
+    // 3. Tìm theo CCCD
+    Optional<Staff> findByCitizenIdentifyCard(String citizenIdentifyCard);
 }

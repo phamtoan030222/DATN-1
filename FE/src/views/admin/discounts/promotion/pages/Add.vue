@@ -10,7 +10,7 @@
         <NIcon size="24"><Icon icon="carbon:add" /></NIcon>
         <span class="header-title">Thêm đợt giảm giá</span>
       </NSpace>
-      <span class="sub-title">Tạo mới và chọn sản phẩm (Hệ thống tự động ẩn các sản phẩm đang bận ở đợt khác)</span>
+      <span class="sub-title">Tạo mới và chọn sản phẩm để áp dụng khuyến mãi</span>
     </NSpace>
   </n-card>
 
@@ -59,7 +59,7 @@
     </div>
 
     <div class="products-section">
-      <NCard title="Danh sách sản phẩm gốc">
+      <NCard title="Danh sách sản phẩm ">
         <template #header-extra>
           <div style="width: 250px">
             <NInput v-model:value="productFilterState.keyword" placeholder="Tìm tên/mã..." clearable size="small">
@@ -127,14 +127,14 @@ import { useRouter } from "vue-router";
 import {
   NButton, NSpace, NCard, NForm, NFormItem, NInput, NInputNumber,
   NIcon, NDatePicker, NDataTable, NTag, NPagination, NGrid, NGridItem, 
-  NSelect, useMessage, NPopconfirm,
+  NSelect, useMessage, NPopconfirm, NImage,
   type FormInst, type FormRules, type DataTableColumns
 } from "naive-ui";
 import { Icon } from "@iconify/vue";
 import {
   createDiscount, getAllProducts, getProductDetailsByProductId,
-  applyMultipleProducts, getAllDiscounts, getAppliedProducts,
-  type CreateDiscountRequest, type ProductResponse, type ProductDetailResponse, type DiscountResponse
+  applyMultipleProducts,
+  type CreateDiscountRequest, type ProductResponse, type ProductDetailResponse
 } from '@/service/api/admin/discount/discountApi';
 
 interface ExtendedProductDetail extends ProductDetailResponse { _parentId?: string | number; }
@@ -173,75 +173,8 @@ const loadingProductDetails = ref(false);
 const detailCurrentPage = ref(1);
 const filterState = reactive({ name: '', color: null, ram: null, hardDrive: null, gpu: null, cpu: null });
 
-// === LOGIC TẠO CHỮ KÝ (SIGNATURE) ĐỂ SO SÁNH CHÍNH XÁC ===
-const getProductSignature = (item: any) => {
-    // Tạo 1 chuỗi unique dựa trên các thuộc tính
-    const code = (item.productCode || '').trim();
-    const color = (item.colorName || item.color || '').trim();
-    const ram = (item.ramName || item.ram || '').trim();
-    const hdd = (item.hardDriveName || item.hardDrive || '').trim();
-    const gpu = (item.gpuName || item.gpu || '').trim();
-    const cpu = (item.cpuName || item.cpu || '').trim();
-    
-    // Ví dụ: "LENOVO_XAM_8GB_256GB_RTX3050_I5"
-    return `${code}_${color}_${ram}_${hdd}_${gpu}_${cpu}`.toUpperCase();
-};
+// --- ĐÃ XÓA LOGIC CHECK TRÙNG SẢN PHẨM (BUSY CHECK) ---
 
-const busySignatures = ref<Set<string>>(new Set()); 
-
-const fetchBusyProducts = async () => {
-  if (!formData.startDate || !formData.endDate) return;
-
-  busySignatures.value.clear();
-
-  try {
-    const res = await getAllDiscounts({ page: 1, size: 2000 });
-    const allDiscounts = res.items || [];
-    
-    const currentStart = Number(formData.startDate);
-    const currentEnd = Number(formData.endDate);
-
-    const conflictingDiscounts = allDiscounts.filter((d: any) => {
-        const dStart = new Date(d.startTime).getTime();
-        const dEnd = new Date(d.endTime).getTime();
-        return (currentStart <= dEnd) && (currentEnd >= dStart);
-    });
-
-    if (conflictingDiscounts.length > 0) {
-        const promises = conflictingDiscounts.map((d: any) => 
-            getAppliedProducts(d.id, { page: 1, size: 5000 })
-        );
-        const results = await Promise.all(promises);
-        
-        results.forEach(res => {
-            const items = res.items || [];
-            items.forEach((item: any) => {
-                // Tạo chữ ký từ sản phẩm đã áp dụng
-                const sig = getProductSignature(item);
-                busySignatures.value.add(sig);
-            });
-        });
-        console.log(`Bận ${busySignatures.value.size} biến thể (theo thuộc tính).`);
-    }
-
-    // Tự động xóa khỏi danh sách đang chọn nếu bị trùng
-    const conflictInSelected = selectedProductDetails.value.filter(d => busySignatures.value.has(getProductSignature(d)));
-    if (conflictInSelected.length > 0) {
-        selectedProductDetails.value = selectedProductDetails.value.filter(d => !busySignatures.value.has(getProductSignature(d)));
-        // Cập nhật lại key đã chọn
-        const remainingIds = selectedProductDetails.value.map(d => d.id);
-        selectedDetailKeys.value = selectedDetailKeys.value.filter(k => remainingIds.includes(String(k)));
-        message.warning(`Đã gỡ ${conflictInSelected.length} biến thể do trùng lịch.`);
-    }
-
-  } catch (e) { console.error("Lỗi check trùng:", e); }
-};
-
-watch([() => formData.startDate, () => formData.endDate], () => {
-    if (formData.startDate < formData.endDate) fetchBusyProducts();
-});
-
-// ... (Các filter computed giữ nguyên) ...
 const filteredProducts = computed(() => {
   const keyword = productFilterState.keyword.toLowerCase().trim();
   if (!keyword) return allProducts.value;
@@ -312,17 +245,8 @@ const fetchAndAddDetails = async (productId: string) => {
     const res = await getProductDetailsByProductId(productId);
     const details = res?.data || [];
     if (details.length > 0) {
-      // LOGIC LỌC BẰNG CHỮ KÝ (SIGNATURE)
-      const availableDetails = details.filter((d: any) => !busySignatures.value.has(getProductSignature(d)));
-
-      // Nếu số lượng khả dụng ít hơn tổng số (nghĩa là có cái bị bận)
-      if (availableDetails.length < details.length && availableDetails.length > 0) {
-          // Vẫn hiện những cái chưa bận
-      } else if (availableDetails.length === 0) {
-          message.warning(`Tất cả biến thể của sản phẩm này đã áp dụng trong đợt giảm giá khác trong khung giờ này.`);
-      }
-
-      const detailsWithParent: ExtendedProductDetail[] = availableDetails.map((d: any) => ({...d, _parentId: productId}));
+      // Lấy toàn bộ biến thể, không quan tâm trùng hay không
+      const detailsWithParent: ExtendedProductDetail[] = details.map((d: any) => ({...d, _parentId: productId}));
       const newDetails = detailsWithParent.filter(d => !selectedProductDetails.value.some(ex => ex.id === d.id));
       selectedProductDetails.value = [...selectedProductDetails.value, ...newDetails];
       selectedDetailKeys.value = [...selectedDetailKeys.value, ...newDetails.map(d => d.id)];
@@ -363,7 +287,8 @@ const handleSubmit = async () => {
     router.back();
   } catch (error: any) {
     if(error.response && error.response.status === 400) {
-        message.error("Lỗi 400: Dữ liệu không hợp lệ (Có thể do trùng mã hoặc thời gian).");
+        // Có thể server vẫn trả lỗi nếu backend chặn trùng, nhưng frontend đã cho phép gửi.
+        message.error("Lỗi 400: Dữ liệu không hợp lệ.");
     } else {
         message.error(error.message || "Có lỗi xảy ra");
     }
@@ -391,12 +316,25 @@ const productDetailColumns: DataTableColumns<ExtendedProductDetail> = [
     render: (_, i) => (detailCurrentPage.value - 1) * detailPageSize.value + i + 1 
   },
 
-  { 
-    title: 'Mã', 
-    key: 'productCode', 
-    width: 200, 
-    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productCode) 
+  {
+  title: 'Ảnh',
+  key: 'image',
+  width: 150, 
+  align: 'center',
+  render: (r: any) => h(NImage, {
+    width: 80, 
+    src: r.image || 'https://via.placeholder.com/50', 
+    style: { borderRadius: '4px' }, 
+  }),
   },
+
+    { 
+    title: 'Mã', 
+    key: 'productDetailCode', 
+    width: 200, 
+    render: (r: any) => h('strong', { style: 'font-size: 13px;' }, r.productDetailCode) 
+  },
+
   // ----------------------
   { 
     title: 'Tên SP', 
@@ -444,7 +382,7 @@ const productDetailColumns: DataTableColumns<ExtendedProductDetail> = [
 onMounted(async () => {
   generateCode();
   fetchProducts();
-  await fetchBusyProducts();
+  // Không gọi fetchBusyProducts nữa
 });
 </script>
 

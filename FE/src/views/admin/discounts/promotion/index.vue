@@ -23,6 +23,57 @@ import { Icon } from '@iconify/vue'
 import { getAllDiscounts,deleteDiscount } from '@/service/api/admin/discount/discountApi'
 import type { DiscountResponse, ParamsGetDiscount } from '@/service/api/admin/discount/discountApi'
 import { useRouter } from 'vue-router'
+import * as XLSX from 'xlsx'
+
+
+
+
+ // Xuất Ex
+ function handleExportExcel(){
+
+  if(filteredTableData.value.length ===0){
+    message.warning("Không có dữ liệu")
+    return
+  }
+
+  //mao dữ liêu
+  const excelData = filteredTableData.value.map((item,index) =>{
+    const statusInfo = getStatusInfo(item)
+    return {
+      'STT': index + 1,
+      'Mã giảm giá': item.discountCode,
+      'Tên chương trình': item.discountName,
+      'Mức giảm (%)': `${item.percentage}%`,
+      'Ngày bắt đầu': formatDateTime(item.startTime),
+      'Ngày kết thúc': formatDateTime(item.endTime),
+      'Trạng thái': statusInfo.text,
+    }
+  })
+
+  // tạo worksheeet
+  const worksheet = XLSX.utils.json_to_sheet(excelData)
+  
+  //  chỉnh độ rộng cho cột
+  const wscols = [
+    { wch: 5 },  
+    { wch: 15 }, 
+    { wch: 30 }, 
+    { wch: 10 }, 
+    { wch: 20 }, 
+    { wch: 20 }, 
+    { wch: 15 }, 
+  ]
+  worksheet['!cols'] = wscols
+
+  //tạo workbook
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook,worksheet,'Danh sách đợt giảm giá')
+
+  // xuất file
+  XLSX.writeFile(workbook,`Discount_Export_${Date.now()}.xlsx`)
+  message.success('Đã xuất file Đợt giảm giá thành công')
+ }
+
 
 // ================= CONSTANTS & STATE =================
 const router = useRouter()
@@ -307,23 +358,18 @@ watch(searchForm, () => { currentPage.value = 1 })
             </NInput>
           </NFormItem>
 
-          <NFormItem label="Trạng thái">
-            <NRadioGroup v-model:value="searchForm.discountStatus" name="statusGroup">
-              <div class="flex flex-wrap gap-2">
-                <NRadio :value="null">
-                  Tất cả
-                </NRadio>
-                <NRadio :value="1">
-                  Sắp diễn ra
-                </NRadio>
-                <NRadio :value="0">
-                  Đang diễn ra
-                </NRadio>
-                <NRadio :value="3">
-                  Đã kết thúc
-                </NRadio>
-              </div>
-            </NRadioGroup>
+          <NFormItem label="Trạng thái ">
+           <NSelect
+             v-model:value="searchForm.discountStatus"
+             placeholder="Tất cả"
+            :options="[
+              { label: 'Tất cả', value: null },
+              { label: 'Sắp diễn ra', value: 1 },
+              { label: 'Đang diễn ra', value: 0 },
+              { label: 'Đã kết thúc', value: 3 }
+              ]"
+              clearable
+              />
           </NFormItem>
 
           <NFormItem label="Mức giảm giá (%)">
@@ -350,8 +396,8 @@ watch(searchForm, () => { currentPage.value = 1 })
               type="daterange"
               clearable
               class="w-full"
-              start-placeholder="Bắt đầu"
-              end-placeholder="Kết thúc"
+              start-placeholder="Từ ngày"
+              end-placeholder="Đến ngày"
               format="dd/MM/yyyy"
             />
           </NFormItem>
@@ -379,6 +425,22 @@ watch(searchForm, () => { currentPage.value = 1 })
               </span>
             </NButton>
 
+
+              <NButton
+              type="success"
+               secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="handleExportExcel"
+            >
+              <template #icon>
+                <NIcon size="20">
+                  <Icon icon="file-icons:microsoft-excel" />
+                </NIcon>
+              </template>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Xuất Excel
+              </span>
+            </NButton>
 
             <NButton
               type="info"

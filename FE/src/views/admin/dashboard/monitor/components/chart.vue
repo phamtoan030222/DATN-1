@@ -13,11 +13,9 @@ const lineOptions = ref<any>({
       const formatCurrency = (val: number) => 
         new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
       
-      // Hiển thị tiêu đề (Giờ / Ngày / Tháng)
       let res = `<div style="margin-bottom: 4px; font-weight:bold">${params[0].axisValue}</div>`;
       
       params.forEach((item: any) => {
-        // Hiển thị từng dòng: Tên (Hôm nay/qua...) : Số tiền
         res += `
           <div style="display: flex; justify-content: space-between; gap: 20px; font-size: 12px">
             <span style="display:flex; align-items:center;">
@@ -34,7 +32,7 @@ const lineOptions = ref<any>({
   xAxis: { 
     type: "category", 
     boundaryGap: false, 
-    data: [], // Label trục X (0h..23h hoặc T1..T12)
+    data: [], 
     axisLine: { show: false },
     axisTick: { show: false }
   },
@@ -47,12 +45,12 @@ const lineOptions = ref<any>({
   },
   series: [
     {
-      name: "Hiện tại", // Tên tạm, sẽ update khi fetch data
+      name: "Hiện tại", 
       type: "line", 
       smooth: true, 
       showSymbol: true,
       symbolSize: 6,
-      itemStyle: { color: '#3b82f6' }, // Xanh dương
+      itemStyle: { color: '#3b82f6' }, 
       areaStyle: { 
         color: new graphic.LinearGradient(0, 0, 0, 1, [
           { offset: 0, color: "rgba(59,102,246,0.5)" }, 
@@ -62,11 +60,11 @@ const lineOptions = ref<any>({
       data: []
     },
     {
-      name: "Kỳ trước", // Tên tạm
+      name: "Kỳ trước", 
       type: "line", 
       smooth: true, 
       showSymbol: false,
-      lineStyle: { type: 'dashed', color: '#fb7185' }, // Đỏ nhạt nét đứt
+      lineStyle: { type: 'dashed', color: '#fb7185' },
       itemStyle: { color: '#fb7185' },
       data: []
     }
@@ -81,7 +79,6 @@ const fetchChartData = async () => {
       lineOptions.value.series[0].data = res.currentData || [];
       lineOptions.value.series[1].data = res.previousData || [];
       
-      // --- LOGIC MỚI: ĐỔI TÊN CHÚ THÍCH THEO BỘ LỌC ---
       let currentLabel = 'Tuần này';
       let prevLabel = 'Tuần trước';
 
@@ -108,7 +105,6 @@ const fetchChartData = async () => {
       lineOptions.value.series[0].name = currentLabel;
       lineOptions.value.series[1].name = prevLabel;
 
-      // Refresh lại biểu đồ
       lineOptions.value = { ...lineOptions.value };
     }
   } catch(e) { console.error(e); }

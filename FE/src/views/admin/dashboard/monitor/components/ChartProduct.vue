@@ -42,5 +42,5 @@ onMounted(fetchTopProducts);
 </script>
 
 <template>
-  <div ref="productBarChart" style="height: 350px; width: 100%;" />
+  <div ref="productBarChart" style="height: 350px; width: 100%;" ></div>
 </template>
