@@ -127,7 +127,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     align: 'center',
     render: (data: ADProductDetailResponse) => {
       return h(NBadge, { value: data.percentage ? `-${data.percentage}%` : undefined }, [
-        h(NImage, { width: 200, src: data.urlImage })
+        h(NImage, { width: 100, src: data.urlImage , style: { borderRadius: '4px' }, })
       ])
     },
   },
