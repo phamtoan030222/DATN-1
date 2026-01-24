@@ -1,16 +1,17 @@
 <script lang="ts" setup>
 import type { ADProductDetailResponse, ADPRPropertiesComboboxResponse } from '@/service/api/admin/product/productDetail.api'
-import { changeProductDetailStatus, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getMinMaxPrice, getProductDetails, getRAMs } from '@/service/api/admin/product/productDetail.api'
+import { addSerialNumberToProductDetail, changeProductDetailStatus, getColors, getCPUs, getGPUs, getHardDrives, getMaterials, getMinMaxPrice, getProductDetails, getRAMs } from '@/service/api/admin/product/productDetail.api'
 import type { ADProductDetailResponse as ADProductResponse } from '@/service/api/admin/product/product.api'
 import { getProductById, getProductsCombobox } from '@/service/api/admin/product/product.api'
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
-import { NBadge, NButton, NImage, NSpace, NSwitch } from 'naive-ui'
+import { NBadge, NButton, NImage, NSpace, NSwitch, NTooltip } from 'naive-ui'
 import type { Ref } from 'vue'
 import { onMounted, reactive, ref } from 'vue'
 import ADProductVariantModal from './component/ADProductVariantModal.vue'
 import { exportToExcel } from '@/utils/excel.helper'
+import ADImeiProductDetail from '../list/component/ADImeiProductDetail.vue'
 
 const route = useRoute()
 
@@ -43,6 +44,8 @@ const state = reactive({
     totalPages: undefined as number | undefined,
   },
 })
+
+const isOpenSerialVariantModel = ref<boolean>(false)
 
 const product: Ref<ADProductResponse | null> = ref(null)
 
@@ -127,7 +130,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     align: 'center',
     render: (data: ADProductDetailResponse) => {
       return h(NBadge, { value: data.percentage ? `-${data.percentage}%` : undefined }, [
-        h(NImage, { width: 200, src: data.urlImage })
+        h(NImage, { width: 100, src: data.urlImage, style: { borderRadius: '4px' }, })
       ])
     },
   },
@@ -152,12 +155,12 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     width: 150,
     align: 'center',
     render: (data: ADProductDetailResponse) => h('div', { style: { display: 'flex', flexDirection: 'column', justifyContent: 'start' } }, [
-      h('span',{ style:  data.percentage ? {textDecoration: 'line-through', color: '#999', fontSize: '11px'} : {textDecoration: 'none', color: 'black', fontSize: '15px'} }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
+      h('span', { style: data.percentage ? { textDecoration: 'line-through', color: '#999', fontSize: '11px' } : { textDecoration: 'none', color: 'black', fontSize: '15px' } }, `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
         if ((arr.length - index) % 3 == 0)
           return `${prev} ${curr}`
         return prev + curr
       }, '')} vnđ`),
-      data.percentage && h('span', { style: {color: '#d03050', fontWeight: 'bold'} }, `${(`${data.price * (100 - data.percentage) / 100}`).split('').reduce((prev, curr, index, arr) => {
+      data.percentage && h('span', { style: { color: '#d03050', fontWeight: 'bold' } }, `${(`${data.price * (100 - data.percentage) / 100}`).split('').reduce((prev, curr, index, arr) => {
         if ((arr.length - index) % 3 == 0)
           return `${prev} ${curr}`
         return prev + curr
@@ -191,12 +194,17 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
           circle: true,
           onClick: () => clickOpenModal(data.id, true),
         }, h(Icon, { icon: 'carbon:edit' })),
-        // h(NButton, {
-        //     strong: true, circle: true, type: 'warning',
-        //     onClick: () => clickOpenModal(data.id)
-        // },
-        //     h(Icon, { icon: 'carbon:edit' })
-        // )
+        h(NTooltip, { trigger: 'hover' }, {
+          trigger: () => h(NButton, {
+            size: 'small',
+            circle: true,
+            secondary: true,
+            type: 'success',
+            class: 'transition-all duration-200 hover:scale-125 hover:shadow-md',
+            onClick: () => handleOpenSerialVariantModel(data.id),
+          }, { icon: () => h(Icon, { icon: 'carbon:add-alt' }) }),
+          default: () => 'Thêm phiên bản',
+        }),
       ])
     },
   },
@@ -306,6 +314,37 @@ const exportExcelHandler = () => {
 
   exportToExcel(excelData, `Danh_sach_bien_the_san_pham_${product.value ? product.value.code : ''}`)
 }
+
+const handleOpenSerialVariantModel = (idProductDetail: string) => {
+  productDetailIdSelected.value = idProductDetail
+  isOpenSerialVariantModel.value = true
+}
+
+const handleCloseSerialVariantModel = () => {
+  isOpenSerialVariantModel.value = false
+}
+
+const updatevariantSerialSuccessHandler = () => {
+  handleCloseSerialVariantModel()
+  fetchProductDetails()
+  productDetailIdSelected.value = undefined
+}
+
+const updateSerialvariantHandler = async (payload: { idProductDetail: string, imeis: string[] }) => {
+  const { idProductDetail, imeis } = payload
+
+  try {
+    const res = await addSerialNumberToProductDetail(idProductDetail, imeis)
+
+    if (res.success) {
+      notification.success({ content: `Thêm ${imeis.length} serial thành công`, duration: 3000 })
+      updatevariantSerialSuccessHandler()
+    }
+  } catch (error) {
+    notification.error({ content: 'Thêm serial thất bại', duration: 3000 })
+  }
+}
+
 </script>
 
 <template>
@@ -386,7 +425,8 @@ const exportExcelHandler = () => {
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton @click="exportExcelHandler" type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+            <NButton @click="exportExcelHandler" type="success" secondary
+              class="group rounded-full px-3 transition-all duration-300 ease-in-out">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="file-icons:microsoft-excel" />
@@ -412,6 +452,10 @@ const exportExcelHandler = () => {
     <ADProductVariantModal :id="productDetailIdSelected" :is-open="isOpenModal" :cpus="state.data.cpus"
       :gpus="state.data.gpus" :hard-drives="state.data.hardDrives" :materials="state.data.materials"
       :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal" @close="closeModal" />
+
+    <ADImeiProductDetail :is-open="isOpenSerialVariantModel" :id-product-detail="productDetailIdSelected"
+      :success="updatevariantSerialSuccessHandler" @update:imei="updateSerialvariantHandler"
+      @close="handleCloseSerialVariantModel" />
   </div>
 </template>
 

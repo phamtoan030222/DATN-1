@@ -29,6 +29,7 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
         hd2.name AS hardDrive,
         g.name AS gpu,
         cl.name AS color,
+        i.code AS imel, 
         CASE
             WHEN hd.trang_thai_hoa_don IS NOT NULL
             THEN CAST(hd.trang_thai_hoa_don AS CHAR)
@@ -43,6 +44,7 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
     LEFT JOIN hard_drive hd2 ON spct.id_hard_drive = hd2.id  -- Đổi alias thành hd2
     LEFT JOIN gpu g ON spct.id_gpu = g.id
     LEFT JOIN color cl ON spct.id_color = cl.id
+    LEFT JOIN imei i ON hdct.id = i.id_invoice_detail
     WHERE hd.id = :rep
     ORDER BY hdct.created_date DESC
 """, nativeQuery = true)

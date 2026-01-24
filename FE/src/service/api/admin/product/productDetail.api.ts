@@ -83,6 +83,7 @@ export interface ADPDImeiResponse {
   readonly code: string
   readonly name: string
   readonly status: string
+  readonly imeiStatus: string
 }
 
 export interface IMEIExcelResponse {
@@ -324,6 +325,22 @@ export async function checkExistVariant(productId: string, listPropertiesVariant
     data: {
       productId,
       listPropertiesVariant,
+    },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })) as AxiosResponse<DefaultResponse<Array<boolean>>>
+
+  return res.data
+}
+
+export async function addSerialNumberToProductDetail(idProductDetail: string, serialNumbers: Array<string>) {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/add-serial-number`,
+    method: 'POST',
+    data: {
+      idProductDetail,
+      serialNumbers,
     },
     headers: {
       'Content-Type': 'application/json',

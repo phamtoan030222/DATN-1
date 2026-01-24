@@ -425,9 +425,10 @@ const columns: DataTableColumns<ADVoucherResponse> = [
         default: () => btnConfig.tooltip,
       }))
 
-      // 2. Nút BẮT ĐẦU (Play) - Có Confirm
+      // 2. Nút BẮT ĐẦU (Play) - Có
+
       if (isUpcoming) {
-        actions.push(h(NPopconfirm, { onPositiveClick: () => handleStartVoucher(id) }, {
+        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleStartVoucher(id) }, {
           trigger: () => h(NTooltip, { trigger: 'hover' }, {
             trigger: () => h(NButton, {
               size: 'small',
@@ -446,9 +447,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       else if (!isEnded) {
         const isChecked = row.status === 0 || row.status === 'ACTIVE'
 
-        actions.push(h(NPopconfirm, {
-          onPositiveClick: () => handleSwitchStatus(row),
-        }, {
+        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleSwitchStatus(row) }, {
           trigger: () => h(NTooltip, { trigger: 'hover' }, {
             // Dùng div bọc switch và pointerEvents: none để bắt sự kiện click vào div -> kích hoạt Popconfirm
             trigger: () => h('div', { style: 'display: inline-block; cursor: pointer' }, [
@@ -510,7 +509,7 @@ onMounted(() => fetchData())
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div class="lg:col-span-3">
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Tìm kiếm chung
+            Tìm kiếm chung 
           </div>
           <NInput
             v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable

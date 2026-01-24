@@ -44,10 +44,10 @@
 
   <NSpace justify="space-between" style="margin-top: 24px;">
     <NButton @click="$router.back()">Hủy</NButton>
-    <NPopconfirm @positive-click="handleSubmit" positive-text="Đồng ý" negative-text="Hủy">
+      <NPopconfirm @positive-click="handleSubmit" positive-text="Đồng ý" negative-text="Hủy">
       <template #trigger>
         <NButton type="primary" :loading="submitting">
-          <template #icon><NIcon><Icon icon="carbon:save" /></NIcon></template> Tạo và Áp dụng
+          Tạo và Áp dụng
         </NButton>
       </template>
       Bạn có chắc chắn muốn tạo đợt giảm giá này không?
@@ -173,7 +173,6 @@ const loadingProductDetails = ref(false);
 const detailCurrentPage = ref(1);
 const filterState = reactive({ name: '', color: null, ram: null, hardDrive: null, gpu: null, cpu: null });
 
-// --- ĐÃ XÓA LOGIC CHECK TRÙNG SẢN PHẨM (BUSY CHECK) ---
 
 const filteredProducts = computed(() => {
   const keyword = productFilterState.keyword.toLowerCase().trim();
@@ -287,7 +286,6 @@ const handleSubmit = async () => {
     router.back();
   } catch (error: any) {
     if(error.response && error.response.status === 400) {
-        // Có thể server vẫn trả lỗi nếu backend chặn trùng, nhưng frontend đã cho phép gửi.
         message.error("Lỗi 400: Dữ liệu không hợp lệ.");
     } else {
         message.error(error.message || "Có lỗi xảy ra");

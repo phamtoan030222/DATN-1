@@ -21,7 +21,7 @@ public interface ADPDImeiRepository extends IMEIRepository {
     List<String> findByCode(List<String> codes);
 
     @Query(value = """
-    SELECT i.id as id, i.code as code, i.name as name, i.status as status from IMEI i where i.productDetail.id = :idProductDetail
+    SELECT i.id as id, i.code as code, i.name as name, i.status as status, i.imeiStatus as imeiStatus from IMEI i where i.productDetail.id = :idProductDetail AND i.imeiStatus = 0
     """)
     List<ADPDImeiResponse> findByIdProductDetail(String idProductDetail);
 

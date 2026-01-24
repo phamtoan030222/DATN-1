@@ -16,12 +16,14 @@
       </template>
       <div class="filter-container">
         <n-grid :cols="24" :x-gap="12" :y-gap="12">
-          <n-gi :span="8">
+          <n-gi :span="6">
             <n-form-item label="Tìm kiếm">
               <n-input
                 v-model:value="state.searchQuery"
                 placeholder="Nhập mã hóa đơn, tên khách hàng, SĐT..."
                 clearable
+                @keyup.enter="fetchHoaDons"
+                @blur="fetchHoaDons"
               >
                 <template #prefix>
                   <n-icon><SearchIcon /></n-icon>
@@ -30,16 +32,16 @@
             </n-form-item>
           </n-gi>
 
-          
-          <n-gi :span="8">
+          <n-gi :span="6">
             <n-form-item label="Khoảng thời gian">
               <n-date-picker
                 v-model:value="dateRange"
                 type="daterange"
                 clearable
-                :default-value="getTodayDateRange"
-                :is-date-disabled="disablePreviousDate"
+                :is-date-disabled="disableFutureDate"
                 style="width: 100%"
+                @update:value="handleDateRangeChange"
+                placeholder="Chọn khoảng thời gian"
               />
             </n-form-item>
           </n-gi>
@@ -51,6 +53,7 @@
                 :options="loaiHoaDonOptions"
                 placeholder="Tất cả"
                 clearable
+                @update:value="fetchHoaDons"
               />
             </n-form-item>
           </n-gi>
@@ -62,6 +65,7 @@
                 :options="statusOptions"
                 placeholder="Tất cả"
                 clearable
+                @update:value="handleStatusChange"
               />
             </n-form-item>
           </n-gi>
@@ -72,6 +76,7 @@
                 v-model:value="state.sortOrder"
                 :options="sortOptions"
                 placeholder="Mới nhất"
+                @update:value="fetchHoaDons"
               />
             </n-form-item>
           </n-gi>
@@ -82,11 +87,28 @@
                 @click="resetFilters"
                 type="default"
                 block
+                :loading="state.loading"
               >
                 <template #icon>
                   <n-icon><RefreshIcon /></n-icon>
                 </template>
                 Đặt lại
+              </n-button>
+            </n-form-item>
+          </n-gi>
+          
+          <n-gi :span="2">
+            <n-form-item label=" ">
+              <n-button
+                @click="fetchHoaDons"
+                type="primary"
+                block
+                :loading="state.loading"
+              >
+                <template #icon>
+                  <n-icon><SearchIcon /></n-icon>
+                </template>
+                Tìm kiếm
               </n-button>
             </n-form-item>
           </n-gi>
@@ -99,53 +121,65 @@
         <div class="section-title">
           <n-icon><ListIcon /></n-icon>
           <span>Danh sách hóa đơn</span>
-          <n-button 
-            type="primary" 
-            size="small" 
-            @click="exportToExcel"
-            class="ml-auto"
-          >
-            <template #icon>
-              <n-icon><ExportIcon /></n-icon>
-            </template>
-            Xuất Excel
-          </n-button>
+          <div class="ml-auto" style="display: flex; gap: 8px;">
+            <n-button 
+              type="primary" 
+              size="small" 
+              @click="fetchHoaDons"
+              :loading="state.loading"
+            >
+              <template #icon>
+                <n-icon><RefreshIcon /></n-icon>
+              </template>
+              Làm mới
+            </n-button>
+            <n-button 
+              type="success" 
+              size="small" 
+              @click="exportToExcel"
+              :disabled="state.products.length === 0"
+            >
+              <template #icon>
+                <n-icon><ExportIcon /></n-icon>
+              </template>
+              Xuất Excel
+            </n-button>
+          </div>
         </div>
       </template>
       
       <div class="invoice-tabs mb-4">
-        <n-tabs v-model:value="state.searchStatus" type="segment" @update:value="handleTabChange">
+        <n-tabs v-model:value="activeTab" type="segment" @update:value="handleTabChange">
           <n-tab name="ALL">
             <span class="tab-content">
               Tất cả
-              <n-badge :value="getTabCount('ALL')" type="info" :max="99" />
+              <n-badge :value="state.totalItems" type="info" :max="999" />
             </span>
           </n-tab>
           <n-tab v-for="tab in tabs" :key="tab.key" :name="tab.key">
             <span class="tab-content">
               {{ tab.label }}
-              <n-badge :value="tab.count" type="info" :max="99" />
+              <n-badge :value="tab.count" type="info" :max="999" />
             </span>
           </n-tab>
         </n-tabs>
       </div>
 
+      <n-alert v-if="state.apiError" type="error" class="mb-4" closable @close="state.apiError = ''">
+        {{ state.apiError }}
+      </n-alert>
+
       <n-data-table
         :columns="columns"
         :data="state.products"
-        :pagination="{
-          page: state.paginationParams.page,
-          pageSize: state.paginationParams.size,
-          pageCount: Math.ceil(state.totalItems / state.paginationParams.size),
-          showSizePicker: true,
-          pageSizes: [10, 20, 30, 40, 50],
-          showQuickJumper: true
-        }"
+        :pagination="pagination"
         :max-height="500"
         @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
         striped
         :loading="state.loading"
+        :row-key="(row) => row.id"
+        :bordered="false"
       />
     </n-card>
   </div>
@@ -173,11 +207,18 @@ import {
   NTabs,
   NTab,
   NDatePicker,
+  NAlert,
   useMessage,
   type DataTableColumns
 } from 'naive-ui'
 import BreadcrumbDefault from '@/layouts/components/header/Breadcrumb.vue'
 import * as XLSX from 'xlsx'
+import {
+  GetHoaDons,
+  type HoaDonItem,
+  type HoaDonResponse,
+  type ParamsGetHoaDon
+} from "@/service/api/admin/hoadon.api";
 
 // Icons
 import {
@@ -193,181 +234,35 @@ import {
 const router = useRouter()
 const message = useMessage()
 
-// ========== ENHANCED FAKE DATA ==========
-
-// Enum cho trạng thái hóa đơn
-enum EntityTrangThaiHoaDon {
-  CHO_XAC_NHAN = 0,
-  DA_XAC_NHAN = 1,
-  CHO_GIAO = 2,
-  DANG_GIAO = 3,
-  HOAN_THANH = 4,
-  DA_HUY = 5,
-}
-
-const EntityLoaiHoaDon = {
-  OFFLINE: 'OFFLINE',
-  GIAO_HANG: 'GIAO_HANG',
-  ONLINE: 'ONLINE'
-};
-
-
-// 1. Dữ liệu nguồn (Thứ tự nhập không quan trọng, code sẽ tự sắp xếp lại)
-const fixedSourceData = [
-  { id: 1,  date: '2026-01-01T08:30:00Z', status: '4', pay: '1', type: 'OFFLINE',   name: 'Nguyễn Văn An',      total: 32500000 },
-  { id: 2,  date: '2026-01-02T09:15:00Z', status: '4', pay: '1', type: 'ONLINE',    name: 'Trần Thị Bình',      total: 15400000 },
-  { id: 3,  date: '2026-01-05T14:20:00Z', status: '4', pay: '1', type: 'GIAO_HANG', name: 'Lê Hoàng Cường',     total: 32000000 },
-  { id: 4,  date: '2026-01-10T10:00:00Z', status: '4', pay: '1', type: 'ONLINE',    name: 'Phạm Thị Dung',      total: 550000   },
-  { id: 5,  date: '2026-01-15T16:45:00Z', status: '4', pay: '1', type: 'GIAO_HANG', name: 'Hoàng Văn Em',       total: 64500000 },
-  { id: 6,  date: '2026-01-15T11:30:00Z', status: '4', pay: '1', type: 'OFFLINE',    name: 'Vũ Thị Phương',      total: 32500000 },
-  { id: 7,  date: '2026-01-15T19:00:00Z', status: '4', pay: '1', type: 'OFFLINE',   name: 'Đặng Văn Giang',     total: 1200000  },
-  { id: 8,  date: '2026-01-16T08:10:00Z', status: '4', pay: '1', type: 'OFFLINE',    name: 'Bùi Thị Hương',      total: 32000000 },
-  { id: 9,  date: '2026-01-17T10:05:00Z', status: '4', pay: '1', type: 'OFFLINE',    name: 'Ngô Thị Khánh',      total: 32500000 },
-  { id: 10, date: '2026-01-17T10:20:00Z', status: '4', pay: '1', type: 'OFFLINE', name: 'Đỗ Văn Hùng',        total: 35000000 },
-];
-
-// 2. SẮP XẾP TĂNG DẦN (ASCENDING)
-// Logic: (a - b) sẽ xếp số nhỏ (giờ cũ/sớm) lên trước, số lớn (giờ mới/muộn) ra sau
-fixedSourceData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-// 3. Map dữ liệu
-const fakeInvoices = fixedSourceData.map((data) => {
-  const maHoaDon = `HD${String(data.id).padStart(3, '0')}`;
-  const phiVanChuyen = data.type === EntityLoaiHoaDon.GIAO_HANG ? 30000 : 0;
-  const thanhTien = data.total + phiVanChuyen;
-
-  const products = [
-    {
-      maHoaDonChiTiet: `HDCT${String(data.id).padStart(3, '0')}-1`,
-      maHoaDon: maHoaDon,
-      tenSanPham: 'iPhone 15 Pro Max 256GB',
-      thuongHieu: 'Apple',
-      mauSac: 'Titan tự nhiên',
-      size: '256GB',
-      giaBan: 32000000,
-      soLuong: 1,
-      thanhTien: 32000000,
-      anhSanPham: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=400&h=400&fit=crop'
-    }
-  ];
-
-  return {
-    id: data.id.toString(),
-    maHoaDon: maHoaDon,
-    maDonHang: `DH${String(data.id).padStart(4, '0')}`,
-    tenHoaDon: `Hóa đơn ${maHoaDon}`,
-    tenKhachHang: data.name,
-    sdtKH: '0987654321',
-    email: 'khachhang@gmail.com',
-    diaChi: data.type !== EntityLoaiHoaDon.OFFLINE ? 'Số 10, Đường Lê Lợi, Quận 1, TP.HCM' : null,
-    
-    tenKhachHang2: data.name,
-    sdtKH2: '0987654321',
-    email2: 'khachhang@email.com',
-    diaChi2: data.type === EntityLoaiHoaDon.OFFLINE ? 'Mua tại quầy' : 'Số 10, Đường Lê Lợi, Quận 1, TP.HCM',
-    
-    loaiHoaDon: data.type,
-    trangThaiHoaDon: data.status,
-    phuongThucThanhToan: data.pay,
-    
-    ngayTao: data.date,
-    ngayCapNhat: data.date,
-    
-    phiVanChuyen: phiVanChuyen,
-    maPGG: null,
-    tenPGG: null,
-    giaTriPGG: 0,
-    
-    thanhTien: thanhTien,
-    tongTienHang: data.total,
-    giamGiaSanPham: 0,
-    giamGiaHoaDon: 0,
-    
-    daThanhToan: data.pay === '1' ? thanhTien : 0,
-    conNo: data.pay === '1' ? 0 : thanhTien,
-    
-    ghiChuKhachHang: null,
-    ghiChuNoiBo: null,
-    
-    nhanVien: {
-      ten: 'Nguyễn Thị Nhân Viên',
-      ma: 'NV001',
-      avatar: 'https://i.pravatar.cc/150?img=32'
-    },
-    chiNhanh: {
-      ten: 'Chi nhánh Trung tâm'
-    },
-    kenhBanHang: 'WEBSITE',
-    hinhThucThanhToan: data.pay === '0' ? 'TIEN_MAT' : 'CHUYEN_KHOAN',
-    chiTietList: products,
-    
-    tenKhachHangOld: data.name,
-    sdtKhachHangOld: '0987654321',
-    loaiHoaDonOld: data.type,
-    maNhanVienOld: 'NV001',
-    tenNhanVienOld: 'Nguyễn Thị Nhân Viên',
-    tongTienOld: data.total,
-    tienShipOld: phiVanChuyen,
-    tienGiamOld: 0,
-    thanhTienOld: thanhTien,
-    createdDateOld: new Date(data.date).getTime(),
-    updatedDateOld: new Date(data.date).getTime(),
-    statusOld: data.status === '0' ? 'CHO_XAC_NHAN' : 
-               data.status === '1' ? 'DA_XAC_NHAN' :
-               data.status === '2' ? 'CHO_GIAO' :
-               data.status === '3' ? 'DANG_GIAO' :
-               data.status === '4' ? 'HOAN_THANH' : 'DA_HUY',
-    paymentStatusOld: data.pay === '0' ? 'CHUA_THANH_TOAN' : 'DA_THANH_TOAN',
-    phuongThucThanhToanOld: data.pay === '0' ? 'TIEN_MAT' : 'CHUYEN_KHOAN',
-    diaChiGiaoHangOld: data.type !== EntityLoaiHoaDon.OFFLINE ? 'Số 10, Đường Lê Lợi, Quận 1, TP.HCM' : null,
-    itemsCount: 1,
-    
-    timelineStatusData: [
-      {
-        trangThai: '0',
-        note: 'Tạo đơn hàng',
-        thoiGian: data.date,
-        nguoiThucHien: 'Hệ thống'
-      }
-    ],
-    
-    lichSuThanhToan: data.pay === '1' ? [
-      {
-        id: 1,
-        soTien: thanhTien,
-        thoiGian: data.date,
-        loaiGiaoDich: '1',
-        tenNhanVien: 'Nguyễn Thị Nhân Viên',
-        ghiChu: 'Thanh toán'
-      }
-    ] : []
-  };
-});
 // State
 const state = reactive({
   searchQuery: '',
   searchStatus: null as string | null,
   loaiHoaDon: null as string | null,
-  sortOrder: 'asc' as 'asc' | 'desc',
+  sortOrder: 'desc' as 'asc' | 'desc',
   loading: false,
-  selectedProductId: null as string | null,
-  products: [] as any[],
+  products: [] as HoaDonItem[],
   paginationParams: { page: 1, size: 10 },
   totalItems: 0,
   startDate: null as number | null,
-  endDate: null as number | null
+  endDate: null as number | null,
+  countByStatus: {} as Record<string, number>,
+  apiError: '' as string
 })
 
 const dateRange = ref<[number, number] | null>(null)
+const activeTab = ref('ALL')
 
-// Computed: Date range mặc định là hôm nay
-const getTodayDateRange = computed(() => {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  return [today.getTime(), tomorrow.getTime() - 1]
-})
+// Computed pagination
+const pagination = computed(() => ({
+  page: state.paginationParams.page,
+  pageSize: state.paginationParams.size,
+  pageCount: Math.ceil(state.totalItems / state.paginationParams.size),
+  showSizePicker: true,
+  pageSizes: [10, 20, 30, 40, 50],
+  showQuickJumper: true,
+  prefix: ({ itemCount }: { itemCount: number }) => `Tổng: ${itemCount} hóa đơn`
+}))
 
 // Options
 const statusOptions = [
@@ -390,26 +285,14 @@ const sortOptions = [
   { label: 'Cũ nhất', value: 'asc' }
 ]
 
-const paymentStatusOptions = [
-  { label: 'Chưa thanh toán', value: 'CHUA_THANH_TOAN' },
-  { label: 'Đã thanh toán', value: 'DA_THANH_TOAN' },
-  { label: 'Thanh toán một phần', value: 'THANH_TOAN_MOT_PHAN' }
-]
-
 // Status colors
 const statusColors: Record<string, string> = {
-  CHO_XAC_NHAN: 'orange',
-  DA_XAC_NHAN: 'gold',
-  CHO_GIAO: 'blue',
-  DANG_GIAO: 'cyan',
-  HOAN_THANH: 'green',
-  DA_HUY: 'red'
-}
-
-const paymentStatusColors: Record<string, string> = {
-  CHUA_THANH_TOAN: 'red',
-  DA_THANH_TOAN: 'green',
-  THANH_TOAN_MOT_PHAN: 'orange'
+  CHO_XAC_NHAN: 'warning',
+  DA_XAC_NHAN: 'info',
+  CHO_GIAO: 'default',
+  DANG_GIAO: 'primary',
+  HOAN_THANH: 'success',
+  DA_HUY: 'error'
 }
 
 // Status labels
@@ -422,16 +305,10 @@ const statusLabels: Record<string, string> = {
   DA_HUY: 'Đã hủy'
 }
 
-const paymentStatusLabels: Record<string, string> = {
-  CHUA_THANH_TOAN: 'Chưa thanh toán',
-  DA_THANH_TOAN: 'Đã thanh toán',
-  THANH_TOAN_MOT_PHAN: 'Thanh toán 1 phần'
-}
-
 // LoaiHoaDon colors
 const loaiHoaDonColors: Record<string, string> = {
-  OFFLINE: 'green',
-  GIAO_HANG: 'blue',
+  OFFLINE: 'success',
+  GIAO_HANG: 'primary',
   ONLINE: 'purple'
 }
 
@@ -442,68 +319,9 @@ const loaiHoaDonLabels: Record<string, string> = {
   ONLINE: 'Online'
 }
 
-const phuongThucTTLabels: Record<string, string> = {
-  TIEN_MAT: 'Tiền mặt',
-  CHUYEN_KHOAN: 'Chuyển khoản',
-  VI_DIEN_TU: 'Ví điện tử'
-}
-
 // Computed
-const filteredProducts = computed(() => {
-  let result = [...fakeInvoices]
-  
-  // Sắp xếp theo ngày tạo
-  result.sort((a, b) => {
-    return state.sortOrder === 'desc' ? 
-      b.createdDateOld - a.createdDateOld : 
-      a.createdDateOld - b.createdDateOld
-  })
-  
-  // Filter by search query
-  if (state.searchQuery) {
-    const search = state.searchQuery.toLowerCase()
-    result = result.filter(p => 
-      p.maHoaDon.toLowerCase().includes(search) ||
-      p.tenKhachHangOld.toLowerCase().includes(search) ||
-      p.sdtKhachHangOld.includes(search) ||
-      p.maNhanVienOld.toLowerCase().includes(search)
-    )
-  }
-  
-  // Filter by status
-  if (state.searchStatus && state.searchStatus !== 'ALL') {
-    result = result.filter(p => p.statusOld === state.searchStatus)
-  }
-  
-  // Filter by loại hóa đơn
-  if (state.loaiHoaDon) {
-    result = result.filter(p => p.loaiHoaDonOld === state.loaiHoaDon)
-  }
-  
-  // Filter by date range
-  if (dateRange.value && dateRange.value.length === 2) {
-    const [start, end] = dateRange.value
-    result = result.filter(p => {
-      const date = p.createdDateOld
-      return date >= start && date <= end
-    })
-  } else {
-    // Mặc định hiển thị hôm nay
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const tomorrow = new Date(today)
-    tomorrow.setDate(tomorrow.getDate() + 1)
-    
-    result = result.filter(p => {
-      return p.createdDateOld >= today.getTime() && p.createdDateOld < tomorrow.getTime()
-    })
-  }
-  
-  return result
-})
-
 const tabs = computed(() => {
-  const counts = getStatusCounts()
+  const counts = state.countByStatus || {}
   return [
     { key: 'CHO_XAC_NHAN', label: 'Chờ xác nhận', count: counts.CHO_XAC_NHAN || 0 },
     { key: 'DA_XAC_NHAN', label: 'Đã xác nhận', count: counts.DA_XAC_NHAN || 0 },
@@ -514,42 +332,132 @@ const tabs = computed(() => {
   ]
 })
 
-// Functions
-const getStatusCounts = () => {
-  const counts: Record<string, number> = {}
-  fakeInvoices.forEach(invoice => {
-    counts[invoice.statusOld] = (counts[invoice.statusOld] || 0) + 1
-  })
-  return counts
-}
-
-const getTabCount = (tabKey: string) => {
-  if (tabKey === 'ALL') return fakeInvoices.length
-  const counts = getStatusCounts()
-  return counts[tabKey] || 0
-}
-
 const formatCurrency = (value: number) => {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+  return new Intl.NumberFormat('vi-VN', { 
+    style: 'currency', 
+    currency: 'VND',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value)
 }
 
 const formatDateTime = (timestamp: number) => {
-  if (!timestamp) return ''
-  const date = new Date(timestamp)
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
-  const hours = String(date.getHours()).padStart(2, '0')
-  const minutes = String(date.getMinutes()).padStart(2, '0')
-  return `${hours}:${minutes} ${day}/${month}/${year}`
+  if (!timestamp || timestamp <= 0) return 'N/A'
+  try {
+    const date = new Date(timestamp)
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    return `${hours}:${minutes} ${day}/${month}/${year}`
+  } catch {
+    return 'N/A'
+  }
 }
 
-const disablePreviousDate = (timestamp: number) => {
+const disableFutureDate = (timestamp: number) => {
   return timestamp > Date.now()
 }
 
-const handlePrintInvoice = (invoice: any) => {
-  // Mở cửa sổ mới để in
+const handleDateRangeChange = (value: [number, number] | null) => {
+  if (value && value.length === 2) {
+    state.startDate = value[0]
+    state.endDate = value[1]
+  } else {
+    state.startDate = null
+    state.endDate = null
+  }
+  state.paginationParams.page = 1
+  fetchHoaDons()
+}
+
+const handleStatusChange = (value: string | null) => {
+  state.searchStatus = value
+  state.paginationParams.page = 1
+  fetchHoaDons()
+}
+
+// Fetch data từ API
+const fetchHoaDons = async () => {
+  try {
+    state.loading = true
+    state.apiError = ''
+    
+    // Chuyển đổi params để gửi lên API
+    const params: ParamsGetHoaDon = {
+      page: Math.max(0, state.paginationParams.page - 1), // Đảm bảo không âm
+      size: Math.max(1, state.paginationParams.size),
+      sort: state.sortOrder === 'desc' ? 'createdDate,desc' : 'createdDate,asc'
+    }
+    
+    // Thêm search query
+    if (state.searchQuery && state.searchQuery.trim() !== '') {
+      params.q = state.searchQuery.trim()
+    }
+    
+    // Thêm status
+    if (state.searchStatus && state.searchStatus !== 'ALL') {
+      params.status = state.searchStatus
+    }
+    
+    // Thêm loại hóa đơn
+    if (state.loaiHoaDon) {
+      params.loaiHoaDon = state.loaiHoaDon
+    }
+    
+    // Thêm date range nếu có
+    if (state.startDate && state.endDate) {
+      params.startDate = state.startDate
+      params.endDate = state.endDate
+    }
+    
+    console.log('Fetching invoices with params:', params)
+    
+    const response = await GetHoaDons(params)
+    
+    console.log('API Response:', response)
+    
+    if (response.success) {
+      const hoaDonData = response.data
+      state.products = hoaDonData.page.content || []
+      state.totalItems = hoaDonData.page.totalElements || 0
+      state.countByStatus = hoaDonData.countByStatus || {}
+      
+      // Cập nhật page number từ API (chuyển từ zero-based về one-based)
+      const apiPageNumber = hoaDonData.page.number || 0
+      state.paginationParams.page = Math.max(1, apiPageNumber + 1)
+      
+      if (state.products.length > 0) {
+        message.success(`Đã tải ${state.products.length} hóa đơn`)
+      }
+    } else {
+      state.apiError = response.message || 'Lỗi khi tải dữ liệu hóa đơn'
+      message.error(state.apiError)
+      
+      // Reset data nếu có lỗi
+      state.products = []
+      state.totalItems = 0
+      state.countByStatus = {}
+      state.paginationParams.page = 1
+    }
+  } catch (error: any) {
+    console.error('Lỗi khi fetch hóa đơn:', error)
+    
+    state.apiError = error.message || 'Đã xảy ra lỗi khi tải dữ liệu'
+    message.error(state.apiError)
+    
+    // Reset data
+    state.products = []
+    state.totalItems = 0
+    state.countByStatus = {}
+    state.paginationParams.page = 1
+  } finally {
+    state.loading = false
+  }
+}
+
+const handlePrintInvoice = (invoice: HoaDonItem) => {
   const printWindow = window.open('', '_blank')
   if (!printWindow) return
   
@@ -557,24 +465,22 @@ const handlePrintInvoice = (invoice: any) => {
     <!DOCTYPE html>
     <html>
     <head>
-      <title>Hóa đơn ${invoice.maHoaDon}</title>
+      <title>Hóa đơn ${invoice.maHoaDon || invoice.id}</title>
       <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        .invoice-header { text-align: center; margin-bottom: 30px; }
+        .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
         .invoice-title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
         .invoice-info { margin-bottom: 20px; }
-        .info-row { display: flex; margin-bottom: 5px; }
+        .info-row { display: flex; margin-bottom: 8px; }
         .info-label { font-weight: bold; min-width: 150px; }
         .info-value { }
-        .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        .items-table th { background: #f5f5f5; padding: 10px; text-align: left; }
-        .items-table td { padding: 10px; border-bottom: 1px solid #ddd; }
-        .total-section { text-align: right; margin-top: 20px; font-size: 16px; }
+        .total-section { text-align: right; margin-top: 20px; font-size: 16px; padding-top: 20px; border-top: 1px solid #ddd; }
         .total-row { margin: 5px 0; }
         .grand-total { font-size: 18px; font-weight: bold; color: #d32f2f; }
-        .thank-you { text-align: center; margin-top: 30px; font-style: italic; }
+        .thank-you { text-align: center; margin-top: 30px; font-style: italic; color: #666; }
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
         @media print {
-          body { -webkit-print-color-adjust: exact; }
+          body { -webkit-print-color-adjust: exact; margin: 0; }
           .no-print { display: none !important; }
         }
       </style>
@@ -582,59 +488,39 @@ const handlePrintInvoice = (invoice: any) => {
     <body>
       <div class="invoice-header">
         <div class="invoice-title">HÓA ĐƠN BÁN HÀNG</div>
-        <div>Mã: ${invoice.maHoaDon}</div>
+        <div style="font-size: 18px; margin-top: 10px;">Mã: ${invoice.maHoaDon || invoice.id}</div>
       </div>
       
       <div class="invoice-info">
+        ${invoice.tenKhachHang ? `
         <div class="info-row">
           <div class="info-label">Khách hàng:</div>
-          <div class="info-value">${invoice.tenKhachHangOld} - ${invoice.sdtKhachHangOld}</div>
-        </div>
+          <div class="info-value">${invoice.tenKhachHang}${invoice.sdtKhachHang ? ' - ' + invoice.sdtKhachHang : ''}</div>
+        </div>` : ''}
         <div class="info-row">
           <div class="info-label">Ngày tạo:</div>
-          <div class="info-value">${formatDateTime(invoice.createdDateOld)}</div>
+          <div class="info-value">${formatDateTime(invoice.createdDate)}</div>
         </div>
         <div class="info-row">
           <div class="info-label">Nhân viên:</div>
-          <div class="info-value">${invoice.tenNhanVienOld} (${invoice.maNhanVienOld})</div>
+          <div class="info-value">${invoice.tenNhanVien || 'N/A'} (${invoice.maNhanVien || 'N/A'})</div>
         </div>
-        ${invoice.diaChiGiaoHangOld ? `
         <div class="info-row">
-          <div class="info-label">Địa chỉ giao:</div>
-          <div class="info-value">${invoice.diaChiGiaoHangOld}</div>
-        </div>` : ''}
-      </div>
-      
-      <table class="items-table">
-        <thead>
-          <tr>
-            <th>STT</th>
-            <th>Sản phẩm</th>
-            <th>Số lượng</th>
-            <th>Đơn giá</th>
-            <th>Thành tiền</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${Array.from({ length: invoice.itemsCount }, (_, i) => `
-            <tr>
-              <td>${i + 1}</td>
-              <td>Laptop ${String.fromCharCode(65 + i)}</td>
-              <td>${Math.floor(Math.random() * 3) + 1}</td>
-              <td>${formatCurrency(Math.floor(Math.random() * 10000000) + 5000000)}</td>
-              <td>${formatCurrency(Math.floor(Math.random() * 20000000) + 10000000)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      
-      <div class="total-section">
-        <div class="total-row">Tổng tiền hàng: ${formatCurrency(invoice.tongTienOld)}</div>
-        <div class="total-row">Phí vận chuyển: ${formatCurrency(invoice.tienShipOld)}</div>
-        <div class="total-row">Giảm giá: -${formatCurrency(invoice.tienGiamOld)}</div>
-        <div class="total-row grand-total">Thành tiền: ${formatCurrency(invoice.thanhTienOld)}</div>
-        <div class="total-row">Phương thức: ${phuongThucTTLabels[invoice.phuongThucThanhToanOld]}</div>
-        <div class="total-row">Trạng thái: ${paymentStatusLabels[invoice.paymentStatusOld]}</div>
+          <div class="info-label">Tổng tiền:</div>
+          <div class="info-value" style="font-weight: bold; color: #d32f2f;">${formatCurrency(invoice.tongTien)}</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Loại hóa đơn:</div>
+          <div class="info-value">
+            ${loaiHoaDonLabels[invoice.loaiHoaDon] || invoice.loaiHoaDon}
+          </div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">Trạng thái:</div>
+          <div class="info-value">
+            ${statusLabels[invoice.status] || invoice.status}
+          </div>
+        </div>
       </div>
       
       <div class="thank-you">
@@ -642,18 +528,21 @@ const handlePrintInvoice = (invoice: any) => {
         <p>Hẹn gặp lại.</p>
       </div>
       
-      <div class="no-print" style="margin-top: 20px; text-align: center;">
-        <button onclick="window.print()" style="padding: 10px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer;">
+      <div class="no-print" style="margin-top: 30px; text-align: center;">
+        <button onclick="window.print()" style="padding: 10px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
           In hóa đơn
         </button>
-        <button onclick="window.close()" style="padding: 10px 20px; margin-left: 10px; background: #f5222d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+        <button onclick="window.close()" style="padding: 10px 20px; background: #f5222d; color: white; border: none; border-radius: 4px; cursor: pointer;">
           Đóng
         </button>
       </div>
       
       <script>
         window.onload = function() {
-          window.print();
+          // Tự động in sau 500ms
+          setTimeout(() => {
+            window.print();
+          }, 500);
         }
       <\/script>
     </body>
@@ -665,46 +554,49 @@ const handlePrintInvoice = (invoice: any) => {
   message.success('Đang mở cửa sổ in hóa đơn...')
 }
 
-
-const handleViewClick = (invoice: any) => {
-  const invoiceId = invoice.maHoaDon || invoice.id || 'HD001'
+const handleViewClick = (invoice: HoaDonItem) => {
+  const invoiceId = invoice.id
   
-  // Sử dụng router.push để điều hướng trong cùng ứng dụng
   router.push({
-    name: 'orders_detail', // Hoặc path: `/orders/detail/${invoiceId}`
+    name: 'orders_detail',
     params: { id: invoiceId }
   })
 }
 
-const updateDisplayedProducts = () => {
-  const startIndex = (state.paginationParams.page - 1) * state.paginationParams.size
-  const endIndex = startIndex + state.paginationParams.size
-  state.products = filteredProducts.value.slice(startIndex, endIndex)
-  state.totalItems = filteredProducts.value.length
-}
-
 const exportToExcel = () => {
   try {
-    const exportData = filteredProducts.value.map(invoice => ({
-      'Mã hóa đơn': invoice.maHoaDon,
-      'Khách hàng': invoice.tenKhachHangOld,
-      'SĐT': invoice.sdtKhachHangOld,
-      'Loại': loaiHoaDonLabels[invoice.loaiHoaDonOld],
-      'Nhân viên': invoice.tenNhanVienOld,
-      'Mã NV': invoice.maNhanVienOld,
-      'Tổng tiền': invoice.tongTienOld,
-      'Phí vận chuyển': invoice.tienShipOld,
-      'Giảm giá': invoice.tienGiamOld,
-      'Thành tiền': invoice.thanhTienOld,
-      'Ngày tạo': formatDateTime(invoice.createdDateOld),
-      'Trạng thái': statusLabels[invoice.statusOld],
-      'TT thanh toán': paymentStatusLabels[invoice.paymentStatusOld],
-      'Phương thức TT': phuongThucTTLabels[invoice.phuongThucThanhToanOld]
+    if (state.products.length === 0) {
+      message.warning('Không có dữ liệu để xuất Excel')
+      return
+    }
+    
+    const exportData = state.products.map(invoice => ({
+      'Mã hóa đơn': invoice.maHoaDon || 'N/A',
+      'Khách hàng': invoice.tenKhachHang || 'N/A',
+      'SĐT': invoice.sdtKhachHang || 'N/A',
+      'Loại': loaiHoaDonLabels[invoice.loaiHoaDon] || invoice.loaiHoaDon,
+      'Nhân viên': invoice.tenNhanVien || 'N/A',
+      'Mã NV': invoice.maNhanVien || 'N/A',
+      'Tổng tiền': invoice.tongTien,
+      'Ngày tạo': formatDateTime(invoice.createdDate),
+      'Trạng thái': statusLabels[invoice.status] || invoice.status
     }))
     
     const worksheet = XLSX.utils.json_to_sheet(exportData)
     const workbook = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Hóa đơn')
+    
+    // Định dạng cột tiền
+    const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1')
+    for (let C = 6; C <= 6; ++C) { // Cột tổng tiền (G)
+      for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+        const cell_address = { c: C, r: R }
+        const cell_ref = XLSX.utils.encode_cell(cell_address)
+        if (worksheet[cell_ref]) {
+          worksheet[cell_ref].z = '#,##0'
+        }
+      }
+    }
     
     // Tạo tên file với ngày hiện tại
     const today = new Date()
@@ -720,20 +612,21 @@ const exportToExcel = () => {
 
 // Event handlers
 const handleTabChange = (key: string) => {
+  activeTab.value = key
   state.searchStatus = key === 'ALL' ? null : key
   state.paginationParams.page = 1
-  updateDisplayedProducts()
+  fetchHoaDons()
 }
 
 const handlePageChange = (page: number) => {
-  state.paginationParams.page = page
-  updateDisplayedProducts()
+  state.paginationParams.page = Math.max(1, page)
+  fetchHoaDons()
 }
 
 const handlePageSizeChange = (pageSize: number) => {
-  state.paginationParams.size = pageSize
+  state.paginationParams.size = Math.max(1, pageSize)
   state.paginationParams.page = 1
-  updateDisplayedProducts()
+  fetchHoaDons()
 }
 
 const resetFilters = () => {
@@ -741,19 +634,24 @@ const resetFilters = () => {
   state.searchStatus = null
   state.loaiHoaDon = null
   state.sortOrder = 'desc'
-  dateRange.value = getTodayDateRange.value as [number, number]
+  dateRange.value = null
+  state.startDate = null
+  state.endDate = null
+  activeTab.value = 'ALL'
   state.paginationParams.page = 1
-  updateDisplayedProducts()
+  state.paginationParams.size = 10
+  fetchHoaDons()
   message.success('Đã đặt lại bộ lọc')
 }
 
 // Columns definition
-const createColumns = (): DataTableColumns => [
+const createColumns = (): DataTableColumns<HoaDonItem> => [
   {
     title: 'STT',
     key: 'stt',
-    width: 60,
+    width: 70,
     align: 'center',
+    fixed: 'left',
     render: (_, index) => h('span', 
       { style: 'font-weight: 500;' }, 
       index + 1 + (state.paginationParams.page - 1) * state.paginationParams.size
@@ -762,149 +660,165 @@ const createColumns = (): DataTableColumns => [
   {
     title: 'Mã HĐ',
     key: 'maHoaDon',
-    width: 120,
+    width: 130,
     ellipsis: true,
-    sorter: (a, b) => a.maHoaDon.localeCompare(a.maHoaDon),
+    sorter: (a, b) => (a.maHoaDon || '').localeCompare(b.maHoaDon || ''),
     render: (row) => h(NText, { 
       type: 'primary', 
       strong: true,
       style: 'cursor: pointer; text-decoration: underline;',
       onClick: () => handleViewClick(row)
-    }, { default: () => row.maHoaDon })
+    }, { default: () => row.maHoaDon || 'N/A' })
   },
   {
     title: 'Khách hàng',
     key: 'tenKhachHang',
     width: 180,
-    sorter: (a, b) => a.tenKhachHangOld.localeCompare(b.tenKhachHangOld),
+    sorter: (a, b) => (a.tenKhachHang || '').localeCompare(b.tenKhachHang || ''),
     render: (row) => h('div', [
       h('div', { 
         style: 'font-weight: 500; cursor: pointer;',
         onClick: () => handleViewClick(row)
-      }, row.tenKhachHangOld),
-      h('div', { style: 'font-size: 12px; color: #666;' }, row.sdtKhachHangOld)
+      }, row.tenKhachHang || 'Khách vãng lai'),
+      row.sdtKhachHang && h('div', { 
+        style: 'font-size: 12px; color: #666;' 
+      }, row.sdtKhachHang)
     ])
   },
   {
     title: 'Nhân viên',
     key: 'nhanVien',
-    width: 150,
-    sorter: (a, b) => a.tenNhanVienOld.localeCompare(b.tenNhanVienOld),
-    render: (row) => h('div', { onClick: () => handleViewClick(row), style: 'cursor: pointer;' }, [
+    width: 160,
+    sorter: (a, b) => (a.tenNhanVien || '').localeCompare(b.tenNhanVien || ''),
+    render: (row) => h('div', { 
+      onClick: () => handleViewClick(row), 
+      style: 'cursor: pointer;' 
+    }, [
       h('div', { 
         style: 'font-weight: 500; font-size: 13px;',
-        title: row.tenNhanVienOld
-      }, row.tenNhanVienOld),
+        title: row.tenNhanVien || 'N/A'
+      }, row.tenNhanVien || 'N/A'),
       h('div', { 
-        style: 'font-size: 11px; color: #1890ff; background: #e6f7ff; padding: 1px 4px; border-radius: 3px; display: inline-block; margin-top: 2px;',
+        style: 'font-size: 11px; color: #1890ff; background: #e6f7ff; padding: 1px 6px; border-radius: 3px; display: inline-block; margin-top: 2px;',
         title: 'Mã nhân viên'
-      }, row.maNhanVienOld)
+      }, row.maNhanVien || 'N/A')
     ])
   },
   {
     title: 'Loại',
     key: 'loaiHD',
-    width: 100,
+    width: 110,
     align: 'center',
-    sorter: (a, b) => a.loaiHoaDonOld.localeCompare(b.loaiHoaDonOld),
+    sorter: (a, b) => a.loaiHoaDon.localeCompare(b.loaiHoaDon),
     render: (row) => h(NTag, {
       type: 'primary',
       bordered: false,
-      color: loaiHoaDonColors[row.loaiHoaDonOld],
-      size: 'small'
-    }, { default: () => loaiHoaDonLabels[row.loaiHoaDonOld] })
+      color: loaiHoaDonColors[row.loaiHoaDon] || 'default',
+      size: 'small',
+      style: 'min-width: 80px;'
+    }, { default: () => loaiHoaDonLabels[row.loaiHoaDon] || row.loaiHoaDon })
   },
   {
     title: 'Ngày tạo',
     key: 'ngayTao',
-    width: 140,
-    sorter: (a, b) => a.createdDateOld - b.createdDateOld,
-    render: (row) => h('div', { onClick: () => handleViewClick(row), style: 'cursor: pointer;' }, [
-      h('div', { style: 'font-weight: 500; font-size: 12px;' }, formatDateTime(row.createdDateOld)),
-      h('div', { style: 'font-size: 11px; color: #999;' }, 'Cập nhật: ' + formatDateTime(row.updatedDateOld))
+    width: 150,
+    sorter: (a, b) => a.createdDate - b.createdDate,
+    render: (row) => h('div', { 
+      onClick: () => handleViewClick(row), 
+      style: 'cursor: pointer;' 
+    }, [
+      h('div', { 
+        style: 'font-weight: 500; font-size: 12px;' 
+      }, formatDateTime(row.createdDate))
     ])
   },
   {
     title: 'Tổng tiền',
     key: 'tongTien',
-    width: 130,
+    width: 150,
     align: 'right',
-    sorter: (a, b) => a.tongTienOld - b.tongTienOld,
-    render: (row) => h('div', { onClick: () => handleViewClick(row), style: 'cursor: pointer;' }, [
-      h('div', { style: 'font-weight: 600; color: #d32f2f;' }, formatCurrency(row.thanhTienOld)),
+    sorter: (a, b) => a.tongTien - b.tongTien,
+    render: (row) => h('div', { 
+      onClick: () => handleViewClick(row), 
+      style: 'cursor: pointer; text-align: right;' 
+    }, [
       h('div', { 
-        style: 'font-size: 11px; color: #999; text-align: right;',
-        title: `Tiền hàng: ${formatCurrency(row.tongTienOld)} | Ship: ${formatCurrency(row.tienShipOld)} | Giảm: ${formatCurrency(row.tienGiamOld)}`
-      }, `${formatCurrency(row.tongTienOld)}`)
+        style: 'font-weight: 600; color: #d32f2f;' 
+      }, formatCurrency(row.tongTien))
     ])
   },
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 120,
+    width: 140,
     align: 'center',
-    sorter: (a, b) => a.statusOld.localeCompare(b.statusOld),
-    render: (row) => h('div', { onClick: () => handleViewClick(row), style: 'cursor: pointer;' }, [
+    sorter: (a, b) => a.status.localeCompare(b.status),
+    render: (row) => h('div', { 
+      onClick: () => handleViewClick(row), 
+      style: 'cursor: pointer; text-align: center;' 
+    }, [
       h(NTag, {
         type: 'primary',
         bordered: false,
-        color: statusColors[row.statusOld],
+        color: statusColors[row.status] || 'default',
         size: 'small',
-        style: 'margin-bottom: 3px;'
-      }, { default: () => statusLabels[row.statusOld] }),
-      h(NTag, {
-        type: 'primary',
-        bordered: false,
-        color: paymentStatusColors[row.paymentStatusOld],
-        size: 'small'
-      }, { default: () => paymentStatusLabels[row.paymentStatusOld] })
+        style: 'min-width: 100px;'
+      }, { default: () => statusLabels[row.status] || row.status })
     ])
   },
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 120,
+    width: 140,
     align: 'center',
-    render: (row) => h(NSpace, { justify: 'center', size: 'small' }, [
+    fixed: 'right',
+    render: (row) => h(NSpace, { 
+      justify: 'center', 
+      size: 'small' 
+    }, [
       h(NTooltip, {}, {
         trigger: () => h(NButton, {
           size: 'small',
           type: 'primary',
-          onClick: () => handleViewClick(row)
+          onClick: () => handleViewClick(row),
+          ghost: true
         }, {
           icon: () => h(NIcon, {}, () => h(EyeIcon))
         }),
         default: () => 'Xem chi tiết'
       }),
       
-      row.paymentStatusOld === 'DA_THANH_TOAN' || row.paymentStatusOld === 'THANH_TOAN_MOT_PHAN' ? 
-        h(NTooltip, {}, {
-          trigger: () => h(NButton, {
-            size: 'small',
-            type: 'info',
-            onClick: () => handlePrintInvoice(row)
-          }, {
-            icon: () => h(NIcon, {}, () => h(PrinterIcon))
-          }),
-          default: () => 'In hóa đơn'
-        }) : null
+      h(NTooltip, {}, {
+        trigger: () => h(NButton, {
+          size: 'small',
+          type: 'info',
+          onClick: () => handlePrintInvoice(row),
+          ghost: true
+        }, {
+          icon: () => h(NIcon, {}, () => h(PrinterIcon))
+        }),
+        default: () => 'In hóa đơn'
+      })
     ])
   }
 ]
 
 const columns = createColumns()
 
-// Watch for changes
-watch([() => state.searchQuery, () => state.searchStatus, () => state.loaiHoaDon, () => state.sortOrder, dateRange], () => {
+// Watch for filter changes
+watch([
+  () => state.searchQuery,
+  () => state.loaiHoaDon,
+  () => state.sortOrder
+], () => {
+  // Reset về trang 1 khi thay đổi filter
   state.paginationParams.page = 1
-  updateDisplayedProducts()
-})
+  fetchHoaDons()
+}, { deep: true })
 
 // Initialize
 onMounted(() => {
-  // Set default date range to today
-  dateRange.value = getTodayDateRange.value as [number, number]
-  updateDisplayedProducts()
+  fetchHoaDons()
 })
 </script>
 
