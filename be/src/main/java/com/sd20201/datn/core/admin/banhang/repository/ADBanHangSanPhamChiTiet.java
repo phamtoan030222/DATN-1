@@ -42,6 +42,7 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     AND (:#{#request.idProduct} IS NULL OR p.product.id = :#{#request.idProduct})
     AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
+    AND p.status = 0
     ORDER BY p.createdDate DESC
     """, countQuery = """
     SELECT COUNT(p.id)
@@ -60,6 +61,7 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     AND (:#{#request.idProduct} IS NULL OR p.product.id = :#{#request.idProduct})
     AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
+        AND p.status = 0
     """)
     Page<ADPDProductDetailResponse> getProductDetails(Pageable pageable, @Param("request") ADPDProductDetailRequest request);
 
