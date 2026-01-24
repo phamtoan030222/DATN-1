@@ -28,12 +28,11 @@ export const routes: RouteRecordRaw[] = [
 
       // 3. CHI TIẾT SẢN PHẨM (Dùng khi bấm vào 1 sản phẩm cụ thể)
       {
-        path: 'product/:id',
+        path: 'product-detail/:id',
         name: 'ProductDetail',
         component: () => import('@/views/client/user/product/ProductDetailView.vue'),
         meta: { title: 'Chi tiết sản phẩm' },
       },
-
       // 4. GIỚI THIỆU (Khớp với href: '/gioi-thieu')
       {
         path: 'gioi-thieu',

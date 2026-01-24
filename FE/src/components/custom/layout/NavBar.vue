@@ -21,7 +21,7 @@ import {
 } from '@vicons/ionicons5'
 
 const router = useRouter()
-const route = useRoute() // <--- Khai báo route để lấy URL hiện tại
+const route = useRoute() 
 
 // --- DATA ---
 const menuOptions: MenuOption[] = [

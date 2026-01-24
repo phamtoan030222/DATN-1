@@ -31,4 +31,5 @@ public interface ADPDProductDetailResponse extends IsIdentify, IsEntityStatus {
 
     Integer getPercentage();
 
+    String getProductName();
 }
