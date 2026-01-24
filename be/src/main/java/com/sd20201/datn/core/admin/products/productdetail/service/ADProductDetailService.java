@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.service;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADAddSerialNumberRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
@@ -51,4 +52,6 @@ public interface ADProductDetailService {
     ResponseObject<?> saveImage(MultipartFile file);
 
     ResponseObject<?> checkExistVariant(ADPDExistVariantRequest request);
+
+    ResponseObject<?> addImeiToExistProductDetail(ADAddSerialNumberRequest request);
 }

@@ -38,10 +38,9 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                 , p.ram.name as ram
                 , p.price as price
                 , p.status as status
-                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0) as quantity
+                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
                 , p.urlImage as urlImage
     FROM ProductDetail p
-        LEFT join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -70,9 +69,8 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
     ORDER BY p.createdDate DESC
     """, countQuery = """
     SELECT
-        COUNT(1)
+        COUNT(p.id)
     FROM ProductDetail p
-        LEFT join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -114,11 +112,10 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , p.ram.name as ram
                         , p.price as price
                         , p.status as status
-                        , COUNT(i.id) as quantity
+                        , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
                         , p.urlImage as urlImage
                         , MAX(d.percentage) as percentage
             FROM ProductDetail p
-                LEFT join IMEI i on p.id = i.productDetail.id
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
                 LEFT JOIN Discount d on pdd.discount.id = d.id
             where
@@ -151,7 +148,6 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             SELECT
                 COUNT (p.id)
             FROM ProductDetail p
-                LEFT join IMEI i on p.id = i.productDetail.id
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
                 LEFT JOIN Discount d on pdd.discount.id = d.id
             where

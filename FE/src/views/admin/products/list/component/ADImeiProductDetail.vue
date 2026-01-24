@@ -63,8 +63,9 @@ import { QrcodeStream } from 'vue-qrcode-reader';
 
 const props = defineProps<{
     isOpen: boolean,
-    index: number | undefined,
-    idColorImei: string | undefined,
+    index?: number | undefined,
+    idColorImei?: string | undefined,
+    idProductDetail?: string,
 }>()
 
 const emit = defineEmits(['success', 'close', 'update:imei'])
@@ -114,7 +115,6 @@ const clickAddIMEIHandler = async () => {
 
     imeis?.forEach(ele => {
         let isValid = true;
-        let note = undefined;
 
         if (!validateSerialNumber(ele)) {
             isValid = false;
@@ -151,7 +151,11 @@ const handleClickOK = () => {
     const imeis = data.map(ele => ele.imei)
     resetField()
     data.splice(0, data.length)
-    emit('update:imei', imeis, props.idColorImei, props.index)
+    if (props.idProductDetail) {
+        emit('update:imei', { idProductDetail: props.idProductDetail, imeis: imeis })
+    } else {
+        emit('update:imei', imeis, props.idColorImei, props.index)
+    }
 }
 
 const columns: DataTableColumns<IMEITableType> = [
@@ -170,17 +174,17 @@ const columns: DataTableColumns<IMEITableType> = [
     //     title: 'Ghi chú', key: 'note', width: 150, align: 'center',
     //     render: (data: IMEITableType) => h('span', { innerText: data.note })
     // },
-    {
-        title: 'Thao tác', key: 'status', width: 50, align: 'center',
-        render: (_, index) => h(NButton, { quaternary: true, onClick: () => { 
-            data.splice(index, 1)
-            imei.value = data.map(ele => ele.imei).join(', ')
-         } },
-            {
-                default: () => h(Icon, { icon: 'tabler:trash' })
-            }
-        )
-    },
+    // {
+    //     title: 'Thao tác', key: 'status', width: 50, align: 'center',
+    //     render: (_, index) => h(NButton, { quaternary: true, onClick: () => { 
+    //         data.splice(index, 1)
+    //         imei.value = data.map(ele => ele.imei).join(', ')
+    //      } },
+    //         {
+    //             default: () => h(Icon, { icon: 'tabler:trash' })
+    //         }
+    //     )
+    // },
 ]
 
 const downloadIMEITemplate = async () => {

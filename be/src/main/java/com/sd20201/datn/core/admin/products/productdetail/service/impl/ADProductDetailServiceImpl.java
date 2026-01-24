@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.service.impl;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADAddSerialNumberRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
@@ -536,5 +537,20 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
                         .toList(),
                 "OKE"
         );
+    }
+
+    @Override
+    public ResponseObject<?> addImeiToExistProductDetail(ADAddSerialNumberRequest request) {
+        Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getIdProductDetail());
+        if (productDetailOptional.isEmpty()) return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
+
+        ProductDetail productDetail = productDetailOptional.get();
+
+        try {
+            addImeiToProductDetail(productDetail, request.getSerialNumbers());
+        } catch (Exception e) {
+            return ResponseObject.errorForward(e.getMessage(), HttpStatus.CONFLICT);
+        }
+        return ResponseObject.successForward(null, "Save serial success");
     }
 }

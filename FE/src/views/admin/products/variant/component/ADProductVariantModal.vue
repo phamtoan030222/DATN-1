@@ -115,21 +115,6 @@ const columnsImei: DataTableColumns<ADPDImeiResponse> = [
     align: 'center',
     render: (data: ADPDImeiResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (_) => { handleChangeStatusImei(data.id as string) } }),
   },
-  // {
-  //     title: 'Thao tác', key: 'action', width: 100, fixed: 'right',
-  //     render: (data: ADPDImeiResponse) => {
-  //         return h(NSpace,
-  //             [
-  //                 h(NButton, {
-  //                     quaternary: true, size: 'small', circle: true,
-  //                     onClick: () => clickOpenModal(data.id, true)
-  //                 },
-  //                     h(Icon, { icon: 'carbon:edit' })
-  //                 ),
-  //             ]
-  //         )
-  //     }
-  // },
 ]
 
 async function handleChangeStatusImei(idImei: string) {
