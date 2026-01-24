@@ -509,7 +509,7 @@ onMounted(() => fetchData())
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div class="lg:col-span-3">
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Tìm kiếm chung
+            Tìm kiếm chung 
           </div>
           <NInput
             v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable
