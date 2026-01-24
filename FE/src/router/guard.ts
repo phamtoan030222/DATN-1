@@ -38,7 +38,8 @@ export function setupRouterGuard(router: Router) {
       const redirect = to.name === 'not-found' ? undefined : to.fullPath
       next({ path: '/login-admin', query: { redirect } })
       return
-    } else if (to.meta.roles && !to.meta.roles.includes(userInfo.rolesCodes[0])) {
+    }
+    else if (to.meta.roles && !to.meta.roles.includes(userInfo.rolesCodes[0])) {
       next({ name: 'forbidden' })
       return
     }

@@ -3,7 +3,7 @@ import { API_ADMIN_PRODUCT_DETAIL } from '@/constants/url'
 import request from '@/service/request'
 import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import type { AxiosResponse } from 'axios'
-import { SelectMixedOption } from 'naive-ui/es/select/src/interface'
+import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 export type ADProductDetailRequest = PaginationParams & {
   readonly idProduct?: string | null
@@ -49,8 +49,9 @@ export interface ADProductDetailResponse {
   readonly price: number
   readonly description: string
   readonly status: string
-  readonly urlImage: string;
-  readonly percentage?: number;
+  readonly urlImage: string
+  readonly percentage?: number
+  readonly productName: string
 }
 
 export interface ADProductDetailDetailResponse {
@@ -64,6 +65,12 @@ export interface ADProductDetailDetailResponse {
   readonly idHardDrive: string
   readonly idMaterial: string
   readonly price: number
+  readonly percentage?: number
+  readonly cpuName?: string
+  readonly ramName?: string
+  readonly hardDriveName?: string
+  readonly screenName?: string
+  readonly colorName?: string
 }
 
 export type ADPRPropertiesComboboxResponse = Readonly<SelectMixedOption> & {
@@ -169,19 +176,19 @@ export async function modifyProductDetail(data: ADProductDetailCreateUpdateReque
 
 export async function createProductVariant(
   idProduct: string,
-  variant: ADProductDetailCreateUpdateRequest
+  variant: ADProductDetailCreateUpdateRequest,
 ): Promise<DefaultResponse<string>> {
   try {
     const formData = new FormData()
 
     formData.append(
       'variant',
-      new Blob([JSON.stringify(variant)], { type: 'application/json' })
+      new Blob([JSON.stringify(variant)], { type: 'application/json' }),
     )
 
     formData.append(
       'idProduct',
-      new Blob([idProduct], { type: 'application/json' })
+      new Blob([idProduct], { type: 'application/json' }),
     )
 
     const res = (await request({
@@ -194,15 +201,15 @@ export async function createProductVariant(
     })) as AxiosResponse<DefaultResponse<string>>
 
     return res.data
-  } catch (error: any) {
-    const backendMessage =
-      error?.response?.data?.message ||
-      'Có lỗi xảy ra'
+  }
+  catch (error: any) {
+    const backendMessage
+      = error?.response?.data?.message
+        || 'Có lỗi xảy ra'
 
     throw new Error(backendMessage)
   }
 }
-
 
 export async function changeProductDetailStatus(id: string) {
   const res = (await request({
@@ -305,9 +312,13 @@ export async function saveImage(file: any) {
 }
 
 export async function checkExistVariant(productId: string, listPropertiesVariant: Array<{
-  idColor: string, idRAM: string, idHardDrive: string, idMaterial: string, idCPU: string, idGPU: string
+  idColor: string
+  idRAM: string
+  idHardDrive: string
+  idMaterial: string
+  idCPU: string
+  idGPU: string
 }>) {
-
   const res = (await request({
     url: `${API_ADMIN_PRODUCT_DETAIL}/exist-variant`,
     method: 'POST',

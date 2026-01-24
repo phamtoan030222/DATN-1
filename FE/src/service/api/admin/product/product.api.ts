@@ -2,7 +2,7 @@ import { API_ADMIN_PRODUCTS } from '@/constants/url'
 import request from '@/service/request'
 import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import type { AxiosResponse } from 'axios'
-import { SelectMixedOption } from 'naive-ui/es/select/src/interface';
+import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 export type ADProductRequest = PaginationParams & {
   idBattery: string
