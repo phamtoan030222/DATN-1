@@ -1,4 +1,5 @@
 // src/service/api/admin/hoadon.api.ts
+import { PaginationResponse } from "@/service/api.common"
 import request from "@/service/request"
 import { DefaultResponse, PaginationParams } from "@/typings/api/api.common"
 import { AxiosResponse } from "axios"
@@ -141,4 +142,30 @@ export const GetHoaDons = async (params: ParamsGetHoaDon = {}): Promise<DefaultR
     
     return errorResponse
   }
+}
+
+
+export interface ParamsGetHoaDonCT extends PaginationParams {
+  maHoaDon?: string | ''
+}
+
+export const getHoaDonChiTiets = async (params: ParamsGetHoaDonCT) => {
+  const page = params.page !== undefined ? Math.max(1, params.page) : 1
+  const size = params.size !== undefined ? Math.max(1, params.size) : 10
+
+  const apiParams = {
+    ...params,   // giữ lại các param khác (q, status, ...)
+    page,
+    size,
+  }
+
+  const res = (await request({
+    url: `${API_HOA_DON}/all`,
+    method: 'GET',
+    params: apiParams   // ✅ PHẢI là apiParams
+  })) as AxiosResponse<
+    DefaultResponse<PaginationResponse<Array<HoaDonResponse>>>
+  >
+
+  return res.data
 }

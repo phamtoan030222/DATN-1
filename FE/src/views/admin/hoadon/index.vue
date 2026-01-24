@@ -69,49 +69,8 @@
               />
             </n-form-item>
           </n-gi>
-          
-          <n-gi :span="4">
-            <n-form-item label="Sắp xếp">
-              <n-select
-                v-model:value="state.sortOrder"
-                :options="sortOptions"
-                placeholder="Mới nhất"
-                @update:value="fetchHoaDons"
-              />
-            </n-form-item>
-          </n-gi>
-          
-          <n-gi :span="2">
-            <n-form-item label=" ">
-              <n-button
-                @click="resetFilters"
-                type="default"
-                block
-                :loading="state.loading"
-              >
-                <template #icon>
-                  <n-icon><RefreshIcon /></n-icon>
-                </template>
-                Đặt lại
-              </n-button>
-            </n-form-item>
-          </n-gi>
-          
-          <n-gi :span="2">
-            <n-form-item label=" ">
-              <n-button
-                @click="fetchHoaDons"
-                type="primary"
-                block
-                :loading="state.loading"
-              >
-                <template #icon>
-                  <n-icon><SearchIcon /></n-icon>
-                </template>
-                Tìm kiếm
-              </n-button>
-            </n-form-item>
-          </n-gi>
+
+
         </n-grid>
       </div>
     </n-card>
@@ -555,7 +514,7 @@ const handlePrintInvoice = (invoice: HoaDonItem) => {
 }
 
 const handleViewClick = (invoice: HoaDonItem) => {
-  const invoiceId = invoice.id
+  const invoiceId = invoice.maHoaDon
   
   router.push({
     name: 'orders_detail',

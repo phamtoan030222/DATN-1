@@ -1,254 +1,456 @@
 <template>
-  <div class="container mx-auto p-6 space-y-6">
-    <div class="breadcrumb-section">
+  <div class="container mx-auto px-4 py-6 space-y-6">
+    <!-- Breadcrumb -->
+    <div class="mb-6">
       <BreadcrumbDefault 
         :pageTitle="'Chi tiết hóa đơn'" 
         :routes="[
           { path: '/admin/hoa-don', name: 'Quản lý hóa đơn' },
-          { path: '', name: 'Chi tiết hóa đơn' },
+          { path: '', name: `Hóa đơn #${invoiceCode}` },
         ]" 
       />
     </div>
-    
-    <!-- Header thông tin chính -->
-    <div class="flex justify-between items-center mb-6">
+
+    <!-- Header -->
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-800">Hóa đơn #{{ hoaDon?.maHoaDon }}</h1>
-        <div class="flex items-center gap-3 mt-2">
-          <span class="px-3 py-1 rounded-full text-sm font-medium" 
-                :class="getStatusClass(hoaDon?.trangThaiHoaDon)">
-            {{ getStatusText(hoaDon?.trangThaiHoaDon) }}
-          </span>
-          <span class="px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-            Bán tại quầy
-          </span>
-          <span class="px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
-            {{ getPaymentMethodText(hoaDon?.phuongThucThanhToan) }}
-          </span>
-          <span class="text-gray-500 text-sm">
-            {{ formatDateTime(hoaDon?.ngayTao) }}
-          </span>
+        <h1 class="text-2xl lg:text-3xl font-bold text-gray-900">Hóa đơn #{{ invoiceCode }}</h1>
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <NTag :type="getStatusTagType(hoaDonData?.trangThaiHoaDon)" size="medium" round>
+            <template #icon>
+              <n-icon :component="getStatusIcon(hoaDonData?.trangThaiHoaDon)" />
+            </template>
+            {{ getStatusText(hoaDonData?.trangThaiHoaDon) }}
+          </NTag>
+          
+          <NTag type="info" size="small" round>
+            {{ getInvoiceTypeText(hoaDonData?.loaiHoaDon) }}
+          </NTag>
+          
+          <NTag type="default" size="small">
+            {{ formatDateTime(hoaDonData?.ngayTao) }}
+          </NTag>
         </div>
       </div>
       
-      <div class="flex gap-2">
-        <n-button type="primary" @click="handlePrintPDF" :loading="printLoading">
+      <div class="flex flex-wrap gap-2">
+        <NButton type="primary" @click="handlePrintPDF" :loading="printLoading">
           <template #icon>
-            <n-icon>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"
-                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </n-icon>
+            <n-icon><PrintOutline /></n-icon>
           </template>
           In hóa đơn
-        </n-button>
+        </NButton>
         
-        <n-button type="primary" ghost @click="handleBack">
+        <NButton type="default" @click="handleBack">
           <template #icon>
-            <n-icon>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                <path d="M19 12H5M12 19l-7-7 7-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </n-icon>
+            <n-icon><ArrowBackOutline /></n-icon>
           </template>
           Quay lại
-        </n-button>
+        </NButton>
       </div>
     </div>
 
-    <!-- Grid thông tin -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <!-- Thông tin khách hàng -->
-      <n-card title="THÔNG TIN KHÁCH HÀNG" bordered>
-        <div class="space-y-4">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" class="text-blue-600">
-                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </div>
-            <div>
-              <h3 class="font-semibold text-lg">{{ hoaDon?.tenKhachHang || 'Khách lẻ' }}</h3>
-              <p class="text-gray-500">{{ hoaDon?.sdtKH || 'Chưa có số điện thoại' }}</p>
-            </div>
-          </div>
-          
-          <div class="space-y-2">
-            <div class="flex items-center gap-2 text-gray-600">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="text-gray-400">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <path d="M22 6l-10 7L2 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span>{{ hoaDon?.email || 'Chưa có email' }}</span>
+    <!-- Progress Timeline -->
+    <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-semibold text-gray-900">Tiến trình đơn hàng</h3>
+          <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.ngayTao) }}</span>
+        </div>
+      </template>
+
+      <div class="relative">
+        <!-- Progress bar -->
+        <div class="absolute top-5 left-0 right-0 h-1.5 bg-gray-200 rounded-full z-0"></div>
+        <div class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10" 
+             :style="{ width: progressWidth }"></div>
+        
+        <!-- Steps -->
+        <div class="relative flex justify-between z-20">
+          <div v-for="(step, index) in timelineSteps" 
+               :key="step.key"
+               class="flex flex-col items-center w-1/5"
+               :class="{ 'cursor-pointer': isStepSelectable(step.key) }"
+               @click="handleStepClick(step.key)">
+            
+            <!-- Step circle -->
+            <div class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110"
+                 :class="getStepCircleClass(step.key)">
+              <n-icon size="18" :class="getStepIconClass(step.key)">
+                <component :is="step.icon" />
+              </n-icon>
+              
+              <!-- Completed check -->
+              <div v-if="isStepCompleted(step.key)" 
+                   class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
+                <n-icon size="14" color="white">
+                  <CheckmarkCircleOutline />
+                </n-icon>
+              </div>
             </div>
             
-            <div class="flex items-start gap-2 text-gray-600">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" class="text-gray-400 mt-1">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                <circle cx="12" cy="10" r="3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="flex-1">Mua tại cửa hàng</span>
+            <!-- Step label -->
+            <div class="text-center">
+              <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
+                {{ step.title }}
+              </p>
+              <p class="text-xs text-gray-500">
+                {{ getStepTime(step.key) || 'Đang chờ' }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Current status info -->
+      <div class="mt-8 pt-6 border-t border-gray-100">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center">
+              <n-icon size="24" color="#3b82f6">
+                <component :is="getCurrentStepIcon()" />
+              </n-icon>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Trạng thái hiện tại</p>
+              <p class="font-semibold" :class="getCurrentStatusTextClass()">
+                {{ getStatusText(hoaDonData?.trangThaiHoaDon) }}
+              </p>
             </div>
           </div>
           
-          <!-- Thông tin nhân viên -->
-          <div class="pt-4 border-t">
-            <div class="flex items-center gap-3">
-              <img :src="hoaDon?.nhanVien?.avatar || 'https://i.pravatar.cc/150?img=32'" 
-                   alt="Nhân viên" 
-                   class="w-10 h-10 rounded-full border">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center">
+              <n-icon size="24" color="#10b981">
+                <CashOutline />
+              </n-icon>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Tổng tiền</p>
+              <p class="font-semibold text-red-600">
+                {{ formatCurrency(hoaDonData?.thanhTien) }}
+              </p>
+            </div>
+          </div>
+          
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center">
+              <n-icon size="24" color="#8b5cf6">
+                <CubeOutline />
+              </n-icon>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Số lượng sản phẩm</p>
+              <p class="font-semibold text-gray-900">
+                {{ invoiceItems?.length || 0 }} sản phẩm
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </NCard>
+
+    <!-- Main Information Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <!-- Customer Information -->
+      <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <n-icon size="20" color="#4b5563"><PersonOutline /></n-icon>
+            <h3 class="text-lg font-semibold text-gray-900">Thông tin khách hàng</h3>
+          </div>
+        </template>
+        
+        <div class="space-y-4">
+          <div class="flex items-start gap-3">
+            <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <n-icon size="24" color="#3b82f6"><PersonCircleOutline /></n-icon>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h4 class="font-semibold text-gray-900 truncate">
+                {{ hoaDonData?.tenKhachHang2 || 'Khách lẻ' }}
+              </h4>
+              <div class="flex flex-wrap gap-2 mt-2">
+                <span class="inline-flex items-center gap-1 text-sm text-gray-600">
+                  <n-icon size="14"><CallOutline /></n-icon>
+                  {{ hoaDonData?.sdtKH2 || 'Chưa cập nhật' }}
+                </span>
+                <span class="inline-flex items-center gap-1 text-sm text-gray-600">
+                  <n-icon size="14"><MailOutline /></n-icon>
+                  {{ hoaDonData?.email2 || 'Chưa có email' }}
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="space-y-3 pt-4 border-t border-gray-100">
+            <div>
+              <p class="text-sm text-gray-600 mb-1">Địa chỉ:</p>
+              <p class="text-sm font-medium text-gray-900 bg-gray-50 p-3 rounded">
+                {{ formatAddress(hoaDonData?.diaChi2) || 'Không có địa chỉ' }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </NCard>
+
+      <!-- Order Summary -->
+      <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <n-icon size="20" color="#4b5563"><ReceiptOutline /></n-icon>
+            <h3 class="text-lg font-semibold text-gray-900">Tóm tắt đơn hàng</h3>
+          </div>
+        </template>
+        
+        <div class="space-y-3">
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-gray-50 p-3 rounded-lg">
+              <p class="text-xs text-gray-500">Tổng sản phẩm</p>
+              <p class="text-lg font-bold text-gray-900">{{ invoiceItems?.length || 0 }}</p>
+            </div>
+            <div class="bg-gray-50 p-3 rounded-lg">
+              <p class="text-xs text-gray-500">Tổng số lượng</p>
+              <p class="text-lg font-bold text-gray-900">{{ totalQuantity }}</p>
+            </div>
+          </div>
+          
+          <div class="space-y-2 pt-4">
+            <div class="flex justify-between items-center py-2 border-b border-gray-100">
+              <span class="text-gray-600">Tổng tiền hàng:</span>
+              <span class="font-semibold">{{ formatCurrency(totalAmount) }}</span>
+            </div>
+            
+            <div v-if="hoaDonData?.phiVanChuyen && hoaDonData.phiVanChuyen > 0" 
+                 class="flex justify-between items-center py-2 border-b border-gray-100">
+              <span class="text-gray-600">Phí vận chuyển:</span>
+              <span class="font-semibold">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+            </div>
+            
+            <div v-if="hoaDonData?.giaTriVoucher && hoaDonData.giaTriVoucher > 0" 
+                 class="flex justify-between items-center py-2 border-b border-gray-100">
+              <span class="text-gray-600">Giảm giá voucher:</span>
+              <span class="font-semibold text-green-600">-{{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
+            </div>
+            
+            <div class="flex justify-between items-center pt-4">
+              <span class="text-lg font-bold text-gray-900">TỔNG CỘNG:</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+            </div>
+          </div>
+          
+          <!-- Voucher Information -->
+          <div v-if="hoaDonData?.maVoucher" class="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
+            <div class="flex items-center gap-2 mb-1">
+              <n-icon size="16" color="#10b981"><PricetagOutline /></n-icon>
+              <span class="text-sm font-medium text-green-800">Voucher áp dụng</span>
+            </div>
+            <p class="text-green-700 font-medium">{{ hoaDonData.maVoucher }} - {{ hoaDonData.tenVoucher }}</p>
+            <p class="text-xs text-green-600 mt-1">Giảm: {{ formatCurrency(hoaDonData.giaTriVoucher) }}</p>
+          </div>
+        </div>
+      </NCard>
+
+      <!-- Payment Information -->
+      <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <n-icon size="20" color="#4b5563"><CardOutline /></n-icon>
+            <h3 class="text-lg font-semibold text-gray-900">Thông tin thanh toán</h3>
+          </div>
+        </template>
+        
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                <n-icon size="20" color="#3b82f6">
+                  <CashOutline />
+                </n-icon>
+              </div>
               <div>
-                <p class="text-sm text-gray-500">Nhân viên bán hàng</p>
-                <p class="font-medium">{{ hoaDon?.nhanVien?.ten }} ({{ hoaDon?.nhanVien?.ma }})</p>
+                <p class="font-medium">Tiền mặt</p>
+                <p class="text-xs text-gray-500">Phương thức</p>
+              </div>
+            </div>
+            <NTag type="success" size="small">
+              Đã thanh toán
+            </NTag>
+          </div>
+          
+          <div class="space-y-3 pt-4 border-t border-gray-100">
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600">Tổng tiền thanh toán:</span>
+              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+            </div>
+            
+            <div v-if="hoaDonData?.duNo && hoaDonData.duNo > 0" class="flex justify-between items-center">
+              <span class="text-gray-600">Còn nợ:</span>
+              <span class="font-bold text-orange-600">{{ formatCurrency(hoaDonData.duNo) }}</span>
+            </div>
+            
+            <div v-if="hoaDonData?.hoanPhi && hoaDonData.hoanPhi > 0" class="flex justify-between items-center">
+              <span class="text-gray-600">Hoàn phí:</span>
+              <span class="font-bold text-blue-600">{{ formatCurrency(hoaDonData.hoanPhi) }}</span>
+            </div>
+            
+            <div class="pt-4">
+              <p class="text-sm text-gray-600 mb-2">Thời gian thanh toán:</p>
+              <div class="flex items-center gap-2 text-sm">
+                <n-icon size="16" color="#6b7280"><TimeOutline /></n-icon>
+                <span>{{ formatDateTime(hoaDonData?.ngayTao) }}</span>
               </div>
             </div>
           </div>
         </div>
-      </n-card>
-
-      <!-- Thông tin thanh toán -->
-      <n-card title="THÔNG TIN THANH TOÁN" bordered>
-        <div class="space-y-3">
-          <div class="flex justify-between">
-            <span class="text-gray-600">Tổng tiền hàng:</span>
-            <span class="font-medium">{{ formatCurrency(hoaDon?.tongTienHang) }}</span>
-          </div>
-          
-          <div v-if="hoaDon?.giamGiaSanPham && hoaDon.giamGiaSanPham > 0" class="flex justify-between">
-            <span class="text-gray-600">Giảm giá sản phẩm:</span>
-            <span class="font-medium text-green-600">-{{ formatCurrency(hoaDon.giamGiaSanPham) }}</span>
-          </div>
-          
-          <div v-if="hoaDon?.giamGiaHoaDon && hoaDon.giamGiaHoaDon > 0" class="flex justify-between">
-            <span class="text-gray-600">Giảm giá hóa đơn:</span>
-            <span class="font-medium text-green-600">-{{ formatCurrency(hoaDon.giamGiaHoaDon) }}</span>
-          </div>
-          
-          <div class="flex justify-between border-t pt-3 mt-2">
-            <span class="text-lg font-semibold">Thành tiền:</span>
-            <span class="text-lg font-bold text-red-600">{{ formatCurrency(hoaDon?.thanhTien) }}</span>
-          </div>
-          
-          <div class="flex justify-between">
-            <span class="text-gray-600">Đã thanh toán:</span>
-            <span class="font-medium text-green-600">{{ formatCurrency(hoaDon?.daThanhToan || 0) }}</span>
-          </div>
-          
-          <div v-if="hoaDon?.conNo && hoaDon.conNo > 0" class="flex justify-between">
-            <span class="text-gray-600">Còn nợ:</span>
-            <span class="font-medium text-orange-600">{{ formatCurrency(hoaDon.conNo) }}</span>
-          </div>
-          
-          <div class="mt-4 p-3 bg-gray-50 rounded space-y-2">
-            <div class="flex items-center justify-between">
-              <span class="font-medium">Phương thức thanh toán:</span>
-              <span class="text-blue-600">{{ getPaymentMethodText(hoaDon?.phuongThucThanhToan) }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="font-medium">Trạng thái thanh toán:</span>
-              <span :class="getPaymentStatusClass(hoaDon?.daThanhToan, hoaDon?.thanhTien)">
-                {{ getPaymentStatusText(hoaDon?.daThanhToan, hoaDon?.thanhTien) }}
-              </span>
-            </div>
-          </div>
-        </div>
-      </n-card>
+      </NCard>
     </div>
 
-    <!-- Danh sách sản phẩm LAPTOP -->
-    <n-card title="DANH SÁCH LAPTOP" bordered>
-      <n-data-table
-        :columns="productColumns"
-        :data="hoaDon?.chiTietList || []"
-        :pagination="false"
-        :max-height="400"
-        striped
-      >
-        <template #empty>
-          <div class="text-center py-8 text-gray-500">
-            Không có sản phẩm trong hóa đơn này
+    <!-- Products Table -->
+    <NCard class="shadow-sm border-0 rounded-xl overflow-hidden">
+      <template #header>
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <n-icon size="20" color="#4b5563"><CubeOutline /></n-icon>
+            <h3 class="text-lg font-semibold text-gray-900">Danh sách sản phẩm</h3>
           </div>
-        </template>
-      </n-data-table>
+          <span class="text-sm text-gray-500">{{ invoiceItems?.length || 0 }} sản phẩm</span>
+        </div>
+      </template>
       
-      <!-- Tổng kết -->
-      <div class="border-t mt-6 pt-6">
-        <div class="max-w-md ml-auto space-y-2">
-          <div class="flex justify-between">
-            <span class="text-gray-600">Tổng tiền hàng:</span>
-            <span class="font-medium">{{ formatCurrency(hoaDon?.tongTienHang) }}</span>
-          </div>
-          <div v-if="hoaDon?.giamGiaSanPham && hoaDon.giamGiaSanPham > 0" class="flex justify-between">
-            <span class="text-gray-600">Giảm giá sản phẩm:</span>
-            <span class="font-medium text-green-600">-{{ formatCurrency(hoaDon.giamGiaSanPham) }}</span>
-          </div>
-          <div v-if="hoaDon?.giamGiaHoaDon && hoaDon.giamGiaHoaDon > 0" class="flex justify-between">
-            <span class="text-gray-600">Giảm giá hóa đơn:</span>
-            <span class="font-medium text-green-600">-{{ formatCurrency(hoaDon.giamGiaHoaDon) }}</span>
-          </div>
-          <div class="flex justify-between border-t pt-2">
-            <span class="text-lg font-semibold">Tổng cộng:</span>
-            <span class="text-lg font-bold text-red-600">{{ formatCurrency(hoaDon?.thanhTien) }}</span>
+      <div class="overflow-x-auto">
+        <n-data-table
+          :columns="productColumns"
+          :data="invoiceItems"
+          :pagination="false"
+          striped
+          class="min-w-full"
+        />
+      </div>
+      
+      <!-- Summary -->
+      <div class="border-t border-gray-200">
+        <div class="p-6">
+          <div class="max-w-md ml-auto space-y-3">
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600">Tạm tính:</span>
+              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+            </div>
+            
+            <div v-if="hoaDonData?.phiVanChuyen && hoaDonData.phiVanChuyen > 0" 
+                 class="flex justify-between items-center">
+              <span class="text-gray-600">Phí vận chuyển:</span>
+              <span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+            </div>
+            
+            <div v-if="hoaDonData?.giaTriVoucher && hoaDonData.giaTriVoucher > 0" 
+                 class="flex justify-between items-center">
+              <span class="text-gray-600">Giảm giá voucher:</span>
+              <span class="font-medium text-green-600">-{{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
+            </div>
+            
+            <div class="flex justify-between items-center pt-3 border-t border-gray-200">
+              <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+            </div>
           </div>
         </div>
       </div>
-    </n-card>
+    </NCard>
 
-
-    <!-- Ghi chú -->
-    <n-card title="GHI CHÚ" bordered>
-      <div class="space-y-4">
-        <div v-if="hoaDon?.ghiChuKhachHang">
-          <h4 class="font-semibold text-gray-700 mb-2">Ghi chú của khách hàng:</h4>
-          <p class="text-gray-600 bg-blue-50 p-3 rounded">{{ hoaDon.ghiChuKhachHang }}</p>
-        </div>
-        
-        <div v-if="hoaDon?.ghiChuNoiBo">
-          <h4 class="font-semibold text-gray-700 mb-2">Ghi chú nội bộ:</h4>
-          <p class="text-gray-600 bg-gray-50 p-3 rounded">{{ hoaDon.ghiChuNoiBo }}</p>
-        </div>
-        
-        <div v-if="!hoaDon?.ghiChuKhachHang && !hoaDon?.ghiChuNoiBo">
-          <p class="text-gray-500 text-center">Không có ghi chú</p>
-        </div>
-      </div>
-    </n-card>
-
-    <!-- Nút hành động -->
-    <div class="flex justify-end gap-3 mt-6">
-      <n-button type="success" @click="handleComplete" :loading="isLoading">
-        <template #icon>
-          <n-icon>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </n-icon>
+    <!-- Notes & Actions -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- System Information -->
+      <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <n-icon size="20" color="#4b5563"><InformationCircleOutline /></n-icon>
+            <h3 class="text-lg font-semibold text-gray-900">Thông tin hệ thống</h3>
+          </div>
         </template>
-        Hoàn thành đơn
-      </n-button>
-      
-      <n-button v-if="hoaDon?.trangThaiHoaDon !== '5'" type="error" ghost @click="openCancelModal">
-        <template #icon>
-          <n-icon>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </n-icon>
+        
+        <div class="space-y-3 text-sm">
+          <div class="flex justify-between items-center py-1">
+            <span class="text-gray-600">Mã hóa đơn:</span>
+            <span class="font-medium font-mono">{{ hoaDonData?.maHoaDon }}</span>
+          </div>
+          
+          <div class="flex justify-between items-center py-1">
+            <span class="text-gray-600">Loại hóa đơn:</span>
+            <NTag size="small" :type="getInvoiceTypeTagType(hoaDonData?.loaiHoaDon)">
+              {{ getInvoiceTypeText(hoaDonData?.loaiHoaDon) }}
+            </NTag>
+          </div>
+          
+          <div class="flex justify-between items-center py-1">
+            <span class="text-gray-600">Ngày tạo:</span>
+            <span class="font-medium">{{ formatDateTime(hoaDonData?.ngayTao) }}</span>
+          </div>
+          
+          <div class="flex justify-between items-center py-1">
+            <span class="text-gray-600">Trạng thái:</span>
+            <NTag :type="getStatusTagType(hoaDonData?.trangThaiHoaDon)" size="small">
+              {{ getStatusText(hoaDonData?.trangThaiHoaDon) }}
+            </NTag>
+          </div>
+          
+          <div class="flex justify-between items-center py-1">
+            <span class="text-gray-600">Phí vận chuyển:</span>
+            <span class="font-medium">{{ formatCurrency(hoaDonData?.phiVanChuyen || 0) }}</span>
+          </div>
+          
+          <div v-if="hoaDonData?.thoiGian" class="flex justify-between items-center py-1">
+            <span class="text-gray-600">Thời gian xử lý:</span>
+            <span class="font-medium">{{ hoaDonData.thoiGian }}</span>
+          </div>
+        </div>
+      </NCard>
+
+      <!-- Actions -->
+      <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
+        <template #header>
+          <div class="flex items-center gap-2">
+            <n-icon size="20" color="#4b5563"><SettingsOutline /></n-icon>
+            <h3 class="text-lg font-semibold text-gray-900">Hành động</h3>
+          </div>
         </template>
-        Hủy đơn hàng
-      </n-button>
-      
-      <n-button type="default" @click="handleBack">
-        Đóng
-      </n-button>
+        
+        <div class="space-y-3">
+          <NButton type="success" block @click="handleComplete" :disabled="isCompleted" :loading="isLoading">
+            <template #icon>
+              <n-icon><CheckmarkDoneOutline /></n-icon>
+            </template>
+            Hoàn thành đơn hàng
+          </NButton>
+          
+          <NButton type="warning" block ghost @click="handleUpdateStatus">
+            <template #icon>
+              <n-icon><RefreshOutline /></n-icon>
+            </template>
+            Cập nhật trạng thái
+          </NButton>
+          
+          <NButton type="error" block ghost @click="openCancelModal" :disabled="isCancelled">
+            <template #icon>
+              <n-icon><CloseCircleOutline /></n-icon>
+            </template>
+            Hủy đơn hàng
+          </NButton>
+          
+          <NButton type="default" block @click="handleEditInvoice">
+            <template #icon>
+              <n-icon><CreateOutline /></n-icon>
+            </template>
+            Chỉnh sửa hóa đơn
+          </NButton>
+        </div>
+      </NCard>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, h } from 'vue'
+import { ref, onMounted, computed, h } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import {
   NButton,
@@ -261,26 +463,93 @@ import {
   type DataTableColumns
 } from 'naive-ui'
 import BreadcrumbDefault from '@/layouts/components/header/Breadcrumb.vue'
+import { getHoaDonChiTiets } from '@/service/api/admin/hoadon.api'
+import type { HoaDonResponse, ParamsGetHoaDonCT } from '@/service/api/admin/hoadon.api'
+
+// Icons từ Naive UI/Ionicons
+import {
+  TimeOutline,
+  CheckmarkCircleOutline,
+  CartOutline,
+  CheckmarkDoneOutline,
+  CloseCircleOutline,
+  CashOutline,
+  CardOutline,
+  PersonOutline,
+  PersonCircleOutline,
+  CallOutline,
+  MailOutline,
+  ReceiptOutline,
+  CubeOutline,
+  PricetagOutline,
+  SettingsOutline,
+  PrintOutline,
+  ArrowBackOutline,
+  CreateOutline,
+  RefreshOutline,
+  InformationCircleOutline
+} from '@vicons/ionicons5'
 
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 
 // State
-const hoaDon = ref<any>(null)
+const invoiceItems = ref<HoaDonResponse[]>([])
 const printLoading = ref(false)
 const isLoading = ref(false)
+
+// Computed values
+const invoiceCode = computed(() => route.params.id as string || 'N/A')
+
+// Lấy dữ liệu tổng hợp từ danh sách sản phẩm
+const hoaDonData = computed(() => {
+  if (!invoiceItems.value || invoiceItems.value.length === 0) return null
+  // Lấy thông tin từ item đầu tiên (tất cả đều giống nhau về thông tin hóa đơn)
+  return invoiceItems.value[0]
+})
+
+const totalQuantity = computed(() => {
+  return invoiceItems.value?.reduce((sum, item) => sum + (item.soLuong || 1), 0) || 0
+})
+
+const totalAmount = computed(() => {
+  return invoiceItems.value?.reduce((sum, item) => sum + (item.tongTien || 0), 0) || 0
+})
+
+const progressWidth = computed(() => {
+  const currentStep = parseInt(hoaDonData.value?.trangThaiHoaDon || '0')
+  return `${(currentStep / 4) * 100}%` // 4 là số bước tối đa
+})
+
+const isCompleted = computed(() => hoaDonData.value?.trangThaiHoaDon === '4')
+const isCancelled = computed(() => hoaDonData.value?.trangThaiHoaDon === '5')
+
+// Timeline steps
+const timelineSteps = [
+  { key: '0', title: 'Chờ xác nhận', icon: TimeOutline, color: 'yellow' },
+  { key: '1', title: 'Đã xác nhận', icon: CheckmarkCircleOutline, color: 'blue' },
+  { key: '2', title: 'Đang xử lý', icon: CartOutline, color: 'purple' },
+  { key: '3', title: 'Đang giao', icon: CheckmarkCircleOutline, color: 'info' },
+  { key: '4', title: 'Hoàn thành', icon: CheckmarkDoneOutline, color: 'green' },
+  { key: '5', title: 'Đã hủy', icon: CloseCircleOutline, color: 'red' }
+]
 
 // Helper functions
 const formatCurrency = (value: number | undefined | null): string => {
   if (value === undefined || value === null) return "0 ₫"
-  return value.toLocaleString("vi-VN", { style: "currency", currency: "VND" })
+  return new Intl.NumberFormat('vi-VN', { 
+    style: 'currency', 
+    currency: 'VND',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(value)
 }
 
-const formatDateTime = (dateString: string | undefined): string => {
-  if (!dateString) return ""
+const formatDateTime = (timestamp: number | undefined): string => {
+  if (!timestamp) return "N/A"
   try {
-    const date = new Date(dateString)
+    const date = new Date(timestamp)
     return date.toLocaleString("vi-VN", {
       hour: "2-digit",
       minute: "2-digit",
@@ -289,18 +558,14 @@ const formatDateTime = (dateString: string | undefined): string => {
       year: "numeric",
     })
   } catch {
-    return ""
+    return "N/A"
   }
 }
 
-const formatDate = (dateString: string | undefined): string => {
-  if (!dateString) return ""
-  try {
-    const date = new Date(dateString)
-    return date.toLocaleDateString("vi-VN")
-  } catch {
-    return ""
-  }
+const formatAddress = (address: string | undefined): string => {
+  if (!address) return ''
+  // Format lại địa chỉ từ format API
+  return address.replace(/,/g, ', ').replace(/_/g, ' ')
 }
 
 const getStatusText = (status: string | undefined): string => {
@@ -308,293 +573,178 @@ const getStatusText = (status: string | undefined): string => {
     '0': 'Chờ xác nhận',
     '1': 'Đã xác nhận',
     '2': 'Đang xử lý',
-    '3': 'Hoàn thành',
-    '4': 'Đã giao',
+    '3': 'Đang giao',
+    '4': 'Hoàn thành',
     '5': 'Đã hủy'
   }
-  return statusMap[status || '3'] || 'Hoàn thành'
+  return statusMap[status || '0'] || 'Không xác định'
 }
 
-const getStatusClass = (status: string | undefined): string => {
+const getStatusIcon = (status: string | undefined): any => {
+  const iconMap: Record<string, any> = {
+    '0': TimeOutline,
+    '1': CheckmarkCircleOutline,
+    '2': CartOutline,
+    '3': CheckmarkCircleOutline,
+    '4': CheckmarkDoneOutline,
+    '5': CloseCircleOutline
+  }
+  return iconMap[status || '0'] || TimeOutline
+}
+
+const getStatusTagType = (status: string | undefined): string => {
+  const typeMap: Record<string, string> = {
+    '0': 'warning',
+    '1': 'info',
+    '2': 'default',
+    '3': 'info',
+    '4': 'success',
+    '5': 'error'
+  }
+  return typeMap[status || '0'] || 'default'
+}
+
+const getInvoiceTypeText = (type: string | undefined): string => {
+  const typeMap: Record<string, string> = {
+    '0': 'Tại quầy',
+    '1': 'Giao hàng',
+    '2': 'Online'
+  }
+  return typeMap[type || '0'] || 'Không xác định'
+}
+
+const getInvoiceTypeTagType = (type: string | undefined): string => {
+  const typeMap: Record<string, string> = {
+    '0': 'success',
+    '1': 'primary',
+    '2': 'info'
+  }
+  return typeMap[type || '0'] || 'default'
+}
+
+const getCurrentStatusTextClass = (): string => {
+  const status = hoaDonData.value?.trangThaiHoaDon || '0'
   const classMap: Record<string, string> = {
-    '0': 'bg-yellow-100 text-yellow-800',
-    '1': 'bg-blue-100 text-blue-800',
-    '2': 'bg-purple-100 text-purple-800',
-    '3': 'bg-green-100 text-green-800',
-    '4': 'bg-green-100 text-green-800',
-    '5': 'bg-red-100 text-red-800'
+    '0': 'text-yellow-600',
+    '1': 'text-blue-600',
+    '2': 'text-purple-600',
+    '3': 'text-blue-600',
+    '4': 'text-green-600',
+    '5': 'text-red-600'
   }
-  return classMap[status || '3'] || 'bg-green-100 text-green-800'
+  return classMap[status] || 'text-gray-600'
 }
 
-const getPaymentMethodText = (method: string | number | undefined): string => {
-  if (method === undefined || method === null) return 'Tiền mặt'
-  const methods: Record<string | number, string> = {
-    '0': 'Tiền mặt',
-    '1': 'Chuyển khoản',
-    '2': 'Thẻ tín dụng',
-    '3': 'QR Code',
-    'TIEN_MAT': 'Tiền mặt',
-    'CHUYEN_KHOAN': 'Chuyển khoản',
-    'THE_TIN_DUNG': 'Thẻ tín dụng',
-    'QR_CODE': 'QR Code'
+const getCurrentStepIcon = (): any => {
+  return getStatusIcon(hoaDonData.value?.trangThaiHoaDon)
+}
+
+// Timeline functions
+const isStepCompleted = (stepKey: string): boolean => {
+  const currentStep = parseInt(hoaDonData.value?.trangThaiHoaDon || '0')
+  const stepIndex = parseInt(stepKey)
+  return stepIndex < currentStep && stepKey !== '5'
+}
+
+const isStepCurrent = (stepKey: string): boolean => {
+  return hoaDonData.value?.trangThaiHoaDon === stepKey
+}
+
+const getStepCircleClass = (stepKey: string): string => {
+  if (isStepCurrent(stepKey)) {
+    return 'border-blue-500 border-4'
+  } else if (isStepCompleted(stepKey)) {
+    return 'border-green-500 border-2'
+  } else {
+    return 'border-gray-300 border-2'
   }
-  return methods[method] || 'Tiền mặt'
 }
 
-const getPaymentStatusText = (paid: number = 0, total: number = 0): string => {
-  if (paid === 0) return 'Chưa thanh toán'
-  if (paid < total) return 'Thanh toán một phần'
-  if (paid === total) return 'Đã thanh toán'
-  return 'Thanh toán thừa'
-}
-
-const getPaymentStatusClass = (paid: number = 0, total: number = 0): string => {
-  if (paid === 0) return 'text-red-600 font-medium'
-  if (paid < total) return 'text-orange-600 font-medium'
-  if (paid === total) return 'text-green-600 font-medium'
-  return 'text-blue-600 font-medium'
-}
-
-const getWarrantyEndDate = (): string => {
-  if (!hoaDon.value?.ngayTao) return ''
-  const date = new Date(hoaDon.value.ngayTao)
-  date.setFullYear(date.getFullYear() + 1) // Thêm 1 năm bảo hành
-  return date.toISOString()
-}
-
-// Tạo dữ liệu fake cho laptop
-const createFakeLaptopData = (invoiceId: string) => {
-  console.log('Creating fake laptop invoice data:', invoiceId)
-  
-  const laptopBrands = ['Dell', 'HP', 'Lenovo', 'Asus', 'Acer', 'MSI', 'Apple']
-  const laptopModels = [
-    'XPS 15', 'Spectre x360', 'ThinkPad X1', 'ZenBook Pro', 'Swift 3', 'Prestige 14', 'MacBook Pro'
-  ]
-  const processors = ['Intel Core i5', 'Intel Core i7', 'Intel Core i9', 'AMD Ryzen 5', 'AMD Ryzen 7', 'Apple M1', 'Apple M2']
-  const rams = ['8GB', '16GB', '32GB', '64GB']
-  const storages = ['256GB SSD', '512GB SSD', '1TB SSD', '2TB SSD']
-  const graphics = ['Intel Iris Xe', 'NVIDIA RTX 3050', 'NVIDIA RTX 3060', 'NVIDIA RTX 4070', 'AMD Radeon', 'Apple GPU 10-core']
-  
-  // Chọn ngẫu nhiên
-  const brand = laptopBrands[Math.floor(Math.random() * laptopBrands.length)]
-  const model = laptopModels[Math.floor(Math.random() * laptopModels.length)]
-  const processor = processors[Math.floor(Math.random() * processors.length)]
-  const ram = rams[Math.floor(Math.random() * rams.length)]
-  const storage = storages[Math.floor(Math.random() * storages.length)]
-  const graphic = graphics[Math.floor(Math.random() * graphics.length)]
-  
-  // Giá dựa trên cấu hình
-  let basePrice = 15000000
-  if (processor.includes('i7') || processor.includes('Ryzen 7')) basePrice += 5000000
-  if (processor.includes('i9') || processor.includes('M2')) basePrice += 10000000
-  if (ram === '16GB') basePrice += 2000000
-  if (ram === '32GB') basePrice += 5000000
-  if (storage.includes('512GB')) basePrice += 2000000
-  if (storage.includes('1TB')) basePrice += 4000000
-  if (graphic.includes('RTX')) basePrice += 7000000
-  
-  const finalPrice = basePrice + Math.floor(Math.random() * 2000000)
-  
-  const fakeData = {
-    id: invoiceId.replace('HD', ''),
-    maHoaDon: invoiceId,
-    maDonHang: `DH${invoiceId.replace('HD', '').padStart(3, '0')}`,
-    tenKhachHang: ['Nguyễn Văn An', 'Trần Thị Bình', 'Lê Văn Cường', 'Phạm Thị Dung', 'Hoàng Văn Em'][Math.floor(Math.random() * 5)],
-    sdtKH: `09${Math.floor(Math.random() * 90000000 + 10000000)}`,
-    email: `customer${Math.floor(Math.random() * 1000)}@gmail.com`,
-    diaChi: 'Mua tại cửa hàng',
-    loaiHoaDon: "OFFLINE",
-    trangThaiHoaDon: "3", // Hoàn thành (bán tại quầy)
-    phuongThucThanhToan: Math.random() > 0.5 ? "0" : "1",
-    ngayTao: new Date(Date.now() - Math.floor(Math.random() * 86400000)).toISOString(), // Ngẫu nhiên trong 24h qua
-    ngayCapNhat: new Date().toISOString(),
-    phiVanChuyen: 0,
-    maPGG: Math.random() > 0.7 ? `KM${Math.floor(Math.random() * 1000)}` : null,
-    tenPGG: Math.random() > 0.7 ? ['Giảm giá sinh viên', 'Khuyến mãi tháng', 'Giảm giá đặc biệt'][Math.floor(Math.random() * 3)] : null,
-    giaTriPGG: Math.random() > 0.7 ? Math.floor(finalPrice * 0.1) : 0,
-    thanhTien: finalPrice - (Math.random() > 0.7 ? Math.floor(finalPrice * 0.1) : 0),
-    tongTienHang: finalPrice,
-    giamGiaSanPham: 0,
-    giamGiaHoaDon: Math.random() > 0.7 ? Math.floor(finalPrice * 0.1) : 0,
-    daThanhToan: finalPrice - (Math.random() > 0.7 ? Math.floor(finalPrice * 0.1) : 0),
-    conNo: 0,
-    ghiChuKhachHang: Math.random() > 0.8 ? 'Cần cài đặt thêm phần mềm văn phòng' : null,
-    ghiChuNoiBo: Math.random() > 0.8 ? 'Khách mua nhiều lần' : null,
-    nhanVien: {
-      ten: ['Nguyễn Thị Hồng', 'Trần Văn Nam', 'Lê Thị Lan', 'Phạm Văn Đức'][Math.floor(Math.random() * 4)],
-      ma: `NV${Math.floor(Math.random() * 10) + 1}`.padStart(3, '0'),
-      avatar: `https://i.pravatar.cc/150?img=${Math.floor(Math.random() * 70)}`
-    },
-    chiNhanh: {
-      ten: 'Cửa hàng Laptop TechZone'
-    },
-    chiTietList: [
-      {
-        maHoaDonChiTiet: `${invoiceId}-001`,
-        maHoaDon: invoiceId,
-        tenSanPham: `Laptop ${brand} ${model}`,
-        thuongHieu: brand,
-        mauSac: ['Đen', 'Bạc', 'Xám', 'Trắng'][Math.floor(Math.random() * 4)],
-        size: '15.6 inch',
-        cauHinh: `${processor}, ${ram}, ${storage}, ${graphic}`,
-        giaBan: finalPrice,
-        soLuong: 1,
-        thanhTien: finalPrice - (Math.random() > 0.7 ? Math.floor(finalPrice * 0.1) : 0),
-        anhSanPham: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop'
-      }
-    ],
-    phuKienKemTheo: [
-      { ten: 'Balo laptop', gia: 0, loai: 'Tặng kèm' },
-      { ten: 'Chuột không dây', gia: 0, loai: 'Tặng kèm' },
-      { ten: 'Tấm lót chuột', gia: 0, loai: 'Tặng kèm' }
-    ]
+const getStepIconClass = (stepKey: string): string => {
+  if (isStepCurrent(stepKey)) {
+    return 'text-blue-500'
+  } else if (isStepCompleted(stepKey)) {
+    return 'text-green-500'
+  } else {
+    return 'text-gray-400'
   }
-  
-  return fakeData
+}
+
+const getStepTextClass = (stepKey: string): string => {
+  if (isStepCurrent(stepKey)) {
+    return 'text-blue-600'
+  } else if (isStepCompleted(stepKey)) {
+    return 'text-green-600'
+  } else {
+    return 'text-gray-500'
+  }
+}
+
+const getStepTime = (stepKey: string): string | null => {
+  if (stepKey === '0') return formatDateTime(hoaDonData.value?.ngayTao)
+  return null
+}
+
+const isStepSelectable = (stepKey: string): boolean => {
+  if (isCancelled.value) return false
+  if (isCompleted.value) return false
+  return false
 }
 
 // Actions
-const handlePrintPDF = () => {
-  printLoading.value = true
-  setTimeout(() => {
-    message.success("Đã tạo file PDF hóa đơn")
-    printLoading.value = false
-    
-    // Tạo nội dung HTML để in
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Hóa đơn ${hoaDon.value.maHoaDon}</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-          .invoice-header { text-align: center; margin-bottom: 30px; }
-          .invoice-title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-          .invoice-info { margin-bottom: 20px; }
-          .info-row { display: flex; margin-bottom: 5px; }
-          .info-label { font-weight: bold; min-width: 150px; }
-          .items-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-          .items-table th { background: #f5f5f5; padding: 10px; text-align: left; }
-          .items-table td { padding: 10px; border-bottom: 1px solid #ddd; }
-          .total-section { text-align: right; margin-top: 20px; font-size: 16px; }
-          .total-row { margin: 5px 0; }
-          .grand-total { font-size: 18px; font-weight: bold; color: #d32f2f; }
-          .thank-you { text-align: center; margin-top: 30px; font-style: italic; }
-        </style>
-      </head>
-      <body>
-        <div class="invoice-header">
-          <div class="invoice-title">HÓA ĐƠN BÁN LAPTOP</div>
-          <div>Mã: ${hoaDon.value.maHoaDon}</div>
-        </div>
-        
-        <div class="invoice-info">
-          <div class="info-row">
-            <div class="info-label">Khách hàng:</div>
-            <div class="info-value">${hoaDon.value.tenKhachHang}</div>
-          </div>
-          <div class="info-row">
-            <div class="info-label">Số điện thoại:</div>
-            <div class="info-value">${hoaDon.value.sdtKH}</div>
-          </div>
-          <div class="info-row">
-            <div class="info-label">Ngày mua:</div>
-            <div class="info-value">${formatDateTime(hoaDon.value.ngayTao)}</div>
-          </div>
-          <div class="info-row">
-            <div class="info-label">Nhân viên:</div>
-            <div class="info-value">${hoaDon.value.nhanVien.ten}</div>
-          </div>
-        </div>
-        
-        <table class="items-table">
-          <thead>
-            <tr>
-              <th>STT</th>
-              <th>Sản phẩm</th>
-              <th>Thông số</th>
-              <th>Số lượng</th>
-              <th>Đơn giá</th>
-              <th>Thành tiền</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${hoaDon.value.chiTietList.map((item, index) => `
-              <tr>
-                <td>${index + 1}</td>
-                <td>${item.tenSanPham}</td>
-                <td>${item.cauHinh || '15.6 inch'}</td>
-                <td>${item.soLuong}</td>
-                <td>${formatCurrency(item.giaBan)}</td>
-                <td>${formatCurrency(item.thanhTien)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        
-        <div class="total-section">
-          <div class="total-row">Tổng tiền hàng: ${formatCurrency(hoaDon.value.tongTienHang)}</div>
-          ${hoaDon.value.giamGiaHoaDon ? `<div class="total-row">Giảm giá: -${formatCurrency(hoaDon.value.giamGiaHoaDon)}</div>` : ''}
-          <div class="total-row grand-total">Thành tiền: ${formatCurrency(hoaDon.value.thanhTien)}</div>
-          <div class="total-row">Phương thức thanh toán: ${getPaymentMethodText(hoaDon.value.phuongThucThanhToan)}</div>
-        </div>
-        
-        <div class="thank-you">
-          <p>Cảm ơn quý khách đã mua hàng tại TechZone!</p>
-          <p>Hẹn gặp lại.</p>
-        </div>
-      </body>
-      </html>
-    `
-    
-    const printWindow = window.open('', '_blank')
-    if (printWindow) {
-      printWindow.document.write(printContent)
-      printWindow.document.close()
-      printWindow.print()
-    }
-  }, 1000)
-}
-
-const handleBack = () => {
-  router.push('/orders/list')
-}
-
-const handleComplete = () => {
-  if (hoaDon.value.trangThaiHoaDon === '3') {
-    message.success('Đơn hàng đã hoàn thành')
+const handleStepClick = (stepKey: string): void => {
+  if (!isStepSelectable(stepKey)) {
     return
   }
-  
-  isLoading.value = true
-  setTimeout(() => {
-    hoaDon.value.trangThaiHoaDon = '3'
-    hoaDon.value.ngayCapNhat = new Date().toISOString()
-    message.success('Đã cập nhật trạng thái đơn hàng thành hoàn thành')
-    isLoading.value = false
-  }, 1000)
+  message.info('Chức năng cập nhật trạng thái đang phát triển')
 }
 
-const openCancelModal = () => {
-  if (hoaDon.value.trangThaiHoaDon === '5') {
+const handlePrintPDF = (): void => {
+  printLoading.value = true
+  setTimeout(() => {
+    message.success("Đang tạo file PDF...")
+    printLoading.value = false
+    window.print()
+  }, 1500)
+}
+
+const handleBack = (): void => {
+  router.push('/admin/hoa-don')
+}
+
+const handleComplete = (): void => {
+  if (isCompleted.value) {
+    message.warning('Đơn hàng đã hoàn thành')
+    return
+  }
+  message.info('Chức năng cập nhật trạng thái đang phát triển')
+}
+
+const handleUpdateStatus = (): void => {
+  message.info('Chức năng cập nhật trạng thái đang phát triển')
+}
+
+const handleEditInvoice = (): void => {
+  message.info("Tính năng chỉnh sửa hóa đơn đang được phát triển")
+}
+
+const openCancelModal = (): void => {
+  if (isCancelled.value) {
     message.warning('Đơn hàng đã bị hủy')
     return
   }
   
-  window.$dialog?.warning({
+  window.$dialog?.error({
     title: 'Xác nhận hủy đơn hàng',
-    content: 'Bạn có chắc chắn muốn hủy đơn hàng này?',
+    content: 'Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.',
     positiveText: 'Xác nhận hủy',
     negativeText: 'Hủy bỏ',
+    positiveButtonProps: {
+      type: 'error',
+      ghost: false
+    },
     onPositiveClick: () => {
-      isLoading.value = true
-      setTimeout(() => {
-        hoaDon.value.trangThaiHoaDon = '5'
-        hoaDon.value.ngayCapNhat = new Date().toISOString()
-        message.error('Đơn hàng đã được hủy')
-        isLoading.value = false
-      }, 1000)
+      message.info('Chức năng hủy đơn hàng đang phát triển')
     }
   })
 }
@@ -609,40 +759,39 @@ const productColumns: DataTableColumns = [
     render: (_, index) => h('span', { class: 'font-medium' }, index + 1)
   },
   { 
-    title: "Ảnh", 
-    key: "image", 
-    width: 80,
-    render: (row) => h(NAvatar, {
-      src: row.anhSanPham,
-      size: 'medium',
-      class: 'border'
-    })
-  },
-  { 
     title: "Sản phẩm", 
     key: "productInfo", 
     width: 300,
-    render: (row) => h('div', { class: 'space-y-1' }, [
-      h('div', { class: 'font-semibold text-gray-800' }, row.tenSanPham),
-      h('div', { class: 'text-sm text-gray-600' }, [
-        h(NTag, { 
-          size: 'small', 
-          type: 'info',
-          class: 'mr-1'
-        }, { default: () => row.thuongHieu }),
-        h(NTag, { 
-          size: 'small', 
-          type: 'default',
-          class: 'mr-1'
-        }, { default: () => row.mauSac })
-      ]),
-      h('div', { class: 'text-xs text-gray-500 mt-1' }, row.cauHinh || '15.6 inch')
+    render: (row) => h('div', { class: 'flex items-center gap-3' }, [
+      h(NAvatar, {
+        src: row.anhSanPham,
+        size: 'medium',
+        round: false,
+        class: 'border',
+        fallbackSrc: 'https://via.placeholder.com/60?text=No+Image'
+      }),
+      h('div', { class: 'flex-1 min-w-0' }, [
+        h('div', { class: 'font-semibold text-gray-900 truncate' }, row.tenSanPham || 'Không có tên'),
+        h('div', { class: 'flex flex-wrap gap-1 mt-1' }, [
+          h(NTag, { 
+            size: 'tiny', 
+            type: 'info',
+            bordered: false 
+          }, { default: () => row.thuongHieu || 'No brand' }),
+          h(NTag, { 
+            size: 'tiny', 
+            type: 'default',
+            bordered: false 
+          }, { default: () => row.mauSac || 'No color' }),
+        ]),
+        h('div', { class: 'text-xs text-gray-500 mt-1 truncate' }, row.size || 'No spec')
+      ])
     ])
   },
   { 
     title: "Đơn giá", 
     key: "price", 
-    width: 130, 
+    width: 120, 
     align: "right",
     render: (row) => h('div', { class: 'font-semibold' }, formatCurrency(row.giaBan))
   },
@@ -651,156 +800,116 @@ const productColumns: DataTableColumns = [
     key: "quantity", 
     width: 80, 
     align: "center",
-    render: (row) => h('div', { class: 'text-center font-medium' }, row.soLuong)
+    render: (row) => h('div', { 
+      class: 'inline-flex items-center justify-center w-8 h-8 bg-gray-100 rounded-full font-medium'
+    }, row.soLuong || 1)
   },
   { 
     title: "Thành tiền", 
     key: "total", 
-    width: 150, 
+    width: 140, 
     align: "right",
-    render: (row) => h('div', { class: 'font-bold text-red-600' }, formatCurrency(row.thanhTien))
+    render: (row) => h('div', { class: 'font-bold text-red-600' }, formatCurrency(row.tongTien || row.giaBan))
   }
 ]
+
+// Fetch invoice details
+const fetchInvoiceDetails = async (): Promise<void> => {
+  try {
+    isLoading.value = true
+    
+    const params: ParamsGetHoaDonCT = {
+      maHoaDon: invoiceCode.value,
+      page: 0,
+      size: 100 // Lấy tất cả sản phẩm
+    }
+    
+    const response = await getHoaDonChiTiets(params)
+    
+    if (response.success && response.data?.content) {
+      invoiceItems.value = response.data.content
+      message.success(`Đã tải ${invoiceItems.value.length} sản phẩm trong hóa đơn`)
+    } else {
+      message.error(response.message || 'Không thể tải chi tiết hóa đơn')
+    }
+  } catch (error: any) {
+    console.error('Lỗi khi fetch chi tiết hóa đơn:', error)
+    message.error(error.message || 'Đã xảy ra lỗi khi tải dữ liệu')
+  } finally {
+    isLoading.value = false
+  }
+}
 
 // Lifecycle
 onMounted(() => {
   console.log("Invoice detail page loaded")
+  console.log("Invoice ID from URL:", invoiceCode.value)
   
-  // Lấy ID từ URL
-  const invoiceId = route.params.id as string
-  console.log("Invoice ID from URL:", invoiceId)
-  
-  // Tạo dữ liệu fake
-  hoaDon.value = createFakeLaptopData(invoiceId || 'HD001')
-  
-  console.log("Fake invoice data loaded:", hoaDon.value)
+  if (invoiceCode.value) {
+    fetchInvoiceDetails()
+  } else {
+    message.error('Không tìm thấy mã hóa đơn')
+    router.push('/admin/hoa-don')
+  }
 })
 </script>
 
 <style scoped>
-.breadcrumb-section {
-  margin-bottom: 20px;
-}
-
-.timeline-vertical {
-  padding: 20px 0;
-}
-
-.timeline-steps {
-  position: relative;
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.timeline-step {
-  display: flex;
-  margin-bottom: 30px;
-  position: relative;
-}
-
-.step-icon {
-  margin-right: 15px;
-}
-
-.icon-circle {
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 2px solid;
-  background: white;
-  z-index: 2;
-}
-
-.icon-circle.completed {
-  border-color: #10b981;
-  background: #10b981;
-  color: white;
-}
-
-.icon-circle.current {
-  border-color: #3b82f6;
-  background: #3b82f6;
-  color: white;
-}
-
-.icon-circle.pending {
-  border-color: #e5e7eb;
-  background: white;
-  color: #9ca3af;
-}
-
-.icon-circle.cancelled {
-  border-color: #ef4444;
-  background: #ef4444;
-  color: white;
-}
-
-.step-line {
-  position: absolute;
-  top: 50px;
-  left: 24px;
-  width: 2px;
-  height: calc(100% + 30px);
-  background: #e5e7eb;
-  z-index: 1;
-}
-
-.timeline-step:last-child .step-line {
-  display: none;
-}
-
-.timeline-step.completed .step-line {
-  background: #10b981;
-}
-
-.step-content {
-  flex: 1;
-  padding-top: 8px;
-}
-
-.step-title {
-  font-weight: 600;
-  font-size: 16px;
-  margin-bottom: 4px;
-}
-
-.step-note {
-  font-size: 14px;
-  color: #6b7280;
-  margin-bottom: 2px;
-}
-
-.step-time {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-bottom: 2px;
-}
-
-.step-person {
-  font-size: 12px;
-  color: #6b7280;
-  font-style: italic;
-}
-
-@media (max-width: 768px) {
-  .timeline-step {
-    flex-direction: column;
-    align-items: flex-start;
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
   }
   
-  .step-icon {
-    margin-right: 0;
-    margin-bottom: 10px;
+  body {
+    background: white !important;
+    color: black !important;
   }
   
-  .step-line {
-    top: 50px;
-    left: 24px;
-    width: 2px;
-    height: calc(100% + 30px);
+  .container {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
   }
+  
+  .shadow-sm, .rounded-xl, .border {
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    border: 1px solid #ddd !important;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Animation for progress bar */
+@keyframes progress {
+  from {
+    width: 0%;
+  }
+  to {
+    width: v-bind(progressWidth);
+  }
+}
+
+.bg-blue-500 {
+  animation: progress 1s ease-out;
 }
 </style>

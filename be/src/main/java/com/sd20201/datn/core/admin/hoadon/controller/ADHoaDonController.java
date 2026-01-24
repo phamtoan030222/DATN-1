@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.hoadon.controller;
 
+import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonDetailRequest;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonSearchRequest;
 import com.sd20201.datn.core.admin.hoadon.service.ADHoaDonService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
@@ -21,6 +22,11 @@ public class ADHoaDonController {
     @GetMapping
     public ResponseEntity<?> getAll(@ModelAttribute ADHoaDonSearchRequest request) {
         return Helper.createResponseEntity(service.getAllHoaDon(request));
+    }
+
+    @GetMapping("/all")
+    public ResponseEntity<?> getHDCT(@ModelAttribute ADHoaDonDetailRequest request) {
+        return Helper.createResponseEntity(service.getAllHoaDonCT(request));
     }
 
 
