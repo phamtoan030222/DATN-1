@@ -322,3 +322,19 @@ export async function checkExistVariant(productId: string, listPropertiesVariant
 
   return res.data
 }
+
+export async function addSerialNumberToProductDetail(idProductDetail: string, serialNumbers: Array<string>) {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/add-serial-number`,
+    method: 'POST',
+    data: {
+      idProductDetail,
+      serialNumbers,
+    },
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  })) as AxiosResponse<DefaultResponse<Array<boolean>>>
+
+  return res.data
+}
