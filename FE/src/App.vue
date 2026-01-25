@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import AppMain from "./AppMain.vue";
-import AppLoading from "./components/common/AppLoading.vue";
+import AppMain from './AppMain.vue'
+import AppLoading from './components/common/AppLoading.vue'
 </script>
 
 <template>
@@ -12,3 +12,4 @@ import AppLoading from "./components/common/AppLoading.vue";
     </template>
   </Suspense>
 </template>
+

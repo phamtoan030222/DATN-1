@@ -1,0 +1,3 @@
+<template>
+  contactView
+</template>

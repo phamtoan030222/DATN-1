@@ -2,8 +2,6 @@ package com.sd20201.datn.core.admin.products.productdetail.model.response;
 
 import com.sd20201.datn.core.common.base.IsIdentify;
 
-import java.util.List;
-
 public interface ADPDProductDetailDetailResponse extends IsIdentify {
 
     String getCode();
@@ -12,7 +10,7 @@ public interface ADPDProductDetailDetailResponse extends IsIdentify {
 
     String getDescription();
 
-    String getIdProduct();;
+    String getIdProduct();
 
     String getIdCPU();
 
@@ -28,4 +26,22 @@ public interface ADPDProductDetailDetailResponse extends IsIdentify {
 
     String getIdMaterial();
 
+    // 👇 [QUAN TRỌNG 1] BẮT BUỘC PHẢI CÓ DÒNG NÀY ĐỂ NHẬN GIÁ GIẢM
+    Integer getPercentage();
+
+    // 👇 [QUAN TRỌNG 2] Thêm dòng này để lấy ảnh sản phẩm
+    String getUrlImage();
+
+    // 👇 [KHUYÊN DÙNG] Thêm các dòng này để hiển thị Tên (thay vì ID)
+    // Vì câu SQL của bạn đã select: p.product.name as productName, p.cpu.name as cpuName...
+    String getProductName();
+
+    String getCpuName();
+
+    String getRamName();
+
+    String getHardDriveName();
+
+    String getColorName();
+    // String getScreenName(); // Bỏ comment nếu SQL có select screenName
 }
