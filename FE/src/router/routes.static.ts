@@ -234,30 +234,30 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     pid: 401,
   },
 
-  {
-    name: 'invoice_list',
-    path: '/invoice',
-    title: 'Quản lý hoá đơn',
-    requiresAuth: true,
-    icon: 'icon-park-outline:list',
-    menuType: 'page',
-    componentPath: '/admin/invoice/invoiceList.vue',
-    id: 8,
-    pid: null,
-  },
+  // {
+  //   name: 'invoice_list',
+  //   path: '/invoice',
+  //   title: 'Quản lý hoá đơn',
+  //   requiresAuth: true,
+  //   icon: 'icon-park-outline:list',
+  //   menuType: 'page',
+  //   componentPath: '/admin/invoice/invoiceList.vue',
+  //   id: 8,
+  //   pid: null,
+  // },
 
-  {
-    name: 'invoice_list_detail',
-    path: '/invoice/detail/:id',
-    title: 'Chi tiết hoá đơn',
-    requiresAuth: true,
-    icon: 'icon-park-outline:list',
-    hide: true,
-    menuType: 'page',
-    componentPath: '/admin/invoice/invoiceDetail.vue',
-    id: 801,
-    pid: null,
-  },
+  // {
+  //   name: 'invoice_list_detail',
+  //   path: '/invoice/detail/:id',
+  //   title: 'Chi tiết hoá đơn',
+  //   requiresAuth: true,
+  //   icon: 'icon-park-outline:list',
+  //   hide: true,
+  //   menuType: 'page',
+  //   componentPath: '/admin/invoice/invoiceDetail.vue',
+  //   id: 801,
+  //   pid: null,
+  // },
 
   // Quản lý người dùng
   {

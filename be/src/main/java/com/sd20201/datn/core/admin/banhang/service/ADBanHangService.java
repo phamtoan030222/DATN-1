@@ -32,6 +32,11 @@ public interface ADBanHangService {
 
     void themKhachHang(ADThemKhachHangRequest request);
 
+    ResponseObject<?> giaoHang(String request);
+
+
+    ResponseObject<?> huy(ADHuyRequest request);
+
 
     VoucherSuggestionResponse goiYVoucher(
             VoucherSuggestionRequest req

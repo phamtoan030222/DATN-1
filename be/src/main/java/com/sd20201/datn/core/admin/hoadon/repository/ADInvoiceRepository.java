@@ -13,4 +13,8 @@ public interface ADInvoiceRepository extends JpaRepository<Invoice, String>, ADH
 
     @Query("SELECT h FROM Invoice h WHERE h.code = :ma")
     Optional<Invoice> findByMa(@Param("ma") String ma);
+
+
+    @Query("SELECT h FROM Invoice h WHERE h.id = :id")
+    Invoice findByInvoiceId(String id);
 }

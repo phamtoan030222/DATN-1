@@ -210,6 +210,15 @@ const state = reactive({
 })
 
 const dateRange = ref<[number, number] | null>(null)
+
+import dayjs from 'dayjs'
+
+const setTodayWithDayjs = () => {
+  const startOfDay = dayjs().startOf('day').valueOf()
+  const endOfDay = dayjs().endOf('day').valueOf()
+  
+  dateRange.value = [startOfDay, endOfDay]
+}
 const activeTab = ref('ALL')
 
 // Computed pagination
@@ -777,7 +786,8 @@ watch([
 
 // Initialize
 onMounted(() => {
-  fetchHoaDons()
+  fetchHoaDons(),
+  setTodayWithDayjs()
 })
 </script>
 

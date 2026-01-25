@@ -83,4 +83,15 @@ public class ADBanHangController {
         return ResponseEntity.ok(adBanHangService.goiYVoucher(req));
     }
 
+    @PostMapping("/giao-hang/{id}")
+    public ResponseEntity<?> getGiaoHang(@PathVariable("id") String id) {
+        return Helper.createResponseEntity(adBanHangService.giaoHang(id));
+
+    }
+
+    @PostMapping("/huy")
+    public ResponseEntity<?> huyHoaDon(ADHuyRequest adNhanVienRequest) {
+        return Helper.createResponseEntity(adBanHangService.huy(adNhanVienRequest));
+    }
+
 }

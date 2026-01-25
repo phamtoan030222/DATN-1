@@ -28,6 +28,11 @@ public class ADHoaDonController {
     public ResponseEntity<?> getHDCT(@ModelAttribute ADHoaDonDetailRequest request) {
         return Helper.createResponseEntity(service.getAllHoaDonCT(request));
     }
+//
+//    @PutMapping("/change-status")
+//    public ResponseEntity<?> changeStatus(@ModelAttribute ADChangeStatusRequest adChangeStatusRequest) {
+//        return Helper.createResponseEntity(service.changeStatus(adChangeStatusRequest));
+//    }
 
 
 }

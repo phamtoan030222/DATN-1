@@ -86,10 +86,13 @@ public class ADBanHangServiceImpl implements ADBanHangService {
                     .findById(adNhanVienRequest.getIdNV())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên với id = " + adNhanVienRequest.getIdNV()));
 
+            System.out.println("Đây là max hpas don: "+ adNhanVienRequest.getMa());
+
+
             hoaDon.setCode(adNhanVienRequest.getMa());
             hoaDon.setStaff(nhanVien);
             hoaDon.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-            hoaDon.setTypeInvoice(TypeInvoice.OFFLINE);
+            hoaDon.setTypeInvoice(TypeInvoice.TAI_QUAY);
             hoaDon.setCreatedDate(System.currentTimeMillis());
 
             adTaoHoaDonRepository.save(hoaDon);
@@ -339,6 +342,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             Staff nhanVien = adNhanVienRepository.findById(id.getIdNV())
                     .orElseThrow(() -> new BadRequestException("Nhân viên không tồn tại"));
             hoaDonToUpdate.setStaff(nhanVien);
+            System.out.println("Loại Hóa đơn: " +hoaDonToUpdate.getTypeInvoice() );
 
             // Xử lý theo loại hóa đơn
             if (hoaDonToUpdate.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
@@ -748,5 +752,37 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         }
 
         return giam.min(tongTien);
+    }
+
+    @Override
+    public ResponseObject<?> giaoHang(String request) {
+        System.out.println("idHD" + request);
+        Invoice hoaDon = adTaoHoaDonRepository.findById(request).get();
+
+        hoaDon.setTypeInvoice(hoaDon.getTypeInvoice() == TypeInvoice.TAI_QUAY ? TypeInvoice.GIAO_HANG : TypeInvoice.TAI_QUAY);
+
+        adTaoHoaDonRepository.save(hoaDon);
+
+        return new ResponseObject<>(null, HttpStatus.CREATED, "Lây giá trị phiếu giảm giá thành công");
+    }
+
+    @Override
+    public ResponseObject<?> huy(ADHuyRequest request) {
+
+        Invoice hoaDon = adTaoHoaDonRepository.findById(request.getIdHD()).get();
+
+        hoaDon.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.DA_HUY);
+
+
+        adTaoHoaDonRepository.save(hoaDon);
+
+        LichSuTrangThaiHoaDon lichSuTrangThaiHoaDon = new LichSuTrangThaiHoaDon();
+        lichSuTrangThaiHoaDon.setHoaDon(hoaDon);
+        lichSuTrangThaiHoaDon.setTrangThai(EntityTrangThaiHoaDon.DA_HUY);
+        lichSuTrangThaiHoaDon.setThoiGian(LocalDateTime.now());
+
+        lichSuTrangThaiHoaDonRepository.save(lichSuTrangThaiHoaDon);
+
+        return new ResponseObject<>(null, HttpStatus.CREATED, "Hủy hóa đơn thành công");
     }
 }
