@@ -8,16 +8,18 @@ import java.io.IOException;
 public interface AdStatisticsService {
     AdDashboardOverviewResponse getDashboardOverview();
 
-    // Bảng tốc độ tăng trưởng
-    List<AdGrowthStatResponse> getGrowthStatistics();
+    // [CẬP NHẬT] Thêm tham số start, end
+    AdRevenueChartResponse getRevenueChart(String type, Long start, Long end);
 
-    // Biểu đồ
-    AdRevenueChartResponse getRevenueChart(String type);
-    List<AdChartResponse> getOrderStatusChart(String type);
+    // [CẬP NHẬT] Thêm tham số start, end
+    List<AdChartResponse> getOrderStatusChart(String type, Long start, Long end);
+
     List<AdChartResponse> getTopProductsChart(String type);
 
-    // Bảng sản phẩm sắp hết
-    Page<AdProductResponse> getLowStockProducts(Integer limit, Pageable pageable);
+    Page<AdProductResponse> getLowStockProducts(Integer quantity, Pageable pageable);
+
+    List<AdGrowthStatResponse> getGrowthStatistics();
+
     byte[] exportRevenueToExcel() throws IOException;
 
 }

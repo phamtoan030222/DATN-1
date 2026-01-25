@@ -23,22 +23,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 public class AdStatisticsController {
     private final AdStatisticsService adStatisticsService;
 
-
-    @GetMapping("/export/revenue")
-    public ResponseEntity<byte[]> exportRevenue() {
-        try {
-            byte[] excelContent = adStatisticsService.exportRevenueToExcel();
-
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=BaoCaoDoanhThu.xlsx")
-                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                    .body(excelContent);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().build();
-        }
-    }
-    // 1. API Tổng quan (3 Card trên cùng)
+    // 1. API Tổng quan
     @GetMapping("/overview")
     public ResponseObject<AdDashboardOverviewResponse> getOverview() {
         return new ResponseObject<>(
@@ -48,7 +33,59 @@ public class AdStatisticsController {
         );
     }
 
-    // 2. API Bảng Tốc độ tăng trưởng
+    // 2. API Biểu đồ Doanh thu
+    // [CẬP NHẬT] Thêm start và end để hỗ trợ lọc tùy chỉnh
+    @GetMapping("/chart/revenue")
+    public ResponseObject<AdRevenueChartResponse> getRevenueChart(
+            @RequestParam(defaultValue = "week") String type,
+            @RequestParam(required = false) Long start,
+            @RequestParam(required = false) Long end) {
+        return new ResponseObject<>(
+                adStatisticsService.getRevenueChart(type, start, end),
+                HttpStatus.OK,
+                "Lấy dữ liệu biểu đồ doanh thu thành công"
+        );
+    }
+
+    // 3. API Biểu đồ Trạng thái đơn hàng
+    // [CẬP NHẬT] Thêm start và end
+    @GetMapping("/chart/order-status")
+    public ResponseObject<List<AdChartResponse>> getOrderStatusChart(
+            @RequestParam(defaultValue = "week") String type,
+            @RequestParam(required = false) Long start,
+            @RequestParam(required = false) Long end) {
+        return new ResponseObject<>(
+                adStatisticsService.getOrderStatusChart(type, start, end),
+                HttpStatus.OK,
+                "Lấy dữ liệu biểu đồ trạng thái thành công"
+        );
+    }
+
+    // 4. API Biểu đồ Top Sản phẩm
+    @GetMapping("/chart/top-products")
+    public ResponseObject<List<AdChartResponse>> getTopProductsChart(
+            @RequestParam(defaultValue = "week") String type) {
+        return new ResponseObject<>(
+                adStatisticsService.getTopProductsChart(type),
+                HttpStatus.OK,
+                "Lấy dữ liệu top sản phẩm thành công"
+        );
+    }
+
+    // 5. API Sản phẩm sắp hết hàng
+    @GetMapping("/low-stock-product")
+    public ResponseObject<Page<AdProductResponse>> getLowStockProducts(
+            @RequestParam(defaultValue = "10") Integer quantity,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        return new ResponseObject<>(
+                adStatisticsService.getLowStockProducts(quantity, PageRequest.of(page, size)),
+                HttpStatus.OK,
+                "Lấy danh sách sản phẩm sắp hết hàng thành công"
+        );
+    }
+
+    // 6. API Tốc độ tăng trưởng
     @GetMapping("/growth")
     public ResponseObject<List<AdGrowthStatResponse>> getGrowthStats() {
         return new ResponseObject<>(
@@ -58,54 +95,18 @@ public class AdStatisticsController {
         );
     }
 
-    // 3. API Sản phẩm sắp hết hàng (Params: quantity, page, size)
-    @GetMapping("/low-stock-product")
-    public ResponseObject<Page<AdProductResponse>> getLowStockProducts(
-            @RequestParam(defaultValue = "10") Integer quantity,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-
-        return new ResponseObject<>(
-                adStatisticsService.getLowStockProducts(quantity, PageRequest.of(page, size)),
-                HttpStatus.OK,
-                "Lấy danh sách sản phẩm sắp hết hàng thành công"
-        );
-    }
-
-    // 4. API Biểu đồ Doanh thu (Line Chart)
-    @GetMapping("/chart/revenue")
-    public ResponseObject<AdRevenueChartResponse> getRevenueChart(
-            @RequestParam(defaultValue = "week") String type) {
-
-        return new ResponseObject<>(
-                adStatisticsService.getRevenueChart(type),
-                HttpStatus.OK,
-                "Lấy dữ liệu biểu đồ doanh thu thành công"
-        );
-    }
-
-    // 5. API Biểu đồ Trạng thái đơn hàng (Pie Chart)
-    @GetMapping("/chart/order-status")
-    public ResponseObject<List<AdChartResponse>> getOrderStatusChart(
-            @RequestParam(defaultValue = "week") String type) {
-
-        return new ResponseObject<>(
-                adStatisticsService.getOrderStatusChart(type),
-                HttpStatus.OK,
-                "Lấy dữ liệu biểu đồ trạng thái thành công"
-        );
-    }
-
-    // 6. API Biểu đồ Top Sản phẩm bán chạy (Bar Chart)
-    @GetMapping("/chart/top-products")
-    public ResponseObject<List<AdChartResponse>> getTopProductsChart(
-            @RequestParam(defaultValue = "week") String type) {
-
-        return new ResponseObject<>(
-                adStatisticsService.getTopProductsChart(type),
-                HttpStatus.OK,
-                "Lấy dữ liệu top sản phẩm thành công"
-        );
+    // 7. API Xuất Excel
+    @GetMapping("/export/revenue")
+    public ResponseEntity<byte[]> exportRevenue() {
+        try {
+            byte[] excelContent = adStatisticsService.exportRevenueToExcel();
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=BaoCaoDoanhThu.xlsx")
+                    .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                    .body(excelContent);
+        } catch (IOException e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
 }
