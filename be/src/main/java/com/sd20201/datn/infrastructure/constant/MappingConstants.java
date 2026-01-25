@@ -55,4 +55,21 @@ public class MappingConstants {
 
     public static final String API_ADMIN_BAN_HANG = API_ADMIN_PREFIX + "/ban-hang";
     public static final String API_ADMIN_HOA_DON= API_ADMIN_PREFIX + "/hoa-don";
+
+
+    // CLIENT
+    public static final String API_CUSTOMER_PREFIX_PRODUCTS = API_CUSTOMER_PREFIX + "/products";
+
+    public static final String API_CUSTOMER_PREFIX_CUSTOMERS = API_CUSTOMER_PREFIX + "/customers";
+    public static final String API_CUSTOMER_PREFIX_CUSTOMER_ADDRESSES = API_CUSTOMER_PREFIX_CUSTOMERS + "/{customerId}/addresses";
+
+    public static final String API_CUSTOMER_BAN_HANG = API_CUSTOMER_PREFIX + "/ban-hang";
+    public static final String API_CUSTOMER_HOA_DON= API_CUSTOMER_PREFIX + "/hoa-don";
+
+    public static final String API_CUSTOMER_PREFIX_DISCOUNT = API_CUSTOMER_PREFIX + "/discounts";
+    public static final String API_CUSTOMER_PREFIX_DISCOUNT_DISCOUNT = API_CUSTOMER_PREFIX_DISCOUNT + "/discount";
+    public static final String API_CUSTOMER_PREFIX_DISCOUNT_DETAIL = API_CUSTOMER_PREFIX_DISCOUNT + "/detail";
+    public static final String API_CUSTOMER_PREFIX_DISCOUNT_VOUCHER = API_CUSTOMER_PREFIX_DISCOUNT + "/voucher";
+
+    public static final String API_CUSTOMER_PREFIX_PRODUCTS_DETAIL = API_CUSTOMER_PREFIX_PRODUCTS + "/product-detail";
 }

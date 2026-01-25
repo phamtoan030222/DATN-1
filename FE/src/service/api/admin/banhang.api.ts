@@ -1,206 +1,205 @@
-import type { AxiosResponse } from "axios";
-import request from "@/service/request";
-import { API_ADMIN_PRODUCT_DETAIL, PREFIX_API_BAN_HANG_ADMIN } from "@/constants/url";
+import type { AxiosResponse } from 'axios'
+import request from '@/service/request'
+import { API_ADMIN_PRODUCT_DETAIL, PREFIX_API_BAN_HANG_ADMIN } from '@/constants/url'
 import type {
-  PaginationParams,
   DefaultResponse,
-  ResponseList,
+  PaginationParams,
   PaginationResponse,
-} from "@/service/api.common";
-import { ADPDImeiResponse, ADProductDetailRequest } from "./product/productDetail.api";
-import { ADProductDetailResponse } from "./product/product.api";
+  ResponseList,
+} from '@/service/api.common'
+import type { ADPDImeiResponse, ADProductDetailRequest } from './product/productDetail.api'
+import type { ADProductDetailResponse } from './product/product.api'
 
 export interface ParamsGetSanPham extends PaginationParams {
-  q?: string | "";
-  idSP?: string | undefined;
-  status?: number | null;
+  q?: string | ''
+  idSP?: string | undefined
+  status?: number | null
 }
 
 export interface ParamsPhieuGiamGia {
-  invoiceId: string;          // ID hóa đơn
-  tongTien: number;           // Tổng tiền hiện tại
-  customerId?: string | null; // Có thể null (bán tại quầy)
+  invoiceId: string // ID hóa đơn
+  tongTien: number // Tổng tiền hiện tại
+  customerId?: string | null // Có thể null (bán tại quầy)
 }
 
 export interface VoucherApDungDTO {
-  voucherId: string;
-  code: string;
-  typeVoucher: "PERCENTAGE" | "FIXED_AMOUNT";
-  discountValue: number;
-  maxValue?: number;
-  dieuKien: number;
-  giamGiaThucTe: number; // TÊN FIELD ĐÃ THAY ĐỔI: giamGiaThucTe thay vì giaTriGiamThucTe
-  ten?: string; // Có thể không có
+  voucherId: string
+  code: string
+  typeVoucher: 'PERCENTAGE' | 'FIXED_AMOUNT'
+  discountValue: number
+  maxValue?: number
+  dieuKien: number
+  giamGiaThucTe: number // TÊN FIELD ĐÃ THAY ĐỔI: giamGiaThucTe thay vì giaTriGiamThucTe
+  ten?: string // Có thể không có
 }
 
 export interface VoucherTotHonDTO {
-  voucherId: string;
-  code: string;
-  dieuKien: number;
-  giamGiaMoi: number;
-  canMuaThem: number;
-  giamThem: number;
-  hieuQua: number;
+  voucherId: string
+  code: string
+  dieuKien: number
+  giamGiaMoi: number
+  canMuaThem: number
+  giamThem: number
+  hieuQua: number
 }
 
 export interface GoiYVoucherResponse {
-  voucherApDung: VoucherApDungDTO[];
-  voucherTotHon?: VoucherTotHonDTO[];
-  voucherHienTai?: VoucherApDungDTO; // Có thể không có
-  tongTienSauGiam?: number;
+  voucherApDung: VoucherApDungDTO[]
+  voucherTotHon?: VoucherTotHonDTO[]
+  voucherHienTai?: VoucherApDungDTO // Có thể không có
+  tongTienSauGiam?: number
   // Thêm các field khác nếu có
 }
 
-
 export interface ParamsGetHoaDon extends PaginationParams {
-  q?: string | "";
-  status?: number | null;
+  q?: string | ''
+  status?: number | null
 }
 
 export interface ParamsXoaSP {
-  idHD?: string;
-  idSP?: string;
+  idHD?: string
+  idSP?: string
 }
 
 export interface ParamsPTTT {
-  idHD?: string;
-  pttt: string;
+  idHD?: string
+  pttt: string
 }
 
 export interface ParamsThanhCong {
   // Các field hiện tại (giữ nguyên)
-  idHD?: string;
-  tongTien: string;
-  
+  idHD?: string
+  tongTien: string
+
   // Thêm các field mới để khớp với backend
-  idNV?: string;
-  tienHang?: number;
-  tienShip?: number;
-  giamGia?: number;
-  ten?: string;
-  sdt?: string;
-  diaChi?: string;
-  phuongThucThanhToan?: string;
-  idPGG?: string;
-  check?: number;
-  isDeliveryEnabled?: boolean;
-  
+  idNV?: string
+  tienHang?: number
+  tienShip?: number
+  giamGia?: number
+  ten?: string
+  sdt?: string
+  diaChi?: string
+  phuongThucThanhToan?: string
+  idPGG?: string
+  check?: number
+  isDeliveryEnabled?: boolean
+
   // THÊM CÁC FIELD IMEI (QUAN TRỌNG)
-  loaiHoaDon?: 'TAI_QUAY' | 'GIAO_HANG';
+  loaiHoaDon?: 'TAI_QUAY' | 'GIAO_HANG'
   danhSachImei?: Array<{
-    idHoaDonChiTiet: string;
-    danhSachImei: string[];
-  }>;
-  daXacNhanImei?: boolean;
+    idHoaDonChiTiet: string
+    danhSachImei: string[]
+  }>
+  daXacNhanImei?: boolean
 }
 
 // NEW: Type for delivery information
 export type ThongTinGiaoHangResponse = ResponseList & {
-  id: string;
-  hoTenNguoiNhan: string;
-  sdtNguoiNhan: string;
-  diaChiGiaoHang: string;
-  ghiChu?: string;
+  id: string
+  hoTenNguoiNhan: string
+  sdtNguoiNhan: string
+  diaChiGiaoHang: string
+  ghiChu?: string
   // Add other relevant fields for delivery information
   // Example:
   // maHoaDon?: string;
   // trangThaiGiaoHang?: string;
-};
+}
 
 // NEW: Request payload for adding/updating delivery information
 export interface ThemThongTinGiaoHangRequest {
-  idHD: string; // Assuming delivery info is tied to a specific invoice
-  hoTenNguoiNhan: string;
-  sdtNguoiNhan: string;
-  diaChiGiaoHang: string;
-  ghiChu?: string;
+  idHD: string // Assuming delivery info is tied to a specific invoice
+  hoTenNguoiNhan: string
+  sdtNguoiNhan: string
+  diaChiGiaoHang: string
+  ghiChu?: string
 }
 
 export type KhachHangResponse = ResponseList & {
-  id: string;
-  ten: string;
-  sdt: string;
-};
+  id: string
+  ten: string
+  sdt: string
+}
 
 export type thanhToanResponse = ResponseList & {
-  id: string;
-  ten: string;
-  sdt: string;
-};
+  id: string
+  ten: string
+  sdt: string
+}
 
 export type PhuongThucThanhToanResponse = ResponseList & {
-  id: string;
-  soTien: number;
-  phuongThucThanhToan: string;
-};
+  id: string
+  soTien: number
+  phuongThucThanhToan: string
+}
 
 export type tongTienResponse = ResponseList & {
-  tongTien: number;
-};
+  tongTien: number
+}
 
 export interface ADThemSanPhamRequest {
-  invoiceId: string;
-  productDetailId: string;
-  imeiIds: string[];
+  invoiceId: string
+  productDetailId: string
+  imeiIds: string[]
 }
 
 export type PhieuGiamGiaResponse = ResponseList & {
-  id: string;
-  ma: string;
-  giaTriGiam: number; // Giá trị giảm (tiền hoặc %)
-  laPhanTram: boolean; // true nếu là %, false nếu là tiền
-  giaTriGiamThucTe: number; // Giá trị giảm thực tế (đã tính dựa trên tongTien)
-};
+  id: string
+  ma: string
+  giaTriGiam: number // Giá trị giảm (tiền hoặc %)
+  laPhanTram: boolean // true nếu là %, false nếu là tiền
+  giaTriGiamThucTe: number // Giá trị giảm thực tế (đã tính dựa trên tongTien)
+}
 
 export interface PhieuGiamGiaRequest {
-  idHD: number;
-  idKH: string;
+  idHD: number
+  idKH: string
 }
 
 export type BanHangResponse = ResponseList & {
-  ma: string;
-  ten: string;
-  status: string;
-};
+  ma: string
+  ten: string
+  status: string
+}
 
-export type themKHResponse = {
-  idHD: string;
-  idKH: string;
-};
+export interface themKHResponse {
+  idHD: string
+  idKH: string
+}
 
-export type XoaSPResponse = {
-  idHD: string;
-  idSP: string;
-};
+export interface XoaSPResponse {
+  idHD: string
+  idSP: string
+}
 
 export type SanPhamResponse = ResponseList & {
-  id: string;
-  ma: string;
-  ten: string;
-  moTa: string;
-  mau: string;
-  idSP: string;
-  idCL: string;
-  idLG: string;
-  idLD: string;
-  idXX: string;
-  idMau: string;
-  idSize: string;
-  status: string;
-};
+  id: string
+  ma: string
+  ten: string
+  moTa: string
+  mau: string
+  idSP: string
+  idCL: string
+  idLG: string
+  idLD: string
+  idXX: string
+  idMau: string
+  idSize: string
+  status: string
+}
 
-export const GetHoaDons = async (params: ParamsGetHoaDon) => {
+export async function GetHoaDons(params: ParamsGetHoaDon) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/list-hoa-don`,
-    method: "GET",
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>;
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
 export interface CreateHoaDonRequest {
-  idNV: string;
-  ma?: string; // FE gửi mã TẠM (BE có thể bỏ qua)
+  idNV: string
+  ma?: string // FE gửi mã TẠM (BE có thể bỏ qua)
 }
 
 export async function getProductDetails(params: ADProductDetailRequest) {
@@ -222,197 +221,195 @@ export async function getImeiProductDetail(idProductDetail: string) {
   return res.data
 }
 
-export const getCreateHoaDon = async (maHoaDon: CreateHoaDonRequest) => {
+export async function getCreateHoaDon(maHoaDon: CreateHoaDonRequest) {
   const res = await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/create-hoa-don`,
-    method: "POST",
+    method: 'POST',
     data: maHoaDon,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
-  });
+  })
 
-  return res.data as DefaultResponse<BanHangResponse>;
+  return res.data as DefaultResponse<BanHangResponse>
 }
-export const huyHoaDon = async (maHoaDon: ADThemSanPhamRequest) => {
+export async function huyHoaDon(maHoaDon: ADThemSanPhamRequest) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/huy`,
-    method: "POST",
+    method: 'POST',
     data: maHoaDon,
-  })) as AxiosResponse<DefaultResponse<BanHangResponse>>;
-  return res.data;
-};
+  })) as AxiosResponse<DefaultResponse<BanHangResponse>>
+  return res.data
+}
 
-export const themSanPham = async (data: ADThemSanPhamRequest) => {
+export async function themSanPham(data: ADThemSanPhamRequest) {
   const res = await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/them-san-pham`,
-    method: "POST",
+    method: 'POST',
     data,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
-  });
+  })
 
-  return res.data;
-};
-export const xoaSP = async (data: ParamsXoaSP) => {
+  return res.data
+}
+export async function xoaSP(data: ParamsXoaSP) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/xoa-san-pham `,
-    method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>;
-  return res.data; // Added return statement
-};
+    method: 'POST',
+    data,
+  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
+  return res.data // Added return statement
+}
 
-export const GetGioHang = async (id: string) => {
+export async function GetGioHang(id: string) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/list-gio-hang/${id}`,
-    method: "GET",
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>;
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const themSL = async (data: ParamsXoaSP) => {
+export async function themSL(data: ParamsXoaSP) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/them-so-luong `,
-    method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>;
+    method: 'POST',
+    data,
+  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const xoaSL = async (data: ParamsXoaSP) => {
+export async function xoaSL(data: ParamsXoaSP) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/xoa-so-luong `,
-    method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>;
-  return res.data; // Added return statement
-};
+    method: 'POST',
+    data,
+  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
+  return res.data // Added return statement
+}
 
-export const GeOneKhachHang = async (id: string) => {
+export async function GeOneKhachHang(id: string) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/khach-hang/${id}`,
-    method: "GET",
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>;
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const getThanhToan = async (id: string) => {
+export async function getThanhToan(id: string) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/thanh-toan/${id}`,
-    method: "GET",
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<thanhToanResponse>>>>;
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<thanhToanResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const getPhuongThucThanhToan = async (id: string) => {
+export async function getPhuongThucThanhToan(id: string) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/phuong-thuc-thanh-toan/${id}`,
-    method: "GET",
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<thanhToanResponse>>>>;
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<thanhToanResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const themPTTT = async (data: ParamsPTTT) => {
+export async function themPTTT(data: ParamsPTTT) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/cap-nhat-phuong-thuc-thanh-toan`,
-    method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>;
-  return res.data; // Added return statement
-};
+    method: 'POST',
+    data,
+  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
+  return res.data // Added return statement
+}
 
-export const thanhToanThanhCong = async (data: ParamsThanhCong) => {
+export async function thanhToanThanhCong(data: ParamsThanhCong) {
   // Sửa để gửi JSON thay vì FormData
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/thanh-toan-thanh-cong`,
-    method: "POST",
-    data: data, // Gửi trực tiếp object JSON
+    method: 'POST',
+    data, // Gửi trực tiếp object JSON
     headers: {
-      'Content-Type': 'application/json' // Quan trọng
-    }
-  })) as AxiosResponse<DefaultResponse<any>>;
+      'Content-Type': 'application/json', // Quan trọng
+    },
+  })) as AxiosResponse<DefaultResponse<any>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const themMoiKhachHang = async (data: themKHResponse) => {
+export async function themMoiKhachHang(data: themKHResponse) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/them-moi-khach-hang`,
-    method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>;
+    method: 'POST',
+    data,
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const themKhachHang = async (data: themKHResponse) => {
+export async function themKhachHang(data: themKHResponse) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/them-khach-hang`,
-    method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>;
+    method: 'POST',
+    data,
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const GetSanPhams = async (params: ParamsGetSanPham) => {
+export async function GetSanPhams(params: ParamsGetSanPham) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/list-san-pham`,
-    method: "GET",
-    params: params,
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<SanPhamResponse>>>>;
+    method: 'GET',
+    params,
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<SanPhamResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const GetKhachHang = async (data: ParamsXoaSP) => {
+export async function GetKhachHang(data: ParamsXoaSP) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/list-khach-hang`,
-    method: "GET",
+    method: 'GET',
     params: data,
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>;
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const getMaGiamGia = async (
-  data: ParamsPhieuGiamGia
-): Promise<GoiYVoucherResponse> => {
+export async function getMaGiamGia(data: ParamsPhieuGiamGia): Promise<GoiYVoucherResponse> {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/goi-y`,
-    method: "POST",
+    method: 'POST',
     data,
     headers: {
-      "Content-Type": "application/json",
+      'Content-Type': 'application/json',
     },
-  })) as AxiosResponse<GoiYVoucherResponse>;
+  })) as AxiosResponse<GoiYVoucherResponse>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const getMaGiamGiaKoDu = async (data: ParamsPhieuGiamGia) => {
+export async function getMaGiamGiaKoDu(data: ParamsPhieuGiamGia) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/danh-sach-phieu-giam-gia-ko_du`,
-    method: "GET",
+    method: 'GET',
     params: data,
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<PhieuGiamGiaResponse>>>>;
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<PhieuGiamGiaResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 
-export const suaGiaoHang = async (id: string) => {
+export async function suaGiaoHang(id: string) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/giao-hang/${id}`,
-    method: "POST",
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<PhieuGiamGiaResponse>>>>;
+    method: 'POST',
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<PhieuGiamGiaResponse>>>>
 
-  return res.data;
-};
+  return res.data
+}
 // NEW: API call to add/update delivery information

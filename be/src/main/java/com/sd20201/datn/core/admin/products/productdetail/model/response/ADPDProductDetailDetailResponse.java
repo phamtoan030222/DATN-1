@@ -44,4 +44,5 @@ public interface ADPDProductDetailDetailResponse extends IsIdentify {
 
     String getColorName();
     // String getScreenName(); // Bỏ comment nếu SQL có select screenName
+    Long getEndDate();
 }

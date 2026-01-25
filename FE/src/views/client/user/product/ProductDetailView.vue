@@ -23,51 +23,38 @@ import { getProductDetailById } from '@/service/api/admin/product/productDetail.
 import { getVouchers } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
 
-// --- CẤU HÌNH ---
-// 🔴 Đặt là true nếu Backend chưa trả về percentage mà bạn muốn thấy UI giảm giá ngay lập tức
-const IS_TEST_MODE = false
-
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 
-// --- STATE ---
+// --- STATE QUẢN LÝ DỮ LIỆU ---
 const loading = ref(false)
 const product = ref<any>(null)
 const quantity = ref(1)
 const selectedImage = ref('')
 
-// Voucher & Timer
+// State cho Voucher & Đồng hồ đếm ngược
 const showVoucherModal = ref(false)
 const rawVoucherList = ref<ADVoucherResponse[]>([])
 const selectedVoucher = ref<ADVoucherResponse | null>(null)
 const timeLeft = ref('')
 let timerInterval: any = null
 
-const productId = route.params.id as string
-
-// --- FETCH DATA ---
-async function fetchData() {
+// --- 1. HÀM LOAD DỮ LIỆU ---
+async function fetchData(id: string) {
   loading.value = true
   try {
-    const res = await getProductDetailById(productId)
+    const res = await getProductDetailById(id)
     if (res.data) {
       product.value = res.data
-
-      // LOGIC TEST UI: Nếu bật Test Mode, tự động gán giảm giá 15%
-      if (IS_TEST_MODE && (!product.value.percentage || product.value.percentage <= 0)) {
-        console.warn('⚠️ Đang chạy chế độ Test Mode: Giả lập giảm giá 15%')
-        product.value.percentage = 15
-      }
-
       selectedImage.value = product.value.urlImage || 'https://via.placeholder.com/500'
 
-      // Nếu có giảm giá -> Bật đồng hồ đếm ngược Flash Sale
+      // Nếu có giảm giá -> Kích hoạt đồng hồ đếm ngược
       if (currentPercent.value > 0) {
         startCountdown()
       }
 
-      // Tải voucher sau khi có thông tin sản phẩm
+      // Gọi API lấy Voucher
       fetchAvailableVouchers()
     }
   }
@@ -79,12 +66,12 @@ async function fetchData() {
   }
 }
 
+// Hàm lấy Voucher khả dụng
 async function fetchAvailableVouchers() {
   try {
-    const now = new Date().getTime()
     const res = await getVouchers({ page: 1, size: 50, status: 'ACTIVE' })
-
-    // Lọc voucher còn hạn & còn số lượng
+    const now = new Date().getTime()
+    // Lọc voucher còn hạn và còn số lượng
     rawVoucherList.value = res.content.filter((v) => {
       const isTimeValid = (!v.startDate || v.startDate <= now) && (!v.endDate || v.endDate >= now)
       const hasQuantity = v.remainingQuantity === null || (v.remainingQuantity > 0)
@@ -94,118 +81,128 @@ async function fetchAvailableVouchers() {
   catch (e) { console.error(e) }
 }
 
-// --- LOGIC TÍNH GIÁ (CORE) ---
+// --- 2. LOGIC TÍNH TOÁN GIÁ & VOUCHER ---
 
-// 1. Phần trăm giảm giá (Lấy từ API)
-const currentPercent = computed(() => {
-  return Number(product.value?.percentage) || 0
-})
+const currentPercent = computed(() => Number(product.value?.percentage) || 0)
+const listPrice = computed(() => Number(product.value?.price) || 0)
 
-// 2. Giá Niêm Yết (Giá gốc lấy từ DB)
-const listPrice = computed(() => {
-  return Number(product.value?.price) || 0
-})
-
-// 3. Giá Bán (Sau khi trừ % Flash Sale)
+// Giá Bán = Giá Niêm Yết * (100 - %)/100
 const sellingPrice = computed(() => {
   const percent = currentPercent.value
   const original = listPrice.value
-
-  // Nếu không giảm giá -> Giá bán = Giá niêm yết
   if (percent <= 0)
     return original
-
-  // Công thức: Giá gốc * (100 - %)/100
   return original * (100 - percent) / 100
 })
 
-// 4. Tổng tiền hàng (Giá bán * Số lượng)
 const currentOrderTotal = computed(() => sellingPrice.value * quantity.value)
 
-// 5. Logic Voucher (Lọc & Sắp xếp)
+// Lọc voucher thỏa mãn điều kiện đơn hàng
 const validVouchers = computed(() => {
   const total = currentOrderTotal.value
-
-  // Lọc voucher thỏa mãn điều kiện đơn tối thiểu
-  const available = rawVoucherList.value.filter(v => !v.conditions || total >= v.conditions)
-
-  // Sắp xếp: Giảm nhiều tiền nhất lên đầu
-  return available.sort((a, b) => calcDiscount(b, total) - calcDiscount(a, total))
+  return rawVoucherList.value
+    .filter(v => !v.conditions || total >= v.conditions)
+    .sort((a, b) => calcDiscount(b, total) - calcDiscount(a, total))
 })
 
-// Hàm tính tiền giảm của 1 voucher cụ thể
+// Tính tiền giảm của 1 voucher
 function calcDiscount(v: ADVoucherResponse, total: number) {
   if (v.typeVoucher === 'FIXED_AMOUNT')
     return v.discountValue || 0
-
-  // Tính theo %
   let disc = (total * (v.discountValue || 0)) / 100
-  // Kiểm tra trần giảm tối đa (maxValue)
   if (v.maxValue && disc > v.maxValue)
     disc = v.maxValue
   return disc
 }
 
-// Tiền giảm giá của Voucher ĐANG CHỌN
 const voucherDiscountAmount = computed(() => {
   if (!selectedVoucher.value)
     return 0
-
-  // Check lại điều kiện phòng khi user giảm số lượng
   const total = currentOrderTotal.value
-  if (selectedVoucher.value.conditions && total < selectedVoucher.value.conditions) {
-    return 0 // Không đủ điều kiện nữa
-  }
-
+  if (selectedVoucher.value.conditions && total < selectedVoucher.value.conditions)
+    return 0
   return calcDiscount(selectedVoucher.value, total)
 })
 
-// 6. TỔNG THANH TOÁN CUỐI CÙNG
 const finalTotalPrice = computed(() => {
   const total = currentOrderTotal.value - voucherDiscountAmount.value
   return total > 0 ? total : 0
 })
 
-// --- UTILS ---
+// --- 3. LOGIC ĐỒNG HỒ ĐẾM NGƯỢC ---
 function startCountdown() {
-  // Giả lập Flash Sale kết thúc vào 23:59:59 hôm nay
-  const endOfDay = new Date()
-  endOfDay.setHours(23, 59, 59, 999)
-  const endTime = endOfDay.getTime()
+  const endDate = product.value?.endDate // Lấy từ API backend
+
+  if (!endDate) {
+    timeLeft.value = '' // Không có ngày kết thúc -> Không hiện
+    return
+  }
+
+  if (timerInterval)
+    clearInterval(timerInterval)
 
   timerInterval = setInterval(() => {
     const now = new Date().getTime()
-    const distance = endTime - now
-    if (distance < 0) { timeLeft.value = '00:00:00'; clearInterval(timerInterval); return }
-    const h = Math.floor((distance % (86400000)) / 3600000)
-    const m = Math.floor((distance % 3600000) / 60000)
-    const s = Math.floor((distance % 60000) / 1000)
+    const distance = endDate - now
+
+    if (distance < 0) {
+      timeLeft.value = 'ĐÃ KẾT THÚC'
+      clearInterval(timerInterval)
+      return
+    }
+
+    const days = Math.floor(distance / (1000 * 60 * 60 * 24))
+    const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+    const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
+    const seconds = Math.floor((distance % (1000 * 60)) / 1000)
+
     const f = (n: number) => n < 10 ? `0${n}` : n
-    timeLeft.value = `${f(h)}:${f(m)}:${f(s)}`
+
+    if (days > 0)
+      timeLeft.value = `${days} ngày ${f(hours)}:${f(minutes)}:${f(seconds)}`
+    else
+      timeLeft.value = `${f(hours)}:${f(minutes)}:${f(seconds)}`
   }, 1000)
 }
+
 onUnmounted(() => {
   if (timerInterval)
     clearInterval(timerInterval)
 })
 
+// Helpers
 function formatCurrency(val: number | undefined) {
   if (val === undefined || val === null)
     return '0₫'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 }
 
-// --- ACTIONS ---
 function handleSelectVoucher(v: ADVoucherResponse) {
   if (selectedVoucher.value?.id === v.id) {
     selectedVoucher.value = null
   }
-  else { selectedVoucher.value = v; showVoucherModal.value = false; message.success('Đã áp dụng voucher') }
+  else {
+    selectedVoucher.value = v
+    showVoucherModal.value = false
+    message.success('Đã áp dụng voucher')
+  }
 }
-function handleBuyNow() { message.success(`Mua ngay: ${formatCurrency(finalTotalPrice.value)}`) }
+// Tại trang ProductDetail
+function handleBuyNow() {
+  router.push({
+    path: '/checkout',
+    query: {
+      productId: product.value.id, // ID Product Detail
+    },
+  })
+}
 function handleAddToCart() { message.success(`Đã thêm vào giỏ hàng`) }
 
-onMounted(() => fetchData())
+// Khởi chạy
+onMounted(() => {
+  const id = route.params.id as string
+  fetchData(id)
+})
 </script>
 
 <template>
@@ -227,9 +224,8 @@ onMounted(() => fetchData())
         <NGridItem>
           <div class="gallery-box relative">
             <div class="main-image-wrapper border border-gray-100 rounded-lg overflow-hidden bg-white">
-              <img :src="selectedImage" class="w-full h-full object-contain p-4 transition-transform hover:scale-105" @error="selectedImage = 'https://via.placeholder.com/500'">
-
-              <div v-if="currentPercent > 0" class="absolute top-4 left-4 bg-red-600 text-white font-bold px-3 py-1 rounded shadow-md z-10 animate-bounce-slow">
+              <img :src="selectedImage" class="w-full h-full object-contain p-4" @error="selectedImage = 'https://via.placeholder.com/500'">
+              <div v-if="currentPercent > 0" class="absolute top-4 left-4 bg-red-600 text-white font-bold px-3 py-1 rounded shadow-md z-10 animate-pulse">
                 -{{ currentPercent }}%
               </div>
             </div>
@@ -245,8 +241,6 @@ onMounted(() => fetchData())
             <div class="flex items-center gap-2 mb-4 text-sm text-gray-500">
               <NRate readonly :default-value="5" size="small" />
               <span>(Mã: {{ product.code }})</span>
-              <span>|</span>
-              <span class="text-green-600 font-medium">Còn hàng</span>
             </div>
 
             <div v-if="currentPercent > 0" class="flash-sale-bar bg-gradient-to-r from-red-600 to-orange-500 text-white p-3 rounded-t-lg flex justify-between items-center shadow-md select-none">
@@ -271,7 +265,6 @@ onMounted(() => fetchData())
                 <span class="text-gray-400 text-lg line-through font-medium">{{ formatCurrency(listPrice) }}</span>
                 <span class="text-red-600 text-xs font-bold bg-red-100 px-2 py-0.5 rounded-full">-{{ currentPercent }}%</span>
               </div>
-
               <div class="flex items-baseline gap-2">
                 <span class="text-4xl font-bold text-red-600 tracking-tight">{{ formatCurrency(sellingPrice) }}</span>
                 <span v-if="currentPercent <= 0" class="text-xs text-gray-500">(Giá đã bao gồm VAT)</span>
@@ -289,7 +282,6 @@ onMounted(() => fetchData())
                   {{ selectedVoucher ? 'Đổi mã khác' : 'Chọn mã giảm giá' }}
                 </NButton>
               </div>
-
               <div v-if="selectedVoucher" class="mt-3 bg-white border border-red-200 p-3 rounded flex justify-between items-center shadow-sm">
                 <div>
                   <div class="font-bold text-red-600">
@@ -302,9 +294,6 @@ onMounted(() => fetchData())
                 <NIcon color="green" size="24">
                   <CheckmarkCircle />
                 </NIcon>
-              </div>
-              <div v-else class="mt-2 text-xs text-gray-500">
-                Nhập mã để được giảm thêm trên giá đã khuyến mãi
               </div>
             </div>
 
@@ -325,7 +314,7 @@ onMounted(() => fetchData())
               </div>
 
               <div class="flex gap-4 h-12">
-                <NButton type="primary" class="flex-1 h-full text-lg font-bold shadow-lg shadow-green-200 hover:-translate-y-0.5 transition-transform" color="#049d00" @click="handleBuyNow">
+                <NButton type="primary" class="flex-1 h-full text-lg font-bold shadow-lg shadow-red-200 hover:-translate-y-0.5 transition-transform" color="#d70018" @click="handleBuyNow">
                   MUA NGAY
                 </NButton>
                 <NButton strong secondary type="info" class="flex-1 h-full text-lg font-bold hover:-translate-y-0.5 transition-transform" @click="handleAddToCart">
@@ -381,7 +370,6 @@ onMounted(() => fetchData())
           <div v-if="index === 0" class="absolute -top-2 -right-2 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm z-10 font-bold">
             GIẢM NHIỀU NHẤT
           </div>
-
           <div class="flex justify-between items-start">
             <div class="flex-1">
               <div class="flex items-center gap-2">
@@ -393,7 +381,6 @@ onMounted(() => fetchData())
               <div class="text-sm font-medium text-gray-700 mt-1">
                 {{ v.name }}
               </div>
-
               <div class="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded inline-block">
                 <div>• Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue || 0) }}</div>
                 <div v-if="v.maxValue">
@@ -401,13 +388,11 @@ onMounted(() => fetchData())
                 </div>
                 <div>• Đơn tối thiểu: {{ formatCurrency(v.conditions || 0) }}</div>
               </div>
-
               <div class="mt-2 text-sm font-bold text-green-600 flex items-center gap-1">
                 <NIcon><CheckmarkCircle /></NIcon>
                 Áp dụng: -{{ formatCurrency(calcDiscount(v, currentOrderTotal)) }}
               </div>
             </div>
-
             <div class="flex items-center justify-center h-full pl-3">
               <div
                 class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center"
@@ -435,17 +420,10 @@ onMounted(() => fetchData())
 }
 .main-image-wrapper {
   position: relative;
-  padding-top: 75%; /* Aspect Ratio 4:3 */
+  padding-top: 75%;
 }
 .main-image-wrapper img {
   position: absolute;
   top: 0; left: 0;
-}
-.animate-bounce-slow {
-    animation: bounce 2s infinite;
-}
-@keyframes bounce {
-  0%, 100% { transform: translateY(-5%); }
-  50% { transform: translateY(0); }
 }
 </style>

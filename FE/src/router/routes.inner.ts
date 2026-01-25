@@ -59,6 +59,14 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/client/user/tracking/TrackingView.vue'),
         meta: { title: 'Tra cứu đơn hàng' },
       },
+
+      // Bán hàng
+      {
+        path: '/checkout',
+        name: 'OderView',
+        component: () => import('@/views/client/user/order/orderView.vue'),
+        meta: { title: 'Đặt hàng' },
+      },
     ],
   },
 

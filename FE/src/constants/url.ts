@@ -11,10 +11,10 @@ export const API_AUTH_LOGIN = `${API_URL}/login` as string
 // SUB_REDIRECT
 export const SCREEN_ROLE_ADMIN = `&screen=ADMIN`
 
-export const URL_OAUTH2_GOOGLE_ADMIN =
-  `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_ADMIN}` as string
+export const URL_OAUTH2_GOOGLE_ADMIN
+  = `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_ADMIN}` as string
 
-  // ADMIN API
+// ADMIN API
 export const PREFIX_API_ADMIN = `${API_URL}/admin` as string
 
 export const API_ADMIN_GEO = `${API_URL}/geo` as string
@@ -55,10 +55,47 @@ export const API_ADMIN_DISCOUNTS = `${PREFIX_API_ADMIN}/discounts` as string
 export const API_ADMIN_DISCOUNTS_VOUCHER
   = `${API_ADMIN_DISCOUNTS}/voucher` as string
 
-  export const API_ADMIN_STATISTICS = `${PREFIX_API_ADMIN}/statistics` as string
-export const PREFIX_API_BAN_HANG_ADMIN = `${PREFIX_API_ADMIN}/ban-hang` as string;
+export const API_ADMIN_STATISTICS = `${PREFIX_API_ADMIN}/statistics` as string
+export const PREFIX_API_BAN_HANG_ADMIN = `${PREFIX_API_ADMIN}/ban-hang` as string
 
-export const PREFIX_API_HOA_DON_ADMIN = `${PREFIX_API_ADMIN}/hoa-don` as string;
-  
+export const PREFIX_API_HOA_DON_ADMIN = `${PREFIX_API_ADMIN}/hoa-don` as string
+
 // export const API_ADMIN_SALES = `${}`
 
+// CUSTOMER API
+export const PREFIX_API_CUSTOMER = `${API_URL}/customer` as string
+
+export const API_CUSTOMER_PRODUCTS = `${PREFIX_API_CUSTOMER}/products` as string
+
+export const API_CUSTOMER_PRODUCT_DETAIL
+  = `${API_CUSTOMER_PRODUCTS}/product-detail` as string
+
+export const API_CUSTOMER_DISCOUNTS = `${PREFIX_API_CUSTOMER}/discounts` as string
+
+export const API_CUSTOMER_DISCOUNTS_VOUCHER
+  = `${API_CUSTOMER_DISCOUNTS}/voucher` as string
+
+export const API_CUSTOMER_CUSTOMERS = `${PREFIX_API_CUSTOMER}/customers` as string
+
+export const API_CUSTOMER_CUSTOMER_ADDRESSES = (customerId: string) => `${API_CUSTOMER_CUSTOMERS}/${customerId}/addresses`
+
+export const API_CUSTOMER_CUSTOMER_ADDRESS_DEFAULT = (customerId: string, addressId: string) => `${API_CUSTOMER_CUSTOMERS}/${customerId}/addresses/${addressId}/set-default`
+export const API_CUSTOMER_ORDERS = `${PREFIX_API_CUSTOMER}/orders` as string
+export const API_CUSTOMER_SALES = `${PREFIX_API_CUSTOMER}/sales` as string
+export const API_CUSTOMER_STATISTICS = `${PREFIX_API_CUSTOMER}/statistics` as string
+export const API_CUSTOMER_BAN_HANG = `${PREFIX_API_CUSTOMER}/ban-hang` as string
+export const API_CUSTOMER_HOA_DON = `${PREFIX_API_CUSTOMER}/hoa-don` as string
+export const API_CUSTOMER_HOA_DON_DETAIL = `${API_CUSTOMER_HOA_DON}/detail` as string
+export const API_CUSTOMER_PAYMENTS = `${PREFIX_API_CUSTOMER}/payments` as string
+export const API_CUSTOMER_SHIPPING_FEE = `${PREFIX_API_CUSTOMER}/shipping-fee` as string
+export const API_CUSTOMER_WAREHOUSE = `${PREFIX_API_CUSTOMER}/warehouse` as string
+export const API_CUSTOMER_REVIEWS = `${PREFIX_API_CUSTOMER}/reviews` as string
+export const API_CUSTOMER_FAVORITES = `${PREFIX_API_CUSTOMER}/favorites` as string
+export const API_CUSTOMER_CARTS = `${PREFIX_API_CUSTOMER}/carts` as string
+export const API_CUSTOMER_VOUCHERS = `${PREFIX_API_CUSTOMER}/vouchers` as string
+
+export const API_CUSTOMER_DISCOUNT = `${PREFIX_API_CUSTOMER}/discounts/discount` as string
+export const PREFIX_API_BAN_HANG_CUSTOMER = `${PREFIX_API_CUSTOMER}/ban-hang` as string
+export const PREFIX_API_HOA_DON_CUSTOMER = `${PREFIX_API_CUSTOMER}/hoa-don` as string
+
+// ------------- END -------------
