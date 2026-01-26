@@ -117,9 +117,9 @@ export interface ThemThongTinGiaoHangRequest {
 }
 
 export type KhachHangResponse = ResponseList & {
-  id: string
-  ten: string
-  sdt: string
+  id?: string
+  ten?: string
+  sdt?: string
 }
 
 export type thanhToanResponse = ResponseList & {

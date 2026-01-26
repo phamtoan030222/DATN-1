@@ -120,14 +120,9 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             hoaDon.setTotalAmount(BigDecimal.ZERO);
             hoaDon.setTotalAmountAfterDecrease(BigDecimal.ZERO);
 
-            Staff nhanVien = adNhanVienRepository
-                    .findById(adNhanVienRequest.getIdNV())
-                    .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên với id = " + adNhanVienRequest.getIdNV()));
-
             hoaDon.setCode(adNhanVienRequest.getMa());
-            hoaDon.setStaff(nhanVien);
             hoaDon.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-            hoaDon.setTypeInvoice(TypeInvoice.OFFLINE);
+            hoaDon.setTypeInvoice(TypeInvoice.ONLINE);
             hoaDon.setCreatedDate(System.currentTimeMillis());
 
             adTaoHoaDonRepository.save(hoaDon);
@@ -141,7 +136,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
             lichSuTrangThaiHoaDonRepository.save(lichSuTrangThaiHoaDon);
 
-            return new ResponseObject<>(hoaDon, HttpStatus.CREATED, "Tạo hóa đơn thành công");
+            return new ResponseObject<>(hoaDon, HttpStatus.CREATED, "Đơn hàng đã được tạo và đang chờ xử lý.");
 
         } catch (Exception e) {
             log.error("Error creating invoice: ", e);

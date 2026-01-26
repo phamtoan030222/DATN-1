@@ -6,9 +6,5 @@ import lombok.Setter;
 @Getter
 @Setter
 public class ClientNhanVienRequest {
-
-    private String idNV;
-
     private String ma;
-
 }

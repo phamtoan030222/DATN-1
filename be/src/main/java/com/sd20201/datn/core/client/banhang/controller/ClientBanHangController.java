@@ -31,7 +31,7 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping(MappingConstants.API_CUSTOMER_BAN_HANG)
+@RequestMapping(MappingConstants.API_ORDER_ONLINE)
 @Slf4j
 @CrossOrigin(origins = "*")
 public class ClientBanHangController {
@@ -69,7 +69,6 @@ public class ClientBanHangController {
     public ClientChonKhachHangResponse getKhachHang(@PathVariable("id") String id) {
         return adBanHangService.getKhachHang(id);
     }
-
 
     @GetMapping("/phuong-thuc-thanh-toan/{id}")
     public  List<ClientPhuongThucThanhToanRespones>  getPhuongThucThanhToan(@PathVariable("id") String id) {
