@@ -20,7 +20,6 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
         SELECT 
             -- Doanh thu (Chỉ tính đơn Hoàn thành = 4)
             COALESCE(SUM(CASE WHEN i.trang_thai_hoa_don = 4 THEN i.total_amount_after_decrease ELSE 0 END), 0) as revenue,
-            
             -- Sản phẩm đã bán (Sub-query để SUM chính xác quantity của đơn Hoàn thành)
             COALESCE((
                 SELECT CAST(SUM(id_det.quantity) AS SIGNED)
@@ -30,7 +29,6 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
                 AND inv_sub.trang_thai_hoa_don = 4
                 AND inv_sub.created_date BETWEEN :start AND :end
             ), 0) as soldProducts,
-            
             -- Tổng số đơn hàng (Bao gồm cả đơn hủy, chờ, v.v.. miễn là chưa xóa khỏi DB)
             COUNT(i.id) as totalOrders,
             
@@ -51,7 +49,7 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
         SELECT p.name, 
                CAST(SUM(id.quantity) AS SIGNED) as count, 
                MAX(pd.price) as price, 
-               '' as image -- Để trống tạm thời để tránh lỗi nếu chưa join bảng ảnh
+               pd.url_image as image 
         FROM invoice_detail id
         JOIN product_detail pd ON id.id_product_detail = pd.id
         JOIN product p ON pd.id_product = p.id
@@ -95,7 +93,7 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
 
 
     @Query(value = """
-        SELECT p.name AS name, CAST(SUM(id.quantity) AS signed) AS value
+        SELECT p.name AS name, CAST(SUM(id.quantity) AS signed) AS value 
         FROM invoice_detail id
         JOIN product_detail pd ON id.id_product_detail = pd.id
         JOIN product p ON pd.id_product = p.id

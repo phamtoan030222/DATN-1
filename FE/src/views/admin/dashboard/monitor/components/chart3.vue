@@ -14,8 +14,8 @@ let myChart: echarts.ECharts | null = null;
 // Map màu sắc cố định theo tên trạng thái
 const statusColorMap: Record<string, string> = {
  'Hoàn thành': '#00c292',
-        'Đơn huỷ': '#FF4D4F',    // MÀU ĐỎ CỦA BẠN ĐÂY
-        'Đã hủy': '#FF4D4F',     // Dự phòng nếu API trả về "Đã hủy" thay vì "Đơn huỷ"
+        'Đơn huỷ': '#FF4D4F',    
+        'Đã hủy': '#FF4D4F',   
         'Chờ xác nhận': '#409eff',
         'Đang giao': '#67c23a',
         'Chờ giao': '#e6a23c',
@@ -57,18 +57,17 @@ const initChart = async () => {
           {
             name: 'Trạng thái',
             type: 'pie',
-            radius: ['40%', '65%'], // Thu nhỏ bán kính chút để có chỗ cho nhãn
-            avoidLabelOverlap: true, // Tránh đè nhãn lên nhau
+            radius: ['40%', '65%'], 
+            avoidLabelOverlap: true, 
             itemStyle: {
               borderRadius: 5,
               borderColor: '#fff',
               borderWidth: 2
             },
-            // --- CẤU HÌNH HIỂN THỊ CHỈ SỐ Ở ĐÂY ---
             label: {
-              show: true,           // Luôn hiện
-              position: 'outside',  // Hiện bên ngoài nối dây vào
-              formatter: '{b}\n{c} đơn ({d}%)', // Dòng 1: Tên, Dòng 2: SL + %
+              show: true,           
+              position: 'outside',  
+              formatter: '{b}\n{c} đơn ({d}%)', 
               fontSize: 12,
               lineHeight: 16
             },
