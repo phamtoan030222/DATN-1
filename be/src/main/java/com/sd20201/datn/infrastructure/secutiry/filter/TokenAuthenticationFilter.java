@@ -30,9 +30,10 @@ import java.util.List;
 public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final List<String> EXCLUDED_PATHS = List.of(
-        MappingConstants.API_LOGIN,
+            MappingConstants.API_LOGIN,
             "/api/v1/auth/refresh",
-            MappingConstants.API_AUTH_REGISTER
+            MappingConstants.API_AUTH_REGISTER,
+            MappingConstants.API_ORDER_ONLINE
     );
 
     @Setter(onMethod = @__({@Autowired}))
@@ -57,16 +58,16 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
             log.info("start authenticate from jwt");
 
-            if(StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
                 String username = tokenProvider.getUsernameFromToken(jwt);
                 String userId = tokenProvider.getUserIdFormToken(jwt);
                 UserDetails userDetails = customUserDetailsService.loadUserByUsername(username);
                 List<String> rolesCode = tokenProvider.getRolesFormToken(jwt);
 
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                    userDetails,
-                    null,
-                    userDetails.getAuthorities()
+                        userDetails,
+                        null,
+                        userDetails.getAuthorities()
                 );
 
                 authenticationToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -88,7 +89,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
     private String getJwtFromRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
 
-        if(StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
         }
 
