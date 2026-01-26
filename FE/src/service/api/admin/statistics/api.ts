@@ -1,6 +1,101 @@
 import request from '@/service/request'
-import { DefaultResponse, PaginationParams } from '@/typings/api/api.common'
+import { DefaultResponse } from '@/typings/api/api.common'
 import { API_ADMIN_STATISTICS } from '@/constants/url' 
+
+// --- 1. INTERFACES (Định nghĩa kiểu dữ liệu) ---
+
+export interface StatisticCard {
+  revenue: number;        
+  soldProducts: number;   
+  totalOrders: number;    
+  completed: number;      
+  cancelled: number;       
+  processing: number;      
+  growthRate: string;      
+}
+
+export interface TopProductOverview {
+  name: string;
+  count: number;
+  price: number;
+  image: string;
+}
+
+export interface DashboardOverviewResponse {
+  today: StatisticCard;
+  week: StatisticCard;
+  month: StatisticCard;
+  year: StatisticCard;
+  topSellingProducts: TopProductOverview[];
+}
+
+// Interface cho Biểu đồ Doanh thu (QUAN TRỌNG: Phải khớp với dữ liệu trả về)
+export interface RevenueChartResponse {
+  timeLabels: string[];   // Nhãn trục hoành (Ngày/Tháng)
+  currentData: number[];  // Dữ liệu doanh thu
+}
+
+// Interface cho Biểu đồ Tròn
+export interface ChartItemResponse {
+  name: string;
+  value: number;
+}
+
+// --- 2. API FUNCTIONS ---
+
+export const getOverview = async () => {
+  try {
+    const res = await request.get<DefaultResponse<DashboardOverviewResponse>>(
+      `${API_ADMIN_STATISTICS}/overview`
+    )
+    return res.data.data
+  } catch (error) {
+    console.error("Lỗi API tổng quan:", error)
+    return null
+  }
+}
+
+// Chart Doanh thu (SỬA LẠI KIỂU TRẢ VỀ LÀ RevenueChartResponse)
+export const getRevenueChart = async (type: string = 'week', rangeDate?: number[] | null) => {
+  try {
+    const params: any = { type };
+    if (rangeDate && rangeDate.length === 2) {
+      params.start = rangeDate[0];
+      params.end = rangeDate[1];
+    }
+
+    // Sửa <any[]> thành <RevenueChartResponse>
+    const res = await request.get<DefaultResponse<RevenueChartResponse>>(
+      `${API_ADMIN_STATISTICS}/chart/revenue`,
+      { params }
+    )
+    // Trả về object rỗng nếu null để tránh lỗi crash
+    return res.data.data || { timeLabels: [], currentData: [] }
+  } catch (error) {
+    console.error("Lỗi API biểu đồ doanh thu:", error)
+    return { timeLabels: [], currentData: [] }
+  }
+}
+
+// Chart Trạng thái đơn hàng
+export const getOrderStatusChart = async (type: string = 'week', rangeDate?: number[] | null) => {
+  try {
+    const params: any = { type };
+    if (rangeDate && rangeDate.length === 2) {
+      params.start = rangeDate[0];
+      params.end = rangeDate[1];
+    }
+
+    const res = await request.get<DefaultResponse<ChartItemResponse[]>>(
+      `${API_ADMIN_STATISTICS}/chart/order-status`,
+      { params }
+    )
+    return res.data.data || []
+  } catch (error) {
+    console.error("Lỗi API biểu đồ trạng thái:", error)
+    return []
+  }
+}
 
 export const exportRevenueExcel = async () => {
   try {
@@ -9,191 +104,36 @@ export const exportRevenueExcel = async () => {
     });
     return res.data;
   } catch (error) {
-    console.error("Lỗi tải file Excel:", error);
+    console.error("Lỗi xuất Excel:", error);
     throw error;
   }
 };
 
-export interface TopProductOverview {
-  name: string;
-  salesCount: number;
-}
-
-export interface TopItemDTO {
-  name: string;
-  count: number;
-}
-
-
-export interface TopCategoryOverview {
-  name: string;
-  productCount: number;
-}
-
-export interface DashboardOverviewResponse {
-  // Doanh thu
-  revenueToday: number
-  revenueWeek: number
-  revenueMonth: number
-  revenueYear?: number
-  totalRevenue: number
-  
-  // Đơn hàng
-  totalOrders: number
-  successfulOrders: number
-  cancelledOrders: number
-  pendingOrders: number
-  processingOrders: number
-  
-  // Sản phẩm
-  totalProducts: number
-  lowStockProducts: number
-
-  // KHÁCH HÀNG (Mới thêm)
-  totalCustomers: number
-  newCustomersMonth: number
-
-  topSellingProducts: TopProductOverview[];
-  topBrands: TopItemDTO[];
-
-}
-
-export interface GrowthStatResponse {
-  label: string
-  value: string
-  percent: string
-  trend: 'up' | 'down'
-}
-
-export interface LowStockProductResponse {
-  id: string
-  name: string
-  brandName: string
-  quantity: number
-  createdDate: number
-}
-
-export interface RevenueChartResponse {
-  timeLabels: string[]
-  currentData: number[]
-  previousData: number[]
-}
-
-export interface ChartItemResponse {
-  name: string
-  value: number
-}
-
-// --- 2. API FUNCTIONS ---
-
-// 1. Lấy dữ liệu Tổng quan (3 Card đầu + Card Khách hàng)
-export const getOverview = async () => {
+export const getTopProductsChart = async (type: string = 'week', rangeDate?: number[] | null) => {
   try {
-    const res = await request.get<DefaultResponse<DashboardOverviewResponse>>(
-      `${API_ADMIN_STATISTICS}/overview`
-    )
-    return res.data.data
-  } catch (error) {
-    console.error("Error fetching overview:", error)
-    return null
-  }
-}
-
-// 2. Lấy dữ liệu bảng Tăng trưởng
-export const getGrowthStats = async () => {
-  try {
-    const res = await request.get<DefaultResponse<GrowthStatResponse[]>>(
-      `${API_ADMIN_STATISTICS}/growth`
-    )
-    return res.data.data || []
-  } catch (error) {
-    console.error("Error fetching growth stats:", error)
-    return []
-  }
-}
-
-// 3. Lấy danh sách sản phẩm sắp hết hàng (Phân trang)
-export const getLowStockProducts = async (
-  limitQuantity: number, 
-  params: PaginationParams
-) => {
-  const page = (params.page && params.page > 0) ? params.page - 1 : 0
-  const size = params.size || 5 
-
-  const queryParams: any = {
-    quantity: limitQuantity, 
-    page,
-    size,
-  }
-
-  try {
-    const res = await request.get<DefaultResponse<any>>(
-      `${API_ADMIN_STATISTICS}/low-stock-product`,
-      { params: queryParams }
-    )
-
-    const responseData = res.data.data
-
-    return {
-      items: responseData?.content || [],
-      totalItems: responseData?.totalElements || 0,
-      totalPages: responseData?.totalPages || 0,
-      currentPage: (responseData?.number ?? page) + 1,
+    const params: any = { type };
+    if (rangeDate && rangeDate.length === 2) {
+      params.start = rangeDate[0];
+      params.end = rangeDate[1];
     }
-  } catch (error) {
-    console.error("Error fetching low stock products:", error)
-    return { items: [], totalItems: 0, totalPages: 0, currentPage: 1 }
-  }
-}
-
-// 4. Chart Doanh thu
-export const getRevenueChart = async (type: string = 'week') => {
-  try {
-    const res = await request.get<DefaultResponse<RevenueChartResponse>>(
-      `${API_ADMIN_STATISTICS}/chart/revenue`,
-      { params: { type } }
-    )
-    return res.data.data
-  } catch (error) {
-    console.error("Error fetching revenue chart:", error)
-    return { timeLabels: [], currentData: [], previousData: [] }
-  }
-}
-
-// 5. Chart Trạng thái đơn hàng
-export const getOrderStatusChart = async (type: string = 'week') => {
-  try {
-    const res = await request.get<DefaultResponse<ChartItemResponse[]>>(
-      `${API_ADMIN_STATISTICS}/chart/order-status`,
-      { params: { type } }
-    )
-    return res.data.data || []
-  } catch (error) {
-    console.error("Error fetching order status chart:", error)
-    return []
-  }
-}
-
-// 6. Chart Top sản phẩm
-export const getTopProductsChart = async (type: string = 'week') => {
-  try {
     const res = await request.get<DefaultResponse<ChartItemResponse[]>>(
       `${API_ADMIN_STATISTICS}/chart/top-products`,
-      { params: { type } }
+      { params }
     )
     return res.data.data || []
   } catch (error) {
-    console.error("Error fetching top products chart:", error)
     return []
   }
 }
 
+// --- 3. EXPORT ---
 export const statisticsApi = {
   getOverview,
-  getGrowthStats,
-  getLowStockProducts,
   getRevenueChart,
+  // Alias giúp code cũ không bị lỗi
+  getRevenueChartData: getRevenueChart, 
   getOrderStatusChart,
+  getOrderStatusChartData: getOrderStatusChart, 
   getTopProductsChart,
   exportRevenueExcel
 }

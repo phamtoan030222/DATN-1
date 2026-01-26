@@ -27,16 +27,36 @@
                   @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)">
                   <div class="invoice-header">
                     <n-text strong>{{ tab.ma }}</n-text>
-                    <n-popconfirm @positive-click="() => huy(tab.idHD)" positive-text="Đồng ý" negative-text="Hủy">
-                      <template #trigger>
-                        <n-button text type="error" size="tiny" class="delete-invoice-btn">
-                          <n-icon>
-                            <TrashOutline />
-                          </n-icon>
-                        </n-button>
-                      </template>
-                      <n-text depth="3">Bạn có chắc chắn muốn hủy hóa đơn này?</n-text>
-                    </n-popconfirm>
+                    <n-popconfirm
+    :show-icon="false"
+    positive-text="Xác nhận hủy"
+    negative-text="Hủy bỏ"
+    @positive-click="() => huy(tab.idHD)"
+    @negative-click="() => {}"
+  >
+    <template #trigger>
+      <n-button 
+        text 
+        type="error" 
+        size="tiny" 
+        class="delete-invoice-btn"
+        @click.stop
+      >
+        <n-icon>
+          <TrashOutline />
+        </n-icon>
+      </n-button>
+    </template>
+    <div class="popconfirm-content">
+      <n-text strong style="display: block; margin-bottom: 8px;">
+        Xác nhận hủy hóa đơn
+      </n-text>
+      <n-text depth="3" style="font-size: 14px;">
+        Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.ma }}</strong>?<br>
+        Hành động này không thể hoàn tác.
+      </n-text>
+    </div>
+  </n-popconfirm>
                   </div>
                   <n-space vertical :size="4">
                     <n-tag type="warning" size="small" round>Chờ xử lý</n-tag>
@@ -1456,7 +1476,7 @@ watch(
 
 // Cập nhật calculateTotalAmounts để tính cả voucher
 const calculateTotalAmounts = () => {
-  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan) * item.soLuong, 0)
+  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan) , 0)
 
   // Ưu tiên sử dụng voucher được chọn
   if (selectedVoucher.value) {
@@ -2511,7 +2531,7 @@ const columnsGiohang: DataTableColumns<any> = [
       type: 'primary',
       strong: true,
       style: { fontSize: '14px' }
-    }, () => formatCurrency((row.price || row.giaBan) * row.soLuong))
+    }, () => formatCurrency((row.price || row.giaBan) ))
   },
   {
     title: 'Thao tác',
@@ -3031,7 +3051,7 @@ const xacNhan = async (check: number) => {
 
     // Thành công
     if (isDeliveryEnabled.value) {
-      toast.success('Giao hàng thành công!')
+      toast.success('Đã chuyển trạng thái giao hang!')
     } else {
       toast.success('Thanh toán thành công!')
     }
@@ -3162,7 +3182,7 @@ async function createInvoice() {
     idHD: '', // Chưa có DB id
     ma: tempMa, // Mã tạm
     soLuong: 0,
-    loaiHoaDon: 'OFFLINE',
+    loaiHoaDon: 'TAI_QUAY',
     products: [],
     isTemp: true,
   });
@@ -3171,7 +3191,7 @@ async function createInvoice() {
 
   // Reset state
   idHDS.value = '';
-  loaiHD.value = 'OFFLINE';
+  loaiHD.value = 'TAI_QUAY';
 
   state.gioHang = [];
   state.detailKhachHang = null;
@@ -3204,6 +3224,7 @@ async function createInvoice() {
   try {
     const formData = new FormData();
     formData.append('idNV', idNV.userId);
+    formData.append('ma', tempMa);
 
     const newInvoice = await getCreateHoaDon(formData);
 

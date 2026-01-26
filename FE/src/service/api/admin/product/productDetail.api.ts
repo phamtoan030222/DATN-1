@@ -71,7 +71,7 @@ export interface ADProductDetailDetailResponse {
   readonly hardDriveName?: string
   readonly screenName?: string
   readonly colorName?: string
-  readonly endDate?: number 
+  readonly endDate?: number
 }
 
 export type ADPRPropertiesComboboxResponse = Readonly<SelectMixedOption> & {
