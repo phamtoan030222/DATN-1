@@ -85,6 +85,15 @@ export const routes: RouteRecordRaw[] = [
     },
   },
   {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/build-in/login/components/Register/index.vue'),
+    meta: {
+      title: 'Đăng nhập',
+      withoutTab: true,
+    },
+  },
+  {
     path: '/login-admin',
     name: 'login_admin',
     component: () => import('@/views/build-in/login/components/Login/LoginAdmin.vue'),

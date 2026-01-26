@@ -96,11 +96,11 @@ function handleRedirectLoginADMIN() {
                         <n-form ref="formRef" :rules="rules" :model="formValue" :show-label="false" size="large">
                             <n-form-item path="account">
                                 <n-input v-model:value="formValue.account" clearable
-                                    :placeholder="$t('login.accountPlaceholder')" />
+                                    placeholder="Nhập tài khoản" />
                             </n-form-item>
                             <n-form-item path="pwd">
                                 <n-input v-model:value="formValue.pwd" type="password"
-                                    :placeholder="$t('login.passwordPlaceholder')" clearable show-password-on="click">
+                                    placeholder="Nhập mật khẩu" clearable show-password-on="click">
                                     <template #password-invisible-icon>
                                         <icon-park-outline-preview-close-one />
                                     </template>
@@ -141,16 +141,6 @@ function handleRedirectLoginADMIN() {
                                     </svg>
                                 </template>
                             </n-button>
-                            <!-- <n-button circle>
-        <template #icon>
-          <n-icon><icon-park-outline-tencent-qq /></n-icon>
-        </template>
-      </n-button>
-      <n-button circle>
-        <template #icon>
-          <n-icon><icon-park-outline-github-one /></n-icon>
-        </template>
-      </n-button> -->
                         </n-space>
                     </div>
                 </transition>

@@ -12,6 +12,7 @@ public class MappingConstants {
 
     /* AUTHENTICATION */
     public static final String API_AUTH_PREFIX = API_VERSION_PREFIX + "/auth";
+    public static final String API_AUTH_REGISTER =  API_AUTH_PREFIX + "/register";
 
     /* API COMMON */
     public static final String API_COMMON = API_VERSION_PREFIX + "/common";
