@@ -31,7 +31,8 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private static final List<String> EXCLUDED_PATHS = List.of(
         MappingConstants.API_LOGIN,
-            "/api/v1/auth/refresh"
+            "/api/v1/auth/refresh",
+            MappingConstants.API_AUTH_REGISTER
     );
 
     @Setter(onMethod = @__({@Autowired}))

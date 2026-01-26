@@ -66,6 +66,9 @@ const handleRedirectLoginCUSTOMER = () => {
     window.location.href = URL_OAUTH2_GOOGLE_CUSTOMER;
 };
 
+const handleRedirectToRegister = () => {
+    window.location.href = VITE_BASE_URL_CLIENT + "/register";
+};
 </script>
 
 <template>
@@ -99,7 +102,7 @@ const handleRedirectLoginCUSTOMER = () => {
         </n-button>
         <n-flex>
           <n-text>Không có tài khoản ?</n-text>
-          <n-button type="primary" text @click="toOtherForm('register')">
+          <n-button type="primary" text @click="handleRedirectToRegister">
             Đăng ký
           </n-button>
         </n-flex>
