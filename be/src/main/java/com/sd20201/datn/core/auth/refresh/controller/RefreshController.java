@@ -1,7 +1,7 @@
-package com.sd20201.datn.core.auth.controller;
+package com.sd20201.datn.core.auth.refresh.controller;
 
-import com.sd20201.datn.core.auth.model.request.AuthRefreshRequest;
-import com.sd20201.datn.core.auth.service.AuthRefreshService;
+import com.sd20201.datn.core.auth.refresh.model.request.AuthRefreshRequest;
+import com.sd20201.datn.core.auth.refresh.service.AuthRefreshService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;

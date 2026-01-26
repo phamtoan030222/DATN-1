@@ -32,7 +32,7 @@ const menuOptions: MenuOption[] = [
   { label: 'TRA CỨU ĐƠN HÀNG', key: 'tracking', href: '/tra-cuu' },
 ]
 
-const userOptions = [{ label: 'Đăng nhập', key: 'login' }, { label: 'Đăng ký', key: 'register' }]
+const userOptions = [{ label: 'Đăng nhập', key: 'login' }]
 
 // Không gán cứng nữa, để null hoặc 'home' ban đầu
 const activeKey = ref<string | null>(null)
@@ -77,6 +77,12 @@ function handleMenuClick(key: string, item: MenuOption) {
     router.push(item.href as string)
   }
   showDrawer.value = false
+}
+
+const handlerAccountDropdown = (key: string) => {
+  if (key === 'login') {
+    router.push({name: 'login'})
+  }
 }
 </script>
 
@@ -138,7 +144,7 @@ function handleMenuClick(key: string, item: MenuOption) {
           </div>
         </div>
 
-        <NDropdown trigger="hover" :options="userOptions">
+        <NDropdown trigger="hover" :options="userOptions" @select="handlerAccountDropdown">
           <div class="action-btn">
             <NIcon size="28" color="#333">
               <Person />
