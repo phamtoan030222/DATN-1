@@ -1,6 +1,5 @@
-package com.sd20201.datn.core.auth.model.response;
+package com.sd20201.datn.core.auth.refresh.model.response;
 
-import com.sd20201.datn.infrastructure.secutiry.response.TokenUriResponse;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

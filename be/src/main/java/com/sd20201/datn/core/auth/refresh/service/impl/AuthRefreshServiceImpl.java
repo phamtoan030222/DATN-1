@@ -1,10 +1,8 @@
-package com.sd20201.datn.core.auth.service.impl;
+package com.sd20201.datn.core.auth.refresh.service.impl;
 
-import com.sd20201.datn.core.auth.model.request.AuthRefreshRequest;
-import com.sd20201.datn.core.auth.model.response.AuthRefreshResponse;
-import com.sd20201.datn.core.auth.repository.AuthRefreshCustomerRepository;
-import com.sd20201.datn.core.auth.repository.AuthRefreshStaffRepository;
-import com.sd20201.datn.core.auth.service.AuthRefreshService;
+import com.sd20201.datn.core.auth.refresh.model.request.AuthRefreshRequest;
+import com.sd20201.datn.core.auth.refresh.model.response.AuthRefreshResponse;
+import com.sd20201.datn.core.auth.refresh.service.AuthRefreshService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.RefreshToken;
@@ -18,10 +16,8 @@ import com.sd20201.datn.repository.StaffRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;

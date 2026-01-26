@@ -23,9 +23,9 @@ const rules = {
   },
 }
 const formValue = ref({
-  account: 'admin',
-  pwd: '000000',
-  rePwd: '000000',
+  account: '',
+  pwd: '',
+  rePwd: '',
 })
 
 const isRead = ref(false)
@@ -36,7 +36,7 @@ function handleRegister() {}
 <template>
   <div>
     <n-h2 depth="3" class="text-center">
-      {{ $t('login.registerTitle') }}
+      Đăng ký
     </n-h2>
     <n-form
       :rules="rules"
@@ -48,14 +48,14 @@ function handleRegister() {}
         <n-input
           v-model:value="formValue.account"
           clearable
-          :placeholder="$t('login.accountPlaceholder')"
+          placeholder="Nhập tài khoản"
         />
       </n-form-item>
       <n-form-item path="pwd">
         <n-input
           v-model:value="formValue.pwd"
           type="password"
-          :placeholder="$t('login.passwordPlaceholder')"
+          placeholder="Nhập mật khẩu"
           clearable
           show-password-on="click"
         >
@@ -71,7 +71,7 @@ function handleRegister() {}
         <n-input
           v-model:value="formValue.rePwd"
           type="password"
-          :placeholder="$t('login.checkPasswordPlaceholder')"
+          placeholder="Nhập lại mật khẩu"
           clearable
           show-password-on="click"
         >
@@ -89,29 +89,21 @@ function handleRegister() {}
           :size="20"
           class="w-full"
         >
-          <n-checkbox v-model:checked="isRead">
-            {{ $t('login.readAndAgree') }} <n-button
-              type="primary"
-              text
-            >
-              {{ $t('login.userAgreement') }}
-            </n-button>
-          </n-checkbox>
           <n-button
             block
             type="primary"
             @click="handleRegister"
           >
-            {{ $t('login.signUp') }}
+            Đăng ký
           </n-button>
           <n-flex justify="center">
-            <n-text>{{ $t('login.haveAccountText') }}</n-text>
+            <n-text>Bạn đã có tài khoản?</n-text>
             <n-button
               text
               type="primary"
               @click="toLogin"
             >
-              {{ $t('login.signIn') }}
+              Đăng nhập
             </n-button>
           </n-flex>
         </n-space>
