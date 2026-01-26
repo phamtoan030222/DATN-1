@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.service.impl;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADAddSerialNumberRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
@@ -36,11 +37,7 @@ import com.sd20201.datn.entity.Product;
 import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.entity.Screen;
-import com.sd20201.datn.infrastructure.constant.EntityStatus;
-import com.sd20201.datn.infrastructure.constant.ProductPropertiesType;
-import com.sd20201.datn.infrastructure.constant.TechnolyCharging;
-import com.sd20201.datn.infrastructure.constant.TypeBattery;
-import com.sd20201.datn.infrastructure.constant.TypeScreenResolution;
+import com.sd20201.datn.infrastructure.constant.*;
 import com.sd20201.datn.repository.IMEIRepository;
 import com.sd20201.datn.repository.ImageProductRepository;
 import com.sd20201.datn.utils.FileUploadUtil;
@@ -350,6 +347,7 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
                                     imei.setCode(imeiValue);
                                     imei.setName(imeiValue);
                                     imei.setProductDetail(productDetail);
+                                    imei.setImeiStatus(ImeiStatus.AVAILABLE);
                                     return imei;
                                 }
                         )
@@ -539,5 +537,20 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
                         .toList(),
                 "OKE"
         );
+    }
+
+    @Override
+    public ResponseObject<?> addImeiToExistProductDetail(ADAddSerialNumberRequest request) {
+        Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getIdProductDetail());
+        if (productDetailOptional.isEmpty()) return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
+
+        ProductDetail productDetail = productDetailOptional.get();
+
+        try {
+            addImeiToProductDetail(productDetail, request.getSerialNumbers());
+        } catch (Exception e) {
+            return ResponseObject.errorForward(e.getMessage(), HttpStatus.CONFLICT);
+        }
+        return ResponseObject.successForward(null, "Save serial success");
     }
 }

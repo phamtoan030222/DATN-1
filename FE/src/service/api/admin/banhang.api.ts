@@ -1,12 +1,14 @@
 import type { AxiosResponse } from "axios";
 import request from "@/service/request";
-import { PREFIX_API_BAN_HANG_ADMIN } from "@/constants/url";
+import { API_ADMIN_PRODUCT_DETAIL, PREFIX_API_BAN_HANG_ADMIN } from "@/constants/url";
 import type {
   PaginationParams,
   DefaultResponse,
   ResponseList,
   PaginationResponse,
 } from "@/service/api.common";
+import { ADPDImeiResponse, ADProductDetailRequest } from "./product/productDetail.api";
+import { ADProductDetailResponse } from "./product/product.api";
 
 export interface ParamsGetSanPham extends PaginationParams {
   q?: string | "";
@@ -14,10 +16,41 @@ export interface ParamsGetSanPham extends PaginationParams {
   status?: number | null;
 }
 
-export interface ParamsPhieuGiamGia extends PaginationParams {
-  idKH?: string | undefined;
-  idHD?: number | null;
+export interface ParamsPhieuGiamGia {
+  invoiceId: string;          // ID hóa đơn
+  tongTien: number;           // Tổng tiền hiện tại
+  customerId?: string | null; // Có thể null (bán tại quầy)
 }
+
+export interface VoucherApDungDTO {
+  voucherId: string;
+  code: string;
+  typeVoucher: "PERCENTAGE" | "FIXED_AMOUNT";
+  discountValue: number;
+  maxValue?: number;
+  dieuKien: number;
+  giamGiaThucTe: number; // TÊN FIELD ĐÃ THAY ĐỔI: giamGiaThucTe thay vì giaTriGiamThucTe
+  ten?: string; // Có thể không có
+}
+
+export interface VoucherTotHonDTO {
+  voucherId: string;
+  code: string;
+  dieuKien: number;
+  giamGiaMoi: number;
+  canMuaThem: number;
+  giamThem: number;
+  hieuQua: number;
+}
+
+export interface GoiYVoucherResponse {
+  voucherApDung: VoucherApDungDTO[];
+  voucherTotHon?: VoucherTotHonDTO[];
+  voucherHienTai?: VoucherApDungDTO; // Có thể không có
+  tongTienSauGiam?: number;
+  // Thêm các field khác nếu có
+}
+
 
 export interface ParamsGetHoaDon extends PaginationParams {
   q?: string | "";
@@ -35,8 +68,30 @@ export interface ParamsPTTT {
 }
 
 export interface ParamsThanhCong {
+  // Các field hiện tại (giữ nguyên)
   idHD?: string;
   tongTien: string;
+  
+  // Thêm các field mới để khớp với backend
+  idNV?: string;
+  tienHang?: number;
+  tienShip?: number;
+  giamGia?: number;
+  ten?: string;
+  sdt?: string;
+  diaChi?: string;
+  phuongThucThanhToan?: string;
+  idPGG?: string;
+  check?: number;
+  isDeliveryEnabled?: boolean;
+  
+  // THÊM CÁC FIELD IMEI (QUAN TRỌNG)
+  loaiHoaDon?: 'TAI_QUAY' | 'GIAO_HANG';
+  danhSachImei?: Array<{
+    idHoaDonChiTiet: string;
+    danhSachImei: string[];
+  }>;
+  daXacNhanImei?: boolean;
 }
 
 // NEW: Type for delivery information
@@ -84,9 +139,9 @@ export type tongTienResponse = ResponseList & {
 };
 
 export interface ADThemSanPhamRequest {
-  id?: string;
-  code: string;
-  name: string;
+  invoiceId: string;
+  productDetailId: string;
+  imeiIds: string[];
 }
 
 export type PhieuGiamGiaResponse = ResponseList & {
@@ -143,7 +198,31 @@ export const GetHoaDons = async (params: ParamsGetHoaDon) => {
   return res.data;
 };
 
-export const getCreateHoaDon = async (maHoaDon: ADThemSanPhamRequest) => {
+export interface CreateHoaDonRequest {
+  idNV: string;
+  ma?: string; // FE gửi mã TẠM (BE có thể bỏ qua)
+}
+
+export async function getProductDetails(params: ADProductDetailRequest) {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/san-pham-chi-tiet`,
+    method: 'GET',
+    params,
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<ADProductDetailResponse>>>>
+
+  return res.data
+}
+
+export async function getImeiProductDetail(idProductDetail: string) {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}/imei/${idProductDetail}`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPDImeiResponse>>>
+
+  return res.data
+}
+
+export const getCreateHoaDon = async (maHoaDon: CreateHoaDonRequest) => {
   const res = await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/create-hoa-don`,
     method: "POST",
@@ -165,15 +244,17 @@ export const huyHoaDon = async (maHoaDon: ADThemSanPhamRequest) => {
 };
 
 export const themSanPham = async (data: ADThemSanPhamRequest) => {
-  const res = (await request({
+  const res = await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/them-san-pham`,
     method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<BanHangResponse>>;
+    data,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 
   return res.data;
 };
-
 export const xoaSP = async (data: ParamsXoaSP) => {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/xoa-san-pham `,
@@ -248,11 +329,15 @@ export const themPTTT = async (data: ParamsPTTT) => {
 };
 
 export const thanhToanThanhCong = async (data: ParamsThanhCong) => {
+  // Sửa để gửi JSON thay vì FormData
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/thanh-toan-thanh-cong`,
     method: "POST",
-    data: data,
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>;
+    data: data, // Gửi trực tiếp object JSON
+    headers: {
+      'Content-Type': 'application/json' // Quan trọng
+    }
+  })) as AxiosResponse<DefaultResponse<any>>;
 
   return res.data;
 };
@@ -297,12 +382,17 @@ export const GetKhachHang = async (data: ParamsXoaSP) => {
   return res.data;
 };
 
-export const getMaGiamGia = async (data: ParamsPhieuGiamGia) => {
+export const getMaGiamGia = async (
+  data: ParamsPhieuGiamGia
+): Promise<GoiYVoucherResponse> => {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_ADMIN}/danh-sach-phieu-giam-gia`,
-    method: "GET",
-    params: data,
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<PhieuGiamGiaResponse>>>>;
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/goi-y`,
+    method: "POST",
+    data,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  })) as AxiosResponse<GoiYVoucherResponse>;
 
   return res.data;
 };

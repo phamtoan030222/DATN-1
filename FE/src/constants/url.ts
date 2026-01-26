@@ -57,6 +57,8 @@ export const API_ADMIN_DISCOUNTS_VOUCHER
 
   export const API_ADMIN_STATISTICS = `${PREFIX_API_ADMIN}/statistics` as string
 export const PREFIX_API_BAN_HANG_ADMIN = `${PREFIX_API_ADMIN}/ban-hang` as string;
+
+export const PREFIX_API_HOA_DON_ADMIN = `${PREFIX_API_ADMIN}/hoa-don` as string;
   
 // export const API_ADMIN_SALES = `${}`
 

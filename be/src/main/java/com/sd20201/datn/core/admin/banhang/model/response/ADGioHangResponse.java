@@ -16,4 +16,5 @@ public interface ADGioHangResponse {
     String getHardDrive();
     String getGpu();
     String getColor();
+    String getImel();
 }

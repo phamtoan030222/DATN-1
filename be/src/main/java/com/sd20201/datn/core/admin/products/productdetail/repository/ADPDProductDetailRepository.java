@@ -38,10 +38,10 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                 , p.ram.name as ram
                 , p.price as price
                 , p.status as status
-                , COUNT(i.id) as quantity
+                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
                 , p.urlImage as urlImage
+                 , p.product.name as productName
     FROM ProductDetail p
-        LEFT join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -66,13 +66,13 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                  p.price,
                  p.status,
                  p.urlImage
+                 , p.product.name
     HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     ORDER BY p.createdDate DESC
     """, countQuery = """
     SELECT
-        COUNT(1)
+        COUNT(p.id)
     FROM ProductDetail p
-        LEFT join IMEI i on p.id = i.productDetail.id
     where
         (
             :#{#request.q} is null or p.name like concat('%',:#{#request.q},'%')
@@ -97,6 +97,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                  p.price,
                  p.status,
                  p.urlImage
+                 , p.product.name
        HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     """)
     Page<ADPDProductDetailResponse> getProductDetails(Pageable pageable, ADPDProductDetailRequest request);
@@ -114,11 +115,10 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , p.ram.name as ram
                         , p.price as price
                         , p.status as status
-                        , COUNT(i.id) as quantity
+                        , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
                         , p.urlImage as urlImage
                         , MAX(d.percentage) as percentage
             FROM ProductDetail p
-                LEFT join IMEI i on p.id = i.productDetail.id
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
                 LEFT JOIN Discount d on pdd.discount.id = d.id
             where
@@ -151,7 +151,6 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             SELECT
                 COUNT (p.id)
             FROM ProductDetail p
-                LEFT join IMEI i on p.id = i.productDetail.id
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
                 LEFT JOIN Discount d on pdd.discount.id = d.id
             where
@@ -184,20 +183,37 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
 
     @Query(value = """
         SELECT
-        p.id as id
-        , p.code as code
-        , p.name as name
-        , p.description as description
-        , p.hardDrive.id as idHardDrive
-        , p.material.id as idMaterial
-        , p.color.id as idColor
-        , p.gpu.id as idGPU
-        , p.cpu.id as idCPU
-        , p.product.id as idProduct
-        , p.price as price
-        , p.ram.id as idRAM
-    FROM ProductDetail p
-    WHERE id = :id
+            p.id as id
+            , p.code as code
+            , p.name as name
+            , p.description as description
+            , p.hardDrive.id as idHardDrive
+            , p.material.id as idMaterial
+            , p.color.id as idColor
+            , p.gpu.id as idGPU
+            , p.cpu.id as idCPU
+            , p.product.id as idProduct
+            , p.price as price
+            , p.ram.id as idRAM
+            , p.urlImage as urlImage
+            , p.product.name as productName
+            , p.cpu.name as cpuName
+            , p.ram.name as ramName
+            , p.hardDrive.name as hardDriveName
+            , p.color.name as colorName
+            , MAX(d.percentage) as percentage
+
+        FROM ProductDetail p
+        LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id
+        LEFT JOIN Discount d ON pdd.discount.id = d.id
+        WHERE p.id = :id
+        GROUP BY
+            p.id, p.code, p.name, p.description, 
+            p.hardDrive.id, p.material.id, p.color.id, 
+            p.gpu.id, p.cpu.id, p.product.id, p.price, 
+            p.ram.id, p.urlImage, 
+            p.product.name, p.cpu.name, p.ram.name, 
+            p.hardDrive.name, p.color.name
     """)
     Optional<ADPDProductDetailDetailResponse> getProductById(@Param("id") String id);
 

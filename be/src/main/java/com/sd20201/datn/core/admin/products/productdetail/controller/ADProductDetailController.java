@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.productdetail.controller;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADAddSerialNumberRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExistVariantRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADQuickAddProductRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
@@ -127,5 +128,10 @@ public class ADProductDetailController {
     @PostMapping("/exist-variant")
     ResponseEntity<?> checkExistVariant(@RequestBody ADPDExistVariantRequest request) {
         return Helper.createResponseEntity(productDetailService.checkExistVariant(request));
+    }
+
+    @PostMapping("/add-serial-number")
+    ResponseEntity<?> addSerialNumberToProductDetail(@RequestBody ADAddSerialNumberRequest request) {
+        return Helper.createResponseEntity(productDetailService.addImeiToExistProductDetail(request));
     }
 }

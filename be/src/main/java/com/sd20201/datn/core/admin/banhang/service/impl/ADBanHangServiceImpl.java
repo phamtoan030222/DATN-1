@@ -1,26 +1,21 @@
 package com.sd20201.datn.core.admin.banhang.service.impl;
 
 import com.sd20201.datn.core.admin.banhang.model.request.*;
-import com.sd20201.datn.core.admin.banhang.model.response.ADChonKhachHangResponse;
-import com.sd20201.datn.core.admin.banhang.model.response.ADGioHangResponse;
-import com.sd20201.datn.core.admin.banhang.model.response.ADPhuongThucThanhToanRespones;
-import com.sd20201.datn.core.admin.banhang.model.response.ListHoaDon;
-import com.sd20201.datn.core.admin.banhang.repository.ADBanHangIMEIRepository;
-import com.sd20201.datn.core.admin.banhang.repository.ADTaoHoaDonChiTietRepository;
-import com.sd20201.datn.core.admin.banhang.repository.ADTaoHoaDonRepository;
+import com.sd20201.datn.core.admin.banhang.model.request.ChonPhieuGiamGiaRequest;
+import com.sd20201.datn.core.admin.banhang.model.response.*;
+import com.sd20201.datn.core.admin.banhang.repository.*;
 import com.sd20201.datn.core.admin.banhang.service.ADBanHangService;
+import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
+import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailRepository;
 import com.sd20201.datn.core.admin.staff.repository.ADStaffRepository;
 import com.sd20201.datn.core.admin.voucher.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.*;
-import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
-import com.sd20201.datn.infrastructure.constant.TypeInvoice;
-import com.sd20201.datn.infrastructure.constant.TypePayment;
-import com.sd20201.datn.infrastructure.constant.TypeVoucher;
-import com.sd20201.datn.repository.LichSuThanhToanResposiotry;
-import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
+import com.sd20201.datn.infrastructure.constant.*;
+import com.sd20201.datn.infrastructure.exception.BusinessException;
+import com.sd20201.datn.repository.*;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -32,6 +27,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.util.*;
@@ -52,10 +48,30 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     public final AdVoucherRepository adVoucherRepository;
     public final ADPDProductDetailRepository adPDProductDetailRepository;
     public final LichSuThanhToanResposiotry adLichSuThanhToanRepository;
+    public final ADBanHangSanPhamChiTiet productDetailRepository;
+
+    public final ADBHVoucherDetailRepository adbhvoucher;
+    public final AdCustomerRepository khachHangRepository;
+
+    public final InvoiceRepository invoiceRepository;
+    private final InvoiceDetailRepository invoiceDetailRepository;
+    public final AdVoucherRepository phieuGiamGiaRepository;
+
 
     @Override
     public List<ListHoaDon> getHoaDon() {
         return adTaoHoaDonRepository.getAll();
+    }
+
+
+
+    @Override
+    public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
+        return ResponseObject.successForward(
+                PageableObject.of(
+                        productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
+                "OKE"
+        );
     }
 
     @Override
@@ -70,9 +86,13 @@ public class ADBanHangServiceImpl implements ADBanHangService {
                     .findById(adNhanVienRequest.getIdNV())
                     .orElseThrow(() -> new RuntimeException("Không tìm thấy nhân viên với id = " + adNhanVienRequest.getIdNV()));
 
+            System.out.println("Đây là max hpas don: "+ adNhanVienRequest.getMa());
+
+
+            hoaDon.setCode(adNhanVienRequest.getMa());
             hoaDon.setStaff(nhanVien);
             hoaDon.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-            hoaDon.setTypeInvoice(TypeInvoice.OFFLINE);
+            hoaDon.setTypeInvoice(TypeInvoice.TAI_QUAY);
             hoaDon.setCreatedDate(System.currentTimeMillis());
 
             adTaoHoaDonRepository.save(hoaDon);
@@ -126,121 +146,6 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         }
     }
 
-    @Override
-    public ResponseObject<?> danhSachPhieuGiamGia(ChonPhieuGiamGiaRequest request) {
-        try {
-            BigDecimal tongTien = request.getTongTien() != null
-                    ? request.getTongTien()
-                    : BigDecimal.ZERO;
-
-            if (tongTien.compareTo(BigDecimal.ZERO) <= 0) {
-                return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "Tổng tiền không được để trống hoặc âm");
-            }
-
-            // Lấy danh sách voucher phù hợp
-            List<Voucher> vouchers = adTaoHoaDonRepository.getAvailableVouchersNative(
-                    request.getIdKH(),
-                    tongTien,
-                    System.currentTimeMillis()
-            );
-
-            if (vouchers == null || vouchers.isEmpty()) {
-                return new ResponseObject<>(Collections.emptyList(), HttpStatus.OK,
-                        "Không có voucher nào khả dụng");
-            }
-
-            // Tính toán giá trị giảm thực tế cho từng voucher
-            List<VoucherResponseDTO> voucherResponses = vouchers.stream()
-                    .map(voucher -> calculateActualDiscount(voucher, tongTien))
-                    .filter(Objects::nonNull)
-                    .sorted(Comparator.comparing(VoucherResponseDTO::getActualDiscount).reversed())
-                    .collect(Collectors.toList());
-
-            return new ResponseObject<>(voucherResponses, HttpStatus.OK,
-                    "Lấy danh sách voucher thành công");
-
-        } catch (Exception e) {
-            log.error("Error getting vouchers: ", e);
-            return new ResponseObject<>(null, HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Lỗi khi lấy danh sách voucher: " + e.getMessage());
-        }
-    }
-
-    @Override
-    public ResponseObject<?> danhSachPhieuGiamGiaKoDuDieuKien(ChonPhieuGiamGiaRequest request) {
-        try {
-            BigDecimal tongTien = request.getTongTien() != null
-                    ? request.getTongTien()
-                    : BigDecimal.ZERO;
-
-            // Lấy tất cả voucher có thể áp dụng (không kiểm tra điều kiện)
-            List<Voucher> allVouchers = adTaoHoaDonRepository.getAllVouchersNative(
-                    request.getIdKH(),
-                    System.currentTimeMillis()
-            );
-
-            if (allVouchers == null || allVouchers.isEmpty()) {
-                Map<String, Object> emptyResult = new HashMap<>();
-                emptyResult.put("applicableVouchers", Collections.emptyList());
-                emptyResult.put("inapplicableVouchers", Collections.emptyList());
-                return new ResponseObject<>(emptyResult, HttpStatus.OK,
-                        "Không có voucher nào khả dụng");
-            }
-
-            // Phân loại voucher
-            List<VoucherResponseDTO> applicableVouchers = new ArrayList<>();
-            List<VoucherResponseDTO> inapplicableVouchers = new ArrayList<>();
-
-            for (Voucher voucher : allVouchers) {
-                VoucherResponseDTO response = calculateActualDiscount(voucher, tongTien);
-                if (response != null) {
-                    if (voucher.getConditions() == null ||
-                            tongTien.compareTo(voucher.getConditions()) >= 0) {
-                        applicableVouchers.add(response);
-                    } else {
-                        // Voucher không đủ điều kiện
-                        BigDecimal amountNeeded = voucher.getConditions().subtract(tongTien);
-                        if (amountNeeded.compareTo(BigDecimal.ZERO) > 0) {
-                            response.setAdditionalMessage(
-                                    "Cần thêm " + formatCurrency(amountNeeded.doubleValue()) + " để áp dụng voucher"
-                            );
-                        }
-                        inapplicableVouchers.add(response);
-                    }
-                }
-            }
-
-            // Sắp xếp voucher có thể áp dụng theo giá trị giảm
-            applicableVouchers.sort(Comparator.comparing(VoucherResponseDTO::getActualDiscount).reversed());
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("applicableVouchers", applicableVouchers);
-            result.put("inapplicableVouchers", inapplicableVouchers);
-
-            // Tìm voucher tốt nhất
-            if (!applicableVouchers.isEmpty()) {
-                VoucherResponseDTO bestVoucher = applicableVouchers.get(0);
-                result.put("bestVoucher", bestVoucher);
-
-                // Tìm voucher tốt hơn trong danh sách không đủ điều kiện
-                Optional<VoucherResponseDTO> betterVoucher = inapplicableVouchers.stream()
-                        .filter(v -> v.getActualDiscount().compareTo(bestVoucher.getActualDiscount()) > 0)
-                        .max(Comparator.comparing(VoucherResponseDTO::getActualDiscount));
-
-                if (betterVoucher.isPresent()) {
-                    result.put("betterVoucher", betterVoucher.get());
-                }
-            }
-
-            return new ResponseObject<>(result, HttpStatus.OK,
-                    "Lấy danh sách voucher thành công");
-
-        } catch (Exception e) {
-            log.error("Error getting vouchers without condition: ", e);
-            return new ResponseObject<>(null, HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Lỗi khi lấy danh sách voucher: " + e.getMessage());
-        }
-    }
 
     @Override
     public List<ADPhuongThucThanhToanRespones> getPhuongThucThanhToan(String id) {
@@ -252,26 +157,74 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         }
     }
 
+
     @Override
     @Transactional
     public ResponseObject<?> createThemSanPham(ADThemSanPhamRequest request) {
-        try {
-            // Kiểm tra xem sản phẩm đã có trong hóa đơn chưa
-            List<String> idHDCT = adTaoHoaDonChiTietRepository.checkGioHang(request);
 
-            if (idHDCT == null || idHDCT.isEmpty()) {
-                return addNewProductToInvoice(request);
-            } else {
-                return updateExistingProductInInvoice(request, idHDCT.get(0));
-            }
+        System.out.println(request.getInvoiceId());
+        Invoice invoice = invoiceRepository.findById(request.getInvoiceId())
+                .orElseThrow(() -> new BusinessException("Khong tim thay hoa don"));
 
-        } catch (RuntimeException e) {
-            log.error("Error adding product to cart: ", e);
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, e.getMessage());
-        } catch (Exception e) {
-            log.error("Unexpected error adding product to cart: ", e);
-            return new ResponseObject<>(null, HttpStatus.INTERNAL_SERVER_ERROR, "Lỗi không xác định khi thêm sản phẩm");
+        ProductDetail productDetail = productDetailRepository
+                .findById(request.getProductDetailId())
+                .orElseThrow(() -> new BusinessException("Khong tim thay san pham"));
+
+        List<IMEI> imeis = imeiRepository.findAllById(request.getImeiIds());
+
+        if(imeis.isEmpty()) {
+            throw new BusinessException("Khong tim thay san pham");
         }
+
+        if (imeis.size() != request.getImeiIds().size()) {
+            throw new BusinessException("Khong tim thay san pham");
+        }
+
+        boolean invalidImei = imeis.stream().anyMatch(
+                imei -> imei.getImeiStatus() != ImeiStatus.AVAILABLE ||
+                        !imei.getProductDetail().getId().equals(productDetail.getId())
+        );
+
+        if (invalidImei) {
+            throw new BusinessException("Imei da duoc dat da ban hoac khong co");
+        }
+
+        InvoiceDetail invoiceDetail = new InvoiceDetail();
+        invoiceDetail.setInvoice(invoice);
+        invoiceDetail.setProductDetail(productDetail);
+        invoiceDetail.setPrice(productDetail.getPrice());
+        invoiceDetail.setQuantity(imeis.size());
+
+        BigDecimal totalAmount = productDetail.getPrice()
+                .multiply(BigDecimal.valueOf(imeis.size()));
+
+        invoiceDetail.setTotalAmount(totalAmount);
+        invoiceDetailRepository.save(invoiceDetail);
+
+        for (IMEI imei : imeis) {
+            imei.setInvoiceDetail(invoiceDetail);
+            imei.setImeiStatus(ImeiStatus.RESERVED);
+        }
+
+        imeiRepository.saveAll(imeis);
+
+
+        return new ResponseObject<>(null, HttpStatus.OK, "thêm sản phẩm thanh công");
+
+
+    }
+
+    @Override
+    public void themKhachHang(ADThemKhachHangRequest id) {
+
+        Customer khachHang = khachHangRepository.findById(id.getIdKH()).get();
+
+        Invoice hoaDon = adTaoHoaDonRepository.findById(id.getIdHD()).get();
+
+        hoaDon.setCustomer(khachHang);
+
+        adTaoHoaDonRepository.save(hoaDon);
+
     }
 
     @Override
@@ -389,6 +342,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             Staff nhanVien = adNhanVienRepository.findById(id.getIdNV())
                     .orElseThrow(() -> new BadRequestException("Nhân viên không tồn tại"));
             hoaDonToUpdate.setStaff(nhanVien);
+            System.out.println("Loại Hóa đơn: " +hoaDonToUpdate.getTypeInvoice() );
 
             // Xử lý theo loại hóa đơn
             if (hoaDonToUpdate.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
@@ -601,100 +555,6 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
 
 
-    private ResponseObject<?> addNewProductToInvoice(ADThemSanPhamRequest request) {
-        ProductDetail sanPham = adSanPhamRepository.findById(request.getIdSP())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
-
-        // Lấy số lượng IMEI còn trong kho
-        Long soLuongTrongKho = imeiRepository.countByProductDetailIdAndInvoiceDetailIsNull(request.getIdSP());
-        int requestedQuantity = Integer.parseInt(request.getSoLuong());
-
-        if (soLuongTrongKho < requestedQuantity) {
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
-                    "Số lượng sản phẩm thêm vào nhiều hơn số lượng trong kho. Hiện có: " + soLuongTrongKho);
-        }
-
-        Invoice hoaDon = adTaoHoaDonRepository.findById(request.getIdHD())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn"));
-
-        InvoiceDetail hoaDonChiTiet = new InvoiceDetail();
-        hoaDonChiTiet.setInvoice(hoaDon);
-        hoaDonChiTiet.setProductDetail(sanPham);
-        hoaDonChiTiet.setQuantity(requestedQuantity);
-        hoaDonChiTiet.setPrice(sanPham.getPrice());
-        hoaDonChiTiet.setTotalAmount(sanPham.getPrice().multiply(BigDecimal.valueOf(requestedQuantity)));
-
-        adTaoHoaDonChiTietRepository.save(hoaDonChiTiet);
-
-        return new ResponseObject<>(null, HttpStatus.OK, "Thêm sản phẩm thành công");
-    }
-
-    private ResponseObject<?> updateExistingProductInInvoice(ADThemSanPhamRequest request, String idHDCT) {
-        InvoiceDetail existingDetail = adTaoHoaDonChiTietRepository.findById(idHDCT)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy chi tiết hóa đơn"));
-
-        ProductDetail sanPham = adSanPhamRepository.findById(request.getIdSP())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy sản phẩm"));
-
-        BigDecimal oldPrice = existingDetail.getPrice();
-        BigDecimal newPrice = sanPham.getPrice();
-        BigDecimal epsilon = new BigDecimal("0.0001");
-        int additionalQuantity = Integer.parseInt(request.getSoLuong());
-
-        // Kiểm tra xem giá có thay đổi không
-        if (oldPrice.subtract(newPrice).abs().compareTo(epsilon) > 0) {
-            // Giá đã thay đổi - tạo chi tiết mới
-            return createNewInvoiceDetailForPriceChange(request, sanPham, existingDetail, additionalQuantity);
-        } else {
-            // Giá không đổi - cập nhật số lượng
-            return updateProductQuantity(request, existingDetail, additionalQuantity);
-        }
-    }
-
-    private ResponseObject<?> createNewInvoiceDetailForPriceChange(ADThemSanPhamRequest request, ProductDetail sanPham,
-                                                                   InvoiceDetail existingDetail, int additionalQuantity) {
-        Long soLuongTrongKho = imeiRepository.countByProductDetailIdAndInvoiceDetailIsNull(request.getIdSP());
-
-        if (soLuongTrongKho < additionalQuantity) {
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
-                    "Số lượng sản phẩm thêm vào nhiều hơn số lượng trong kho. Hiện có: " + soLuongTrongKho);
-        }
-
-        Invoice hoaDon = adTaoHoaDonRepository.findById(request.getIdHD())
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn"));
-
-        // Tạo chi tiết hóa đơn mới với giá mới
-        InvoiceDetail newDetail = new InvoiceDetail();
-        newDetail.setInvoice(hoaDon);
-        newDetail.setProductDetail(sanPham);
-        newDetail.setQuantity(additionalQuantity);
-        newDetail.setPrice(sanPham.getPrice());
-        newDetail.setTotalAmount(sanPham.getPrice().multiply(BigDecimal.valueOf(additionalQuantity)));
-
-        adTaoHoaDonChiTietRepository.save(newDetail);
-
-        return new ResponseObject<>(null, HttpStatus.OK,
-                "Sản phẩm này đang được thay đổi giá từ " + existingDetail.getPrice() + "đ thành " + sanPham.getPrice() + "đ");
-    }
-
-    private ResponseObject<?> updateProductQuantity(ADThemSanPhamRequest request, InvoiceDetail existingDetail,
-                                                    int additionalQuantity) {
-        Long soLuongTrongKho = imeiRepository.countByProductDetailIdAndInvoiceDetailIsNull(request.getIdSP());
-        int newTotalQuantity = existingDetail.getQuantity() + additionalQuantity;
-
-        if (soLuongTrongKho < newTotalQuantity) {
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
-                    "Số lượng sản phẩm thêm vào nhiều hơn số lượng trong kho. Hiện có: " + soLuongTrongKho);
-        }
-
-        existingDetail.setQuantity(newTotalQuantity);
-        existingDetail.setTotalAmount(existingDetail.getPrice().multiply(BigDecimal.valueOf(newTotalQuantity)));
-
-        adTaoHoaDonChiTietRepository.save(existingDetail);
-
-        return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật số lượng sản phẩm thành công");
-    }
-
     private VoucherResponseDTO calculateActualDiscount(Voucher voucher, BigDecimal totalAmount) {
         try {
             BigDecimal actualDiscount = BigDecimal.ZERO;
@@ -762,5 +622,167 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         if (amount == null) return "0 ₫";
         NumberFormat formatter = NumberFormat.getCurrencyInstance(new Locale("vi", "VN"));
         return formatter.format(amount);
+    }
+
+    @Override
+    public VoucherSuggestionResponse goiYVoucher(
+            VoucherSuggestionRequest req
+    ) {
+        BigDecimal tongTien = req.getTongTien();
+        Long now = System.currentTimeMillis();
+
+        // 1️⃣ Lấy toàn bộ voucher có thể dùng
+        List<Voucher> vouchers = new ArrayList<>();
+
+        vouchers.addAll(
+                adbhvoucher.findVoucherHopLe(
+                        TargetType.ALL_CUSTOMERS, now
+                )
+        );
+
+        if (req.getCustomerId() != null) {
+            vouchers.addAll(
+                    adbhvoucher.findVoucherRiengCuaKH(
+                            req.getCustomerId()
+                    )
+            );
+        }
+
+        // 2️⃣ Voucher áp dụng ngay
+        List<ApplicableVoucherResponse> apDung = vouchers.stream()
+                .filter(v -> tongTien.compareTo(v.getConditions()) >= 0)
+                .map(v -> toApplicable(v, tongTien))
+                .sorted(
+                        Comparator.comparing(
+                                ApplicableVoucherResponse::getGiamGiaThucTe
+                        ).reversed()
+                )
+                .toList();
+
+        BigDecimal giamTotNhat = apDung.isEmpty()
+                ? BigDecimal.ZERO
+                : apDung.get(0).getGiamGiaThucTe();
+
+        // 3️⃣ Voucher tốt hơn nếu mua thêm
+        List<BetterVoucherResponse> totHon = vouchers.stream()
+                .filter(v -> v.getConditions().compareTo(tongTien) > 0)
+                .map(v -> toBetter(v, tongTien, giamTotNhat))
+                .filter(Objects::nonNull)
+                .sorted(
+                        Comparator.comparing(
+                                BetterVoucherResponse::getHieuQua
+                        ).reversed()
+                )
+                .toList();
+
+        VoucherSuggestionResponse res = new VoucherSuggestionResponse();
+        res.setVoucherApDung(apDung);
+        res.setVoucherTotHon(totHon);
+
+        return res;
+    }
+
+    // ================= HELPER =================
+
+    private ApplicableVoucherResponse toApplicable(
+            Voucher v,
+            BigDecimal tongTien
+    ) {
+        BigDecimal giam = tinhGiam(v, tongTien);
+
+        return new ApplicableVoucherResponse(
+                v.getId(),
+                v.getCode(),
+                v.getTypeVoucher(),
+                v.getDiscountValue(),
+                v.getMaxValue(),
+                v.getConditions(),
+                giam,
+                tongTien.subtract(giam)
+        );
+    }
+
+    private BetterVoucherResponse toBetter(
+            Voucher v,
+            BigDecimal tongTien,
+            BigDecimal giamHienTai
+    ) {
+        BigDecimal canMuaThem =
+                v.getConditions().subtract(tongTien);
+
+        BigDecimal giamMoi =
+                tinhGiam(v, v.getConditions());
+
+        BigDecimal giamThem =
+                giamMoi.subtract(giamHienTai);
+
+        if (giamThem.compareTo(BigDecimal.ZERO) <= 0)
+            return null;
+
+        BigDecimal hieuQua =
+                giamThem.divide(
+                        canMuaThem,
+                        4,
+                        RoundingMode.HALF_UP
+                ).multiply(BigDecimal.valueOf(100));
+
+        return new BetterVoucherResponse(
+                v.getId(),
+                v.getCode(),
+                v.getConditions(),
+                canMuaThem,
+                giamMoi,
+                giamThem,
+                hieuQua
+        );
+    }
+
+    private BigDecimal tinhGiam(
+            Voucher v,
+            BigDecimal tongTien
+    ) {
+        BigDecimal giam =
+                v.getTypeVoucher() == TypeVoucher.PERCENTAGE
+                        ? tongTien.multiply(v.getDiscountValue())
+                        .divide(BigDecimal.valueOf(100))
+                        : v.getDiscountValue();
+
+        if (v.getMaxValue() != null) {
+            giam = giam.min(v.getMaxValue());
+        }
+
+        return giam.min(tongTien);
+    }
+
+    @Override
+    public ResponseObject<?> giaoHang(String request) {
+        System.out.println("idHD" + request);
+        Invoice hoaDon = adTaoHoaDonRepository.findById(request).get();
+
+        hoaDon.setTypeInvoice(hoaDon.getTypeInvoice() == TypeInvoice.TAI_QUAY ? TypeInvoice.GIAO_HANG : TypeInvoice.TAI_QUAY);
+
+        adTaoHoaDonRepository.save(hoaDon);
+
+        return new ResponseObject<>(null, HttpStatus.CREATED, "Lây giá trị phiếu giảm giá thành công");
+    }
+
+    @Override
+    public ResponseObject<?> huy(ADHuyRequest request) {
+
+        Invoice hoaDon = adTaoHoaDonRepository.findById(request.getIdHD()).get();
+
+        hoaDon.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.DA_HUY);
+
+
+        adTaoHoaDonRepository.save(hoaDon);
+
+        LichSuTrangThaiHoaDon lichSuTrangThaiHoaDon = new LichSuTrangThaiHoaDon();
+        lichSuTrangThaiHoaDon.setHoaDon(hoaDon);
+        lichSuTrangThaiHoaDon.setTrangThai(EntityTrangThaiHoaDon.DA_HUY);
+        lichSuTrangThaiHoaDon.setThoiGian(LocalDateTime.now());
+
+        lichSuTrangThaiHoaDonRepository.save(lichSuTrangThaiHoaDon);
+
+        return new ResponseObject<>(null, HttpStatus.CREATED, "Hủy hóa đơn thành công");
     }
 }

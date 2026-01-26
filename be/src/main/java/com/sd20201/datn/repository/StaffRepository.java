@@ -8,4 +8,5 @@ import java.util.Optional;
 
 @Repository
 public interface StaffRepository extends JpaRepository<Staff, String> {
+    Optional<Object> findByAccountUsername(String username);
 }

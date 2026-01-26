@@ -28,12 +28,11 @@ public interface ADProductRepository extends ProductRepository {
         , p.operatingSystem.name as operatingSystem
         , MIN(pd.price) as minPrice
         , MAX(pd.price) as maxPrice
-        , COUNT(i.id) as quantity
+        , COUNT(pd.id) as quantity
         , ip.url as urlImage
         , MAX(d.percentage) as percentage
     FROM Product p
         LEFT JOIN ProductDetail pd on p.id = pd.product.id
-        LEFT JOIN IMEI i on pd.id = i.productDetail.id
         LEFT JOIN ImageProduct ip on p.id = ip.product.id
         LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
         LEFT JOIN Discount d on pdd.discount.id = d.id
@@ -63,7 +62,6 @@ public interface ADProductRepository extends ProductRepository {
         COUNT(1)
     FROM Product p
         LEFT JOIN ProductDetail pd on p.id = pd.product.id
-        LEFT JOIN IMEI i on pd.id = i.productDetail.id
         LEFT JOIN ImageProduct ip on p.id = ip.product.id
         LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
         LEFT JOIN Discount d on pdd.discount.id = d.id

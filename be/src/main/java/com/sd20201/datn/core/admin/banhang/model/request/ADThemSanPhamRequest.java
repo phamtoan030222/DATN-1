@@ -5,17 +5,19 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Setter
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
 public class ADThemSanPhamRequest {
 
-    private String idSP;
 
-    private String idHD;
+    private String invoiceId;
+    private String productDetailId;
+    private List<String> imeiIds;
 
-    private String soLuong;
 
-    private String idHDCT;
+
 }

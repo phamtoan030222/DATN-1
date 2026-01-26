@@ -2,7 +2,7 @@ package com.sd20201.datn.infrastructure.constant;
 
 public enum TypeInvoice {
 
-    OFFLINE,
+    TAI_QUAY,
     ONLINE,
     GIAO_HANG
     ;

@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.banhang.model.request;
 
+import com.sd20201.datn.infrastructure.constant.TypeInvoice;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -36,5 +37,7 @@ public class ADThanhToanRequest {
     private BigDecimal tienShip;
 
     private String phuongThucThanhToan;
+
+    private TypeInvoice loaiHoaDon;
 }
 
