@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { Login, Register, ResetPwd } from './components'
 
-type IformType = 'login' | 'register' | 'resetPwd'
+type IformType = 'login' | 'resetPwd'
 const formType: Ref<IformType> = ref('login')
 const formComponets = {
   login: Login,
-  register: Register,
   resetPwd: ResetPwd,
 }
 

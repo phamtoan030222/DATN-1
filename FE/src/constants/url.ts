@@ -8,6 +8,10 @@ export const PREFIX_API_AUTH = `${API_URL}/auth` as string
 
 export const API_AUTH_LOGIN = `${API_URL}/login` as string
 
+export const API_AUTH_REGISTER = `${PREFIX_API_AUTH}/register` as string
+
+export const API_AUTH_REGISTER_CUSTOMER = `${API_AUTH_REGISTER}/customer` as string
+
 // SUB_REDIRECT
 export const SCREEN_ROLE_ADMIN = `&screen=ADMIN`
 
