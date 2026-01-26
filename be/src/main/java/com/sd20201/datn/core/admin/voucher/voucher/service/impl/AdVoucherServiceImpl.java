@@ -83,9 +83,39 @@ public class AdVoucherServiceImpl implements AdVoucherService {
     @Override
     public ResponseObject<?> changeStatusVoucher(String id) {
         return voucherRepository.findById(id).map(voucher -> {
-            voucher.setStatus(voucher.getStatus() == EntityStatus.ACTIVE ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
+            // Toggle trạng thái
+            EntityStatus newStatus = voucher.getStatus() == EntityStatus.ACTIVE ? EntityStatus.INACTIVE : EntityStatus.ACTIVE;
+            voucher.setStatus(newStatus);
             voucherRepository.save(voucher);
-            return ResponseObject.successForward(null, "Cập nhật trạng thái thành công");
+
+            List<String> failedEmails = new ArrayList<>();
+            int notifiedCount = 0;
+            try {
+                List<VoucherDetail> details = voucherDetailRepository.findAllByVoucher(voucher);
+                for (VoucherDetail vd : details) {
+                    Customer c = vd.getCustomer();
+                    if (c != null && c.getEmail() != null && !c.getEmail().isBlank()) {
+                        if (newStatus == EntityStatus.INACTIVE) {
+                            sendVoucherPausedEmail(c, voucher, failedEmails);
+                            notifiedCount++;
+                        } else if (newStatus == EntityStatus.ACTIVE) {
+                            sendVoucherResumedEmail(c, voucher, failedEmails);
+                            notifiedCount++;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Gửi email thông báo trạng thái voucher thất bại: {}", e.getMessage());
+            }
+
+            String msg = "Cập nhật trạng thái thành công";
+            if (newStatus == EntityStatus.INACTIVE) {
+                msg += ", đã thông báo tạm dừng cho " + notifiedCount + " khách";
+            } else if (newStatus == EntityStatus.ACTIVE) {
+                msg += ", đã thông báo tiếp tục cho " + notifiedCount + " khách";
+            }
+            if (!failedEmails.isEmpty()) msg += ". Lỗi gửi: " + String.join(", ", failedEmails);
+            return ResponseObject.successForward(null, msg);
         }).orElse(ResponseObject.errorForward("Cập nhật thất bại! không tìm thấy voucher", HttpStatus.NOT_FOUND));
     }
 
@@ -300,6 +330,65 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             log.info("✅ Email sent to: {}", customer.getEmail());
         } catch (Exception e) {
             log.error("Error sending email to {}: {}", customer.getEmail(), e.getMessage());
+            if (failedEmails != null) failedEmails.add(customer.getEmail());
+        }
+    }
+
+    private void sendVoucherPausedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
+        try {
+            String htmlBody = "<div style=\"font-family:Arial,sans-serif\">" +
+                              "<h2>Thông báo tạm hoãn voucher " + voucher.getCode() + "</h2>" +
+                              "<p>Xin chào " + (customer.getName() != null ? customer.getName() : "quý khách") + ",</p>" +
+                              "<p>Voucher của bạn hiện đã được tạm hoãn (status = INACTIVE). Trong thời gian này, mã sẽ chưa thể sử dụng.</p>" +
+                              "<p>Chúng tôi sẽ thông báo ngay khi voucher hoạt động trở lại.</p>" +
+                              "<p>Thông tin voucher:</p>" +
+                              "<ul>" +
+                              "<li>Mã: " + voucher.getCode() + "</li>" +
+                              "<li>Tên: " + (voucher.getName() != null ? voucher.getName() : "Voucher") + "</li>" +
+                              "</ul>" +
+                              "<p>Trân trọng,</p>" +
+                              "<p>My Laptop</p>" +
+                              "</div>";
+
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
+            helper.setTo(customer.getEmail());
+            helper.setSubject("⏸️ Voucher tạm hoãn: " + voucher.getCode());
+            helper.setText(htmlBody, true);
+
+            mailSender.send(mimeMessage);
+            log.info("✅ Pause email sent to: {}", customer.getEmail());
+        } catch (Exception e) {
+            log.error("Error sending pause email to {}: {}", customer.getEmail(), e.getMessage());
+            if (failedEmails != null) failedEmails.add(customer.getEmail());
+        }
+    }
+
+    private void sendVoucherResumedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
+        try {
+            String htmlBody = "<div style=\"font-family:Arial,sans-serif\">" +
+                              "<h2>Voucher hoạt động trở lại: " + voucher.getCode() + "</h2>" +
+                              "<p>Xin chào " + (customer.getName() != null ? customer.getName() : "quý khách") + ",</p>" +
+                              "<p>Voucher của bạn đã được <strong>tiếp tục</strong> (status = ACTIVE) và có thể sử dụng trở lại.</p>" +
+                              "<p>Thông tin voucher:</p>" +
+                              "<ul>" +
+                              "<li>Mã: " + voucher.getCode() + "</li>" +
+                              "<li>Tên: " + (voucher.getName() != null ? voucher.getName() : "Voucher") + "</li>" +
+                              "</ul>" +
+                              "<p>Chúc bạn mua sắm vui vẻ!</p>" +
+                              "<p>My Laptop</p>" +
+                              "</div>";
+
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
+            helper.setTo(customer.getEmail());
+            helper.setSubject("✅ Voucher hoạt động trở lại: " + voucher.getCode());
+            helper.setText(htmlBody, true);
+
+            mailSender.send(mimeMessage);
+            log.info("✅ Resume email sent to: {}", customer.getEmail());
+        } catch (Exception e) {
+            log.error("Error sending resume email to {}: {}", customer.getEmail(), e.getMessage());
             if (failedEmails != null) failedEmails.add(customer.getEmail());
         }
     }

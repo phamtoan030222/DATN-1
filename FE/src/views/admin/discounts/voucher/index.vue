@@ -113,8 +113,13 @@ function openEditPage(id: string) { router.push({ name: 'discounts_voucher_edit'
 function openDetailPage(id: string) { router.push({ name: 'discounts_voucher_detail', params: { id } }) }
 
 // Kích hoạt voucher Sắp diễn ra
+const switchingId = ref<string | null>(null)
+
 async function handleStartVoucher(id: string) {
+  if (loading.value || switchingId.value)
+    return
   loading.value = true
+  switchingId.value = id
   try {
     await updateVoucherToStart(id)
     message.success('Đã kích hoạt phiếu giảm giá!')
@@ -123,15 +128,17 @@ async function handleStartVoucher(id: string) {
   catch (err: any) {
     message.error(err.response?.data?.message || 'Lỗi khi kích hoạt')
   }
-  finally { loading.value = false }
+  finally { loading.value = false; switchingId.value = null }
 }
 
 // Switch: Đổi trạng thái (Đang diễn ra <-> Tạm dừng)
 async function handleSwitchStatus(row: ADVoucherResponse) {
+  if (switchingId.value)
+    return
   const originalStatus = row.status
-  // Logic đảo status: Nếu đang 0 (Active) -> gửi request để thành 1 (Inactive)
   const isCurrentlyActive = row.status === 0 || row.status === 'ACTIVE'
 
+  switchingId.value = row.id || null
   // Optimistic Update
   row.status = isCurrentlyActive ? 1 : 0
 
@@ -140,8 +147,11 @@ async function handleSwitchStatus(row: ADVoucherResponse) {
     message.success(`Đã ${isCurrentlyActive ? 'tạm dừng' : 'tiếp tục'} voucher!`)
   }
   catch (err: any) {
-    row.status = originalStatus // Hoàn tác
+    row.status = originalStatus
     message.error(err.response?.data?.message || 'Lỗi khi thay đổi trạng thái')
+  }
+  finally {
+    switchingId.value = null
   }
 }
 
@@ -428,13 +438,14 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       // 2. Nút BẮT ĐẦU (Play) - Có
 
       if (isUpcoming) {
-        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleStartVoucher(id) }, {
+        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleStartVoucher(id), disabled: !!switchingId.value }, {
           trigger: () => h(NTooltip, { trigger: 'hover' }, {
             trigger: () => h(NButton, {
               size: 'small',
               type: 'success',
               secondary: true,
               circle: true,
+              disabled: !!switchingId.value || loading.value,
               class: 'hover:scale-[1.3]',
             }, { icon: () => h(Icon, { icon: 'carbon:play-filled-alt' }) }),
             default: () => 'Kích hoạt ngay',
@@ -447,10 +458,10 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       else if (!isEnded) {
         const isChecked = row.status === 0 || row.status === 'ACTIVE'
 
-        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleSwitchStatus(row) }, {
+        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleSwitchStatus(row), disabled: switchingId.value === row.id }, {
           trigger: () => h(NTooltip, { trigger: 'hover' }, {
             // Dùng div bọc switch và pointerEvents: none để bắt sự kiện click vào div -> kích hoạt Popconfirm
-            trigger: () => h('div', { style: 'display: inline-block; cursor: pointer' }, [
+            trigger: () => h('div', { style: `display: inline-block; cursor: pointer; pointer-events: ${switchingId.value === row.id ? 'none' : 'auto'}` }, [
               h(NSwitch, {
                 value: isChecked,
                 size: 'small',
@@ -509,7 +520,7 @@ onMounted(() => fetchData())
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
         <div class="lg:col-span-3">
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Tìm kiếm chung 
+            Tìm kiếm chung
           </div>
           <NInput
             v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable
