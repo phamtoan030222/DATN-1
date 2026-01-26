@@ -26,8 +26,11 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
         p.price as price,
         p.status as status,
         (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0) as quantity,
-        p.urlImage as urlImage
+        p.urlImage as urlImage,
+        d.percentage as percentage
     FROM ProductDetail p
+    Join ProductDetailDiscount  pdd on p.id = pdd.productDetail.id
+    Join Discount d on d.id = pdd.discount.id
     WHERE (
         :#{#request.q} IS NULL 
         OR p.name LIKE CONCAT('%', :#{#request.q}, '%') 
@@ -42,7 +45,9 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     AND (:#{#request.idProduct} IS NULL OR p.product.id = :#{#request.idProduct})
     AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
-    AND p.status = 0
+    AND p.status = 0 
+    AND d.status = 0
+    AND pdd.status = 0
     ORDER BY p.createdDate DESC
     """, countQuery = """
     SELECT COUNT(p.id)

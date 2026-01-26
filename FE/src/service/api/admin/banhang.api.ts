@@ -163,6 +163,14 @@ export type BanHangResponse = ResponseList & {
   status: string;
 };
 
+export type BanHangResponse1 = ResponseList & {
+  ma: string;
+  ten: string;
+  status: string;
+  percentage: number;
+  giaGoc: number;
+};
+
 export type themKHResponse = {
   idHD: string;
   idKH: string;
@@ -268,7 +276,7 @@ export const GetGioHang = async (id: string) => {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/list-gio-hang/${id}`,
     method: "GET",
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>;
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse1>>>>;
 
   return res.data;
 };

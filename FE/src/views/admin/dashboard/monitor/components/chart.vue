@@ -24,24 +24,22 @@ const initChart = async () => {
 
   myChart.showLoading();
   try {
-    // Gọi API và nhận về dữ liệu đúng kiểu RevenueChartResponse
     const data = await statisticsApi.getRevenueChart(props.filterType, props.rangeDate);
     myChart.hideLoading();
 
-    // Kiểm tra dữ liệu an toàn với optional chaining và kiểm tra mảng
     if (data && data.timeLabels && Array.isArray(data.timeLabels) && data.timeLabels.length > 0) {
       myChart.setOption({
         tooltip: {
           trigger: 'axis',
           formatter: (params: any) => {
             const item = params[0];
-            return `${item.name}<br/>Doanh thu: <b style="color: #2563eb">${formatCurrency(item.value)}</b>`;
+            return `${item.name}<br/>Doanh thu: <b style="color: #18a058">${formatCurrency(item.value)}</b>`;
           }
         },
         grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
         xAxis: {
           type: 'category',
-          data: data.timeLabels, // Sử dụng timeLabels từ API
+          data: data.timeLabels,
           axisTick: { alignWithLabel: true }
         },
         yAxis: {
@@ -54,8 +52,8 @@ const initChart = async () => {
             type: 'line',
             smooth: true,
             areaStyle: { opacity: 0.1 },
-            data: data.currentData, // Sử dụng currentData từ API
-            itemStyle: { color: '#2563eb' },
+            data: data.currentData, 
+            itemStyle: { color: '#18a058' },
             label: {
               show: true,
               position: 'top',
