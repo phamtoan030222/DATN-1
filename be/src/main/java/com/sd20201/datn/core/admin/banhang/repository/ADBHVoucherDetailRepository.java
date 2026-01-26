@@ -26,7 +26,7 @@ public interface ADBHVoucherDetailRepository extends JpaRepository<VoucherDetail
     /**
      * Tìm tất cả voucher còn sử dụng được của một khách hàng
      */
-    @Query("SELECT vd FROM VoucherDetail vd WHERE " +
+    @Query("SELECT vd FROM VoucherDetail vd WHERE  " +
             "vd.customer.id = :customerId AND " +             // Của khách hàng này
             "(vd.usageStatus IS NULL OR vd.usageStatus = false) AND " + // Chưa sử dụng
             "vd.voucher.status = 0 AND " +                 // Voucher đang hoạt động
@@ -75,9 +75,13 @@ public interface ADBHVoucherDetailRepository extends JpaRepository<VoucherDetail
     @Query("""
         SELECT vd.voucher FROM VoucherDetail vd
         WHERE vd.customer.id = :customerId
+         AND vd.voucher.remainingQuantity > 0
           AND (vd.usageStatus IS NULL OR vd.usageStatus = false)
+          
     """)
     List<Voucher> findVoucherRiengCuaKH(
             @Param("customerId") String customerId
     );
+
+    Optional<VoucherDetail> findByVoucherIdAndCustomerId(String voucherId, String customerId);
 }
