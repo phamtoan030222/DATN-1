@@ -1476,7 +1476,7 @@ watch(
 
 // Cập nhật calculateTotalAmounts để tính cả voucher
 const calculateTotalAmounts = () => {
-  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan) * item.soLuong, 0)
+  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan) , 0)
 
   // Ưu tiên sử dụng voucher được chọn
   if (selectedVoucher.value) {
@@ -2531,7 +2531,7 @@ const columnsGiohang: DataTableColumns<any> = [
       type: 'primary',
       strong: true,
       style: { fontSize: '14px' }
-    }, () => formatCurrency((row.price || row.giaBan) * row.soLuong))
+    }, () => formatCurrency((row.price || row.giaBan) ))
   },
   {
     title: 'Thao tác',
