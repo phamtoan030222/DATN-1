@@ -8,6 +8,7 @@ public interface ADGioHangResponse {
     String getId();
     String getTen();
     Integer getSoLuong();
+    BigDecimal getgiaGoc();
     BigDecimal getGiaBan();
     String getAnh();
     String getStatus();
@@ -17,4 +18,5 @@ public interface ADGioHangResponse {
     String getGpu();
     String getColor();
     String getImel();
+    Integer getPercentage();
 }

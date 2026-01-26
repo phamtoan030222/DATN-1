@@ -41,20 +41,30 @@ const fetchOverviewData = async () => {
 
 const handleExportExcel = async () => {
   try {
-    message.loading("Đang xuất báo cáo...");
-    const blob = await statisticsApi.exportRevenueExcel();
+    message.loading("Đang tạo báo cáo Excel...");
     
-    // Tạo link tải file
-    const url = window.URL.createObjectURL(new Blob([blob]));
+    // 1. Gọi API nhận về Blob (file nhị phân)
+    const blobData = await statisticsApi.exportRevenueExcel();
+    
+    if (!blobData) {
+      message.error("Không có dữ liệu để xuất!");
+      return;
+    }
+
+    const url = window.URL.createObjectURL(new Blob([blobData]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `bao-cao-doanh-thu-${new Date().getTime()}.xlsx`);
-    document.body.appendChild(link);
+    const fileName = `BaoCaoDoanhThu_${new Date().getTime()}.xlsx`;
+    link.setAttribute('download', fileName);
+        document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    message.success("Xuất file thành công!");
-  } catch (e) {
-    message.error("Có lỗi khi xuất file.");
+        window.URL.revokeObjectURL(url);
+    
+    message.success("Xuất báo cáo thành công!");
+  } catch (error) {
+    console.error(error);
+    message.error("Có lỗi xảy ra khi xuất file.");
   }
 };
 
@@ -82,7 +92,7 @@ onMounted(() => {
       <n-gi v-for="(info, key) in periodMap" :key="key">
         <n-card :bordered="false" class="period-card shadow-sm">
           <div class="period-header">{{ info.label }}</div>
-          <div class="period-revenue">{{ formatMoney(overviewData[key]?.revenue) }}</div>
+          <div class="period-revenue  text-green">{{ formatMoney(overviewData[key]?.revenue) }}</div>
           
           <div class="period-sub">
             Sản phẩm đã bán: {{ overviewData[key]?.soldProducts || 0 }} | Đơn hàng: {{ overviewData[key]?.totalOrders || 0 }}
@@ -101,8 +111,8 @@ onMounted(() => {
       <n-space vertical :size="16">
         <div class="filter-header-row">
           <div class="title-section">
-            <h2 class="main-title">Bộ Lọc Tìm Kiếm</h2>
-            <p class="sub-title">Chọn khoảng thời gian để xem nhanh số liệu</p>
+            <div class="main-title">Bộ Lọc Tìm Kiếm</div>
+            <p class="sub-title">Chọn khoảng thời gian để xem số liệu</p>
           </div>
           <n-space align="center">
             <n-radio-group v-model:value="filterType" name="filterGroup">
@@ -121,25 +131,36 @@ onMounted(() => {
               clearable 
             />
 
-            <n-button strong secondary type="success" @click="fetchOverviewData">Đặt lại bộ lọc</n-button>
             <n-button type="success" @click="handleExportExcel">Xuất báo cáo</n-button>
           </n-space>
         </div>
 
-        <n-divider style="margin: 8px 0" />
+        <n-divider style="margin: 5px 0" />
 
-        <n-grid :cols="3" class="filter-stats-row">
+        <n-grid :cols="6" class="filter-stats-row">
           <n-gi>
-            <div class="mini-label">Số đơn hàng ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+            <div class="mini-label">Tổng số đơn hàng ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
             <div class="mini-value text-black">{{ currentFilterStats.totalOrders || 0 }}</div>
+          </n-gi>
+            <n-gi>
+            <div class="mini-label">Số lượng sản phẩm({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+            <div class="mini-value text-black">{{ (currentFilterStats.soldProducts) }}</div>
+          </n-gi>
+          <n-gi>
+            <div class="mini-label">Hoàn thành({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+            <div class="mini-value text-blue">{{ (currentFilterStats.completed) }}</div>
+          </n-gi>
+          <n-gi>
+            <div class="mini-label">Đang xử lý({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+            <div class="mini-value text-yellow">{{ (currentFilterStats.processing) }}</div>
+          </n-gi>
+          <n-gi>
+            <div class="mini-label">Huỷ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+            <div class="mini-value text-red">{{ (currentFilterStats.cancelled) }}</div>
           </n-gi>
           <n-gi>
             <div class="mini-label">Tổng doanh thu ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
             <div class="mini-value text-green">{{ formatMoney(currentFilterStats.revenue) }}</div>
-          </n-gi>
-          <n-gi>
-            <div class="mini-label">Doanh thu thực tế ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-            <div class="mini-value text-blue">{{ formatMoney(currentFilterStats.revenue) }}</div>
           </n-gi>
         </n-grid>
       </n-space>
@@ -219,7 +240,7 @@ onMounted(() => {
 
 /* Filter styles */
 .filter-header-row { display: flex; justify-content: space-between; align-items: center; }
-.main-title { margin: 0; font-size: 20px; font-weight: 700; color: #1f2225; }
+.main-title { margin: 0; font-size: 20px; font-weight: 600;  }
 .sub-title { margin: 4px 0 0 0; color: #767c82; font-size: 13px; }
 
 .filter-stats-row .mini-label { color: #767c82; font-size: 13px; margin-bottom: 4px; }
@@ -240,7 +261,7 @@ td { font-weight: 400 !important; }
 /* Card styles */
 .period-card { height: 160px; display: flex; flex-direction: column; justify-content: center; }
 .period-header { color: #666; font-size: 14px; margin-bottom: 8px; font-weight: 600; }
-.period-revenue { font-size: 22px; font-weight: 800; color: #333; }
+.period-revenue { font-size: 22px; font-weight: 700;  }
 .period-sub { font-size: 11px; color: #999; margin-top: 8px; }
 
 .n-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }

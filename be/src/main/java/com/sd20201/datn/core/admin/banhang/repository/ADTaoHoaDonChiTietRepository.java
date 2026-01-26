@@ -22,14 +22,20 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
         spct.id AS id,
         sp.name AS ten,
         hdct.quantity AS soLuong,
-        hdct.price AS giaBan,
+        hdct.price AS giaGoc,
+        CASE
+            WHEN discount_info.max_percentage IS NOT NULL
+            THEN (hdct.price * (100 - discount_info.max_percentage)) / 100
+            ELSE hdct.price
+        END AS giaBan,
         spct.url_image AS anh,
         c.name AS cpu,
         r.name AS ram,
         hd2.name AS hardDrive,
         g.name AS gpu,
         cl.name AS color,
-        i.code AS imel, 
+        i.code AS imel,
+        discount_info.max_percentage AS percentage, 
         CASE
             WHEN hd.trang_thai_hoa_don IS NOT NULL
             THEN CAST(hd.trang_thai_hoa_don AS CHAR)
@@ -39,16 +45,28 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
     JOIN invoice hd ON hdct.id_invoice = hd.id
     JOIN product_detail spct ON hdct.id_product_detail = spct.id
     JOIN product sp ON spct.id_product = sp.id
+    LEFT JOIN (
+        SELECT
+            pdd.id_product_detail,
+            MAX(d.percentage) as max_percentage 
+        FROM product_detail_discount pdd
+        JOIN discount d ON pdd.id_discount = d.id
+        WHERE pdd.status = 0 AND d.status = 0 
+        GROUP BY pdd.id_product_detail
+    ) discount_info ON spct.id = discount_info.id_product_detail
     LEFT JOIN cpu c ON spct.id_cpu = c.id
     LEFT JOIN ram r ON spct.id_ram = r.id
-    LEFT JOIN hard_drive hd2 ON spct.id_hard_drive = hd2.id  -- Đổi alias thành hd2
+    LEFT JOIN hard_drive hd2 ON spct.id_hard_drive = hd2.id
     LEFT JOIN gpu g ON spct.id_gpu = g.id
     LEFT JOIN color cl ON spct.id_color = cl.id
     LEFT JOIN imei i ON hdct.id = i.id_invoice_detail
     WHERE hd.id = :rep
-    ORDER BY hdct.created_date DESC
+    ORDER BY hdct.created_date DESC;
 """, nativeQuery = true)
     List<ADGioHangResponse> getAllGioHang(@Param("rep") String rep);
+
+
+
     @Query( value = """
         SELECT kh.id AS id, kh.name AS ten, kh.phone AS sdt
         FROM Customer kh

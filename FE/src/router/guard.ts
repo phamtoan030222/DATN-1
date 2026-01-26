@@ -30,11 +30,7 @@ export function setupRouterGuard(router: Router) {
       return
     }
 
-    if (to.name === 'login') {
-    }
-    else if (to.meta.requiresAuth === false) {
-    }
-    else if (to.meta.requiresAuth === true && !isLogin) {
+    if (to.meta.requiresAuth === true && !isLogin) {
       const redirect = to.name === 'not-found' ? undefined : to.fullPath
       next({ path: '/login-admin', query: { redirect } })
       return

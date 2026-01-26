@@ -406,6 +406,11 @@
             </n-space>
 
             <n-space v-if="giamGia > 0" justify="space-between">
+              <n-text depth="3">Đợt giảm giá:</n-text>
+              <n-text type="success">-{{ formatCurrency(giamGia) }}</n-text>
+            </n-space>
+
+            <n-space v-if="giamGia > 0" justify="space-between">
               <n-text depth="3">Giảm giá:</n-text>
               <n-text type="success">-{{ formatCurrency(giamGia) }}</n-text>
             </n-space>
@@ -952,7 +957,8 @@ import {
   NGi,
   NScrollbar,
   NFormItemGi,
-  NCheckbox
+  NCheckbox,
+  NBadge
 } from 'naive-ui'
 
 // Local filter variables
@@ -2363,7 +2369,7 @@ const columnsGiohang: DataTableColumns<any> = [
   {
   title: 'Serial đã chọn',
   key: 'imel', // Đổi thành 'imei' nếu backend trả về 'imei'
-  width: 120,
+  width: 110,
   render: (row) => {
     // Kiểm tra xem row có field imel/imei không
     if (row.imel) { // Hoặc row.imei tùy backend trả về
@@ -2397,19 +2403,35 @@ const columnsGiohang: DataTableColumns<any> = [
     }, () => 'Chưa chọn IMEI');
   }
 },
-  {
-    title: 'Ảnh',
-    key: 'anh',
-    width: 80,
-    align: 'center',
-    render: (row) => h(NImage, {
-      width: 40,
-      height: 40,
-      src: row.urlImage || row.anh,
-      objectFit: 'cover',
-      style: { 'border-radius': '4px' }
-    })
-  },
+ {
+  title: 'Ảnh',
+  key: 'anh',
+  width: 80,
+  align: 'center',
+  render: (row) => {
+    return h(
+      NBadge,
+      {
+        value: row.percentage ? `-${row.percentage}%` : undefined,
+        type: 'error',
+        offset: [-5, 0], 
+        style: { transform: 'scale(0.85)', transformOrigin: 'top right' } 
+      },
+      {
+        default: () => h(NImage, {
+          width: 100,
+          height: 70,
+          src: row.urlImage || row.anh, 
+          objectFit: 'cover',
+          style: { 
+            'border-radius': '4px',
+            'border': '1px solid #eee' 
+          }
+        })
+      }
+    );
+  }
+},
   {
     title: 'Tên sản phẩm',
     key: 'name',
@@ -2520,10 +2542,10 @@ const columnsGiohang: DataTableColumns<any> = [
     align: 'right',
     render: (row) => h(NText, {
       style: { fontWeight: 500 }
-    }, () => formatCurrency(row.price || row.giaBan))
+    }, () => formatCurrency( row.giaGoc))
   },
   {
-    title: 'Tổng tiền',
+    title: 'Giá bán',
     key: 'total',
     width: 120,
     align: 'right',
@@ -2531,7 +2553,7 @@ const columnsGiohang: DataTableColumns<any> = [
       type: 'primary',
       strong: true,
       style: { fontSize: '14px' }
-    }, () => formatCurrency((row.price || row.giaBan) ))
+    }, () => formatCurrency(( row.giaGoc ) * (1 - row.percentage / 100)) )
   },
   {
     title: 'Thao tác',
@@ -2563,45 +2585,46 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`)
   },
 
-  {
-    title: 'Ảnh chi tiết',
-    key: 'detailImages',
-    width: 120,
-    align: 'center',
-    render: (row) => {
-      // Lấy ảnh từ row.urlImage (là string)
-      const imageUrl = row.urlImage;
+ {
+  title: 'Ảnh chi tiết',
+  key: 'detailImages',
+  width: 120,
+  align: 'center',
+  render: (row) => {
+    const imageUrl = row.urlImage;
+    const percentage = row.percentage;
 
-      // Nếu không có ảnh
-      if (!imageUrl || imageUrl.trim() === '') {
-        return h(NText, { depth: 3, size: 'small' }, () => 'Không có');
-      }
-
-      return h(NSpace, { vertical: true, size: 4 }, () => [
-        h(NImage, {
-          width: 100,
+    if (!imageUrl || imageUrl.trim() === '') {
+      return h(NText, { depth: 3, size: 'small' }, () => 'Không có');
+    }
+    return h(
+      NBadge,
+      {
+        value: percentage ? `-${percentage}%` : undefined,
+        type: 'error', 
+        offset: [-5, 5], 
+      },
+      {
+        default: () => h(NImage, {         
+           width: 100,
           height: 80,
           src: imageUrl,
           objectFit: 'cover',
           style: {
-            'border-radius': '4px',
-            'border': '1px solid #f0f0f0',
-            'cursor': 'pointer'
+            borderRadius: '4px',
+            border: '1px solid #f0f0f0',
+            cursor: 'pointer'
           },
-          fallbackSrc: '/images/no-image.png', // Ảnh thay thế khi lỗi
-          previewSrc: imageUrl, // Cho phép preview khi click
+          fallbackSrc: '/images/no-image.png', 
+          previewSrc: imageUrl, 
           onError: (e) => {
             console.error('Không thể tải ảnh:', imageUrl, e);
           }
-        }),
-
-        // Nếu bạn có nhiều ảnh từ field khác (ví dụ: images array)
-        // Có thể check thêm:
-        // row.images && row.images.length > 0 && 
-        // h(NText, { depth: 3, size: 'small' }, () => `+${row.images.length} ảnh`)
-      ]);
-    }
-  },
+        })
+      }
+    );
+  }
+},
   {
     title: 'Mã',
     key: 'code',
@@ -2622,12 +2645,33 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     }, () => row.quantity)
   },
   {
-    title: 'Giá bán',
-    key: 'price',
-    width: 110,
-    align: 'center',
-    render: (row) => h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.price))
-  },
+  title: 'Giá bán',
+  key: 'price',
+  width: 120, 
+  align: 'center',
+  render: (row) => {
+    const originalPrice = row.price || 0;
+    const percentage = row.percentage;
+
+    if (percentage && percentage > 0) {
+      const discountedPrice = originalPrice * (1 - percentage / 100);
+
+      return h(NSpace, { vertical: true, size: 0, align: 'center', justify: 'center' }, () => [
+                h(
+          NText, 
+          { delete: true, depth: 3, style: { fontSize: '12px', lineHeight: '1.2' } }, 
+          () => formatCurrency(originalPrice)
+        ),
+        h(
+          NText, 
+          { type: 'primary', strong: true, style: { fontSize: '14px' } }, 
+          () => formatCurrency(discountedPrice)
+        )
+      ]);
+    }
+    return h(NText, { type: 'primary', strong: true }, () => formatCurrency(originalPrice));
+  }
+},
   {
     title: 'Thông số kỹ thuật',
     key: 'specifications',
