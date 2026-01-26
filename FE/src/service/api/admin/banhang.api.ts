@@ -91,6 +91,7 @@ export interface ParamsThanhCong {
     danhSachImei: string[]
   }>
   daXacNhanImei?: boolean
+
 }
 
 // NEW: Type for delivery information
@@ -141,6 +142,7 @@ export interface ADThemSanPhamRequest {
   invoiceId: string
   productDetailId: string
   imeiIds: string[]
+  quantity: number
 }
 
 export type PhieuGiamGiaResponse = ResponseList & {

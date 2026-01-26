@@ -1,54 +1,84 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NButton,
   NCard,
+  NDivider,
   NEmpty,
+  NGi,
+  NGrid,
   NIcon,
-  NInputNumber,
+  NInput,
   NRadio,
   NRadioGroup,
+  NSelect,
   NSpace,
   NSpin,
   NTag,
   useMessage,
-} from 'naive-ui'
-import { LocationOutline, StorefrontOutline } from '@vicons/ionicons5'
+} from 'naive-ui' // Import thêm NInput, NSelect, Layout
+import { CardOutline, CashOutline, LocationOutline, QrCodeOutline, StorefrontOutline } from '@vicons/ionicons5'
 
-// Import API
+// Import API (Giữ nguyên)
 import {
   getCreateHoaDon,
   GetGioHang,
+  getImeiProductDetail,
   getMaGiamGia,
   thanhToanThanhCong,
   themSanPham,
 } from '@/service/api/admin/banhang.api'
 import type { ParamsThanhCong, VoucherApDungDTO } from '@/service/api/admin/banhang.api'
 
-// Import Modal
-import OrderInfoModal from './OrderInfoModal.vue'
-
 const route = useRoute()
 const router = useRouter()
 const message = useMessage()
 
+// --- INTERFACES (Java DTO style) ---
+interface CartItem {
+  id: string
+  tenSanPham: string
+  anhSanPham: string
+  donGia: number
+  soLuong: number
+  tenMauSac?: string
+  tenRam?: string
+}
+
 // --- STATE ---
 const loading = ref(false)
-const currentInvoiceId = ref<string>('') // ID Hóa đơn tạm
-const cartItems = ref<any[]>([]) // Danh sách sản phẩm trong hóa đơn
-const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
-
-// Modal State
-const showInfoModal = ref(false)
 const submitLoading = ref(false)
+const currentInvoiceId = ref<string>('')
+const cartItems = ref<CartItem[]>([])
 
-// Voucher State
+// Logic hiển thị form
+const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
+const paymentMethod = ref<'TIEN_MAT' | 'CHUYEN_KHOAN' | 'QUET_QR'>('TIEN_MAT')
+
+// Form data
+const customerInfo = ref({
+  ten: '',
+  sdt: '',
+  email: '',
+  diaChi: '',
+  storeId: null as string | null,
+  ghiChu: '',
+})
+
+// Options cho Select
+const storeOptions = [
+  { label: 'Siêu thị 123 Nguyễn Văn Linh, Đà Nẵng', value: 'ST01' },
+  { label: 'Siêu thị 456 Cầu Giấy, Hà Nội', value: 'ST02' },
+  { label: 'Siêu thị 789 Quận 1, TP.HCM', value: 'ST03' },
+]
+
+// Voucher
 const selectedVoucher = ref<VoucherApDungDTO | null>(null)
 const availableVouchers = ref<VoucherApDungDTO[]>([])
 
-// Mock ID nhân viên (Thực tế lấy từ Auth Store)
-const MOCK_ID_NV = 'NV001'
+// MOCK CONSTANT
+const MOCK_ID_NV = '68178270-fde5-4598-9168-720efa06d5e7' // TODO: Lấy từ Store/Localstorage
 
 // --- INIT DATA ---
 onMounted(async () => {
@@ -58,123 +88,155 @@ onMounted(async () => {
 async function initOrder() {
   loading.value = true
   try {
-    // 1. Tạo hóa đơn tạm (Nếu chưa có ID hóa đơn trong URL/Store)
-    // Giả sử user bấm Mua Ngay -> Tạo mới luôn
+    // 1. Tạo hóa đơn
     const resHD = await getCreateHoaDon({ idNV: MOCK_ID_NV })
-    if (resHD.data) {
-      currentInvoiceId.value = resHD.data.id
+    if (!resHD.data)
+      throw new Error('Không tạo được hóa đơn')
+    currentInvoiceId.value = resHD.data.id
 
-      // 2. Thêm sản phẩm vào hóa đơn (Lấy từ params router khi bấm Mua Ngay)
-      // Ví dụ: router.push({ name: 'Order', query: { productId: '...', imei: '...' } })
-      const productId = route.query.productId as string
-      const imeiId = route.query.imeiId as string
+    // 2. Thêm sản phẩm (Logic xử lý IMEI)
+    const productId = route.query.productId as string
+    const imeiIdFromDetail = route.query.imeiId as string | undefined
 
-      if (productId) {
-        await themSanPham({
-          invoiceId: currentInvoiceId.value,
-          productDetailId: productId,
-          imeiIds: imeiId ? [imeiId] : [], // Nếu có IMEI
-        })
-      }
-
-      // 3. Load lại giỏ hàng (Chi tiết hóa đơn) để hiển thị
-      await loadCart()
+    if (productId) {
+      await handleAddProductToCart(productId, imeiIdFromDetail)
     }
+
+    // 3. Load giỏ hàng
+    await loadCart()
   }
-  catch (error) {
-    message.error('Có lỗi khi khởi tạo đơn hàng')
-    console.error(error)
+  catch (error: any) {
+    message.error(`Lỗi khởi tạo: ${error.message || 'Lỗi hệ thống'}`)
   }
   finally {
     loading.value = false
   }
 }
 
-async function loadCart() {
-  if (!currentInvoiceId.value)
-    return
-  const res = await GetGioHang(currentInvoiceId.value)
-  if (res.data) {
-    // Backend trả về PaginationResponse, data nằm trong content hoặc data
-    cartItems.value = (res.data as any).data || (res.data as any).content || []
-    // Sau khi có tiền, load voucher
-    loadVouchers()
+async function handleAddProductToCart(productId: string, imeiIdFromDetail?: string) {
+  try {
+    const resImei = await getImeiProductDetail(productId)
+    // Safe check data array
+    const imeiArray = Array.isArray(resImei.data) ? resImei.data : (resImei?.data?.data || [])
+
+    if (!Array.isArray(imeiArray))
+      return
+
+    // Tìm IMEI Active (Status == 0)
+    let targetImei = imeiArray.find((i: any) => String(i.status) === '0' || String(i.imeiStatus) === '0')
+
+    // Ưu tiên IMEI user chọn từ trang trước
+    if (imeiIdFromDetail) {
+      const specificImei = imeiArray.find((i: any) => String(i.id) === String(imeiIdFromDetail))
+      if (specificImei)
+        targetImei = specificImei
+    }
+
+    // Fallback: Lấy cái đầu tiên nếu không tìm thấy active (Cẩn thận logic này nhé)
+    if (!targetImei && imeiArray.length > 0) {
+      targetImei = imeiArray[0]
+    }
+
+    if (targetImei) {
+      await themSanPham({
+        invoiceId: currentInvoiceId.value,
+        productDetailId: productId,
+        imeiIds: [targetImei.id],
+      })
+    }
+  }
+  catch (err) {
+    console.error('Add Product Error:', err)
   }
 }
 
-// --- COMPUTED ---
+async function loadCart() {
+  if (!currentInvoiceId.value)
+    return
+  try {
+    const res = await GetGioHang(currentInvoiceId.value)
+    // Ép kiểu dữ liệu trả về cho an toàn
+    const rawData = (res.data as any)?.data || (res.data as any)?.content || []
+    cartItems.value = rawData
+  }
+  catch (e) {
+    console.error('Load Cart Error:', e)
+  }
+}
+
+// --- COMPUTED & WATCHERS ---
 const subTotal = computed(() => {
   return cartItems.value.reduce((total, item) => total + (item.donGia * item.soLuong), 0)
 })
 
 const discountAmount = computed(() => {
-  if (!selectedVoucher.value)
-    return 0
-  return selectedVoucher.value.giamGiaThucTe || 0 // Dùng field từ API
+  return selectedVoucher.value?.giamGiaThucTe || 0
 })
 
 const finalTotal = computed(() => {
-  return subTotal.value - discountAmount.value
+  const total = subTotal.value - discountAmount.value
+  return total > 0 ? total : 0
 })
 
-// --- LOGIC ---
-
-async function loadVouchers() {
-  try {
-    const res = await getMaGiamGia({
-      invoiceId: currentInvoiceId.value,
-      tongTien: subTotal.value,
-    })
-    if (res && res.voucherApDung) {
-      availableVouchers.value = res.voucherApDung
-      // Tự động chọn voucher tốt nhất nếu chưa chọn
-      if (availableVouchers.value.length > 0 && !selectedVoucher.value) {
-        selectedVoucher.value = availableVouchers.value[0]
+// Tự động load voucher khi tổng tiền thay đổi (Reactive programming)
+watch(subTotal, async (newVal) => {
+  if (newVal > 0 && currentInvoiceId.value) {
+    try {
+      const res = await getMaGiamGia({
+        invoiceId: currentInvoiceId.value,
+        tongTien: newVal,
+      })
+      if (res?.voucherApDung) {
+        availableVouchers.value = res.voucherApDung
+        // Auto select best voucher (optional)
+        if (availableVouchers.value.length > 0 && !selectedVoucher.value) {
+          selectedVoucher.value = availableVouchers.value[0]
+        }
       }
     }
+    catch (e) { console.error(e) }
   }
-  catch (e) {
-    console.error(e)
-  }
-}
+})
 
-function handleOpenModal() {
-  if (cartItems.value.length === 0) {
-    message.warning('Giỏ hàng đang trống')
-    return
-  }
-  showInfoModal.value = true
-}
+// --- SUBMIT ---
+async function handleFinalSubmit() {
+  // Validation
+  if (cartItems.value.length === 0)
+    return message.warning('Giỏ hàng trống')
+  if (!customerInfo.value.ten || !customerInfo.value.sdt)
+    return message.warning('Thiếu thông tin khách hàng')
+  if (deliveryType.value === 'GIAO_HANG' && !customerInfo.value.diaChi)
+    return message.warning('Thiếu địa chỉ giao hàng')
+  if (deliveryType.value === 'TAI_QUAY' && !customerInfo.value.storeId)
+    return message.warning('Vui lòng chọn cửa hàng')
 
-async function handleFinalSubmit(customerInfo: any) {
   submitLoading.value = true
   try {
     const payload: ParamsThanhCong = {
       idHD: currentInvoiceId.value,
       tongTien: finalTotal.value.toString(),
-      idNV: MOCK_ID_NV, // Có thể null nếu khách tự mua
-      ten: customerInfo.ten,
-      sdt: customerInfo.sdt,
-      diaChi: customerInfo.diaChi, // Địa chỉ hoặc tên Siêu thị
+      idNV: MOCK_ID_NV,
+      ten: customerInfo.value.ten,
+      sdt: customerInfo.value.sdt,
+      diaChi: customerInfo.value.diaChi,
       loaiHoaDon: deliveryType.value,
       idPGG: selectedVoucher.value?.voucherId,
-      phuongThucThanhToan: 'TIEN_MAT', // Hoặc xử lý chọn PTTT trước đó
+      phuongThucThanhToan: paymentMethod.value,
       tienHang: subTotal.value,
-      tienShip: 0, // Logic tính ship nếu cần
+      tienShip: 0,
       giamGia: discountAmount.value,
-      check: 1, // Flag xác nhận
-      // Các field khác tuỳ backend yêu cầu
+      check: 1,
     }
 
     const res = await thanhToanThanhCong(payload)
     if (res.data) {
       message.success('Đặt hàng thành công!')
-      showInfoModal.value = false
-      router.push('/dat-hang-thanh-cong') // Chuyển trang cảm ơn
+      // Redirect hoặc Reset
+      router.push('/success') // Nên có trang cảm ơn
     }
   }
   catch (error) {
-    message.error('Đặt hàng thất bại. Vui lòng thử lại.')
+    message.error('Đặt hàng thất bại!')
     console.error(error)
   }
   finally {
@@ -188,132 +250,193 @@ function formatCurrency(val: number) {
 </script>
 
 <template>
-  <div class="checkout-container bg-gray-50 min-h-screen pb-20">
-    <div class="bg-white shadow-sm py-4 mb-4">
+  <div class="checkout-page bg-gray-50 min-h-screen pb-10">
+    <div class="bg-white shadow-sm py-4 mb-6 sticky top-0 z-20">
       <div class="container mx-auto px-4">
-        <h1 class="text-xl font-bold text-gray-800">
+        <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+          <NIcon color="#f97316">
+            <StorefrontOutline />
+          </NIcon>
           Xác nhận đơn hàng
         </h1>
       </div>
     </div>
 
-    <div v-if="loading" class="flex justify-center pt-20">
-      <NSpin size="large" />
+    <div v-if="loading" class="flex justify-center pt-20 h-screen">
+      <NSpin size="large" description="Đang khởi tạo đơn hàng..." />
     </div>
 
-    <div v-else class="container mx-auto px-4 max-w-4xl">
-      <NCard class="mb-4" content-style="padding: 0;">
-        <div class="flex">
-          <label
-            class="flex-1 p-4 cursor-pointer text-center border-b-2 transition-colors flex items-center justify-center gap-2"
-            :class="deliveryType === 'GIAO_HANG' ? 'border-orange-500 bg-orange-50 text-orange-600 font-bold' : 'border-transparent text-gray-500'"
-          >
-            <input v-model="deliveryType" type="radio" value="GIAO_HANG" class="hidden">
-            <NIcon size="20">
-              <LocationOutline />
-            </NIcon>
-            Giao tận nơi
-          </label>
-          <label
-            class="flex-1 p-4 cursor-pointer text-center border-b-2 transition-colors flex items-center justify-center gap-2"
-            :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-600 font-bold' : 'border-transparent text-gray-500'"
-          >
-            <input v-model="deliveryType" type="radio" value="TAI_QUAY" class="hidden">
-            <NIcon size="20">
-              <StorefrontOutline />
-            </NIcon>
-            Nhận tại siêu thị
-          </label>
-        </div>
-      </NCard>
+    <div v-else class="container mx-auto px-4 max-w-6xl">
+      <NGrid x-gap="24" y-gap="24" cols="1 1000:3" responsive="screen">
+        <NGi span="2">
+          <NCard title="1. Hình thức nhận hàng" class="mb-4 shadow-sm" size="small">
+            <div class="flex gap-4 mb-4">
+              <div
+                class="flex-1 p-3 border rounded-lg cursor-pointer transition-all flex items-center justify-center gap-2"
+                :class="deliveryType === 'GIAO_HANG' ? 'border-orange-500 bg-orange-50 text-orange-700 font-bold ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'"
+                @click="deliveryType = 'GIAO_HANG'"
+              >
+                <NIcon size="20">
+                  <LocationOutline />
+                </NIcon> Giao tận nơi
+              </div>
+              <div
+                class="flex-1 p-3 border rounded-lg cursor-pointer transition-all flex items-center justify-center gap-2"
+                :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'border-gray-200 hover:bg-gray-50'"
+                @click="deliveryType = 'TAI_QUAY'"
+              >
+                <NIcon size="20">
+                  <StorefrontOutline />
+                </NIcon> Nhận tại cửa hàng
+              </div>
+            </div>
 
-      <NCard title="Danh sách sản phẩm" class="mb-4" size="small">
-        <div v-if="cartItems.length === 0">
-          <NEmpty description="Giỏ hàng trống" />
-        </div>
-        <div v-else class="space-y-4">
-          <div v-for="item in cartItems" :key="item.id" class="flex gap-4 py-2 border-b last:border-0">
-            <img
-              :src="item.anhSanPham || 'https://via.placeholder.com/80'"
-              class="w-20 h-20 object-cover rounded border"
-            >
-            <div class="flex-1">
-              <div class="font-medium text-gray-800">
-                {{ item.tenSanPham }}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <NInput v-model:value="customerInfo.ten" placeholder="Họ và tên người nhận" />
+              <NInput v-model:value="customerInfo.sdt" placeholder="Số điện thoại" />
+              <NInput v-model:value="customerInfo.email" placeholder="Email (Không bắt buộc)" class="md:col-span-2" />
+
+              <template v-if="deliveryType === 'GIAO_HANG'">
+                <NInput
+                  v-model:value="customerInfo.diaChi"
+                  placeholder="Địa chỉ chi tiết (Số nhà, đường, phường/xã...)"
+                  class="md:col-span-2"
+                />
+              </template>
+              <template v-else>
+                <NSelect
+                  v-model:value="customerInfo.storeId"
+                  :options="storeOptions"
+                  placeholder="Chọn siêu thị nhận hàng"
+                  class="md:col-span-2"
+                />
+              </template>
+
+              <NInput
+                v-model:value="customerInfo.ghiChu"
+                type="textarea"
+                placeholder="Ghi chú đơn hàng (VD: Giao giờ hành chính)"
+                class="md:col-span-2"
+              />
+            </div>
+          </NCard>
+
+          <NCard title="2. Phương thức thanh toán" class="mb-4 shadow-sm" size="small">
+            <NRadioGroup v-model:value="paymentMethod" name="paymentGroup" class="w-full">
+              <div class="space-y-3">
+                <NRadio value="TIEN_MAT" class="w-full p-3 border rounded-lg" :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'TIEN_MAT' }">
+                  <div class="flex items-center gap-2">
+                    <NIcon size="20">
+                      <CashOutline />
+                    </NIcon> Thanh toán tiền mặt khi nhận hàng (COD)
+                  </div>
+                </NRadio>
+                <NRadio value="CHUYEN_KHOAN" class="w-full p-3 border rounded-lg" :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'CHUYEN_KHOAN' }">
+                  <div class="flex items-center gap-2">
+                    <NIcon size="20">
+                      <CardOutline />
+                    </NIcon> Chuyển khoản ngân hàng
+                  </div>
+                </NRadio>
+                <NRadio value="QUET_QR" class="w-full p-3 border rounded-lg" :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'QUET_QR' }">
+                  <div class="flex items-center gap-2">
+                    <NIcon size="20">
+                      <QrCodeOutline />
+                    </NIcon> Quét mã QR
+                  </div>
+                </NRadio>
               </div>
-              <div class="text-sm text-gray-500 mt-1">
-                Màu: {{ item.tenMauSac }} | RAM: {{ item.tenRam }}
+            </NRadioGroup>
+          </NCard>
+        </NGi>
+
+        <NGi>
+          <div class="sticky top-20">
+            <NCard title="Đơn hàng của bạn" size="small" class="shadow-lg border-t-4 border-orange-500">
+              <div v-if="cartItems.length === 0">
+                <NEmpty description="Giỏ hàng trống" size="small" />
               </div>
-              <div class="flex justify-between items-center mt-2">
-                <div class="font-bold text-red-600">
-                  {{ formatCurrency(item.donGia) }}
+              <div v-else class="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                <div v-for="item in cartItems" :key="item.id" class="flex gap-3 mb-4 last:mb-0">
+                  <div class="relative">
+                    <img :src="item.anhSanPham || 'https://via.placeholder.com/80'" class="w-16 h-16 object-cover rounded border bg-gray-100">
+                    <span class="absolute -top-2 -right-2 bg-gray-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                      {{ item.soLuong }}
+                    </span>
+                  </div>
+                  <div class="flex-1 text-sm">
+                    <div class="font-bold text-gray-800 line-clamp-2">
+                      {{ item.tenSanPham }}
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                      {{ item.tenMauSac }} / {{ item.tenRam }}
+                    </div>
+                    <div class="text-orange-600 font-semibold mt-1">
+                      {{ formatCurrency(item.donGia) }}
+                    </div>
+                  </div>
                 </div>
-                <div>x{{ item.soLuong }}</div>
               </div>
-            </div>
-          </div>
-        </div>
-      </NCard>
 
-      <NCard title="Mã giảm giá" class="mb-4" size="small">
-        <div v-if="availableVouchers.length === 0" class="text-gray-400 text-sm">
-          Không có mã giảm giá phù hợp
-        </div>
-        <NRadioGroup v-else v-model:value="selectedVoucher" name="voucherGroup">
-          <NSpace vertical>
-            <NRadio v-for="v in availableVouchers" :key="v.voucherId" :value="v">
-              <div class="flex items-center gap-2">
-                <span class="font-bold text-orange-600">{{ v.code }}</span>
-                <span class="text-sm text-gray-600">
-                  - Giảm {{ formatCurrency(v.giamGiaThucTe) }}
-                </span>
+              <NDivider style="margin: 12px 0" />
+
+              <div class="mb-4">
+                <div class="text-sm font-bold text-gray-700 mb-2">
+                  Mã giảm giá
+                </div>
+                <NSelect
+                  v-model:value="selectedVoucher"
+                  :options="availableVouchers"
+                  label-field="code"
+                  value-field="voucherId"
+                  placeholder="Chọn mã giảm giá"
+                  :render-label="(option) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
+                  clearable
+                />
               </div>
-            </NRadio>
-          </NSpace>
-        </NRadioGroup>
-      </NCard>
 
-      <div class="bg-white p-4 rounded shadow-sm border sticky bottom-0">
-        <div class="flex justify-between mb-2 text-sm">
-          <span class="text-gray-500">Tạm tính:</span>
-          <span>{{ formatCurrency(subTotal) }}</span>
-        </div>
-        <div v-if="selectedVoucher" class="flex justify-between mb-2 text-sm">
-          <span class="text-gray-500">Giảm giá:</span>
-          <span class="text-green-600">-{{ formatCurrency(discountAmount) }}</span>
-        </div>
-        <div class="flex justify-between items-end mt-4 pt-4 border-t">
-          <div>
-            <div class="font-bold text-gray-800">
-              Tổng tiền
-            </div>
-            <div class="text-xs text-gray-500">
-              (Đã bao gồm VAT)
-            </div>
-          </div>
-          <div class="text-2xl font-bold text-red-600">
-            {{ formatCurrency(finalTotal) }}
-          </div>
-        </div>
+              <NDivider style="margin: 12px 0" />
 
-        <NButton
-          block type="primary" color="#f97316" class="mt-4 h-12 text-lg font-bold"
-          :disabled="cartItems.length === 0" @click="handleOpenModal"
-        >
-          ĐẶT HÀNG
-        </NButton>
-      </div>
+              <div class="space-y-2 text-sm">
+                <div class="flex justify-between text-gray-600">
+                  <span>Tạm tính:</span>
+                  <span>{{ formatCurrency(subTotal) }}</span>
+                </div>
+                <div v-if="selectedVoucher" class="flex justify-between text-green-600">
+                  <span>Giảm giá:</span>
+                  <span>-{{ formatCurrency(discountAmount) }}</span>
+                </div>
+                <div class="flex justify-between text-gray-600">
+                  <span>Phí vận chuyển:</span>
+                  <span>Miễn phí</span>
+                </div>
+              </div>
+
+              <NDivider style="margin: 12px 0" />
+
+              <div class="flex justify-between items-center mb-4">
+                <span class="font-bold text-gray-800 text-lg">Tổng cộng:</span>
+                <span class="font-bold text-red-600 text-xl">{{ formatCurrency(finalTotal) }}</span>
+              </div>
+
+              <NButton
+                block type="primary" color="#f97316" size="large"
+                :loading="submitLoading"
+                :disabled="cartItems.length === 0"
+                class="font-bold shadow-orange-200 shadow-lg"
+                @click="handleFinalSubmit"
+              >
+                ĐẶT HÀNG NGAY
+              </NButton>
+            </NCard>
+          </div>
+        </NGi>
+      </NGrid>
     </div>
-
-    <OrderInfoModal
-      v-model:show="showInfoModal" :delivery-type="deliveryType" :loading="submitLoading"
-      @submit="handleFinalSubmit"
-    />
   </div>
 </template>
 
 <style scoped>
-.checkout-container {
-  font-family: 'Inter', sans-serif;
-}
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
 </style>
