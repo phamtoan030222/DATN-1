@@ -8,13 +8,22 @@ export const PREFIX_API_AUTH = `${API_URL}/auth` as string
 
 export const API_AUTH_LOGIN = `${API_URL}/login` as string
 
+export const API_AUTH_REGISTER = `${PREFIX_API_AUTH}/register` as string
+
+export const API_AUTH_REGISTER_CUSTOMER = `${API_AUTH_REGISTER}/customer` as string
+
 // SUB_REDIRECT
 export const SCREEN_ROLE_ADMIN = `&screen=ADMIN`
+
+export const SCREEN_ROLE_CUSTOMER = `&screen=CUSTOMER`
 
 export const URL_OAUTH2_GOOGLE_ADMIN =
   `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_ADMIN}` as string
 
-  // ADMIN API
+export const URL_OAUTH2_GOOGLE_CUSTOMER =
+  `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_CUSTOMER}` as string
+
+// ADMIN API
 export const PREFIX_API_ADMIN = `${API_URL}/admin` as string
 
 export const API_ADMIN_GEO = `${API_URL}/geo` as string
@@ -59,6 +68,7 @@ export const API_ADMIN_DISCOUNTS_VOUCHER
 export const PREFIX_API_BAN_HANG_ADMIN = `${PREFIX_API_ADMIN}/ban-hang` as string;
 
 export const PREFIX_API_HOA_DON_ADMIN = `${PREFIX_API_ADMIN}/hoa-don` as string;
-  
+
+
 // export const API_ADMIN_SALES = `${}`
 

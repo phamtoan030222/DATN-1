@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.auth.model.request;
+package com.sd20201.datn.core.auth.refresh.model.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;

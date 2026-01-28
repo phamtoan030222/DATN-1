@@ -16,7 +16,11 @@ import java.util.stream.Collectors;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.ZoneId;
-import java.time.temporal.TemporalAdjusters;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 
 @Service
 @RequiredArgsConstructor
@@ -30,22 +34,54 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
     public AdDashboardOverviewResponse getDashboardOverview() {
         LocalDateTime now = LocalDateTime.now();
 
-        // Lấy danh sách Top 5 sản phẩm bán chạy (có ảnh và giá)
+        // --- A. Lấy danh sách Top 5 sản phẩm (Giữ nguyên) ---
         List<Object[]> rawTopProducts = statisticsRepo.getTopSellingProductsWithDetail();
         List<AdDashboardOverviewResponse.TopItemDTO> topProducts = rawTopProducts.stream()
                 .map(row -> AdDashboardOverviewResponse.TopItemDTO.builder()
                         .name((String) row[0])
                         .count(((Number) row[1]).longValue())
-                        .price(((Number) row[2]).doubleValue())
+                        // Xử lý null an toàn cho giá tiền
+                        .price(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
                         .image((String) row[3])
                         .build())
                 .collect(Collectors.toList());
 
+        // --- B. Tính toán thời gian cho 4 thẻ (Card) ---
+
+        // 1. HÔM NAY (So với Hôm qua)
+        // Kỳ này: Từ 00:00 hôm nay đến hiện tại
+        LocalDateTime startToday = now.toLocalDate().atStartOfDay();
+        // Kỳ trước: Từ 00:00 hôm qua đến 23:59 hôm qua (trước khi sang hôm nay)
+        LocalDateTime startYesterday = startToday.minusDays(1);
+        LocalDateTime endYesterday = startToday.minusSeconds(1);
+
+        // 2. TUẦN NÀY (So với Tuần trước)
+        // Kỳ này: Từ Thứ 2 tuần này
+        LocalDateTime startWeek = now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay();
+        // Kỳ trước: Từ Thứ 2 tuần trước
+        LocalDateTime startLastWeek = startWeek.minusWeeks(1);
+        LocalDateTime endLastWeek = startWeek.minusSeconds(1);
+
+        // 3. THÁNG NÀY (So với Tháng trước)
+        // Kỳ này: Từ ngày mùng 1 tháng này
+        LocalDateTime startMonth = now.withDayOfMonth(1).toLocalDate().atStartOfDay();
+        // Kỳ trước: Từ ngày mùng 1 tháng trước
+        LocalDateTime startLastMonth = startMonth.minusMonths(1);
+        LocalDateTime endLastMonth = startMonth.minusSeconds(1);
+
+        // 4. NĂM NAY (So với Năm trước)
+        // Kỳ này: Từ ngày 1/1 năm nay
+        LocalDateTime startYear = now.withDayOfYear(1).toLocalDate().atStartOfDay();
+        // Kỳ trước: Từ ngày 1/1 năm trước
+        LocalDateTime startLastYear = startYear.minusYears(1);
+        LocalDateTime endLastYear = startYear.minusSeconds(1);
+
+        // --- C. Truyền đủ 4 tham số vào hàm tính toán ---
         return AdDashboardOverviewResponse.builder()
-                .today(getStatsForPeriod(now.toLocalDate().atStartOfDay(), now))
-                .week(getStatsForPeriod(now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay(), now))
-                .month(getStatsForPeriod(now.withDayOfMonth(1).toLocalDate().atStartOfDay(), now))
-                .year(getStatsForPeriod(now.withDayOfYear(1).toLocalDate().atStartOfDay(), now))
+                .today(getStatsForPeriod(startToday, now, startYesterday, endYesterday))
+                .week(getStatsForPeriod(startWeek, now, startLastWeek, endLastWeek))
+                .month(getStatsForPeriod(startMonth, now, startLastMonth, endLastMonth))
+                .year(getStatsForPeriod(startYear, now, startLastYear, endLastYear))
                 .topSellingProducts(topProducts)
                 .build();
     }
@@ -219,7 +255,94 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
 
 
     @Override
-    public byte[] exportRevenueToExcel() { return new byte[0]; }
+    public byte[] exportRevenueToExcel() throws IOException{
+        LocalDateTime now = LocalDateTime.now();
+
+        // Lấy dữ liệu 4 mốc thời gian
+        AdDashboardOverviewResponse.StatisticCard today = getStatsForPeriod(now.toLocalDate().atStartOfDay(), now);
+        AdDashboardOverviewResponse.StatisticCard week = getStatsForPeriod(now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay(), now);
+        AdDashboardOverviewResponse.StatisticCard month = getStatsForPeriod(now.withDayOfMonth(1).toLocalDate().atStartOfDay(), now);
+        AdDashboardOverviewResponse.StatisticCard year = getStatsForPeriod(now.withDayOfYear(1).toLocalDate().atStartOfDay(), now);
+
+        // Lấy Top sản phẩm
+        List<Object[]> rawTopProducts = statisticsRepo.getTopSellingProductsWithDetail();
+
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Báo Cáo Doanh Thu");
+
+            // --- STYLES ---
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setBorderBottom(BorderStyle.THIN);
+            headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN);
+            headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            CellStyle currencyStyle = workbook.createCellStyle();
+            DataFormat format = workbook.createDataFormat();
+            currencyStyle.setDataFormat(format.getFormat("#,##0 ₫"));
+
+            // --- BẢNG TỔNG QUAN ---
+            int rowIdx = 0;
+            Row titleRow = sheet.createRow(rowIdx++);
+            titleRow.createCell(0).setCellValue("BÁO CÁO DOANH THU");
+            titleRow.getCell(0).setCellStyle(headerStyle);
+            rowIdx++;
+
+            Row header1 = sheet.createRow(rowIdx++);
+            String[] cols1 = {"Thời gian", "Doanh thu", "Đơn hàng", "SP Bán", "Hoàn thành", "Hủy"};
+            for(int i=0; i<cols1.length; i++) {
+                Cell c = header1.createCell(i); c.setCellValue(cols1[i]); c.setCellStyle(headerStyle);
+            }
+
+            Object[][] data = {
+                    {"Hôm nay", today.getRevenue(), today.getTotalOrders(), today.getSoldProducts(), today.getCompleted(), today.getCancelled()},
+                    {"Tuần này", week.getRevenue(), week.getTotalOrders(), week.getSoldProducts(), week.getCompleted(), week.getCancelled()},
+                    {"Tháng này", month.getRevenue(), month.getTotalOrders(), month.getSoldProducts(), month.getCompleted(), month.getCancelled()},
+                    {"Năm nay", year.getRevenue(), year.getTotalOrders(), year.getSoldProducts(), year.getCompleted(), year.getCancelled()}
+            };
+
+            for(Object[] r : data) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue((String)r[0]);
+                Cell c1 = row.createCell(1); c1.setCellValue(((Number)r[1]).doubleValue()); c1.setCellStyle(currencyStyle);
+                row.createCell(2).setCellValue(((Number)r[2]).doubleValue());
+                row.createCell(3).setCellValue(((Number)r[3]).doubleValue());
+                row.createCell(4).setCellValue(((Number)r[4]).doubleValue());
+                row.createCell(5).setCellValue(((Number)r[5]).doubleValue());
+            }
+
+            rowIdx += 2;
+
+            // --- BẢNG TOP SẢN PHẨM ---
+            Row titleRow2 = sheet.createRow(rowIdx++);
+            titleRow2.createCell(0).setCellValue("TOP SẢN PHẨM BÁN CHẠY");
+            titleRow2.getCell(0).setCellStyle(headerStyle);
+
+            Row header2 = sheet.createRow(rowIdx++);
+            String[] cols2 = {"Tên sản phẩm", "Số lượng bán", "Giá hiện tại"};
+            for(int i=0; i<cols2.length; i++) {
+                Cell c = header2.createCell(i); c.setCellValue(cols2[i]); c.setCellStyle(headerStyle);
+            }
+
+            for(Object[] p : rawTopProducts) {
+                Row row = sheet.createRow(rowIdx++);
+                row.createCell(0).setCellValue((String)p[0]);
+                row.createCell(1).setCellValue(((Number)p[1]).doubleValue());
+                Cell cPrice = row.createCell(2);
+                cPrice.setCellValue(p[2] != null ? ((Number)p[2]).doubleValue() : 0);
+                cPrice.setCellStyle(currencyStyle);
+            }
+
+            for(int i=0; i<6; i++) sheet.autoSizeColumn(i);
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
     private Long toMs(LocalDateTime ldt) {
         return ldt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
@@ -259,6 +382,50 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
 
         // Map dữ liệu vào labels để đảm bảo thứ tự
         return labels.stream().map(l -> map.getOrDefault(l, 0L)).collect(Collectors.toList());
+    }
+
+    /**
+     * HÀM PHỤ TRỢ: Tính chỉ số và % tăng trưởng
+     * @param start : Bắt đầu kỳ hiện tại
+     * @param end : Kết thúc kỳ hiện tại
+     * @param prevStart : Bắt đầu kỳ trước (để so sánh)
+     * @param prevEnd : Kết thúc kỳ trước
+     */
+    private AdDashboardOverviewResponse.StatisticCard getStatsForPeriod(
+            LocalDateTime start, LocalDateTime end,
+            LocalDateTime prevStart, LocalDateTime prevEnd) {
+
+        // 1. Lấy số liệu KỲ HIỆN TẠI
+        Map<String, Object> currentData = statisticsRepo.getStatsByPeriod(toMs(start), toMs(end));
+        long currentRevenue = toLong(currentData.get("revenue"));
+
+        // 2. Lấy số liệu KỲ TRƯỚC (QUÁ KHỨ)
+        Map<String, Object> prevData = statisticsRepo.getStatsByPeriod(toMs(prevStart), toMs(prevEnd));
+        long prevRevenue = toLong(prevData.get("revenue"));
+
+        // 3. Tính % Tăng trưởng doanh thu
+        double growth;
+        if (prevRevenue == 0) {
+            // Nếu kỳ trước = 0, kỳ này > 0 => Tăng trưởng 100% (tăng tuyệt đối)
+            // Nếu cả 2 kỳ = 0 => 0%
+            growth = (currentRevenue > 0) ? 100.0 : 0.0;
+        } else {
+            // Công thức: ((Hiện tại - Quá khứ) / Quá khứ) * 100
+            growth = ((double) (currentRevenue - prevRevenue) / prevRevenue) * 100;
+        }
+
+        // 4. Format chuỗi hiển thị (VD: "+100%", "-50%", "0%")
+        String growthStr = (growth > 0 ? "+" : "") + String.format("%.0f", growth) + "%";
+
+        return AdDashboardOverviewResponse.StatisticCard.builder()
+                .revenue(currentRevenue)
+                .soldProducts(toInt(currentData.get("soldProducts")))
+                .totalOrders(toInt(currentData.get("totalOrders")))
+                .completed(toInt(currentData.get("completed")))
+                .cancelled(toInt(currentData.get("cancelled")))
+                .processing(toInt(currentData.get("processing")))
+                .growthRate(growthStr) // Gán giá trị tính toán được vào đây
+                .build();
     }
 
 }

@@ -100,6 +100,7 @@ function openAddPage() { router.push({ name: 'discounts_voucher_add' }) }
 function openEditPage(id: string) { router.push({ name: 'discounts_voucher_edit', params: { id } }) }
 function openDetailPage(id: string) { router.push({ name: 'discounts_voucher_detail', params: { id } }) }
 
+// Kích hoạt voucher Sắp diễn ra
 const switchingId = ref<string | null>(null)
 
 async function handleStartVoucher(id: string) {

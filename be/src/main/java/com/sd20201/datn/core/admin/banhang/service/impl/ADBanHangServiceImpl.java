@@ -435,17 +435,46 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     private void processVoucherIfExists(Invoice invoice, ADThanhToanRequest request) {
         if (request.getIdPGG() != null && !request.getIdPGG().trim().isEmpty()) {
             try {
+                // 1. Tìm và trừ số lượng Voucher gốc (bảng Voucher)
                 Voucher voucher = adVoucherRepository.findById(request.getIdPGG())
                         .orElse(null);
 
                 if (voucher != null && voucher.getRemainingQuantity() > 0) {
+                    // Trừ số lượng tồn kho voucher chung
                     voucher.setRemainingQuantity(voucher.getRemainingQuantity() - 1);
                     adVoucherRepository.save(voucher);
+
+                    // Gán voucher vào hóa đơn
                     invoice.setVoucher(voucher);
+
+                    // ==============================================================================
+                    // 2. CẬP NHẬT TRẠNG THÁI VOUCHER DETAIL (Bảng voucher_detail: usage_status 0 -> 1)
+                    // ==============================================================================
+
+                    // Chỉ xử lý nếu hóa đơn có thông tin khách hàng
+                    if (invoice.getCustomer() != null) {
+                        String customerId = invoice.getCustomer().getId();
+                        String voucherId = voucher.getId();
+
+                        // Tìm record trong bảng voucher_detail
+                        Optional<VoucherDetail> voucherDetailOpt = adbhvoucher.findByVoucherIdAndCustomerId(voucherId, customerId);
+
+                        if (voucherDetailOpt.isPresent()) {
+                            VoucherDetail detail = voucherDetailOpt.get();
+
+                            // Sử dụng hàm có sẵn trong Entity của bạn
+                            // Hàm này sẽ set: usageStatus = true (1), usedDate = now, invoiceId = invoice.getId()
+                            detail.markAsUsed(invoice.getId());
+
+                            // Lưu xuống DB
+                            adbhvoucher.save(detail);
+
+                            System.out.println("Đã cập nhật trạng thái đã sử dụng cho khách hàng: " + customerId);
+                        }
+                    }
                 }
             } catch (Exception e) {
-                // Bỏ qua lỗi voucher, không ảnh hưởng đến thanh toán
-                System.out.println("Lỗi khi xử lý voucher: " + e.getMessage());
+                log.error("Lỗi khi xử lý voucher: ", e);
             }
         }
     }
