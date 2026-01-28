@@ -21,6 +21,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.BeanIds;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -120,9 +121,18 @@ public class SecurityConfig {
                         .failureHandler(oAuth2AuthenticationFailureHandler)
         );
 
+        // api admin
         http.authorizeHttpRequests( request ->
-                request.requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
-                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_STAFF_PREFIX)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
+                request
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_PRODUCTS)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_DISCOUNT)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STATISTICS)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STAFF)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
+
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_CUSTOMERS)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_BAN_HANG)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_HOA_DON)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
+
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_CUSTOMER_PREFIX)).hasAnyAuthority(RoleConstant.KHACH_HANG.name())
         );
 

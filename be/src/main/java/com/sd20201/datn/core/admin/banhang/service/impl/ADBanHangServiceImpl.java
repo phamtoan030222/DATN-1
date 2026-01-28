@@ -57,6 +57,16 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     private final InvoiceDetailRepository invoiceDetailRepository;
     public final AdVoucherRepository phieuGiamGiaRepository;
 
+    private final ADBHScreenRepository screenRepository;
+    private final ADBHBrandRepository brandRepository;
+    private final ADBHOperatingSystemRepository operatingSystemRepository;
+    private final ADBHBatteryRepository batteryRepository;
+    private final ADBHRAMRepository ramRepository;
+    private final ADBHMaterialRepository materialRepository;
+    private final ADBHCPURepository cpuRepository;
+    private final ADBHGPURepository gpuRepository;
+    private final ADBHHardDriveRepository hardDriveRepository;
+    private final ADBHColorRepository colorRepository;
 
     @Override
     public List<ListHoaDon> getHoaDon() {
@@ -813,5 +823,85 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         lichSuTrangThaiHoaDonRepository.save(lichSuTrangThaiHoaDon);
 
         return new ResponseObject<>(null, HttpStatus.CREATED, "Hủy hóa đơn thành công");
+    }
+
+    @Override
+    public ResponseObject<?> getScreens() {
+        return ResponseObject.successForward(
+                screenRepository.getScreenComboboxResponse(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getBrands() {
+        return ResponseObject.successForward(
+                brandRepository.getBrandComboboxResponse(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getBatteries() {
+        return ResponseObject.successForward(
+                batteryRepository.getBatteryComboboxResponse(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getOperatingSystems() {
+        return ResponseObject.successForward(
+                operatingSystemRepository.getOperatingSystemComboboxResponse(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getColors() {
+        return ResponseObject.successForward(
+                colorRepository.getColors(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getRAMs() {
+        return ResponseObject.successForward(
+                ramRepository.getRAMs(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getCPUs() {
+        return ResponseObject.successForward(
+                cpuRepository.getCPUs(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getHardDrivers() {
+        return ResponseObject.successForward(
+                hardDriveRepository.getHardDrives(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getGPUs() {
+        return ResponseObject.successForward(
+                gpuRepository.getGPUs(),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getMaterials() {
+        return ResponseObject.successForward(
+                materialRepository.getMaterials(),
+                "OKE"
+        );
     }
 }
