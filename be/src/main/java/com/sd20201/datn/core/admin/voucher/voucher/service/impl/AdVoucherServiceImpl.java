@@ -334,27 +334,55 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         }
     }
 
+    // Helper để tạo khung HTML chung (Header & Footer) để tránh lặp code
+    private String wrapEmailContent(String title, String content) {
+        return "<!DOCTYPE html>" +
+               "<html><head><style>" +
+               "body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }" +
+               ".container { max-width: 600px; margin: 20px auto; background: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }" +
+               ".header { background-color: #007bff; color: #ffffff; padding: 20px; text-align: center; }" +
+               ".header h1 { margin: 0; font-size: 24px; }" +
+               ".content { padding: 30px 20px; }" +
+               ".voucher-box { background-color: #f8f9fa; border: 1px dashed #007bff; padding: 15px; margin: 20px 0; border-radius: 6px; text-align: center; }" +
+               ".voucher-code { font-size: 20px; font-weight: bold; color: #007bff; letter-spacing: 1px; }" +
+               ".btn { display: inline-block; background-color: #28a745; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }" +
+               ".footer { background-color: #333; color: #bbb; padding: 15px; text-align: center; font-size: 12px; }" +
+               "</style></head><body>" +
+               "<div class='container'>" +
+               "  <div class='header'><h1>" + title + "</h1></div>" +
+               "  <div class='content'>" + content + "</div>" +
+               "  <div class='footer'>" +
+               "    <p>&copy; 2026 My Laptop. All rights reserved.</p>" +
+               "    <p>Địa chỉ: [Địa chỉ cửa hàng của bạn]</p>" +
+               "  </div>" +
+               "</div>" +
+               "</body></html>";
+    }
+
     private void sendVoucherPausedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
         try {
-            String htmlBody = "<div style=\"font-family:Arial,sans-serif\">" +
-                              "<h2>Thông báo tạm hoãn voucher " + voucher.getCode() + "</h2>" +
-                              "<p>Xin chào " + (customer.getName() != null ? customer.getName() : "quý khách") + ",</p>" +
-                              "<p>Voucher của bạn hiện đã được tạm hoãn (status = INACTIVE). Trong thời gian này, mã sẽ chưa thể sử dụng.</p>" +
-                              "<p>Chúng tôi sẽ thông báo ngay khi voucher hoạt động trở lại.</p>" +
-                              "<p>Thông tin voucher:</p>" +
-                              "<ul>" +
-                              "<li>Mã: " + voucher.getCode() + "</li>" +
-                              "<li>Tên: " + (voucher.getName() != null ? voucher.getName() : "Voucher") + "</li>" +
-                              "</ul>" +
-                              "<p>Trân trọng,</p>" +
-                              "<p>My Laptop</p>" +
-                              "</div>";
+            String customerName = (customer.getName() != null) ? customer.getName() : "Quý khách";
+
+            // Nội dung chính: Lịch sự, trấn an khách hàng
+            String bodyContent =
+                    "<p>Xin chào <strong>" + customerName + "</strong>,</p>" +
+                    "<p>Chúng tôi xin thông báo voucher của bạn hiện đang được <strong>tạm bảo lưu</strong> để đảm bảo quyền lợi sử dụng tốt nhất.</p>" +
+                    "<div class='voucher-box'>" +
+                    "  <div style='color: #666; font-size: 14px;'>Mã Voucher</div>" +
+                    "  <div class='voucher-code'>" + voucher.getCode() + "</div>" +
+                    "  <div style='margin-top:5px; font-size: 14px;'>" + (voucher.getName() != null ? voucher.getName() : "Voucher ưu đãi") + "</div>" +
+                    "</div>" +
+                    "<p>⚠️ <em>Trạng thái: Tạm ngưng (Inactive)</em></p>" +
+                    "<p>Bạn đừng lo lắng, chúng tôi sẽ gửi email thông báo ngay khi mã này sẵn sàng để sử dụng trở lại.</p>" +
+                    "<p>Trân trọng,<br>Đội ngũ My Laptop</p>";
+
+            String finalHtml = wrapEmailContent("Thông Báo Bảo Lưu Voucher", bodyContent);
 
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
             helper.setTo(customer.getEmail());
-            helper.setSubject("⏸️ Voucher tạm hoãn: " + voucher.getCode());
-            helper.setText(htmlBody, true);
+            helper.setSubject("⏸️ Thông báo bảo lưu voucher: " + voucher.getCode());
+            helper.setText(finalHtml, true);
 
             mailSender.send(mimeMessage);
             log.info("✅ Pause email sent to: {}", customer.getEmail());
@@ -366,24 +394,31 @@ public class AdVoucherServiceImpl implements AdVoucherService {
 
     private void sendVoucherResumedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
         try {
-            String htmlBody = "<div style=\"font-family:Arial,sans-serif\">" +
-                              "<h2>Voucher hoạt động trở lại: " + voucher.getCode() + "</h2>" +
-                              "<p>Xin chào " + (customer.getName() != null ? customer.getName() : "quý khách") + ",</p>" +
-                              "<p>Voucher của bạn đã được <strong>tiếp tục</strong> (status = ACTIVE) và có thể sử dụng trở lại.</p>" +
-                              "<p>Thông tin voucher:</p>" +
-                              "<ul>" +
-                              "<li>Mã: " + voucher.getCode() + "</li>" +
-                              "<li>Tên: " + (voucher.getName() != null ? voucher.getName() : "Voucher") + "</li>" +
-                              "</ul>" +
-                              "<p>Chúc bạn mua sắm vui vẻ!</p>" +
-                              "<p>My Laptop</p>" +
-                              "</div>";
+            String customerName = (customer.getName() != null) ? customer.getName() : "Quý khách";
+
+            // Nội dung chính: Hào hứng, kêu gọi hành động (CTA)
+            String bodyContent =
+                    "<p>Xin chào <strong>" + customerName + "</strong>,</p>" +
+                    "<p>Tin vui cho bạn! Voucher của bạn đã <strong>hoạt động trở lại</strong> và sẵn sàng để sử dụng ngay hôm nay.</p>" +
+                    "<div class='voucher-box'>" +
+                    "  <div style='color: #666; font-size: 14px;'>Mã Voucher</div>" +
+                    "  <div class='voucher-code'>" + voucher.getCode() + "</div>" +
+                    "  <div style='margin-top:5px; font-size: 14px;'>" + (voucher.getName() != null ? voucher.getName() : "Voucher ưu đãi") + "</div>" +
+                    "</div>" +
+                    "<p>Hãy nhanh tay áp dụng mã này cho đơn hàng máy tính tiếp theo của bạn nhé!</p>" +
+                    "<div style='text-align: center;'>" +
+                    "  <a href='http://localhost:8080/home' class='btn'>Mua Sắm Ngay</a>" +
+                    "</div>" +
+                    "<p style='margin-top: 30px;'>Chúc bạn chọn được chiếc laptop ưng ý!</p>" +
+                    "<p>Trân trọng,<br>Đội ngũ My Laptop</p>";
+
+            String finalHtml = wrapEmailContent("Voucher Đã Sẵn Sàng! \uD83C\uDF89", bodyContent);
 
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
             helper.setTo(customer.getEmail());
-            helper.setSubject("✅ Voucher hoạt động trở lại: " + voucher.getCode());
-            helper.setText(htmlBody, true);
+            helper.setSubject("✅ Voucher của bạn đã hoạt động trở lại: " + voucher.getCode());
+            helper.setText(finalHtml, true);
 
             mailSender.send(mimeMessage);
             log.info("✅ Resume email sent to: {}", customer.getEmail());
