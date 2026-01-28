@@ -27,36 +27,25 @@
                   @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)">
                   <div class="invoice-header">
                     <n-text strong>{{ tab.ma }}</n-text>
-                    <n-popconfirm
-    :show-icon="false"
-    positive-text="Xác nhận hủy"
-    negative-text="Hủy bỏ"
-    @positive-click="() => huy(tab.idHD)"
-    @negative-click="() => {}"
-  >
-    <template #trigger>
-      <n-button 
-        text 
-        type="error" 
-        size="tiny" 
-        class="delete-invoice-btn"
-        @click.stop
-      >
-        <n-icon>
-          <TrashOutline />
-        </n-icon>
-      </n-button>
-    </template>
-    <div class="popconfirm-content">
-      <n-text strong style="display: block; margin-bottom: 8px;">
-        Xác nhận hủy hóa đơn
-      </n-text>
-      <n-text depth="3" style="font-size: 14px;">
-        Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.ma }}</strong>?<br>
-        Hành động này không thể hoàn tác.
-      </n-text>
-    </div>
-  </n-popconfirm>
+                    <n-popconfirm :show-icon="false" positive-text="Xác nhận hủy" negative-text="Hủy bỏ"
+                      @positive-click="() => huy(tab.idHD)" @negative-click="() => { }">
+                      <template #trigger>
+                        <n-button text type="error" size="tiny" class="delete-invoice-btn" @click.stop>
+                          <n-icon>
+                            <TrashOutline />
+                          </n-icon>
+                        </n-button>
+                      </template>
+                      <div class="popconfirm-content">
+                        <n-text strong style="display: block; margin-bottom: 8px;">
+                          Xác nhận hủy hóa đơn
+                        </n-text>
+                        <n-text depth="3" style="font-size: 14px;">
+                          Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.ma }}</strong>?<br>
+                          Hành động này không thể hoàn tác.
+                        </n-text>
+                      </div>
+                    </n-popconfirm>
                   </div>
                   <n-space vertical :size="4">
                     <n-tag type="warning" size="small" round>Chờ xử lý</n-tag>
@@ -84,8 +73,8 @@
                   <QrCodeOutline />
                 </n-icon>
               </template>
-              Quét QR
-            </n-button> -->
+  Quét QR
+  </n-button> -->
           </n-space>
         </template>
         <div v-if="state.gioHang.length > 0">
@@ -606,7 +595,7 @@
                     <template #description>
                       <n-space vertical :size="3" style="margin-top: 4px">
                         <n-text depth="3" size="small">Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem)
-                        }}</n-text>
+                          }}</n-text>
                         <n-text depth="3" size="small">Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}</n-text>
                         <n-text depth="3" size="small">Điều kiện: {{ formatCurrency(suggestion.dieuKien) }}</n-text>
                       </n-space>
@@ -876,89 +865,87 @@
 
 deleteProduc
 <script setup lang="ts">
-import { ref, onMounted, reactive, watch, nextTick, h, computed } from 'vue'
-import { toast } from 'vue3-toastify'
-import 'vue3-toastify/dist/index.css'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import {
-  GetHoaDons,
+  GeOneKhachHang,
+  getColors, getCPUs,
   getCreateHoaDon,
-  themSanPham,
   GetGioHang,
-  xoaSP,
+  getGPUs,
+  getHardDrives,
+  GetHoaDons,
+  getImeiProductDetail,
+  GetKhachHang,
+  getMaGiamGia,
+  getMaterials,
+  getPhuongThucThanhToan,
+  getProductDetails,
+  getRAMs,
+  GoiYVoucherResponse,
+  huyHoaDon,
+  suaGiaoHang,
+  thanhToanThanhCong,
+  themKhachHang,
+  themMoiKhachHang,
+  themSanPham,
   themSL,
   xoaSL,
+  xoaSP,
   type KhachHangResponse,
-  GetKhachHang,
-  themKhachHang,
-  GeOneKhachHang,
-  getPhuongThucThanhToan,
-  type PhuongThucThanhToanResponse,
-  thanhToanThanhCong,
   type PhieuGiamGiaResponse,
-  getMaGiamGia,
-  type ThongTinGiaoHangResponse,
-  suaGiaoHang,
-  huyHoaDon,
-  getMaGiamGiaKoDu,
-  themMoiKhachHang,
-  getProductDetails,
-  GoiYVoucherResponse
+  type PhuongThucThanhToanResponse,
+  type ThongTinGiaoHangResponse
 } from '@/service/api/admin/banhang.api'
-import type { DataTableColumns } from 'naive-ui'
-import type { ADProductDetailResponse, ADProductDetailRequest, ADPDImeiResponse } from '@/service/api/admin/product/productDetail.api'
-import { getColors, getCPUs, getGPUs, getRAMs, getHardDrives, getMaterials, getImeiProductDetail } from '@/service/api/admin/product/productDetail.api'
-import { getGHNProvinces } from '@/service/api/ghn.api'
-import { getGHNDistricts } from '@/service/api/ghn.api'
-import { getGHNWards } from '@/service/api/ghn.api'
-import { getAvailableServices } from '@/service/api/ghn.api'
-import type { AvailableServiceRequest } from '@/service/api/ghn.api'
-import type { ShippingFeeRequest } from '@/service/api/ghn.api'
-import { calculateFee } from '@/service/api/ghn.api'
+import type { ADPDImeiResponse, ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/admin/product/productDetail.api'
+import type { AvailableServiceRequest, ShippingFeeRequest } from '@/service/api/ghn.api'
+import { calculateFee, getAvailableServices, getGHNDistricts, getGHNProvinces, getGHNWards } from '@/service/api/ghn.api'
+import { localStorageAction } from '@/utils/storage'
 import { Html5Qrcode } from 'html5-qrcode'
-import { debounce } from 'lodash';
-import { localStorageAction } from '@/utils/storage';
-import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { debounce } from 'lodash'
+import type { DataTableColumns } from 'naive-ui'
+import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { toast } from 'vue3-toastify'
+import 'vue3-toastify/dist/index.css'
 
 // Naive UI Icons
 import {
-  QrCodeOutline,
-  ReloadOutline,
   AddCircleOutline,
-  TrashOutline,
-  SearchOutline
+  ReloadOutline,
+  SearchOutline,
+  TrashOutline
 } from '@vicons/ionicons5'
 
 // Naive UI components
 import {
-  NDataTable,
-  NModal,
-  NInput,
-  NSelect,
+  NAlert,
+  NBadge,
+  NButton,
   NCard,
-  NSwitch,
-  NPopconfirm,
-  NTooltip,
-  NList,
-  NListItem,
-  NThing,
+  NCheckbox,
+  NDataTable,
+  NDivider,
   NEmpty,
-  NSpace,
   NForm,
   NFormItem,
-  NInputNumber,
-  NButton,
-  NTag,
-  NImage,
-  NIcon,
-  NText,
-  NDivider,
-  NAlert,
-  NGrid,
-  NGi,
-  NScrollbar,
   NFormItemGi,
-  NCheckbox,
-  NBadge
+  NGi,
+  NGrid,
+  NIcon,
+  NImage,
+  NInput,
+  NInputNumber,
+  NList,
+  NListItem,
+  NModal,
+  NPopconfirm,
+  NScrollbar,
+  NSelect,
+  NSpace,
+  NSwitch,
+  NTag,
+  NText,
+  NThing,
+  NTooltip
 } from 'naive-ui'
 
 // Local filter variables
@@ -1107,7 +1094,7 @@ const addSerialToCart = async () => {
     return
   }
 
-try {
+  try {
     // 1. Lấy danh sách IMEI đã chọn
     const imeisDaChon = selectedSerials.value
       .filter(s => selectedSerialIds.value.includes(s.id))
@@ -1130,12 +1117,12 @@ try {
     // 3. LƯU IMEI ĐÃ CHỌN VÀO STATE để dùng khi thanh toán
     // Tìm hoặc tạo idHoaDonChiTiet (giả sử lấy từ response)
     // Hoặc lưu tạm với product id
-    
+
     // Cách tạm thời: lưu theo productId
     const existingIndex = imeiDaChon.value.findIndex(
       item => item.idHoaDonChiTiet === selectedProductDetail.value?.id
     )
-    
+
     if (existingIndex >= 0) {
       // Cập nhật danh sách IMEI
       imeiDaChon.value[existingIndex].danhSachImei = [
@@ -1152,7 +1139,7 @@ try {
 
     // 4. Thông báo thành công
     toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`)
-    
+
     // 5. Reset và đóng modal
     showSerialModal.value = false
     selectedSerialIds.value = []
@@ -1174,10 +1161,10 @@ const refreshCart = async () => {
   if (idHDS.value) {
     const response = await GetGioHang(idHDS.value)
     state.gioHang = response
-    
+
     // Cập nhật mapping IMEI với idHoaDonChiTiet thực tế
     // (Cần backend trả về idHoaDonChiTiet trong response)
-    
+
     await fetchDiscounts(idHDS.value)
   }
 }
@@ -1482,7 +1469,7 @@ watch(
 
 // Cập nhật calculateTotalAmounts để tính cả voucher
 const calculateTotalAmounts = () => {
-  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan) , 0)
+  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan), 0)
 
   // Ưu tiên sử dụng voucher được chọn
   if (selectedVoucher.value) {
@@ -2367,71 +2354,71 @@ const columnsKhachHang: DataTableColumns<KhachHangResponse> = [
 
 const columnsGiohang: DataTableColumns<any> = [
   {
-  title: 'Serial đã chọn',
-  key: 'imel', // Đổi thành 'imei' nếu backend trả về 'imei'
-  width: 110,
-  render: (row) => {
-    // Kiểm tra xem row có field imel/imei không
-    if (row.imel) { // Hoặc row.imei tùy backend trả về
-      return h(NTag, {
-        type: 'success',
-        size: 'small',
-        onClick: () => {
-          toast.info(`IMEI: ${row.imel}`);
-        }
-      }, () => `${row.imel}`);
-    }
-    
-    // Nếu không có imel trong row, kiểm tra trong state imeiDaChon
-    const imeiItem = imeiDaChon.value.find(
-      item => item.idHoaDonChiTiet === row.idHDCT // Sử dụng idHDCT thay vì id
-    );
-    
-    if (imeiItem && imeiItem.danhSachImei.length > 0) {
-      return h(NTag, {
-        type: 'success',
-        size: 'small',
-        onClick: () => {
-          toast.info(`Đã chọn ${imeiItem.danhSachImei.length} IMEI: ${imeiItem.danhSachImei.join(', ')}`);
-        }
-      }, () => `${imeiItem.danhSachImei.length} IMEI`);
-    }
-    
-    return h(NTag, {
-      type: 'warning',
-      size: 'small'
-    }, () => 'Chưa chọn IMEI');
-  }
-},
- {
-  title: 'Ảnh',
-  key: 'anh',
-  width: 80,
-  align: 'center',
-  render: (row) => {
-    return h(
-      NBadge,
-      {
-        value: row.percentage ? `-${row.percentage}%` : undefined,
-        type: 'error',
-        offset: [-5, 0], 
-        style: { transform: 'scale(0.85)', transformOrigin: 'top right' } 
-      },
-      {
-        default: () => h(NImage, {
-          width: 100,
-          height: 70,
-          src: row.urlImage || row.anh, 
-          objectFit: 'cover',
-          style: { 
-            'border-radius': '4px',
-            'border': '1px solid #eee' 
+    title: 'Serial đã chọn',
+    key: 'imel', // Đổi thành 'imei' nếu backend trả về 'imei'
+    width: 110,
+    render: (row) => {
+      // Kiểm tra xem row có field imel/imei không
+      if (row.imel) { // Hoặc row.imei tùy backend trả về
+        return h(NTag, {
+          type: 'success',
+          size: 'small',
+          onClick: () => {
+            toast.info(`IMEI: ${row.imel}`);
           }
-        })
+        }, () => `${row.imel}`);
       }
-    );
-  }
-},
+
+      // Nếu không có imel trong row, kiểm tra trong state imeiDaChon
+      const imeiItem = imeiDaChon.value.find(
+        item => item.idHoaDonChiTiet === row.idHDCT // Sử dụng idHDCT thay vì id
+      );
+
+      if (imeiItem && imeiItem.danhSachImei.length > 0) {
+        return h(NTag, {
+          type: 'success',
+          size: 'small',
+          onClick: () => {
+            toast.info(`Đã chọn ${imeiItem.danhSachImei.length} IMEI: ${imeiItem.danhSachImei.join(', ')}`);
+          }
+        }, () => `${imeiItem.danhSachImei.length} IMEI`);
+      }
+
+      return h(NTag, {
+        type: 'warning',
+        size: 'small'
+      }, () => 'Chưa chọn IMEI');
+    }
+  },
+  {
+    title: 'Ảnh',
+    key: 'anh',
+    width: 80,
+    align: 'center',
+    render: (row) => {
+      return h(
+        NBadge,
+        {
+          value: row.percentage ? `-${row.percentage}%` : undefined,
+          type: 'error',
+          offset: [-5, 0],
+          style: { transform: 'scale(0.85)', transformOrigin: 'top right' }
+        },
+        {
+          default: () => h(NImage, {
+            width: 100,
+            height: 70,
+            src: row.urlImage || row.anh,
+            objectFit: 'cover',
+            style: {
+              'border-radius': '4px',
+              'border': '1px solid #eee'
+            }
+          })
+        }
+      );
+    }
+  },
   {
     title: 'Tên sản phẩm',
     key: 'name',
@@ -2542,7 +2529,7 @@ const columnsGiohang: DataTableColumns<any> = [
     align: 'right',
     render: (row) => h(NText, {
       style: { fontWeight: 500 }
-    }, () => formatCurrency( row.giaGoc))
+    }, () => formatCurrency(row.giaGoc))
   },
   {
     title: 'Giá bán',
@@ -2553,7 +2540,7 @@ const columnsGiohang: DataTableColumns<any> = [
       type: 'primary',
       strong: true,
       style: { fontSize: '14px' }
-    }, () => formatCurrency(( row.giaGoc ) * (1 - row.percentage / 100)) )
+    }, () => formatCurrency((row.giaGoc) * (1 - row.percentage / 100)))
   },
   {
     title: 'Thao tác',
@@ -2585,46 +2572,46 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`)
   },
 
- {
-  title: 'Ảnh chi tiết',
-  key: 'detailImages',
-  width: 120,
-  align: 'center',
-  render: (row) => {
-    const imageUrl = row.urlImage;
-    const percentage = row.percentage;
+  {
+    title: 'Ảnh chi tiết',
+    key: 'detailImages',
+    width: 120,
+    align: 'center',
+    render: (row) => {
+      const imageUrl = row.urlImage;
+      const percentage = row.percentage;
 
-    if (!imageUrl || imageUrl.trim() === '') {
-      return h(NText, { depth: 3, size: 'small' }, () => 'Không có');
-    }
-    return h(
-      NBadge,
-      {
-        value: percentage ? `-${percentage}%` : undefined,
-        type: 'error', 
-        offset: [-5, 5], 
-      },
-      {
-        default: () => h(NImage, {         
-           width: 100,
-          height: 80,
-          src: imageUrl,
-          objectFit: 'cover',
-          style: {
-            borderRadius: '4px',
-            border: '1px solid #f0f0f0',
-            cursor: 'pointer'
-          },
-          fallbackSrc: '/images/no-image.png', 
-          previewSrc: imageUrl, 
-          onError: (e) => {
-            console.error('Không thể tải ảnh:', imageUrl, e);
-          }
-        })
+      if (!imageUrl || imageUrl.trim() === '') {
+        return h(NText, { depth: 3, size: 'small' }, () => 'Không có');
       }
-    );
-  }
-},
+      return h(
+        NBadge,
+        {
+          value: percentage ? `-${percentage}%` : undefined,
+          type: 'error',
+          offset: [-5, 5],
+        },
+        {
+          default: () => h(NImage, {
+            width: 100,
+            height: 80,
+            src: imageUrl,
+            objectFit: 'cover',
+            style: {
+              borderRadius: '4px',
+              border: '1px solid #f0f0f0',
+              cursor: 'pointer'
+            },
+            fallbackSrc: '/images/no-image.png',
+            previewSrc: imageUrl,
+            onError: (e) => {
+              console.error('Không thể tải ảnh:', imageUrl, e);
+            }
+          })
+        }
+      );
+    }
+  },
   {
     title: 'Mã',
     key: 'code',
@@ -2645,33 +2632,33 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     }, () => row.quantity)
   },
   {
-  title: 'Giá bán',
-  key: 'price',
-  width: 120, 
-  align: 'center',
-  render: (row) => {
-    const originalPrice = row.price || 0;
-    const percentage = row.percentage;
+    title: 'Giá bán',
+    key: 'price',
+    width: 120,
+    align: 'center',
+    render: (row) => {
+      const originalPrice = row.price || 0;
+      const percentage = row.percentage;
 
-    if (percentage && percentage > 0) {
-      const discountedPrice = originalPrice * (1 - percentage / 100);
+      if (percentage && percentage > 0) {
+        const discountedPrice = originalPrice * (1 - percentage / 100);
 
-      return h(NSpace, { vertical: true, size: 0, align: 'center', justify: 'center' }, () => [
-                h(
-          NText, 
-          { delete: true, depth: 3, style: { fontSize: '12px', lineHeight: '1.2' } }, 
-          () => formatCurrency(originalPrice)
-        ),
-        h(
-          NText, 
-          { type: 'primary', strong: true, style: { fontSize: '14px' } }, 
-          () => formatCurrency(discountedPrice)
-        )
-      ]);
+        return h(NSpace, { vertical: true, size: 0, align: 'center', justify: 'center' }, () => [
+          h(
+            NText,
+            { delete: true, depth: 3, style: { fontSize: '12px', lineHeight: '1.2' } },
+            () => formatCurrency(originalPrice)
+          ),
+          h(
+            NText,
+            { type: 'primary', strong: true, style: { fontSize: '14px' } },
+            () => formatCurrency(discountedPrice)
+          )
+        ]);
+      }
+      return h(NText, { type: 'primary', strong: true }, () => formatCurrency(originalPrice));
     }
-    return h(NText, { type: 'primary', strong: true }, () => formatCurrency(originalPrice));
-  }
-},
+  },
   {
     title: 'Thông số kỹ thuật',
     key: 'specifications',
@@ -2966,7 +2953,7 @@ const xacNhan = async (check: number) => {
   console.log('=== DEBUG XÁC NHẬN THANH TOÁN ===');
   console.log('Giỏ hàng:', state.gioHang);
   console.log('IMEI đã chọn:', imeiDaChon.value);
-  
+
   // Kiểm tra từng sản phẩm
   state.gioHang.forEach((item, index) => {
     console.log(`Sản phẩm ${index + 1}:`, {
@@ -2979,7 +2966,7 @@ const xacNhan = async (check: number) => {
       hasImei: 'imel' in item ? item.imel : 'Không có field imel'
     });
   });
-  
+
   console.log('=== END DEBUG ===');
   if (!idHDS.value) {
     toast.error('Vui lòng chọn một hóa đơn để xác nhận thanh toán!')
@@ -3036,7 +3023,7 @@ const xacNhan = async (check: number) => {
       }
     }
   }
-  
+
   if (hasError) return;
 
   const selectedProvince = provinces.value.find((p) => p.code === deliveryInfo.tinhThanhPho);
@@ -3052,7 +3039,7 @@ const xacNhan = async (check: number) => {
       tongTien: tongTien.value.toString(),
       ten: deliveryInfo.tenNguoiNhan,
       sdt: deliveryInfo.sdtNguoiNhan,
-      diaChi: isDeliveryEnabled.value 
+      diaChi: isDeliveryEnabled.value
         ? `${deliveryInfo.diaChiCuThe}, ${selectedWard?.label}, ${selectedDistrict?.label}, ${selectedProvince?.label}`
         : '',
       tienShip: shippingFee.value,
@@ -3061,7 +3048,7 @@ const xacNhan = async (check: number) => {
       idPGG: selectedDiscount.value?.id,
       check: check,
       isDeliveryEnabled: isDeliveryEnabled.value,
-      
+
       // THÊM FIELD IMEI (quan trọng)
       loaiHoaDon: loaiHoaDon,
       danhSachImei: danhSachImeiChon,
@@ -3102,7 +3089,7 @@ const xacNhan = async (check: number) => {
 
     // Reset các state (bao gồm IMEI)
     await resetAfterPayment();
-    
+
   } catch (error: any) {
     if (error?.response?.data?.message) {
       toast.error(error.response.data.message)
@@ -3140,22 +3127,22 @@ const resetAfterPayment = async () => {
   resetDiscount()
   isDeliveryEnabled.value = false
   currentDeliveryInfo.value = null
-  Object.assign(deliveryInfo, { 
-    tenNguoiNhan: '', 
-    sdtNguoiNhan: '', 
-    diaChiGiaoHang: '', 
-    tinhThanhPho: undefined, 
-    quanHuyen: undefined, 
-    phuongXa: undefined, 
-    diaChiCuThe: '' 
+  Object.assign(deliveryInfo, {
+    tenNguoiNhan: '',
+    sdtNguoiNhan: '',
+    diaChiGiaoHang: '',
+    tinhThanhPho: undefined,
+    quanHuyen: undefined,
+    phuongXa: undefined,
+    diaChiCuThe: ''
   });
   shippingFee.value = 0;
   provinceCode.value = null;
   districtCode.value = null;
   wardCode.value = null;
-  
+
   // Reset danh sách IMEI đã chọn
-    imeiDaChon.value = [];
+  imeiDaChon.value = [];
 }
 
 
@@ -3692,7 +3679,7 @@ onMounted(async () => {
   setDefaultPaymentMethod()
   await fetchProvinces()
 
-   if (idHDS.value && state.gioHang.length > 0) {
+  if (idHDS.value && state.gioHang.length > 0) {
     await fetchDiscounts(idHDS.value)
   }
 })
