@@ -9,10 +9,10 @@ import {
   NIcon,
   NInput,
   NPagination,
-  NPopconfirm, // Đã thêm
+  NPopconfirm,
   NSelect,
   NSpace,
-  NSwitch, // Đã thêm
+  NSwitch,
   NTag,
   NTooltip,
   useMessage,
@@ -28,7 +28,7 @@ import {
   updateVoucherToStart,
 } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherQuery, ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
-import request from '@/service/request' // Import request để gọi API export blob
+import request from '@/service/request'
 import { API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
 
 /* ===================== Config & Router ===================== */
@@ -52,29 +52,22 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 }
 
-/* ===================== Logic Trạng Thái (CORE) ===================== */
+/* ===================== Logic Trạng Thái ===================== */
 function getVoucherStatus(row: ADVoucherResponse) {
   const now = Date.now()
   const startDate = row.startDate || 0
   const endDate = row.endDate || Infinity
   const remainingQuantity = row.remainingQuantity
 
-  // 1. Sắp diễn ra
   if (startDate > now)
     return { text: 'Sắp diễn ra', type: 'info', value: 'UPCOMING' }
-
-  // 2. Đã kết thúc
   const isExpired = endDate < now
   const isOutOfStock = remainingQuantity !== null && remainingQuantity <= 0
   if (isExpired || isOutOfStock)
     return { text: 'Đã kết thúc', type: 'default', value: 'ENDED' }
-
-  // 3. Tạm dừng (Backend trả về status = 1 là INACTIVE)
   const isPaused = row.status === 1 || row.status === 'INACTIVE'
   if (isPaused)
     return { text: 'Tạm dừng', type: 'warning', value: 'PAUSED' }
-
-  // 4. Đang diễn ra
   return { text: 'Đang diễn ra', type: 'success', value: 'ONGOING' }
 }
 
@@ -89,16 +82,11 @@ function getVoucherTypeText(row: ADVoucherResponse) {
 /* ===================== State ===================== */
 const loading = ref(false)
 const exportLoading = ref(false)
-const allData = ref<ADVoucherResponse[]>([]) // Giữ nguyên logic load all client side
+const allData = ref<ADVoucherResponse[]>([])
 const displayData = ref<ADVoucherResponse[]>([])
 const checkedRowKeys = ref<(string | number)[]>([])
 
-const pagination = ref({
-  page: 1,
-  pageSize: 10,
-  itemCount: 0,
-  showSizePicker: true,
-})
+const pagination = ref({ page: 1, pageSize: 10, itemCount: 0, showSizePicker: true })
 
 const dynamicMaxPrice = computed(() => {
   if (allData.value.length === 0)
@@ -131,7 +119,6 @@ async function handleStartVoucher(id: string) {
   finally { loading.value = false; switchingId.value = null }
 }
 
-// Switch: Đổi trạng thái (Đang diễn ra <-> Tạm dừng)
 async function handleSwitchStatus(row: ADVoucherResponse) {
   if (switchingId.value)
     return
@@ -139,12 +126,15 @@ async function handleSwitchStatus(row: ADVoucherResponse) {
   const isCurrentlyActive = row.status === 0 || row.status === 'ACTIVE'
 
   switchingId.value = row.id || null
-  // Optimistic Update
-  row.status = isCurrentlyActive ? 1 : 0
+
+  // Không optimistic update ở đây để hiệu ứng loading của switch chạy mượt hơn
+  // row.status = isCurrentlyActive ? 1 : 0
 
   try {
     await changeStatusVoucher(row.id!)
     message.success(`Đã ${isCurrentlyActive ? 'tạm dừng' : 'tiếp tục'} voucher!`)
+    // Cập nhật lại status thật sau khi thành công
+    row.status = isCurrentlyActive ? 1 : 0
   }
   catch (err: any) {
     row.status = originalStatus
@@ -211,7 +201,6 @@ function resetFilters() {
   handleClientSideFilter()
 }
 
-// Logic lọc Client-side (GIỮ NGUYÊN ĐỂ ĐẢM BẢO DỮ LIỆU KHÔNG BỊ LỖI)
 function handleClientSideFilter() {
   loading.value = true
   let filtered = allData.value
@@ -232,7 +221,6 @@ function handleClientSideFilter() {
   if (filters.targetType)
     filtered = filtered.filter(item => item.targetType === filters.targetType)
 
-  // Lọc Status (Sử dụng hàm logic chung)
   if (filters.status) {
     filtered = filtered.filter(item => getVoucherStatus(item).value === filters.status)
   }
@@ -250,23 +238,19 @@ function handleClientSideFilter() {
   loading.value = false
 }
 
-// --- LOGIC XUẤT EXCEL TỪ BACKEND (MỚI) ---
 async function handleExportExcel() {
   exportLoading.value = true
   message.loading('Đang yêu cầu server xuất file...')
   try {
-    // Mapping params bộ lọc hiện tại để gửi lên BE
     const params = {
       q: filters.keyword || undefined,
       typeVoucher: filters.typeVoucher || undefined,
       targetType: filters.targetType || undefined,
-      // Map 'status' filter của frontend sang 'period' của backend (UPCOMING, PAUSED,...)
       period: filters.status || undefined,
       startDate: filters.startDate || undefined,
       endDate: filters.endDate || undefined,
     }
 
-    // Gọi API với responseType là blob để nhận file
     const response = await request.get(`${API_ADMIN_DISCOUNTS_VOUCHER}/export`, {
       params,
       responseType: 'blob',
@@ -297,7 +281,6 @@ watch(() => [pagination.value.page, pagination.value.pageSize], () => {
 async function fetchData() {
   loading.value = true
   try {
-    // Load size lớn để lọc client-side (như code cũ của bạn)
     const query: ADVoucherQuery = { page: 1, size: 2000 }
     const res = await getVouchers(query)
     allData.value = (res.content ?? []).map(item => ({ ...item }))
@@ -316,41 +299,11 @@ async function fetchData() {
 
 /* ===================== Data Table Config ===================== */
 const columns: DataTableColumns<ADVoucherResponse> = [
-  {
-    title: 'STT',
-    key: 'stt',
-    fixed: 'left',
-    align: 'center',
-    width: 60,
-    render: (_, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize,
-  },
-  {
-    title: 'Mã',
-    key: 'code',
-    fixed: 'left',
-    width: 100,
-    render: row => h('strong', { class: 'text-primary cursor-pointer', onClick: () => openDetailPage(row.id!) }, row.code),
-  },
-  {
-    title: 'Tên',
-    key: 'name',
-    fixed: 'left',
-    width: 150,
-    ellipsis: { tooltip: true },
-  },
-  {
-    title: 'Kiểu',
-    align: 'center',
-    key: 'targetType',
-    width: 90,
-    render: row => h(NTag, { type: getVoucherTypeText(row).type, size: 'small', bordered: false }, { default: () => getVoucherTypeText(row).text }),
-  },
-  {
-    title: 'Số lượng',
-    align: 'center',
-    width: 90,
-    key: 'remainingQuantity',
-  },
+  { title: 'STT', key: 'stt', fixed: 'left', align: 'center', width: 60, render: (_, index) => index + 1 + (pagination.value.page - 1) * pagination.value.pageSize },
+  { title: 'Mã', key: 'code', fixed: 'left', width: 100, render: row => h('strong', { class: 'text-primary cursor-pointer', onClick: () => openDetailPage(row.id!) }, row.code) },
+  { title: 'Tên', key: 'name', fixed: 'left', width: 150, ellipsis: { tooltip: true } },
+  { title: 'Kiểu', align: 'center', key: 'targetType', width: 90, render: row => h(NTag, { type: getVoucherTypeText(row).type, size: 'small', bordered: false }, { default: () => getVoucherTypeText(row).text }) },
+  { title: 'Số lượng', align: 'center', width: 90, key: 'remainingQuantity' },
   {
     title: 'Chi tiết ưu đãi',
     key: 'discountValue',
@@ -359,8 +312,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     render(row) {
       const isPercent = row.typeVoucher === 'PERCENTAGE'
       const nodes = []
-      nodes.push(h(NTag, { type: isPercent ? 'error' : 'primary', size: 'small', class: 'font-bold' }, { default: () => isPercent ? `Giảm ${row.discountValue}%` : `Giảm ${formatCurrency(row.discountValue || 0)}` },
-      ))
+      nodes.push(h(NTag, { type: isPercent ? 'error' : 'primary', size: 'small', class: 'font-bold' }, { default: () => isPercent ? `Giảm ${row.discountValue}%` : `Giảm ${formatCurrency(row.discountValue || 0)}` }))
       if (isPercent) {
         nodes.push(h('div', { class: 'text-[11px] text-gray-500 mt-1' }, row.maxValue ? `(Tối đa: ${formatCurrency(row.maxValue)})` : '(Không giới hạn)'))
       }
@@ -391,15 +343,9 @@ const columns: DataTableColumns<ADVoucherResponse> = [
     align: 'center',
     render(row) {
       const statusInfo = getVoucherStatus(row)
-      return h(NTag, {
-        type: statusInfo.type,
-        size: 'small',
-        style: { cursor: 'pointer' },
-        onClick: () => { filters.status = statusInfo.value },
-      }, { default: () => statusInfo.text })
+      return h(NTag, { type: statusInfo.type, size: 'small', style: { cursor: 'pointer' }, onClick: () => { filters.status = statusInfo.value } }, { default: () => statusInfo.text })
     },
   },
-  // --- CỘT THAO TÁC (CHỈNH SỬA) ---
   {
     title: 'Thao tác',
     key: 'actions',
@@ -418,7 +364,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       const cantEdit = statusInfo.value === 'ONGOING' || statusInfo.value === 'PAUSED'
       const canEdit = !isEnded && !cantEdit
 
-      // 1. Nút Xem/Sửa
       const btnConfig = canEdit
         ? { icon: 'carbon:edit', type: 'warning', tooltip: 'Sửa thông tin' }
         : { icon: 'carbon:view', type: 'info', tooltip: 'Xem chi tiết' }
@@ -434,8 +379,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
         }, { icon: () => h(Icon, { icon: btnConfig.icon }) }),
         default: () => btnConfig.tooltip,
       }))
-
-      // 2. Nút BẮT ĐẦU (Play) - Có
 
       if (isUpcoming) {
         actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleStartVoucher(id), disabled: !!switchingId.value }, {
@@ -453,29 +396,26 @@ const columns: DataTableColumns<ADVoucherResponse> = [
           default: () => 'Kích hoạt Voucher này ngay bây giờ?',
         }))
       }
-
-      // 3. SWITCH (Dừng/Tiếp tục) - Có Confirm
       else if (!isEnded) {
         const isChecked = row.status === 0 || row.status === 'ACTIVE'
+        // [MỚI] Hiệu ứng load trên switch
+        const isSwitchingThisRow = switchingId.value === row.id
 
-        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleSwitchStatus(row), disabled: switchingId.value === row.id }, {
+        actions.push(h(NPopconfirm, { positiveText: 'Xác nhận', negativeText: 'Hủy', onPositiveClick: () => handleSwitchStatus(row), disabled: isSwitchingThisRow }, {
           trigger: () => h(NTooltip, { trigger: 'hover' }, {
-            // Dùng div bọc switch và pointerEvents: none để bắt sự kiện click vào div -> kích hoạt Popconfirm
-            trigger: () => h('div', { style: `display: inline-block; cursor: pointer; pointer-events: ${switchingId.value === row.id ? 'none' : 'auto'}` }, [
+            trigger: () => h('div', { style: `display: inline-block; cursor: pointer; pointer-events: ${isSwitchingThisRow ? 'none' : 'auto'}` }, [
               h(NSwitch, {
                 value: isChecked,
                 size: 'small',
-                style: { pointerEvents: 'none' }, // Vô hiệu hóa click trực tiếp lên switch
+                loading: isSwitchingThisRow, // THÊM LOADING VÀO ĐÂY
+                style: { pointerEvents: 'none' },
               }),
             ]),
             default: () => isChecked ? 'Tạm dừng' : 'Tiếp tục',
           }),
-          default: () => isChecked
-            ? 'Bạn có chắc chắn muốn TẠM DỪNG voucher này?'
-            : 'Bạn có chắc chắn muốn TIẾP TỤC voucher này?',
+          default: () => isChecked ? 'Bạn có chắc chắn muốn TẠM DỪNG voucher này?' : 'Bạn có chắc chắn muốn TIẾP TỤC voucher này?',
         }))
       }
-
       return h('div', { class: 'flex justify-center items-center' }, actions)
     },
   },
@@ -503,10 +443,7 @@ onMounted(() => fetchData())
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
-              <NButton
-                size="large" circle secondary type="success"
-                class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="resetFilters"
-              >
+              <NButton size="large" circle secondary type="success" class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="resetFilters">
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
                 </NIcon>
@@ -522,32 +459,24 @@ onMounted(() => fetchData())
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Tìm kiếm chung
           </div>
-          <NInput
-            v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable
-            @input="handleSearch"
-          >
+          <NInput v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
             <template #prefix>
-              <NIcon>
-                <Icon icon="carbon:search" class="text-gray-600" />
-              </NIcon>
+              <NIcon><Icon icon="carbon:search" class="text-gray-600" /></NIcon>
             </template>
           </NInput>
         </div>
-
         <div class="lg:col-span-1">
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Kiểu voucher
           </div>
           <NSelect v-model:value="filters.typeVoucher" :options="typeVoucherOptions" placeholder="Tất cả" />
         </div>
-
         <div class="lg:col-span-1">
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Đối tượng
           </div>
           <NSelect v-model:value="filters.targetType" :options="targetTypeOptions" placeholder="Tất cả" />
         </div>
-
         <div class="lg:col-span-1">
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Trạng thái
@@ -561,86 +490,45 @@ onMounted(() => fetchData())
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton
-              type="primary" secondary
-              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
-              @click="openAddPage"
-            >
+            <NButton type="primary" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="openAddPage">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
-              >
-                Tạo mới
-              </span>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tạo mới</span>
             </NButton>
-
-            <NButton
-              type="success" secondary
-              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
-              :loading="exportLoading" :disabled="loading" @click="handleExportExcel"
-            >
+            <NButton type="success" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" :loading="exportLoading" :disabled="loading" @click="handleExportExcel">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="file-icons:microsoft-excel" />
                 </NIcon>
               </template>
-              <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
-              >
-                Xuất Excel
-              </span>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất Excel</span>
             </NButton>
-
-            <NButton
-              type="info" secondary
-              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
-              @click="fetchData"
-            >
+            <NButton type="info" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="fetchData">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
-              >
-                Tải lại
-              </span>
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tải lại</span>
             </NButton>
           </NSpace>
         </div>
       </template>
 
-      <NDataTable
-        v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading"
-        :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" class="rounded-lg overflow-hidden"
-      />
+      <NDataTable v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading" :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" class="rounded-lg overflow-hidden" />
 
       <div class="flex justify-end mt-4">
-        <NPagination
-          v-model:page="pagination.page" v-model:page-size="pagination.pageSize"
-          :item-count="pagination.itemCount" :page-sizes="[5, 10, 20, 50]" :show-size-picker="true"
-        />
+        <NPagination v-model:page="pagination.page" v-model:page-size="pagination.pageSize" :item-count="pagination.itemCount" :page-sizes="[5, 10, 20, 50]" :show-size-picker="true" />
       </div>
     </NCard>
   </div>
 </template>
 
 <style scoped>
-:deep(.n-input .n-input__input-el) {
-  font-size: 14px;
-}
-
-/* Slider màu xanh lá */
-:deep(.n-slider .n-slider-rail .n-slider-rail__fill) {
-  background-color: #16a34a !important;
-}
-
-:deep(.n-slider:hover .n-slider-rail .n-slider-rail__fill) {
-  background-color: #15803d !important;
-}
+:deep(.n-input .n-input__input-el) { font-size: 14px; }
+:deep(.n-slider .n-slider-rail .n-slider-rail__fill) { background-color: #16a34a !important; }
+:deep(.n-slider:hover .n-slider-rail .n-slider-rail__fill) { background-color: #15803d !important; }
 </style>
