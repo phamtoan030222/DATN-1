@@ -124,6 +124,12 @@ public class Helper {
             throw new BadRequestException("Thời gian không được để trống!");
         if (request.getStartDate() >= request.getEndDate())
             throw new BadRequestException("Ngày bắt đầu phải nhỏ hơn ngày kết thúc!");
+        if (request.getStartDate() < now) {
+            throw new BadRequestException("Ngày bắt đầu không được ở trong quá khứ");
+        }
+        if (request.getEndDate() < now) {
+            throw new BadRequestException("Ngày kết thúc không được ở trong quá khứ");
+        }
 
         // 2. Validate Độ dài tên (Dưới 50 ký tự)
         if (request.getName() != null && request.getName().trim().length() > 50) {
