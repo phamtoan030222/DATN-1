@@ -5,4 +5,5 @@ public interface ClientListHoaDon {
     String getLoaiHoaDon();
     String getMa();
     Integer getSoLuong();
+    String getNote();
 }

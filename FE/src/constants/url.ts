@@ -102,4 +102,6 @@ export const API_CUSTOMER_DISCOUNT = `${PREFIX_API_CUSTOMER}/discounts/discount`
 export const PREFIX_API_BAN_HANG_CUSTOMER = `${PREFIX_API_CUSTOMER}/ban-hang` as string
 export const PREFIX_API_HOA_DON_CUSTOMER = `${PREFIX_API_CUSTOMER}/hoa-don` as string
 
+export const API_ORDER_ONLINE = `${API_URL}/order-online`
+
 // ------------- END -------------

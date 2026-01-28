@@ -4,17 +4,33 @@ import java.math.BigDecimal;
 
 public interface ClientGioHangResponse {
     Long getSTT();
+
     String getIdHDCT();
+
     String getId();
+
     String getTen();
+
     Integer getSoLuong();
+
+    // Giá gốc (giá niêm yết)
     BigDecimal getGiaBan();
+
+    // Giá sau khi giảm (nếu có đợt giảm giá)
+    BigDecimal getGiaSauGiam();
+
     String getAnh();
-    String getStatus();
+
+    // Các thông số kỹ thuật
     String getCpu();
+
     String getRam();
+
     String getHardDrive();
+
     String getGpu();
+
     String getColor();
-    String getImel();
+
+    String getImel(); // Danh sách IMEI (nếu group_concat)
 }

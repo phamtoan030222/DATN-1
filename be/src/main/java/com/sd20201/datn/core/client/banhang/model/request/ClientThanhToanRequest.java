@@ -13,28 +13,25 @@ import java.math.BigDecimal;
 @AllArgsConstructor
 public class ClientThanhToanRequest {
 
+    private String idHD; // ID Hóa đơn
+    private String idNV; // Có thể null
+
+    // Thông tin khách hàng
     private String ten;
-
     private String sdt;
-
     private String diaChi;
+    private String ghiChu;
 
-    private String idNV;
-
-    private String idHD;
-
-    private String idPGG;
-
-    private BigDecimal tienHang;
-
+    // Tiền nong (Dùng BigDecimal để chính xác)
+    private BigDecimal tongTien; // Tổng thanh toán cuối cùng
+    private BigDecimal tienHang; // Tổng tiền hàng (subTotal)
+    private BigDecimal tienShip;
     private BigDecimal giamGia;
 
-    private BigDecimal tongTien;
-
-    private Integer check;
-
-    private BigDecimal tienShip;
-
-    private String phuongThucThanhToan;
+    // Các thông tin khác
+    private String phuongThucThanhToan; // "0": Tiền mặt/COD, "1": CK
+    private String idPGG; // ID Voucher
+    private String loaiHoaDon;
+    private Integer check; // 0 hoặc 1
 }
 

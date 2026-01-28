@@ -60,12 +60,42 @@ export const routes: RouteRecordRaw[] = [
         meta: { title: 'Tra cứu đơn hàng' },
       },
 
-      // Bán hàng
       {
-        path: '/checkout',
-        name: 'OderView',
-        component: () => import('@/views/client/user/order/orderView.vue'),
-        meta: { title: 'Đặt hàng' },
+        path: 'home',
+        name: 'Home',
+        component: () => import('@/views/client/user/home/HomeView.vue'),
+        meta: { title: 'Trang chủ' },
+      },
+      {
+        path: 'san-pham',
+        name: 'Products',
+        component: () => import('@/views/client/user/product/ProductListView.vue'),
+        meta: { title: 'Sản phẩm' },
+      },
+      {
+        path: 'product-detail/:id',
+        name: 'ProductDetail',
+        component: () => import('@/views/client/user/product/ProductDetailView.vue'),
+        meta: { title: 'Chi tiết sản phẩm' },
+      },
+      // --- GIỎ HÀNG & THANH TOÁN ---
+      {
+        path: 'cart',
+        name: 'Cart',
+        component: () => import('@/views/client/user/cart/CartView.vue'),
+        meta: { title: 'Giỏ hàng' },
+      },
+      {
+        path: 'checkout',
+        name: 'Checkout',
+        component: () => import('@/views/client/user/order/CheckoutView.vue'),
+        meta: { title: 'Thanh toán' },
+      },
+      {
+        path: 'order-success',
+        name: 'OrderSuccess',
+        component: () => import('@/views/client/user/order/OrderSuccess.vue'),
+        meta: { title: 'Đặt hàng thành công' },
       },
     ],
   },

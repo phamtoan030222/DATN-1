@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.client.voucher.voucher.repository;
+package com.sd20201.datn.core.client.voucher.repository;
 
 import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.admin.voucher.voucher.model.response.AdCustomerResponse;

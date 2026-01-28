@@ -3,12 +3,12 @@ import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NCard,
+  NEllipsis,
   NEmpty,
   NGrid,
   NGridItem,
+  NRate,
   NSpin,
-  NTag,
-  useMessage,
 } from 'naive-ui'
 
 // Import API
@@ -18,13 +18,11 @@ import type { ADProductDetailRequest, ADProductDetailResponse } from '@/service/
 const router = useRouter()
 const productDetails = ref<ADProductDetailResponse[]>([])
 const loading = ref(false)
-const message = useMessage()
 
-// --- HÀM LOAD DỮ LIỆU AN TOÀN ---
+// Hàm lấy dữ liệu
 async function fetchData() {
   loading.value = true
   try {
-    console.log('--- Đang gọi API trang chủ ---')
     const params: ADProductDetailRequest = {
       page: 1,
       size: 20,
@@ -32,53 +30,43 @@ async function fetchData() {
       maxPrice: 1000000000,
     }
 
+    console.log('--- Bắt đầu gọi API ---')
     const res = await getProductDetails(params)
-    console.log('Kết quả API trả về:', res)
 
-    // 👇 LOGIC XỬ LÝ DỮ LIỆU ĐA NĂNG (CHỐNG LỖI) 👇
+    // Xử lý dữ liệu trả về an toàn
     if (res && res.data) {
-      const raw = res.data as any
+      const svResponse = res.data
 
-      // Trường hợp 1: Backend trả về Pagination chuẩn Spring Boot (dữ liệu nằm trong 'content')
-      if (raw.content && Array.isArray(raw.content)) {
-        productDetails.value = raw.content
+      // Trường hợp 1: Backend trả về Pagination (Dữ liệu nằm trong data.data)
+      if (svResponse.data && !Array.isArray(svResponse.data) && (svResponse.data as any).data) {
+        productDetails.value = (svResponse.data as any).data
       }
-      // Trường hợp 2: Backend trả về Pagination kiểu tùy biến (dữ liệu nằm trong 'data')
-      else if (raw.data && Array.isArray(raw.data)) {
-        productDetails.value = raw.data
+      // Trường hợp 2: Backend trả về mảng trực tiếp
+      else if (Array.isArray(svResponse.data)) {
+        productDetails.value = svResponse.data
       }
-      // Trường hợp 3: Backend trả về mảng trực tiếp
-      else if (Array.isArray(raw)) {
-        productDetails.value = raw
-      }
-      else {
-        console.warn('Không đọc được định dạng dữ liệu trả về', raw)
+      // Trường hợp 3: Data nằm ngay tầng ngoài
+      else if (Array.isArray(svResponse)) {
+        productDetails.value = svResponse
       }
     }
   }
   catch (error) {
-    console.error('Lỗi API Home:', error)
-    message.error('Lỗi tải danh sách sản phẩm')
+    console.error('Lỗi API:', error)
   }
   finally {
     loading.value = false
   }
 }
 
-// Chuyển trang chi tiết
-function handleClickProduct(item: any) {
-  // Lấy ID chuẩn: ưu tiên idProductDetail, nếu không có thì lấy id
-  const idToLink = item.id
-  console.log('Bấm vào sản phẩm ID:', idToLink)
-
-  if (idToLink) {
-    router.push({ name: 'ProductDetail', params: { id: idToLink } })
-  }
-  else {
-    message.warning('Sản phẩm này bị lỗi ID')
-  }
+// 👇 QUAN TRỌNG: Hàm chuyển sang trang chi tiết
+function handleClickProduct(id: string) {
+  console.log('Xem chi tiết ID:', id)
+  // Sử dụng name 'ProductDetail' khớp với file router.ts bạn đã gửi
+  router.push({ name: 'ProductDetail', params: { id } })
 }
 
+// Format tiền tệ
 function formatCurrency(value: number) {
   if (value === undefined || value === null)
     return 'Liên hệ'
@@ -87,7 +75,7 @@ function formatCurrency(value: number) {
 
 function handleImageError(e: Event) {
   const target = e.target as HTMLImageElement
-  target.src = 'https://via.placeholder.com/300x300?text=No+Image'
+  target.src = 'https://via.placeholder.com/300x300.png?text=No+Image'
 }
 
 onMounted(() => {
@@ -96,51 +84,54 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="home-container">
-    <h2 class="section-title">
-      Laptop Nổi Bật
-    </h2>
-
-    <div v-if="loading" class="flex justify-center p-10">
-      <NSpin size="large" />
+  <div class="product-list-container">
+    <div class="header-section">
+      <h2 class="section-title">
+        Laptop Nổi Bật
+      </h2>
     </div>
 
-    <div v-else-if="productDetails.length === 0" class="p-10 text-center">
-      <NEmpty description="Không có sản phẩm nào" />
+    <div v-if="loading" class="loading-box">
+      <NSpin size="large" description="Đang tải dữ liệu..." />
+    </div>
+
+    <div v-else-if="!productDetails || productDetails.length === 0" class="empty-box">
+      <NEmpty description="Không tìm thấy sản phẩm nào" />
     </div>
 
     <NGrid v-else x-gap="12" y-gap="12" cols="2 s:3 m:4 l:5" responsive="screen">
-      <NGridItem v-for="item in productDetails" :key="item.id || Math.random()">
-        <NCard hoverable class="product-card" content-style="padding: 10px;" @click="handleClickProduct(item)">
-          <div class="image-box">
-            <span class="installment-badge">Trả góp 0%</span>
-            <img
-              :src="item.urlImage"
-              class="product-img"
-              @error="handleImageError"
-            >
-            <div v-if="item.percentage" class="discount-tag">
+      <NGridItem v-for="item in productDetails" :key="item.id">
+        <NCard
+          hoverable class="product-card"
+          content-style="padding: 10px; display: flex; flex-direction: column; height: 100%;"
+          @click="handleClickProduct(item.id)"
+        >
+          <div class="image-wrapper">
+            <span class="installment-tag">Trả góp 0%</span>
+            <img :src="item.urlImage" :alt="item.name" class="product-image" @error="handleImageError">
+            <div v-if="item.percentage" class="discount-badge">
               -{{ item.percentage }}%
             </div>
           </div>
 
-          <div class="info-box">
+          <div class="product-info">
             <h3 class="product-name" :title="item.productName || item.name">
               {{ item.productName || item.name }} {{ item.cpu || '' }}
             </h3>
 
             <div class="specs-row">
-              <span class="spec-badge">{{ item.ram || 'RAM ?' }}</span>
-              <span class="spec-badge">{{ item.hardDrive || 'SSD ?' }}</span>
+              <span class="spec-tag">{{ item.ram }}</span>
+              <span class="spec-tag">{{ item.hardDrive }}</span>
             </div>
 
-            <div class="price-row">
-              <div v-if="item.percentage" class="old-price">
+            <div class="price-box">
+              <span v-if="item.percentage" class="old-price">
                 {{ formatCurrency(item.price) }}
-              </div>
-              <div class="new-price">
-                {{ formatCurrency((item.price || 0) * (100 - (item.percentage || 0)) / 100) }}
-              </div>
+              </span>
+
+              <span class="price-text">
+                {{ formatCurrency(item.price * (100 - (item.percentage || 0)) / 100) }}
+              </span>
             </div>
           </div>
         </NCard>
@@ -150,108 +141,156 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* CSS CƠ BẢN - KHÔNG DÙNG TAILWIND ĐỂ TRÁNH LỖI */
-.home-container {
+.product-list-container {
   max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
-  background-color: white;
+  background: #fff;
 }
 
 .section-title {
   font-size: 20px;
-  font-weight: bold;
-  text-transform: uppercase;
+  font-weight: 700;
   margin-bottom: 20px;
+  text-transform: uppercase;
+  color: #333;
 }
 
+.loading-box,
+.empty-box {
+  padding: 50px;
+  display: flex;
+  justify-content: center;
+}
+
+/* Card Style */
 .product-card {
-  cursor: pointer;
   height: 100%;
+  cursor: pointer;
+  border: 1px solid #e0e0e0;
+  transition: all 0.3s ease;
   border-radius: 8px;
-  transition: transform 0.2s;
-}
-.product-card:hover {
-  transform: translateY(-3px);
-  border-color: #d70018;
 }
 
-.image-box {
+.product-card:hover {
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
+  border-color: #2ce661;
+  /* Viền đỏ khi hover */
+}
+
+/* Image Area */
+.image-wrapper {
   position: relative;
   width: 100%;
-  padding-top: 100%; /* Vuông */
+  padding-top: 100%;
+  /* Vuông 1:1 */
   overflow: hidden;
   margin-bottom: 10px;
 }
 
-.product-img {
+.product-image {
   position: absolute;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   padding: 10px;
+  transition: transform 0.5s;
 }
 
-.installment-badge {
+.product-card:hover .product-image {
+  transform: scale(1.05);
+}
+
+.installment-tag {
   position: absolute;
-  top: 0; left: 0;
-  background: #f3f4f6;
+  top: 0;
+  left: 0;
+  background: #f1f1f1;
   font-size: 10px;
   padding: 2px 6px;
-  border-bottom-right-radius: 6px;
+  color: #333;
   z-index: 2;
+  border-bottom-right-radius: 4px;
 }
 
-.discount-tag {
+.discount-badge {
   position: absolute;
-  bottom: 5px; right: 5px;
+  bottom: 5px;
+  right: 5px;
   background: #d70018;
-  color: white;
+  color: #fff;
   font-size: 11px;
   font-weight: bold;
-  padding: 2px 4px;
+  padding: 2px 5px;
   border-radius: 4px;
+}
+
+/* Content Area */
+.product-info {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
 }
 
 .product-name {
   font-size: 14px;
-  font-weight: 600;
+  color: #333;
   margin: 0 0 8px 0;
+  font-weight: 600;
+  line-height: 1.4;
+  /* Cắt dòng 2 dòng */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  height: 40px; /* Cố định chiều cao tên */
+  min-height: 40px;
 }
 
 .specs-row {
   display: flex;
   gap: 5px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 
-.spec-badge {
+.spec-tag {
   background: #f3f4f6;
   border: 1px solid #e5e7eb;
-  font-size: 10px;
-  padding: 2px 5px;
-  border-radius: 3px;
-  color: #555;
+  color: #4b5563;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
-.price-row {
+.price-box {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.price-text {
+  color: #d70018;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .old-price {
-  font-size: 11px;
-  text-decoration: line-through;
+  font-size: 12px;
   color: #999;
+  text-decoration: line-through;
 }
 
-.new-price {
-  font-size: 16px;
-  font-weight: bold;
-  color: #d70018;
+.rating-row {
+  display: flex;
+  align-items: center;
+  margin-top: 5px;
+  color: #999;
+  font-size: 12px;
+}
+
+:deep(.custom-rate .n-rate__item) {
+  font-size: 12px !important;
 }
 </style>

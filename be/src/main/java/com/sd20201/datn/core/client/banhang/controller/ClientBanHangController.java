@@ -20,11 +20,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -71,7 +73,7 @@ public class ClientBanHangController {
     }
 
     @GetMapping("/phuong-thuc-thanh-toan/{id}")
-    public  List<ClientPhuongThucThanhToanRespones>  getPhuongThucThanhToan(@PathVariable("id") String id) {
+    public List<ClientPhuongThucThanhToanRespones> getPhuongThucThanhToan(@PathVariable("id") String id) {
         return adBanHangService.getPhuongThucThanhToan(id);
     }
 
@@ -81,7 +83,7 @@ public class ClientBanHangController {
     }
 
     @PostMapping("/thanh-toan-thanh-cong")
-    public ResponseEntity<?>  thanhToanThanhCong(@RequestBody ClientThanhToanRequest id) throws BadRequestException {
+    public ResponseEntity<?> thanhToanThanhCong(@RequestBody ClientThanhToanRequest id) throws BadRequestException {
         return Helper.createResponseEntity(adBanHangService.thanhToanThanhCong(id));
     }
 
@@ -97,4 +99,18 @@ public class ClientBanHangController {
         return ResponseEntity.ok(adBanHangService.goiYVoucher(req));
     }
 
+    @DeleteMapping("/delete-sp")
+    public ResponseEntity<?> xoaSanPham(@RequestParam("idHDCT") String idHDCT) {
+        return Helper.createResponseEntity(adBanHangService.xoaSanPhamKhoiGioHang(idHDCT));
+    }
+
+    @PostMapping("/tang-so-luong")
+    public ResponseEntity<?> tangSoLuong(@RequestParam("idHDCT") String idHDCT) {
+        return Helper.createResponseEntity(adBanHangService.tangSoLuongSanPham(idHDCT));
+    }
+
+    @PostMapping("/giam-so-luong")
+    public ResponseEntity<?> giamSoLuong(@RequestParam("idHDCT") String idHDCT) {
+        return Helper.createResponseEntity(adBanHangService.giamSoLuongSanPham(idHDCT));
+    }
 }

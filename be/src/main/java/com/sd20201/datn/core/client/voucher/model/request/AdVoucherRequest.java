@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.client.voucher.voucher.model.request;
+package com.sd20201.datn.core.client.voucher.model.request;
 
 import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;

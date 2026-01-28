@@ -16,6 +16,7 @@ import com.sd20201.datn.core.client.banhang.model.response.ClientVoucherSuggesti
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Voucher;
 import org.apache.coyote.BadRequestException;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -28,7 +29,7 @@ public interface ClientBanHangService {
 
     List<ClientGioHangResponse> getListGioHang(String id);
 
-    ResponseObject<?> listKhachHang(ClientListKhachHangRequest request );
+    ResponseObject<?> listKhachHang(ClientListKhachHangRequest request);
 
     ClientChonKhachHangResponse getKhachHang(String id);
 
@@ -46,4 +47,14 @@ public interface ClientBanHangService {
     ClientVoucherSuggestionResponse goiYVoucher(
             ClientVoucherSuggestionRequest req
     );
+
+    ResponseObject<?> xoaSanPhamKhoiGioHang(String idHDCT);
+
+    // TĂNG SỐ LƯỢNG: Tự động lấy thêm 1 IMEI Available bất kỳ của sản phẩm đó
+    @Transactional
+    ResponseObject<?> tangSoLuongSanPham(String idHDCT);
+
+    // GIẢM SỐ LƯỢNG: Bỏ bớt 1 IMEI ra khỏi giỏ
+    @Transactional
+    ResponseObject<?> giamSoLuongSanPham(String idHDCT);
 }

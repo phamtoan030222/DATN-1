@@ -1,13 +1,10 @@
-package com.sd20201.datn.core.client.voucher.voucher.controller;
+package com.sd20201.datn.core.client.voucher.controller;
 
 import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherCreateUpdateRequest;
 import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherRequest;
-import com.sd20201.datn.core.admin.voucher.voucher.repository.AdVoucherRepository;
-import com.sd20201.datn.core.admin.voucher.voucher.service.AdVoucherService;
 import com.sd20201.datn.core.admin.voucher.voucher.service.impl.VoucherExportService;
-import com.sd20201.datn.core.client.voucher.voucher.repository.ClientVoucherRepository;
-import com.sd20201.datn.core.client.voucher.voucher.service.ClientVoucherService;
-import com.sd20201.datn.core.client.voucher.voucher.service.impl.ClientVoucherServiceImpl;
+import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
+import com.sd20201.datn.core.client.voucher.service.impl.ClientVoucherServiceImpl;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.Voucher;

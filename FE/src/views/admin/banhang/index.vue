@@ -50,6 +50,7 @@ import {
 // Naive UI components
 import {
   NAlert,
+  NBadge,
   NButton,
   NCard,
   NCheckbox,
@@ -1526,9 +1527,9 @@ const columnsGiohang: DataTableColumns<any> = [
   {
     title: 'Serial đã chọn',
     key: 'imel', // Đổi thành 'imei' nếu backend trả về 'imei'
-    width: 120,
+    width: 110,
     render: (row) => {
-    // Kiểm tra xem row có field imel/imei không
+      // Kiểm tra xem row có field imel/imei không
       if (row.imel) { // Hoặc row.imei tùy backend trả về
         return h(NTag, {
           type: 'success',
@@ -1565,13 +1566,29 @@ const columnsGiohang: DataTableColumns<any> = [
     key: 'anh',
     width: 80,
     align: 'center',
-    render: row => h(NImage, {
-      width: 40,
-      height: 40,
-      src: row.urlImage || row.anh,
-      objectFit: 'cover',
-      style: { 'border-radius': '4px' },
-    }),
+    render: (row) => {
+      return h(
+        NBadge,
+        {
+          value: row.percentage ? `-${row.percentage}%` : undefined,
+          type: 'error',
+          offset: [-5, 0],
+          style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
+        },
+        {
+          default: () => h(NImage, {
+            width: 100,
+            height: 70,
+            src: row.urlImage || row.anh,
+            objectFit: 'cover',
+            style: {
+              'border-radius': '4px',
+              'border': '1px solid #eee',
+            },
+          }),
+        },
+      )
+    },
   },
   {
     title: 'Tên sản phẩm',
@@ -1683,10 +1700,10 @@ const columnsGiohang: DataTableColumns<any> = [
     align: 'right',
     render: row => h(NText, {
       style: { fontWeight: 500 },
-    }, () => formatCurrency(row.price || row.giaBan)),
+    }, () => formatCurrency(row.giaGoc)),
   },
   {
-    title: 'Tổng tiền',
+    title: 'Giá bán',
     key: 'total',
     width: 120,
     align: 'right',
@@ -1694,7 +1711,7 @@ const columnsGiohang: DataTableColumns<any> = [
       type: 'primary',
       strong: true,
       style: { fontSize: '14px' },
-    }, () => formatCurrency((row.price || row.giaBan))),
+    }, () => formatCurrency((row.giaGoc) * (1 - row.percentage / 100))),
   },
   {
     title: 'Thao tác',
@@ -1732,37 +1749,38 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     width: 120,
     align: 'center',
     render: (row) => {
-      // Lấy ảnh từ row.urlImage (là string)
       const imageUrl = row.urlImage
+      const percentage = row.percentage
 
-      // Nếu không có ảnh
       if (!imageUrl || imageUrl.trim() === '') {
         return h(NText, { depth: 3, size: 'small' }, () => 'Không có')
       }
-
-      return h(NSpace, { vertical: true, size: 4 }, () => [
-        h(NImage, {
-          width: 100,
-          height: 80,
-          src: imageUrl,
-          objectFit: 'cover',
-          style: {
-            'border-radius': '4px',
-            'border': '1px solid #f0f0f0',
-            'cursor': 'pointer',
-          },
-          fallbackSrc: '/images/no-image.png', // Ảnh thay thế khi lỗi
-          previewSrc: imageUrl, // Cho phép preview khi click
-          onError: (e) => {
-            console.error('Không thể tải ảnh:', imageUrl, e)
-          },
-        }),
-
-        // Nếu bạn có nhiều ảnh từ field khác (ví dụ: images array)
-        // Có thể check thêm:
-        // row.images && row.images.length > 0 &&
-        // h(NText, { depth: 3, size: 'small' }, () => `+${row.images.length} ảnh`)
-      ])
+      return h(
+        NBadge,
+        {
+          value: percentage ? `-${percentage}%` : undefined,
+          type: 'error',
+          offset: [-5, 5],
+        },
+        {
+          default: () => h(NImage, {
+            width: 100,
+            height: 80,
+            src: imageUrl,
+            objectFit: 'cover',
+            style: {
+              borderRadius: '4px',
+              border: '1px solid #f0f0f0',
+              cursor: 'pointer',
+            },
+            fallbackSrc: '/images/no-image.png',
+            previewSrc: imageUrl,
+            onError: (e) => {
+              console.error('Không thể tải ảnh:', imageUrl, e)
+            },
+          }),
+        },
+      )
     },
   },
   {
@@ -1787,9 +1805,30 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
   {
     title: 'Giá bán',
     key: 'price',
-    width: 110,
+    width: 120,
     align: 'center',
-    render: row => h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.price)),
+    render: (row) => {
+      const originalPrice = row.price || 0
+      const percentage = row.percentage
+
+      if (percentage && percentage > 0) {
+        const discountedPrice = originalPrice * (1 - percentage / 100)
+
+        return h(NSpace, { vertical: true, size: 0, align: 'center', justify: 'center' }, () => [
+          h(
+            NText,
+            { delete: true, depth: 3, style: { fontSize: '12px', lineHeight: '1.2' } },
+            () => formatCurrency(originalPrice),
+          ),
+          h(
+            NText,
+            { type: 'primary', strong: true, style: { fontSize: '14px' } },
+            () => formatCurrency(discountedPrice),
+          ),
+        ])
+      }
+      return h(NText, { type: 'primary', strong: true }, () => formatCurrency(originalPrice))
+    },
   },
   {
     title: 'Thông số kỹ thuật',
@@ -2857,8 +2896,8 @@ deleteProduc
             <div class="pending-invoices-wrapper">
               <NSpace :wrap="false">
                 <div
-                  v-for="tab in tabs" :key="tab.id"
-                  class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
+                  v-for="tab in tabs" :key="tab.id" class="pending-invoice-card"
+                  :class="[{ active: activeTab === tab.id }]"
                   @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
                 >
                   <div class="invoice-header">
@@ -2866,20 +2905,11 @@ deleteProduc
                       {{ tab.ma }}
                     </NText>
                     <NPopconfirm
-                      :show-icon="false"
-                      positive-text="Xác nhận hủy"
-                      negative-text="Hủy bỏ"
-                      @positive-click="() => huy(tab.idHD)"
-                      @negative-click="() => {}"
+                      :show-icon="false" positive-text="Xác nhận hủy" negative-text="Hủy bỏ"
+                      @positive-click="() => huy(tab.idHD)" @negative-click="() => { }"
                     >
                       <template #trigger>
-                        <NButton
-                          text
-                          type="error"
-                          size="tiny"
-                          class="delete-invoice-btn"
-                          @click.stop
-                        >
+                        <NButton text type="error" size="tiny" class="delete-invoice-btn" @click.stop>
                           <NIcon>
                             <TrashOutline />
                           </NIcon>
@@ -2928,8 +2958,8 @@ deleteProduc
                   <QrCodeOutline />
                 </n-icon>
               </template>
-              Quét QR
-            </n-button> -->
+  Quét QR
+  </n-button> -->
           </NSpace>
         </template>
         <div v-if="state.gioHang.length > 0">
@@ -2973,8 +3003,8 @@ deleteProduc
 
             <NFormItemGi :span="4" path="phuongXa" label="Phường/Xã" required>
               <NSelect
-                v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards"
-                filterable clearable @update:value="onWardChange"
+                v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards" filterable
+                clearable @update:value="onWardChange"
               />
             </NFormItemGi>
 
@@ -3110,27 +3140,27 @@ deleteProduc
                   <NSpace vertical :size="3" style="margin-top: 4px">
                     <NSpace justify="space-between">
                       <NText depth="3" size="small">
-Giảm:
-</NText>
+                        Giảm:
+                      </NText>
                       <NText strong class="text-success" size="small">
                         {{ formatCurrency(voucher.giamGiaThucTe) }}
                       </NText>
                     </NSpace>
                     <NSpace v-if="voucher.dieuKien > 0" justify="space-between">
                       <NText depth="3" size="small">
-Điều kiện:
-</NText>
+                        Điều kiện:
+                      </NText>
                       <NText depth="3" size="small">
-{{ formatCurrency(voucher.dieuKien) }}
-</NText>
+                        {{ formatCurrency(voucher.dieuKien) }}
+                      </NText>
                     </NSpace>
                     <NSpace v-if="voucher.maxValue" justify="space-between">
                       <NText depth="3" size="small">
-Tối đa:
-</NText>
+                        Tối đa:
+                      </NText>
                       <NText depth="3" size="small">
-{{ formatCurrency(voucher.maxValue) }}
-</NText>
+                        {{ formatCurrency(voucher.maxValue) }}
+                      </NText>
                     </NSpace>
                   </NSpace>
                 </template>
@@ -3138,8 +3168,7 @@ Tối đa:
               <template #suffix>
                 <NButton
                   type="primary" size="small" :disabled="selectedVoucher?.voucherId === voucher.voucherId"
-                  :loading="applyingVoucher === voucher.voucherId"
-                  @click="selectVoucher(voucher)"
+                  :loading="applyingVoucher === voucher.voucherId" @click="selectVoucher(voucher)"
                 >
                   {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
                 </NButton>
@@ -3153,7 +3182,7 @@ Tối đa:
             <NText depth="3" size="small">
               Tự động chọn voucher tốt nhất
             </NText>
-            <NButton type="error" v-if="selectedVoucher" size="tiny" text @click="removeVoucher">
+            <NButton v-if="selectedVoucher" type="error" size="tiny" text @click="removeVoucher">
               Bỏ chọn
             </NButton>
           </NSpace>
@@ -3180,8 +3209,8 @@ Tối đa:
         <NScrollbar style="max-height: 250px;">
           <NList size="small" bordered>
             <NListItem
-              v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon"
-              :key="suggestion.voucherId" :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }"
+              v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon" :key="suggestion.voucherId"
+              :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }"
             >
               <NThing :title="suggestion.code">
                 <template #avatar>
@@ -3193,35 +3222,35 @@ Tối đa:
                   <NSpace vertical :size="4" style="margin-top: 4px">
                     <NSpace justify="space-between">
                       <NText depth="3" size="small">
-Cần mua thêm:
-</NText>
+                        Cần mua thêm:
+                      </NText>
                       <NText strong class="text-warning" size="small">
                         {{ formatCurrency(suggestion.canMuaThem) }}
                       </NText>
                     </NSpace>
                     <NSpace justify="space-between">
                       <NText depth="3" size="small">
-Giảm thêm:
-</NText>
+                        Giảm thêm:
+                      </NText>
                       <NText strong class="text-success" size="small">
                         +{{ formatCurrency(suggestion.giamThem) }}
                       </NText>
                     </NSpace>
                     <NSpace justify="space-between">
                       <NText depth="3" size="small">
-Tổng giảm mới:
-</NText>
+                        Tổng giảm mới:
+                      </NText>
                       <NText strong class="text-success" size="small">
                         {{ formatCurrency(suggestion.giamGiaMoi) }}
                       </NText>
                     </NSpace>
                     <NSpace justify="space-between">
                       <NText depth="3" size="small">
-Điều kiện:
-</NText>
+                        Điều kiện:
+                      </NText>
                       <NText depth="3" size="small">
-{{ formatCurrency(suggestion.dieuKien) }}
-</NText>
+                        {{ formatCurrency(suggestion.dieuKien) }}
+                      </NText>
                     </NSpace>
                   </NSpace>
                 </template>
@@ -3289,7 +3318,7 @@ Tổng giảm mới:
                   <NIcon :component="TicketOutline" />
                 </template>
               </NInput>
-              <NButton type="error" size="small" v-if="selectedVoucher" secondary @click="removeVoucher">
+              <NButton v-if="selectedVoucher" type="error" size="small" secondary @click="removeVoucher">
                 Bỏ chọn
               </NButton>
             </NSpace>
@@ -3320,6 +3349,15 @@ Tổng giảm mới:
               </NText>
               <NText strong>
                 {{ formatCurrency(tienHang) }}
+              </NText>
+            </NSpace>
+
+            <NSpace v-if="giamGia > 0" justify="space-between">
+              <NText depth="3">
+                Đợt giảm giá:
+              </NText>
+              <NText type="success">
+                -{{ formatCurrency(giamGia) }}
               </NText>
             </NSpace>
 
@@ -3383,14 +3421,14 @@ Tổng giảm mới:
             </NText>
             <NSpace>
               <NButton
-                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small"
-                secondary @click="handlePaymentMethod('0')"
+                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small" secondary
+                @click="handlePaymentMethod('0')"
               >
                 Tiền mặt
               </NButton>
               <NButton
-                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'" size="small"
-                secondary @click="handlePaymentMethod('1')"
+                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'" size="small" secondary
+                @click="handlePaymentMethod('1')"
               >
                 Chuyển khoản
               </NButton>
@@ -3524,12 +3562,12 @@ Tổng giảm mới:
                       <template #description>
                         <NSpace vertical :size="3" style="margin-top: 4px">
                           <NText depth="3" size="small">
-Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
-</NText>
-                          <NText depth="3" v-if="voucher.dieuKien > 0" size="small">
+                            Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
+                          </NText>
+                          <NText v-if="voucher.dieuKien > 0" depth="3" size="small">
                             Điều kiện: {{ formatCurrency(voucher.dieuKien) }}
                           </NText>
-                          <NText depth="3" v-if="voucher.maxValue" size="small">
+                          <NText v-if="voucher.maxValue" depth="3" size="small">
                             Tối đa: {{ formatCurrency(voucher.maxValue) }}
                           </NText>
                         </NSpace>
@@ -3563,15 +3601,15 @@ Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
                     <template #description>
                       <NSpace vertical :size="3" style="margin-top: 4px">
                         <NText depth="3" size="small">
-Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem)
-                        }}
-</NText>
+                          Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem)
+                          }}
+                        </NText>
                         <NText depth="3" size="small">
-Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
-</NText>
+                          Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
+                        </NText>
                         <NText depth="3" size="small">
-Điều kiện: {{ formatCurrency(suggestion.dieuKien) }}
-</NText>
+                          Điều kiện: {{ formatCurrency(suggestion.dieuKien) }}
+                        </NText>
                       </NSpace>
                     </template>
                   </NThing>
@@ -3626,8 +3664,12 @@ Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
                     :max="stateMinMaxPrice.priceMax" :format-tooltip="formatTooltipRangePrice" style="width: 100%"
                   />
                   <NSpace justify="space-between" style="width: 100%">
-                    <NText depth="3">{{ formatCurrency(priceRange[0]) }}</NText>
-                    <NText depth="3">{{ formatCurrency(priceRange[1]) }}</NText>
+                    <NText depth="3">
+                      {{ formatCurrency(priceRange[0]) }}
+                    </NText>
+                    <NText depth="3">
+                      {{ formatCurrency(priceRange[1]) }}
+                    </NText>
                   </NSpace>
                 </NSpace>
               </NFormItem>
@@ -3663,7 +3705,7 @@ Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
           <NGrid :cols="24" :x-gap="12">
             <NGi :span="24">
               <NSpace justify="end">
-                <NButton type="default" size="small" @click="resetFilters" secondary>
+                <NButton type="default" size="small" secondary @click="resetFilters">
                   <template #icon>
                     <NIcon>
                       <ReloadOutline />

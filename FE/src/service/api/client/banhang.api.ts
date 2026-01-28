@@ -1,6 +1,6 @@
 import type { AxiosResponse } from 'axios'
 import request from '@/service/request'
-import { API_CUSTOMER_PRODUCT_DETAIL, PREFIX_API_BAN_HANG_CUSTOMER } from '@/constants/url'
+import { API_CUSTOMER_PRODUCT_DETAIL, API_O, API_ORDER_ONLINE, API_ORDER_ONLINERDER_ONLINE } from '@/constants/url'
 import type {
   DefaultResponse,
   PaginationParams,
@@ -72,7 +72,7 @@ export interface ParamsThanhCong {
   tongTien: string
 
   // Thêm các field mới để khớp với backend
-  idNV?: string
+  idNV?: string | null
   tienHang?: number
   tienShip?: number
   giamGia?: number
@@ -169,7 +169,7 @@ export interface themKHResponse {
 
 export interface XoaSPResponse {
   idHD: string
-  idSP: string
+  idHDCT: string
 }
 
 export type SanPhamResponse = ResponseList & {
@@ -190,7 +190,7 @@ export type SanPhamResponse = ResponseList & {
 
 export async function GetHoaDons(params: ParamsGetHoaDon) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/list-hoa-don`,
+    url: `${API_ORDER_ONLINE}/list-hoa-don`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>
 
@@ -198,13 +198,12 @@ export async function GetHoaDons(params: ParamsGetHoaDon) {
 }
 
 export interface CreateHoaDonRequest {
-  idNV: string
   ma?: string // FE gửi mã TẠM (BE có thể bỏ qua)
 }
 
 export async function getProductDetails(params: ADProductDetailRequest) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/san-pham-chi-tiet`,
+    url: `${API_ORDER_ONLINE}/san-pham-chi-tiet`,
     method: 'GET',
     params,
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<ADProductDetailResponse>>>>
@@ -223,7 +222,7 @@ export async function getImeiProductDetail(idProductDetail: string) {
 
 export async function getCreateHoaDon(maHoaDon: CreateHoaDonRequest) {
   const res = await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/create-hoa-don`,
+    url: `${API_ORDER_ONLINE}/create-hoa-don`,
     method: 'POST',
     data: maHoaDon,
     headers: {
@@ -235,7 +234,7 @@ export async function getCreateHoaDon(maHoaDon: CreateHoaDonRequest) {
 }
 export async function huyHoaDon(maHoaDon: ADThemSanPhamRequest) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/huy`,
+    url: `${API_ORDER_ONLINE}/huy`,
     method: 'POST',
     data: maHoaDon,
   })) as AxiosResponse<DefaultResponse<BanHangResponse>>
@@ -244,7 +243,7 @@ export async function huyHoaDon(maHoaDon: ADThemSanPhamRequest) {
 
 export async function themSanPham(data: ADThemSanPhamRequest) {
   const res = await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/them-san-pham`,
+    url: `${API_ORDER_ONLINE}/them-san-pham`,
     method: 'POST',
     data,
     headers: {
@@ -254,18 +253,10 @@ export async function themSanPham(data: ADThemSanPhamRequest) {
 
   return res.data
 }
-export async function xoaSP(data: ParamsXoaSP) {
-  const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/xoa-san-pham `,
-    method: 'POST',
-    data,
-  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
-  return res.data // Added return statement
-}
 
 export async function GetGioHang(id: string) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/list-gio-hang/${id}`,
+    url: `${API_ORDER_ONLINE}/list-gio-hang/${id}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>
 
@@ -274,7 +265,7 @@ export async function GetGioHang(id: string) {
 
 export async function themSL(data: ParamsXoaSP) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/them-so-luong `,
+    url: `${API_ORDER_ONLINE}/them-so-luong `,
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
@@ -284,7 +275,7 @@ export async function themSL(data: ParamsXoaSP) {
 
 export async function xoaSL(data: ParamsXoaSP) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/xoa-so-luong `,
+    url: `${API_ORDER_ONLINE}/xoa-so-luong `,
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
@@ -293,7 +284,7 @@ export async function xoaSL(data: ParamsXoaSP) {
 
 export async function GeOneKhachHang(id: string) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/khach-hang/${id}`,
+    url: `${API_ORDER_ONLINE}/khach-hang/${id}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
 
@@ -302,7 +293,7 @@ export async function GeOneKhachHang(id: string) {
 
 export async function getThanhToan(id: string) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/thanh-toan/${id}`,
+    url: `${API_ORDER_ONLINE}/thanh-toan/${id}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<thanhToanResponse>>>>
 
@@ -311,7 +302,7 @@ export async function getThanhToan(id: string) {
 
 export async function getPhuongThucThanhToan(id: string) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/phuong-thuc-thanh-toan/${id}`,
+    url: `${API_ORDER_ONLINE}/phuong-thuc-thanh-toan/${id}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<thanhToanResponse>>>>
 
@@ -320,7 +311,7 @@ export async function getPhuongThucThanhToan(id: string) {
 
 export async function themPTTT(data: ParamsPTTT) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/cap-nhat-phuong-thuc-thanh-toan`,
+    url: `${API_ORDER_ONLINE}/cap-nhat-phuong-thuc-thanh-toan`,
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
@@ -330,7 +321,7 @@ export async function themPTTT(data: ParamsPTTT) {
 export async function thanhToanThanhCong(data: ParamsThanhCong) {
   // Sửa để gửi JSON thay vì FormData
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/thanh-toan-thanh-cong`,
+    url: `${API_ORDER_ONLINE}/thanh-toan-thanh-cong`,
     method: 'POST',
     data, // Gửi trực tiếp object JSON
     headers: {
@@ -343,7 +334,7 @@ export async function thanhToanThanhCong(data: ParamsThanhCong) {
 
 export async function themMoiKhachHang(data: themKHResponse) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/them-moi-khach-hang`,
+    url: `${API_ORDER_ONLINE}/them-moi-khach-hang`,
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
@@ -353,7 +344,7 @@ export async function themMoiKhachHang(data: themKHResponse) {
 
 export async function themKhachHang(data: themKHResponse) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/them-khach-hang`,
+    url: `${API_ORDER_ONLINE}/them-khach-hang`,
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
@@ -363,7 +354,7 @@ export async function themKhachHang(data: themKHResponse) {
 
 export async function GetSanPhams(params: ParamsGetSanPham) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/list-san-pham`,
+    url: `${API_ORDER_ONLINE}/list-san-pham`,
     method: 'GET',
     params,
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<SanPhamResponse>>>>
@@ -373,7 +364,7 @@ export async function GetSanPhams(params: ParamsGetSanPham) {
 
 export async function GetKhachHang(data: ParamsXoaSP) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/list-khach-hang`,
+    url: `${API_ORDER_ONLINE}/list-khach-hang`,
     method: 'GET',
     params: data,
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<KhachHangResponse>>>>
@@ -383,7 +374,7 @@ export async function GetKhachHang(data: ParamsXoaSP) {
 
 export async function getMaGiamGia(data: ParamsPhieuGiamGia): Promise<GoiYVoucherResponse> {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/goi-y`,
+    url: `${API_ORDER_ONLINE}/goi-y`,
     method: 'POST',
     data,
     headers: {
@@ -396,7 +387,7 @@ export async function getMaGiamGia(data: ParamsPhieuGiamGia): Promise<GoiYVouche
 
 export async function getMaGiamGiaKoDu(data: ParamsPhieuGiamGia) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/danh-sach-phieu-giam-gia-ko_du`,
+    url: `${API_ORDER_ONLINE}/danh-sach-phieu-giam-gia-ko_du`,
     method: 'GET',
     params: data,
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<PhieuGiamGiaResponse>>>>
@@ -406,10 +397,29 @@ export async function getMaGiamGiaKoDu(data: ParamsPhieuGiamGia) {
 
 export async function suaGiaoHang(id: string) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_CUSTOMER}/giao-hang/${id}`,
+    url: `${API_ORDER_ONLINE}/giao-hang/${id}`,
     method: 'POST',
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<PhieuGiamGiaResponse>>>>
 
   return res.data
 }
 // NEW: API call to add/update delivery information
+
+export async function xoaSP(data: ParamsXoaSP) {
+  const res = (await request({
+    url: `${API_ORDER_ONLINE}/delete-sp`, // Đã xóa dấu cách thừa
+    method: 'DELETE',
+    params: { idHDCT: data.idSP }, // Backend nhận @RequestParam("idSP")
+  })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
+  return res.data
+}
+
+// API Tăng số lượng
+export function tangSoLuong(idHDCT: string) {
+  return request.post(`${API_ORDER_ONLINE}/tang-so-luong?idHDCT=${idHDCT}`)
+}
+
+// API Giảm số lượng
+export function giamSoLuong(idHDCT: string) {
+  return request.post(`${API_ORDER_ONLINE}/giam-so-luong?idHDCT=${idHDCT}`)
+}

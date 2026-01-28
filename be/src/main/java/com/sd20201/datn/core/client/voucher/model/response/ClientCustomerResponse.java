@@ -1,4 +1,4 @@
-package com.sd20201.datn.core.client.voucher.voucher.model.response;
+package com.sd20201.datn.core.client.voucher.model.response;
 
 public interface ClientCustomerResponse {
     String getId();

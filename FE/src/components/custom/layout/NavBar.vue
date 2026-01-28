@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue' // Thêm watch
-import { useRoute, useRouter } from 'vue-router' // Thêm useRoute
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   NBadge,
   NButton,
@@ -20,8 +20,11 @@ import {
   Search,
 } from '@vicons/ionicons5'
 
+// Import Store đã nâng cấp
+import { CartStore } from '@/utils/cartStore'
+
 const router = useRouter()
-const route = useRoute() 
+const route = useRoute()
 
 // --- DATA ---
 const menuOptions: MenuOption[] = [
@@ -34,55 +37,50 @@ const menuOptions: MenuOption[] = [
 
 const userOptions = [{ label: 'Đăng nhập', key: 'login' }]
 
-// Không gán cứng nữa, để null hoặc 'home' ban đầu
 const activeKey = ref<string | null>(null)
 const showDrawer = ref(false)
 const keyword = ref('')
 
-// --- LOGIC TỰ ĐỘNG CẬP NHẬT MENU THEO URL ---
+// [QUAN TRỌNG] Gọi updateCount khi layout được load
+onMounted(() => {
+  CartStore.updateCount()
+})
+
+// Tự động cập nhật Menu Active
 watch(
   () => route.path,
   (currentPath) => {
-    // 1. Kiểm tra Trang chủ
-    if (currentPath === '/' || currentPath === '/home') {
+    if (currentPath === '/' || currentPath === '/home')
       activeKey.value = 'home'
-    }
-    // 2. Kiểm tra Sản phẩm (bao gồm cả trang danh sách và chi tiết /product/...)
-    else if (currentPath.startsWith('/san-pham') || currentPath.startsWith('/product')) {
+    else if (currentPath.startsWith('/san-pham') || currentPath.startsWith('/product'))
       activeKey.value = 'products'
-    }
-    // 3. Giới thiệu
-    else if (currentPath.startsWith('/gioi-thieu')) {
+    else if (currentPath.startsWith('/gioi-thieu'))
       activeKey.value = 'about'
-    }
-    // 4. Liên hệ
-    else if (currentPath.startsWith('/lien-he')) {
+    else if (currentPath.startsWith('/lien-he'))
       activeKey.value = 'contact'
-    }
-    // 5. Tra cứu
-    else if (currentPath.startsWith('/tra-cuu')) {
+    else if (currentPath.startsWith('/tra-cuu'))
       activeKey.value = 'tracking'
-    }
-    // Các trường hợp khác
-    else {
-      activeKey.value = null
-    }
+    else activeKey.value = null
+
+    // Mỗi khi chuyển trang cũng cập nhật lại số lượng cho chắc
+    CartStore.updateCount()
   },
-  { immediate: true }, // Chạy ngay lập tức khi load trang
+  { immediate: true },
 )
 
-// --- HÀM XỬ LÝ CLICK ---
 function handleMenuClick(key: string, item: MenuOption) {
-  if (item.href) {
+  if (item.href)
     router.push(item.href as string)
-  }
   showDrawer.value = false
 }
 
-const handlerAccountDropdown = (key: string) => {
-  if (key === 'login') {
-    router.push({name: 'login'})
-  }
+function handlerAccountDropdown(key: string) {
+  if (key === 'login')
+    router.push({ name: 'login' })
+}
+
+function handleCartClick() {
+  router.push('/cart')
 }
 </script>
 
@@ -111,10 +109,8 @@ const handlerAccountDropdown = (key: string) => {
       </button>
 
       <a href="/" class="logo-area">
-        <img src="/favicon.svg" alt="Logo" class="logo-img">
-        <div class="brand-info d-none d-sm-flex">
-          <span class="brand-text">My Laptop</span>
-        </div>
+        <img src="/favicon.svg" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+        <div class="brand-info d-none d-sm-flex"><span class="brand-text">My Laptop</span></div>
       </a>
 
       <div class="search-area d-none d-sm-block">
@@ -153,8 +149,8 @@ const handlerAccountDropdown = (key: string) => {
           </div>
         </NDropdown>
 
-        <div class="action-btn cart-btn">
-          <NBadge :value="5" :max="99" color="#d03050">
+        <div class="action-btn cart-btn" @click="handleCartClick">
+          <NBadge :value="CartStore.count.value" :max="99" color="#d03050">
             <NIcon size="28" color="#333">
               <Cart />
             </NIcon>
@@ -167,10 +163,7 @@ const handlerAccountDropdown = (key: string) => {
     <div class="nav-background d-none d-lg-block">
       <div class="container nav-wrapper">
         <NMenu
-          v-model:value="activeKey"
-          mode="horizontal"
-          :options="menuOptions"
-          class="modern-menu"
+          v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
           @update:value="handleMenuClick"
         />
       </div>
@@ -178,75 +171,242 @@ const handlerAccountDropdown = (key: string) => {
 
     <NDrawer v-model:show="showDrawer" width="280" placement="left">
       <NDrawerContent title="MENU">
-        <NMenu
-          v-model:value="activeKey"
-          mode="vertical"
-          :options="menuOptions"
-          @update:value="handleMenuClick"
-        />
+        <NMenu v-model:value="activeKey" mode="vertical" :options="menuOptions" @update:value="handleMenuClick" />
       </NDrawerContent>
     </NDrawer>
   </header>
 </template>
 
 <style scoped>
-/* Reset & Base */
-.main-header-wrapper { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-.container { max-width: 1200px; margin: 0 auto; padding: 0 15px; width: 100%; }
-
-/* Utilities */
-.d-none { display: none !important; }
-.d-lg-block { display: block !important; }
-.d-lg-none { display: none !important; }
-.d-lg-flex { display: flex !important; }
-.d-sm-flex { display: flex !important; }
-.d-sm-block { display: block !important; }
-.d-xl-block { display: block !important; }
-@media (max-width: 1200px) { .d-xl-block { display: none !important; } }
-@media (min-width: 992px) {
-  .d-lg-block { display: block !important; }
-  .d-lg-none { display: none !important; }
-  .d-lg-flex { display: flex !important; }
-  .d-none { display: none; }
+/* (Giữ nguyên style của bạn) */
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
-/* Banner */
-.top-banner { position: relative; height: 160px; overflow: hidden; background: #000; }
-.banner-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
-.banner-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; text-align: center; }
-.banner-title { color: #fff; font-size: 1.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
-.banner-subtitle { color: #f0f0f0; font-size: 1rem; margin-top: 5px; }
+.main-header-wrapper {
+  background: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
 
-/* Header Layout */
-.header-inner { height: 90px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+  width: 100%;
+}
 
-/* Logo */
-.logo-area { display: flex; align-items: center; text-decoration: none; }
-.logo-img { height: 50px; width: 50px; }
-.brand-text { font-size: 1.6rem; font-weight: 900; color: #049d14; margin-left: 10px; letter-spacing: -0.5px; }
+.main-content {
+  flex: 1;
+  background-color: #f9f9f9;
+  padding-bottom: 40px;
+}
 
-/* Search Box */
-.search-area { flex: 1; max-width: 500px; }
+.d-none {
+  display: none !important;
+}
 
-/* Actions Area */
-.actions-area { display: flex; align-items: center; gap: 25px; }
+.d-lg-block {
+  display: block !important;
+}
 
-/* Hotline Group */
-.hotline-group { align-items: center; gap: 10px; margin-right: 15px; padding-right: 20px; border-right: 1px solid #eee; }
-.hotline-info { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
-.hotline-label { font-size: 0.7rem; color: #666; font-weight: 600; }
-.hotline-number { font-size: 1.1rem; color: #049d14; font-weight: 800; }
-.icon-wrapper { width: 40px; height: 40px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.d-lg-none {
+  display: none !important;
+}
 
-/* Action Buttons */
-.action-btn { display: flex; flex-direction: column; align-items: center; cursor: pointer; color: #333; transition: 0.2s; position: relative; }
-.action-btn:hover { color: #049d14; }
-.action-btn:hover :deep(.n-icon) { color: #049d14  !important; }
-.action-label { font-size: 0.75rem; font-weight: 600; margin-top: 2px; }
+.d-lg-flex {
+  display: flex !important;
+}
 
-/* === MENU HIỆN ĐẠI === */
-.nav-background { background-color: #049d14; height: 50px; }
-.nav-wrapper { display: flex; justify-content: center; height: 100%; }
+.d-sm-flex {
+  display: flex !important;
+}
+
+.d-sm-block {
+  display: block !important;
+}
+
+.d-xl-block {
+  display: block !important;
+}
+
+@media (max-width: 1200px) {
+  .d-xl-block {
+    display: none !important;
+  }
+}
+
+@media (min-width: 992px) {
+  .d-lg-block {
+    display: block !important;
+  }
+
+  .d-lg-none {
+    display: none !important;
+  }
+
+  .d-lg-flex {
+    display: flex !important;
+  }
+
+  .d-none {
+    display: none;
+  }
+}
+
+.top-banner {
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+  background: #000;
+}
+
+.banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.6;
+}
+
+.banner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  text-align: center;
+}
+
+.banner-title {
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.banner-subtitle {
+  color: #f0f0f0;
+  font-size: 1rem;
+  margin-top: 5px;
+}
+
+.header-inner {
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.logo-area {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.logo-img {
+  height: 50px;
+  width: 50px;
+}
+
+.brand-text {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #049d14;
+  margin-left: 10px;
+  letter-spacing: -0.5px;
+}
+
+.search-area {
+  flex: 1;
+  max-width: 500px;
+}
+
+.actions-area {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
+
+.hotline-group {
+  align-items: center;
+  gap: 10px;
+  margin-right: 15px;
+  padding-right: 20px;
+  border-right: 1px solid #eee;
+}
+
+.hotline-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.hotline-label {
+  font-size: 0.7rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.hotline-number {
+  font-size: 1.1rem;
+  color: #049d14;
+  font-weight: 800;
+}
+
+.icon-wrapper {
+  width: 40px;
+  height: 40px;
+  background: #f0fdf4;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  color: #333;
+  transition: 0.2s;
+  position: relative;
+}
+
+.action-btn:hover {
+  color: #049d14;
+}
+
+.action-btn:hover :deep(.n-icon) {
+  color: #049d14 !important;
+}
+
+.action-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.nav-background {
+  background-color: #049d14;
+  height: 50px;
+}
+
+.nav-wrapper {
+  display: flex;
+  justify-content: center;
+  height: 100%;
+}
 
 :deep(.modern-menu) {
   background: transparent !important;
@@ -304,5 +464,20 @@ const handlerAccountDropdown = (key: string) => {
   width: 100%;
 }
 
-.mobile-toggle { background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; }
+.mobile-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
+
+.main-footer {
+  background-color: #333;
+  color: white;
+  padding: 20px 0;
+  text-align: center;
+  margin-top: auto;
+}
 </style>
