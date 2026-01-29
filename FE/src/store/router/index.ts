@@ -54,7 +54,7 @@ export const useRouteStore = defineStore("route-store", {
       } else {
         this.rowRoutes = staticRoutes;
         const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY);
-        return staticRoutes.filter((route) => route.roles?.includes(userInfo.rolesCodes[0]) || !route.roles);
+        return userInfo && userInfo.rolesCodes ? staticRoutes.filter((route) => route.roles?.includes(userInfo.rolesCodes[0])) : staticRoutes;
       }
     },
     async initAuthRoute() {
