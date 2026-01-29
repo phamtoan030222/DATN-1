@@ -151,12 +151,12 @@ import {
 
 <style scoped>
 .about-container {
-  font-family: 'Inter', sans-serif; /* Hoặc font chữ dự án của bạn */
+  font-family: 'Inter', sans-serif;
 }
 
 /* Hero Section Styling */
 .hero-section {
-  background: linear-gradient(135deg, #003366 0%, #0055a5 100%); /* Màu xanh chuyên nghiệp */
+  background: linear-gradient(135deg, #549de6 0%, #74a6d4 100%); /* Màu xanh chuyên nghiệp */
   color: white;
   padding: 80px 20px;
   text-align: center;
@@ -165,6 +165,7 @@ import {
 }
 
 .hero-title {
+color: green;
   font-size: 3.5rem;
   font-weight: 800;
   margin-bottom: 10px;

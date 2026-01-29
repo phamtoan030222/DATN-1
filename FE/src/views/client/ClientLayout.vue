@@ -73,7 +73,7 @@ const themeOverrides: GlobalThemeOverrides = {
 
 .glass-box {
   /* Màu nền trắng đục (90%) để dễ đọc chữ nhưng vẫn thấy nền mờ */
-  background-color: rgba(13, 216, 98, 0.193);
+  background-color: rgba(255, 255, 255, 0.634);
 
   /* Bo góc mạnh tạo cảm giác hiện đại */
   border-radius: 24px;

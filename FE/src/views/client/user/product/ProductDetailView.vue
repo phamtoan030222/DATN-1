@@ -822,19 +822,11 @@ onUnmounted(() => {
             <div class="actions border-t pt-6">
               <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-4">
-                  <span class="font-medium text-gray-700">Số lượng:</span>
-                  <NInputNumber
-                    v-model:value="quantity"
-                    :min="1"
-                    :max="10"
-                    button-placement="both"
-                    class="w-32"
-                    :disabled="isOutOfStock"
-                  />
+                  <span class="font-medium text-gray-700" />
                 </div>
                 <div class="text-right">
-                  <div class="text-xs text-gray-500 mb-1">
-                    Tổng thanh toán:
+                  <div class="text-lg text-black-900 mb-1">
+                    Tổng thanh toán
                   </div>
                   <div class="text-2xl font-bold text-red-600">
                     {{ formatCurrency(finalTotalPrice) }}
@@ -967,7 +959,7 @@ onUnmounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 30px 20px;
-  background-color: #fff;
+  /* background-color: #fff; */
   min-height: 80vh;
 }
 
