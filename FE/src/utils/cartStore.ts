@@ -1,21 +1,25 @@
 import { ref } from 'vue'
-// Đảm bảo đường dẫn import đúng tới file api của bạn
 import { GetGioHang } from '@/service/api/client/banhang.api'
+import { warn } from 'node:console'
 
 const INVOICE_KEY = 'GUEST_INVOICE_ID'
 
-// State reactive để lưu số lượng (Dùng chung cho cả App)
 const count = ref(0)
 
 export const CartStore = {
-  // Biến count để hiển thị trên Badge
   count,
 
-  getInvoiceId: () => localStorage.getItem(INVOICE_KEY),
+  getInvoiceId: () => {
+    return localStorage.getItem(INVOICE_KEY)
+  },
 
   setInvoiceId: (id: string) => {
+    if (!id) {
+      localStorage.removeItem(INVOICE_KEY)
+      count.value = 0
+      return
+    }
     localStorage.setItem(INVOICE_KEY, id)
-    // Khi có ID mới -> cập nhật luôn số lượng
     CartStore.updateCount()
   },
 
@@ -24,17 +28,20 @@ export const CartStore = {
     count.value = 0
   },
 
-  // HÀM QUAN TRỌNG: Gọi API để đếm lại số lượng
+  // --- HÀM ĐƯỢC SỬA ĐỔI ---
   async updateCount() {
     const id = localStorage.getItem(INVOICE_KEY)
+
+    // Nếu không có ID thì thôi, reset về 0
     if (!id) {
       count.value = 0
       return
     }
+
     try {
       const res = await GetGioHang(id)
 
-      // Xử lý dữ liệu trả về (Array hoặc Object)
+      // Kiểm tra kỹ cấu trúc trả về
       let list: any[] = []
       if (Array.isArray(res)) {
         list = res
@@ -45,14 +52,25 @@ export const CartStore = {
       else if (res && (res as any).content) {
         list = (res as any).content
       }
+      else {
+        // Trường hợp API trả về 200 OK nhưng body null hoặc rỗng lạ thường
+        // -> Coi như giỏ hàng rỗng
+        list = []
+      }
 
-      // Tính tổng số lượng (Cộng dồn field 'soLuong' của từng item)
       const total = list.reduce((sum: number, item: any) => sum + (Number(item.soLuong) || 0), 0)
       count.value = total
     }
-    catch (e) {
-      console.error('Lỗi cập nhật số lượng giỏ hàng:', e)
+    catch (e: any) {
+      console.error('Lỗi cập nhật giỏ hàng (ID cũ có thể không còn tồn tại):', e)
+
+      // QUAN TRỌNG: Cơ chế tự sửa lỗi
+      // Nếu API trả về 400, 404 hoặc 500, nghĩa là ID hiện tại trong LocalStorage là RÁC
+      // Ta cần xóa nó đi để lần sau code tự tạo ID mới.
+
+      localStorage.removeItem(INVOICE_KEY)
       count.value = 0
+      console.warn('Đã tự động xóa ID hóa đơn hỏng khỏi LocalStorage.')
     }
   },
 }

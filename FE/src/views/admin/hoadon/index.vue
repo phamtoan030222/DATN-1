@@ -658,16 +658,15 @@ onMounted(() => {
 <template>
   <div class="page-container">
     <div class="breadcrumb-section">
-      <BreadcrumbDefault
-        page-title="Quản lý hóa đơn"
-        :routes="[{ path: '/admin/hoa-don', name: 'Quản lý hóa đơn' }]"
-      />
+      <BreadcrumbDefault page-title="Quản lý hóa đơn" :routes="[{ path: '/admin/hoa-don', name: 'Quản lý hóa đơn' }]" />
     </div>
 
     <NCard class="mb-4">
       <template #header>
         <div class="section-title">
-          <NIcon><FilterIcon /></NIcon>
+          <NIcon>
+            <FilterIcon />
+          </NIcon>
           <span>Bộ lọc tìm kiếm</span>
         </div>
       </template>
@@ -676,14 +675,13 @@ onMounted(() => {
           <NGi :span="6">
             <NFormItem label="Tìm kiếm">
               <NInput
-                v-model:value="state.searchQuery"
-                placeholder="Nhập mã hóa đơn, tên khách hàng, SĐT..."
-                clearable
-                @keyup.enter="fetchHoaDons"
-                @blur="fetchHoaDons"
+                v-model:value="state.searchQuery" placeholder="Nhập mã hóa đơn, tên khách hàng, SĐT..." clearable
+                @keyup.enter="fetchHoaDons" @blur="fetchHoaDons"
               >
                 <template #prefix>
-                  <NIcon><SearchIcon /></NIcon>
+                  <NIcon>
+                    <SearchIcon />
+                  </NIcon>
                 </template>
               </NInput>
             </NFormItem>
@@ -692,13 +690,8 @@ onMounted(() => {
           <NGi :span="6">
             <NFormItem label="Khoảng thời gian">
               <NDatePicker
-                v-model:value="dateRange"
-                type="daterange"
-                clearable
-                :is-date-disabled="disableFutureDate"
-                style="width: 100%"
-                placeholder="Chọn khoảng thời gian"
-                @update:value="handleDateRangeChange"
+                v-model:value="dateRange" type="daterange" clearable :is-date-disabled="disableFutureDate"
+                style="width: 100%" placeholder="Chọn khoảng thời gian" @update:value="handleDateRangeChange"
               />
             </NFormItem>
           </NGi>
@@ -706,10 +699,7 @@ onMounted(() => {
           <NGi :span="4">
             <NFormItem label="Loại hóa đơn">
               <NSelect
-                v-model:value="state.loaiHoaDon"
-                :options="loaiHoaDonOptions"
-                placeholder="Tất cả"
-                clearable
+                v-model:value="state.loaiHoaDon" :options="loaiHoaDonOptions" placeholder="Tất cả" clearable
                 @update:value="fetchHoaDons"
               />
             </NFormItem>
@@ -718,10 +708,7 @@ onMounted(() => {
           <NGi :span="4">
             <NFormItem label="Trạng thái">
               <NSelect
-                v-model:value="state.searchStatus"
-                :options="statusOptions"
-                placeholder="Tất cả"
-                clearable
+                v-model:value="state.searchStatus" :options="statusOptions" placeholder="Tất cả" clearable
                 @update:value="handleStatusChange"
               />
             </NFormItem>
@@ -733,28 +720,24 @@ onMounted(() => {
     <NCard>
       <template #header>
         <div class="section-title">
-          <NIcon><ListIcon /></NIcon>
+          <NIcon>
+            <ListIcon />
+          </NIcon>
           <span>Danh sách hóa đơn</span>
           <div class="ml-auto" style="display: flex; gap: 8px;">
-            <NButton
-              type="primary"
-              size="small"
-              :loading="state.loading"
-              @click="fetchHoaDons"
-            >
+            <NButton type="primary" size="small" :loading="state.loading" @click="fetchHoaDons">
               <template #icon>
-                <NIcon><RefreshIcon /></NIcon>
+                <NIcon>
+                  <RefreshIcon />
+                </NIcon>
               </template>
               Làm mới
             </NButton>
-            <NButton
-              type="success"
-              size="small"
-              :disabled="state.products.length === 0"
-              @click="exportToExcel"
-            >
+            <NButton type="success" size="small" :disabled="state.products.length === 0" @click="exportToExcel">
               <template #icon>
-                <NIcon><ExportIcon /></NIcon>
+                <NIcon>
+                  <ExportIcon />
+                </NIcon>
               </template>
               Xuất Excel
             </NButton>
@@ -784,15 +767,8 @@ onMounted(() => {
       </NAlert>
 
       <NDataTable
-        :columns="columns"
-        :data="state.products"
-        :pagination="pagination"
-        :max-height="500"
-        striped
-        :loading="state.loading"
-        :row-key="(row) => row.id"
-        :bordered="false"
-        @update:page="handlePageChange"
+        :columns="columns" :data="state.products" :pagination="pagination" :max-height="500" striped
+        :loading="state.loading" :row-key="(row) => row.id" :bordered="false" @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
       />
     </NCard>

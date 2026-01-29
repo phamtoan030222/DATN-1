@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, onMounted, onUnmounted, ref } from 'vue'
+import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NButton,
@@ -28,6 +28,7 @@ import {
 } from '@vicons/ionicons5'
 
 // --- IMPORTS API ---
+// Đảm bảo đường dẫn import đúng với cấu trúc dự án của bạn
 import {
   getCreateHoaDon,
   themSanPham,
@@ -47,7 +48,7 @@ import {
 import { getVouchers } from '@/service/api/admin/discount/api.voucher'
 import type { ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
 
-// Import Store để cập nhật badge
+// Import Store
 import { CartStore } from '@/utils/cartStore'
 
 // --- CONFIG ---
@@ -93,30 +94,33 @@ const timeLeft = ref('')
 let timerInterval: any = null
 
 // ==========================================
-// 1. LOGIC GIỎ HÀNG (ĐÃ SỬA LỖI 400)
+// 1. LOGIC GIỎ HÀNG (SELF-HEALING)
 // ==========================================
 
 async function getOrCreateInvoice() {
+  // Bước 1: Lấy ID từ cache
   let invoiceId = CartStore.getInvoiceId()
-  // Nếu chưa có ID trong cache, gọi API tạo mới
+
+  // Bước 2: Nếu không có (hoặc vừa bị xóa do lỗi), gọi API tạo mới
   if (!invoiceId) {
     try {
+      // console.log('Đang tạo hóa đơn mới...')
       const res = await getCreateHoaDon({
         ma: `ONLINE_${new Date().getTime()}`,
-        idNV: null, // Khách lẻ
       })
 
-      if (res && res.data) {
+      if (res && res.data && res.data.id) {
         invoiceId = res.data.id
-        CartStore.setInvoiceId(invoiceId)
+        // Lưu ID mới vào store
+        CartStore.setInvoiceId(invoiceId!)
       }
       else {
-        throw new Error('Không tạo được hóa đơn')
+        throw new Error('API tạo hóa đơn không trả về ID')
       }
     }
     catch (e) {
-      console.error(e)
-      throw new Error('Lỗi khởi tạo giỏ hàng')
+      console.error('FATAL: Không thể tạo hóa đơn mới', e)
+      throw new Error('Lỗi khởi tạo giỏ hàng - Server Error')
     }
   }
   return invoiceId
@@ -131,24 +135,32 @@ async function addToCartAction(isBuyNow: boolean) {
 
   loadingCart.value = true
   try {
-    // [FIX LỖI 400]: Cơ chế thử lại (Retry Mechanism)
+    // [FIX LỖI 404]: Cơ chế thử lại (Retry Mechanism)
     // Bước 1: Lấy ID hóa đơn hiện tại (có thể là ID cũ bị lỗi)
     let invoiceId = await getOrCreateInvoice()
 
     try {
       // Thử thêm sản phẩm lần 1
-      await themSanPham({
+      const res = await themSanPham({
         invoiceId: invoiceId!,
         productDetailId: product.value.id,
         imeiIds: [selectedImeiId.value],
       })
+
+      // Nếu Backend trả về ID mới (trường hợp bạn đã update backend trả về invoiceId)
+      if (res && (res as any).data && (res as any).data.invoiceId) {
+        CartStore.setInvoiceId((res as any).data.invoiceId)
+      }
     }
-    catch (firstError) {
+    catch (firstError: any) {
       // NẾU LỖI: Rất có thể do ID hóa đơn cũ không còn tồn tại trong DB (lỗi 400/404)
       console.warn('Lỗi thêm giỏ hàng lần 1 (nghi ngờ Hóa đơn cũ), đang tự động sửa...', firstError)
 
+      // Kiểm tra mã lỗi nếu cần thiết (thường là 404 hoặc 400 hoặc 500 tùy backend)
+      // Nhưng an toàn nhất là cứ lỗi thì thử reset lại ID
+
       // Xóa ID cũ trong cache đi
-      CartStore.setInvoiceId(null)
+      CartStore.setInvoiceId(null) // Truyền null để hàm setInvoiceId xóa localStorage
 
       // Tạo ID mới tinh
       invoiceId = await getOrCreateInvoice()
@@ -177,7 +189,7 @@ async function addToCartAction(isBuyNow: boolean) {
       // Hiển thị thông báo đẹp
       notification.success({
         title: 'Đã thêm vào giỏ hàng!',
-        content: `Bạn vừa thêm "${product.value.productName}" thành công.`,
+        content: `Bạn vừa thêm "${product.value.productName || product.value.name}" thành công.`,
         duration: 3000,
         keepAliveOnHover: true,
         action: () =>
@@ -196,7 +208,7 @@ async function addToCartAction(isBuyNow: boolean) {
   catch (error) {
     // Chỉ khi cả 2 lần đều lỗi thì mới báo ra ngoài
     console.error(error)
-    message.error('Lỗi khi thêm sản phẩm. Vui lòng tải lại trang!')
+    message.error('Lỗi khi thêm sản phẩm. Vui lòng thử lại!')
   }
   finally {
     loadingCart.value = false
@@ -218,6 +230,7 @@ async function fetchData(id: string) {
       product.value = res.data
       selectedImage.value = product.value.urlImage || 'https://via.placeholder.com/500'
 
+      // Set các option đang chọn dựa trên sản phẩm hiện tại
       selectedGpu.value = product.value.idGPU || null
       selectedCpu.value = product.value.idCPU || null
       selectedRam.value = product.value.idRAM || null
@@ -250,18 +263,24 @@ async function loadGlobalOptions() {
       label: x.label || x.name || x.code,
       value: x.value || x.id,
     }))
-  const [gpus, cpus, rams, hds, colors] = await Promise.all([
-    getGPUs(),
-    getCPUs(),
-    getRAMs(),
-    getHardDrives(),
-    getColors(),
-  ])
-  gpuOptions.value = mapOpt(gpus)
-  cpuOptions.value = mapOpt(cpus)
-  ramOptions.value = mapOpt(rams)
-  hardDriveOptions.value = mapOpt(hds)
-  colorOptions.value = mapOpt(colors)
+
+  try {
+    const [gpus, cpus, rams, hds, colors] = await Promise.all([
+      getGPUs(),
+      getCPUs(),
+      getRAMs(),
+      getHardDrives(),
+      getColors(),
+    ])
+    gpuOptions.value = mapOpt(gpus)
+    cpuOptions.value = mapOpt(cpus)
+    ramOptions.value = mapOpt(rams)
+    hardDriveOptions.value = mapOpt(hds)
+    colorOptions.value = mapOpt(colors)
+  }
+  catch (e) {
+    console.warn('Lỗi tải thuộc tính chung', e)
+  }
 }
 
 async function loadAllVariants(productName: string) {
@@ -280,6 +299,7 @@ async function loadAllVariants(productName: string) {
 function isOptionDisabled(type: string, value: string) {
   if (allVariants.value.length === 0)
     return false
+
   const criteria: any = {
     idGPU: selectedGpu.value,
     idCPU: selectedCpu.value,
@@ -287,6 +307,8 @@ function isOptionDisabled(type: string, value: string) {
     idHardDrive: selectedHardDrive.value,
     idColor: selectedColor.value,
   }
+
+  // Xóa tiêu chí của chính loại đang xét để xem các loại khác có kết hợp được không
   if (type === 'GPU')
     delete criteria.idGPU
   if (type === 'CPU')
@@ -298,6 +320,7 @@ function isOptionDisabled(type: string, value: string) {
   if (type === 'COLOR')
     delete criteria.idColor
 
+  // Gán giá trị đang xét vào tiêu chí tạm thời
   if (type === 'GPU')
     criteria.idGPU = value
   if (type === 'CPU')
@@ -333,6 +356,7 @@ async function handleOptionClick() {
 
   if (exactMatch && exactMatch.id !== product.value.id) {
     await router.replace({ params: { id: exactMatch.id } })
+    // Fetch lại data cho ID mới
     await fetchData(exactMatch.id)
   }
 }
@@ -360,8 +384,12 @@ async function loadImeis(productDetailId: string) {
 
     const activeImeis = (arr || []).filter((i: any) => {
       const s = i.status ?? i.imeiStatus
+      // Logic check trạng thái ACTIVE (0 hoặc 'ACTIVE')
       return (
-        s === undefined || s === null || String(s) === '0' || String(s).toUpperCase() === 'ACTIVE'
+        s === undefined
+        || s === null
+        || String(s) === '0'
+        || String(s).toUpperCase() === 'ACTIVE'
       )
     })
 
@@ -374,6 +402,7 @@ async function loadImeis(productDetailId: string) {
     }
   }
   catch (e) {
+    console.error('Lỗi tải IMEI', e)
     isOutOfStock.value = true
   }
 }
@@ -386,13 +415,18 @@ async function fetchAvailableVouchers() {
   try {
     const res = await getVouchers({ page: 1, size: 50, status: 'ACTIVE' })
     const now = new Date().getTime()
-    rawVoucherList.value = res.content.filter((v) => {
-      const isTimeValid = (!v.startDate || v.startDate <= now) && (!v.endDate || v.endDate >= now)
+    // Filter client-side để chắc chắn hạn sử dụng và số lượng
+    rawVoucherList.value = res.content.filter((v: any) => {
+      const isTimeValid
+        = (!v.startDate || v.startDate <= now) && (!v.endDate || v.endDate >= now)
       const hasQuantity = v.remainingQuantity === null || v.remainingQuantity > 0
       return isTimeValid && hasQuantity
     })
-    if (validVouchers.value.length > 0)
+
+    // Tự động chọn voucher tốt nhất
+    if (validVouchers.value.length > 0) {
       selectedVoucher.value = validVouchers.value[0]
+    }
   }
   catch (e) {
     console.error(e)
@@ -445,7 +479,8 @@ function startCountdown() {
   }
   if (timerInterval)
     clearInterval(timerInterval)
-  timerInterval = setInterval(() => {
+
+  const updateTimer = () => {
     const now = new Date().getTime()
     const distance = endDate - now
     if (distance < 0) {
@@ -459,7 +494,10 @@ function startCountdown() {
     const s = Math.floor((distance % (1000 * 60)) / 1000)
     const f = (n: number) => (n < 10 ? `0${n}` : n)
     timeLeft.value = d > 0 ? `${d} ngày ${f(h)}:${f(m)}:${f(s)}` : `${f(h)}:${f(m)}:${f(s)}`
-  }, 1000)
+  }
+
+  updateTimer()
+  timerInterval = setInterval(updateTimer, 1000)
 }
 
 function formatCurrency(val: number | undefined) {
@@ -479,9 +517,19 @@ function handleSelectVoucher(v: ADVoucherResponse) {
   }
 }
 
+// Watch params id change để fetch lại data khi user click vào sản phẩm liên quan (nếu có)
+watch(
+  () => route.params.id,
+  (newId) => {
+    if (newId)
+      fetchData(newId as string)
+  },
+)
+
 onMounted(() => {
   fetchData(route.params.id as string)
 })
+
 onUnmounted(() => {
   if (timerInterval)
     clearInterval(timerInterval)
@@ -498,7 +546,9 @@ onUnmounted(() => {
       <div class="mb-4">
         <NButton text @click="router.back()">
           <template #icon>
-            <NIcon><ArrowBack /></NIcon>
+            <NIcon>
+              <ArrowBack />
+            </NIcon>
           </template>
           Quay lại
         </NButton>
@@ -507,9 +557,7 @@ onUnmounted(() => {
       <NGrid x-gap="24" cols="1 m:2" responsive="screen">
         <NGridItem>
           <div class="gallery-box relative mb-8">
-            <div
-              class="main-image-wrapper border border-gray-100 rounded-lg overflow-hidden bg-white"
-            >
+            <div class="main-image-wrapper border border-gray-100 rounded-lg overflow-hidden bg-white">
               <img
                 :src="selectedImage"
                 class="w-full h-full object-contain p-4"
@@ -543,7 +591,10 @@ onUnmounted(() => {
               </NDescriptionsItem>
               <NDescriptionsItem label="Ổ cứng">
                 {{
-                  product.hardDriveName || product.hardDrive || product.idHardDrive || 'Đang cập nhật'
+                  product.hardDriveName
+                    || product.hardDrive
+                    || product.idHardDrive
+                    || 'Đang cập nhật'
                 }}
               </NDescriptionsItem>
               <NDescriptionsItem label="Màn hình">
@@ -613,7 +664,9 @@ onUnmounted(() => {
                 </div>
                 <NButton size="tiny" tertiary round @click="handleResetFilter">
                   <template #icon>
-                    <NIcon><RefreshOutline /></NIcon>
+                    <NIcon>
+                      <RefreshOutline />
+                    </NIcon>
                   </template>
                   Làm mới
                 </NButton>
@@ -806,7 +859,9 @@ onUnmounted(() => {
                   class="flex-1 h-full text-lg font-bold bg-gray-300 text-gray-500 cursor-not-allowed"
                 >
                   <template #icon>
-                    <NIcon><AlertCircleOutline /></NIcon>
+                    <NIcon>
+                      <AlertCircleOutline />
+                    </NIcon>
                   </template>
                   HẾT HÀNG
                 </NButton>
@@ -820,7 +875,9 @@ onUnmounted(() => {
                   @click="handleAddToCart"
                 >
                   <template #icon>
-                    <NIcon><CartOutline /></NIcon>
+                    <NIcon>
+                      <CartOutline />
+                    </NIcon>
                   </template>
                   THÊM GIỎ
                 </NButton>
@@ -913,15 +970,18 @@ onUnmounted(() => {
   background-color: #fff;
   min-height: 80vh;
 }
+
 .main-image-wrapper {
   position: relative;
   padding-top: 75%;
 }
+
 .main-image-wrapper img {
   position: absolute;
   top: 0;
   left: 0;
 }
+
 .chip {
   padding: 8px 12px;
   border: 1px solid #e5e7eb;
@@ -931,15 +991,18 @@ onUnmounted(() => {
   transition: all 0.2s;
   cursor: pointer;
 }
+
 .chip:hover {
   border-color: #10b981;
 }
+
 .chip.active {
   border-color: #059669;
   background: #ecfdf5;
   color: #059669;
   font-weight: 600;
 }
+
 .chip.disabled {
   opacity: 0.4;
   background: #f3f4f6;

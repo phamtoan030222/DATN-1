@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import bg from '@/assets/images/banner4.jpg'
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
@@ -89,16 +90,13 @@ function handleCartClick() {
     <div class="top-banner">
       <div class="banner-overlay">
         <h2 class="banner-title">
-          KHUYẾN MÃI MÙA HÈ - GIẢM ĐẾN 20%
+          i'm sorry, please forgive me, thank you, i love you
         </h2>
-        <p class="banner-subtitle">
+        <!-- <p class="banner-subtitle">
           Dành riêng cho sinh viên nhập học
-        </p>
+        </p> -->
       </div>
-      <img
-        src="https://truonggiang.vn/wp-content/uploads/2022/09/banner-laptop-sinh-vien-2048x943-1.jpg"
-        class="banner-img"
-      >
+      <img src="/src/assets/images/banner7.jpg" class="banner-img">
     </div>
 
     <div class="header-inner container">
@@ -260,7 +258,7 @@ function handleCartClick() {
 
 .top-banner {
   position: relative;
-  height: 160px;
+  height: 60px;
   overflow: hidden;
   background: #000;
 }
@@ -284,18 +282,20 @@ function handleCartClick() {
 }
 
 .banner-title {
-  color: #fff;
+  color: #21f15c;
   font-size: 1.8rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
+  text-shadow: 0 10px 5px green;
 }
 
 .banner-subtitle {
   color: #f0f0f0;
   font-size: 1rem;
   margin-top: 5px;
+  text-shadow: 0 5px 5px green;
 }
 
 .header-inner {

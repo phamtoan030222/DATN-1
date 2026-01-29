@@ -164,31 +164,49 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     @Transactional
     public ResponseObject<?> createThemSanPham(ClientThemSanPhamRequest request) {
-        Invoice invoice = invoiceRepository.findById(request.getInvoiceId())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy hóa đơn"));
 
+        // 1. Tìm hóa đơn. Nếu không thấy -> Tự tạo mới luôn!
+        Invoice invoice = invoiceRepository.findById(request.getInvoiceId()).orElse(null);
+
+        if (invoice == null) {
+            log.warn("Hóa đơn ID {} không tồn tại. Đang tạo mới...", request.getInvoiceId());
+            invoice = new Invoice();
+            invoice.setTotalAmount(BigDecimal.ZERO);
+            invoice.setTotalAmountAfterDecrease(BigDecimal.ZERO);
+            invoice.setCode("HD_AUTO_" + System.currentTimeMillis()); // Mã tự sinh
+            invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+            invoice.setTypeInvoice(TypeInvoice.ONLINE);
+            invoice.setCreatedDate(System.currentTimeMillis());
+            invoice = adTaoHoaDonRepository.save(invoice);
+
+            // Ghi log lịch sử tạo
+            LichSuTrangThaiHoaDon lichSu = new LichSuTrangThaiHoaDon();
+            lichSu.setThoiGian(LocalDateTime.now());
+            lichSu.setNote("Hóa đơn được tạo tự động khi thêm giỏ hàng.");
+            lichSu.setHoaDon(invoice);
+            lichSu.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+            lichSuTrangThaiHoaDonRepository.save(lichSu);
+        }
+
+        // 2. Tìm sản phẩm
         ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
 
+        // 3. Validate và lấy IMEI (Giữ nguyên logic của bạn)
         List<IMEI> imeis = imeiRepository.findAllById(request.getImeiIds());
-
         boolean invalidImei = imeis.stream().anyMatch(
                 imei -> imei.getImeiStatus() != ImeiStatus.AVAILABLE ||
                         !imei.getProductDetail().getId().equals(productDetail.getId())
         );
         if (invalidImei) throw new BusinessException("IMEI không hợp lệ hoặc đã bán");
 
-        InvoiceDetail existingDetail = null;
-        Optional<InvoiceDetail> existingDetailOpt = Optional.ofNullable(adTaoHoaDonChiTietRepository.findByInvoiceAndProductDetail(invoice, productDetail));
-        if (existingDetailOpt.isPresent()) {
-            existingDetail = existingDetailOpt.get();
-        }
-
+        // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
+        InvoiceDetail existingDetail = adTaoHoaDonChiTietRepository.findByInvoiceAndProductDetail(invoice, productDetail);
         InvoiceDetail invoiceDetail;
+
         if (existingDetail != null) {
             invoiceDetail = existingDetail;
             invoiceDetail.setQuantity(invoiceDetail.getQuantity() + imeis.size());
-
             BigDecimal newTotal = invoiceDetail.getPrice().multiply(BigDecimal.valueOf(invoiceDetail.getQuantity()));
             invoiceDetail.setTotalAmount(newTotal);
         } else {
@@ -203,13 +221,19 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
         invoiceDetailRepository.save(invoiceDetail);
 
+        // 5. Cập nhật IMEI (Giữ nguyên)
         for (IMEI imei : imeis) {
             imei.setInvoiceDetail(invoiceDetail);
             imei.setImeiStatus(ImeiStatus.RESERVED);
         }
         imeiRepository.saveAll(imeis);
 
-        return new ResponseObject<>(null, HttpStatus.OK, "Thêm sản phẩm thành công");
+        // [QUAN TRỌNG NHẤT] Trả về ID hóa đơn (Mới hoặc cũ) để Frontend biết
+        Map<String, String> responseData = new HashMap<>();
+        responseData.put("invoiceId", invoice.getId());
+        responseData.put("message", "Thêm thành công");
+
+        return new ResponseObject<>(responseData, HttpStatus.OK, "Thêm sản phẩm thành công");
     }
 
     @Override

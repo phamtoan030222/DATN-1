@@ -98,7 +98,7 @@ public class ClientVoucherServiceImpl implements AdVoucherService {
             throw new DuplicateKeyException("Tên voucher đã tồn tại: " + request.getName());
         }
 
-        Helper.validateVoucherDateRange(request.getStartDate(), request.getEndDate());
+        Helper.validateVoucherInput(request);
 
         // 2. Map dữ liệu
         Voucher voucher = new Voucher();
@@ -182,7 +182,7 @@ public class ClientVoucherServiceImpl implements AdVoucherService {
             voucherRepository.findVoucherByName(request.getName()).isPresent()) {
             throw new DuplicateKeyException("Tên voucher mới đã tồn tại: " + request.getName());
         }
-        Helper.validateVoucherDateRange(request.getStartDate(), request.getEndDate());
+        Helper.validateVoucherInput(request);
 
         // Update thông tin voucher
         Helper.mapRequestToVoucher(request, voucher);
