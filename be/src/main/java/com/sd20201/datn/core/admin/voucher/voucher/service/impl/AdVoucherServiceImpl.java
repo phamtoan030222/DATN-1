@@ -240,8 +240,28 @@ public class AdVoucherServiceImpl implements AdVoucherService {
 
     private void sendVoucherPausedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
         try {
-            String htmlBody = Helper.createPausedEmailBody(voucher, customer);
-            sendHtmlEmail(customer.getEmail(), "⏸️ Tạm hoãn Voucher: " + voucher.getCode(), htmlBody, failedEmails);
+            String htmlBody = "<div style=\"font-family:Arial,sans-serif\">" +
+                              "<h2>Thông báo tạm hoãn voucher " + voucher.getCode() + "</h2>" +
+                              "<p>Xin chào " + (customer.getName() != null ? customer.getName() : "quý khách") + ",</p>" +
+                              "<p>Voucher của bạn hiện đã được tạm hoãn. Trong thời gian này, mã sẽ chưa thể sử dụng.</p>" +
+                              "<p>Chúng tôi sẽ thông báo ngay khi voucher hoạt động trở lại.</p>" +
+                              "<p>Thông tin voucher:</p>" +
+                              "<ul>" +
+                              "<li>Mã: " + voucher.getCode() + "</li>" +
+                              "<li>Tên: " + (voucher.getName() != null ? voucher.getName() : "Voucher") + "</li>" +
+                              "</ul>" +
+                              "<p>Trân trọng,</p>" +
+                              "<p>My Laptop</p>" +
+                              "</div>";
+
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
+            helper.setTo(customer.getEmail());
+            helper.setSubject("⏸️ Voucher tạm hoãn: " + voucher.getCode());
+            helper.setText(htmlBody, true);
+
+            mailSender.send(mimeMessage);
+            log.info("✅ Pause email sent to: {}", customer.getEmail());
         } catch (Exception e) {
             log.error("Error pause email: {}", e.getMessage());
         }
@@ -249,8 +269,27 @@ public class AdVoucherServiceImpl implements AdVoucherService {
 
     private void sendVoucherResumedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
         try {
-            String htmlBody = Helper.createResumedEmailBody(voucher, customer);
-            sendHtmlEmail(customer.getEmail(), "✅ Voucher hoạt động trở lại: " + voucher.getCode(), htmlBody, failedEmails);
+            String htmlBody = "<div style=\"font-family:Arial,sans-serif\">" +
+                              "<h2>Voucher hoạt động trở lại: " + voucher.getCode() + "</h2>" +
+                              "<p>Xin chào " + (customer.getName() != null ? customer.getName() : "quý khách") + ",</p>" +
+                              "<p>Voucher của bạn đã được <strong>tiếp tục</strong> và có thể sử dụng trở lại.</p>" +
+                              "<p>Thông tin voucher:</p>" +
+                              "<ul>" +
+                              "<li>Mã: " + voucher.getCode() + "</li>" +
+                              "<li>Tên: " + (voucher.getName() != null ? voucher.getName() : "Voucher") + "</li>" +
+                              "</ul>" +
+                              "<p>Chúc bạn mua sắm vui vẻ!</p>" +
+                              "<p>My Laptop</p>" +
+                              "</div>";
+
+            MimeMessage mimeMessage = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
+            helper.setTo(customer.getEmail());
+            helper.setSubject("✅ Voucher hoạt động trở lại: " + voucher.getCode());
+            helper.setText(htmlBody, true);
+
+            mailSender.send(mimeMessage);
+            log.info("✅ Resume email sent to: {}", customer.getEmail());
         } catch (Exception e) {
             log.error("Error resume email: {}", e.getMessage());
         }

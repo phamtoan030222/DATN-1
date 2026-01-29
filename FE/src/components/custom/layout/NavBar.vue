@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue' // Thêm watch
-import { useRoute, useRouter } from 'vue-router' // Thêm useRoute
+import bg from '@/assets/images/banner4.jpg'
+import { onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   NBadge,
   NButton,
@@ -23,6 +24,9 @@ import { localStorageAction } from '@/utils'
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import { useAuthStore } from '@/store'
 
+// Import Store đã nâng cấp
+import { CartStore } from '@/utils/cartStore'
+
 const router = useRouter()
 const route = useRoute()
 
@@ -40,75 +44,57 @@ const userOptions = computed(() => {
     return [
       { label: 'Đăng xuất', key: 'logout' },
     ]
-  } else {
+  }
+  else {
     return [{ label: 'Đăng nhập', key: 'login' }]
   }
 })
 
-// Không gán cứng nữa, để null hoặc 'home' ban đầu
 const activeKey = ref<string | null>(null)
 const showDrawer = ref(false)
 const keyword = ref('')
 const userInfo = reactive(localStorageAction.get(USER_INFO_STORAGE_KEY))
 
-// --- LOGIC TỰ ĐỘNG CẬP NHẬT MENU THEO URL ---
+// [QUAN TRỌNG] Gọi updateCount khi layout được load
+onMounted(() => {
+  CartStore.updateCount()
+})
+
+// Tự động cập nhật Menu Active
 watch(
   () => route.path,
   (currentPath) => {
-    // 1. Kiểm tra Trang chủ
-    if (currentPath === '/' || currentPath === '/home') {
+    if (currentPath === '/' || currentPath === '/home')
       activeKey.value = 'home'
-    }
-    // 2. Kiểm tra Sản phẩm (bao gồm cả trang danh sách và chi tiết /product/...)
-    else if (currentPath.startsWith('/san-pham') || currentPath.startsWith('/product')) {
+    else if (currentPath.startsWith('/san-pham') || currentPath.startsWith('/product'))
       activeKey.value = 'products'
-    }
-    // 3. Giới thiệu
-    else if (currentPath.startsWith('/gioi-thieu')) {
+    else if (currentPath.startsWith('/gioi-thieu'))
       activeKey.value = 'about'
-    }
-    // 4. Liên hệ
-    else if (currentPath.startsWith('/lien-he')) {
+    else if (currentPath.startsWith('/lien-he'))
       activeKey.value = 'contact'
-    }
-    // 5. Tra cứu
-    else if (currentPath.startsWith('/tra-cuu')) {
+    else if (currentPath.startsWith('/tra-cuu'))
       activeKey.value = 'tracking'
-    }
-    // Các trường hợp khác
-    else {
-      activeKey.value = null
-    }
+    else activeKey.value = null
+
+    // Mỗi khi chuyển trang cũng cập nhật lại số lượng cho chắc
+    CartStore.updateCount()
   },
-  { immediate: true }, // Chạy ngay lập tức khi load trang
+  { immediate: true },
 )
 
-// --- HÀM XỬ LÝ CLICK ---
 function handleMenuClick(key: string, item: MenuOption) {
-  if (item.href) {
+  if (item.href)
     router.push(item.href as string)
-  }
   showDrawer.value = false
 }
 
-const { logout } = useAuthStore()
-
-const handlerAccountDropdown = (key: string) => {
-  if (key === 'login') {
+function handlerAccountDropdown(key: string) {
+  if (key === 'login')
     router.push({ name: 'login' })
-  } else if (key === 'logout') {
-    window.$dialog?.info({
-      title: 'Đăng xuất',
-      content: 'Bạn có chắc chắn muốn đăng xuất không?',
-      positiveText: 'Xác nhận',
-      negativeText: 'Hủy',
-      onPositiveClick: () => {
-        logout()
-        window.location.reload()
-      },
-    })
+}
 
-  }
+function handleCartClick() {
+  router.push('/cart')
 }
 </script>
 
@@ -117,14 +103,13 @@ const handlerAccountDropdown = (key: string) => {
     <div class="top-banner">
       <div class="banner-overlay">
         <h2 class="banner-title">
-          KHUYẾN MÃI MÙA HÈ - GIẢM ĐẾN 20%
+          i'm sorry, please forgive me, thank you, i love you
         </h2>
-        <p class="banner-subtitle">
+        <!-- <p class="banner-subtitle">
           Dành riêng cho sinh viên nhập học
-        </p>
+        </p> -->
       </div>
-      <img src="https://truonggiang.vn/wp-content/uploads/2022/09/banner-laptop-sinh-vien-2048x943-1.jpg"
-        class="banner-img">
+      <img src="/src/assets/images/banner7.jpg" class="banner-img">
     </div>
 
     <div class="header-inner container">
@@ -135,10 +120,8 @@ const handlerAccountDropdown = (key: string) => {
       </button>
 
       <a href="/" class="logo-area">
-        <img src="/favicon.svg" alt="Logo" class="logo-img">
-        <div class="brand-info d-none d-sm-flex">
-          <span class="brand-text">My Laptop</span>
-        </div>
+        <img src="/favicon.svg" alt="Logo" class="logo-img" onerror="this.style.display='none'">
+        <div class="brand-info d-none d-sm-flex"><span class="brand-text">My Laptop</span></div>
       </a>
 
       <div class="search-area d-none d-sm-block">
@@ -177,8 +160,8 @@ const handlerAccountDropdown = (key: string) => {
           </div>
         </NDropdown>
 
-        <div class="action-btn cart-btn">
-          <NBadge :value="5" :max="99" color="#d03050">
+        <div class="action-btn cart-btn" @click="handleCartClick">
+          <NBadge :value="CartStore.count.value" :max="99" color="#d03050">
             <NIcon size="28" color="#333">
               <Cart />
             </NIcon>
@@ -190,8 +173,10 @@ const handlerAccountDropdown = (key: string) => {
 
     <div class="nav-background d-none d-lg-block">
       <div class="container nav-wrapper">
-        <NMenu v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
-          @update:value="handleMenuClick" />
+        <NMenu
+          v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
+          @update:value="handleMenuClick"
+        />
       </div>
     </div>
 
@@ -204,10 +189,19 @@ const handlerAccountDropdown = (key: string) => {
 </template>
 
 <style scoped>
-/* Reset & Base */
+/* (Giữ nguyên style của bạn) */
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
 .main-header-wrapper {
   background: white;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
 }
 
 .container {
@@ -217,7 +211,12 @@ const handlerAccountDropdown = (key: string) => {
   width: 100%;
 }
 
-/* Utilities */
+.main-content {
+  flex: 1;
+  background-color: #f9f9f9;
+  padding-bottom: 40px;
+}
+
 .d-none {
   display: none !important;
 }
@@ -270,10 +269,9 @@ const handlerAccountDropdown = (key: string) => {
   }
 }
 
-/* Banner */
 .top-banner {
   position: relative;
-  height: 160px;
+  height: 60px;
   overflow: hidden;
   background: #000;
 }
@@ -297,21 +295,22 @@ const handlerAccountDropdown = (key: string) => {
 }
 
 .banner-title {
-  color: #fff;
+  color: #21f15c;
   font-size: 1.8rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1px;
   margin: 0;
+  text-shadow: 0 10px 5px green;
 }
 
 .banner-subtitle {
   color: #f0f0f0;
   font-size: 1rem;
   margin-top: 5px;
+  text-shadow: 0 5px 5px green;
 }
 
-/* Header Layout */
 .header-inner {
   height: 90px;
   display: flex;
@@ -320,7 +319,6 @@ const handlerAccountDropdown = (key: string) => {
   gap: 20px;
 }
 
-/* Logo */
 .logo-area {
   display: flex;
   align-items: center;
@@ -340,20 +338,17 @@ const handlerAccountDropdown = (key: string) => {
   letter-spacing: -0.5px;
 }
 
-/* Search Box */
 .search-area {
   flex: 1;
   max-width: 500px;
 }
 
-/* Actions Area */
 .actions-area {
   display: flex;
   align-items: center;
   gap: 25px;
 }
 
-/* Hotline Group */
 .hotline-group {
   align-items: center;
   gap: 10px;
@@ -391,7 +386,6 @@ const handlerAccountDropdown = (key: string) => {
   justify-content: center;
 }
 
-/* Action Buttons */
 .action-btn {
   display: flex;
   flex-direction: column;
@@ -416,7 +410,6 @@ const handlerAccountDropdown = (key: string) => {
   margin-top: 2px;
 }
 
-/* === MENU HIỆN ĐẠI === */
 .nav-background {
   background-color: #049d14;
   height: 50px;
@@ -491,5 +484,13 @@ const handlerAccountDropdown = (key: string) => {
   padding: 0;
   display: flex;
   align-items: center;
+}
+
+.main-footer {
+  background-color: #333;
+  color: white;
+  padding: 20px 0;
+  text-align: center;
+  margin-top: auto;
 }
 </style>

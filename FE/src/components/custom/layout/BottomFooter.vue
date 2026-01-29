@@ -34,8 +34,8 @@ import { NGrid, NGridItem } from 'naive-ui'
           </h4>
           <ul class="footer-contact">
             <li>📍 Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội</li>
-            <li>📞 0366.994.511</li>
-            <li>✉️ contact@emmaple.com</li>
+            <li>📞 0965.237.19</li>
+            <li>✉️ mylaptop4t@gmail.com</li>
           </ul>
         </NGridItem>
 

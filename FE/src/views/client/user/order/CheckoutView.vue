@@ -206,7 +206,7 @@ async function handleCheckout() {
 </script>
 
 <template>
-  <div class="bg-gray-50 min-h-screen py-8 font-sans">
+  <div class="py-8 font-sans">
     <div class="container mx-auto px-4 max-w-6xl">
       <h1 class="text-2xl font-bold mb-6 text-gray-800 border-l-4 border-red-600 pl-3">
         Thanh toán đơn hàng

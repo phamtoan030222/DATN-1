@@ -141,7 +141,11 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
     @Override
     public ResponseObject<?> getDetail(String id) {
-        return productDetailRepository.getProductById(id)
+        // 👇 1. Lấy thời gian hiện tại
+        Long currentTime = System.currentTimeMillis();
+
+        // 👇 2. Truyền thêm currentTime vào hàm getProductById
+        return productDetailRepository.getProductById(id, currentTime)
                 .map(data -> ResponseObject.successForward(data, "Fetch product detail success"))
                 .orElse(ResponseObject.errorForward("Fetch product detail failure", HttpStatus.NOT_FOUND));
     }
