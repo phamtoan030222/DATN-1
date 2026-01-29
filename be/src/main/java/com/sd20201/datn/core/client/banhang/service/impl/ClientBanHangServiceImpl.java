@@ -85,7 +85,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             hoaDon.setCode(code);
 
             hoaDon.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-            hoaDon.setTypeInvoice(TypeInvoice.ONLINE);
+            hoaDon.setTypeInvoice(TypeInvoice.TAI_QUAY);
             hoaDon.setCreatedDate(System.currentTimeMillis());
 
             adTaoHoaDonRepository.save(hoaDon);

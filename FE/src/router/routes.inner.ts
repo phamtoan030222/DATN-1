@@ -97,6 +97,13 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/client/user/order/OrderSuccess.vue'),
         meta: { title: 'Đặt hàng thành công' },
       },
+      // Thêm route cho Cart
+      {
+        path: 'cart',
+        name: 'Cart',
+        component: () => import('@/views/client/user/cart/CartView.vue'),
+        meta: { title: 'Giỏ hàng' },
+      },
     ],
   },
 

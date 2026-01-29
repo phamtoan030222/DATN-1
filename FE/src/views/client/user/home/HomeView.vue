@@ -7,9 +7,12 @@ import {
   NEmpty,
   NGrid,
   NGridItem,
+  NIcon,
   NSpin,
   NTag,
 } from 'naive-ui'
+// Import icon báo hết hàng (tuỳ chọn)
+import { AlertCircleOutline } from '@vicons/ionicons5'
 
 import banner1 from '@/assets/images/banner4.jpg'
 import banner2 from '@/assets/images/bg4.jpg'
