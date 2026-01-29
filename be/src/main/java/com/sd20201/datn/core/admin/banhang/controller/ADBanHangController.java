@@ -1,33 +1,16 @@
 package com.sd20201.datn.core.admin.banhang.controller;
 
-import com.sd20201.datn.core.admin.banhang.model.request.ADHuyRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADNhanVienRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADThanhToanRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADThemKhachHangRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADThemSanPhamRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ListKhachHangRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.VoucherSuggestionRequest;
-import com.sd20201.datn.core.admin.banhang.model.response.ADChonKhachHangResponse;
-import com.sd20201.datn.core.admin.banhang.model.response.ADGioHangResponse;
-import com.sd20201.datn.core.admin.banhang.model.response.ADPhuongThucThanhToanRespones;
-import com.sd20201.datn.core.admin.banhang.model.response.ListHoaDon;
-import com.sd20201.datn.core.admin.banhang.model.response.VoucherSuggestionResponse;
+import com.sd20201.datn.core.admin.banhang.model.request.*;
+import com.sd20201.datn.core.admin.banhang.model.response.*;
 import com.sd20201.datn.core.admin.banhang.service.ADBanHangService;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
-import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDImeiResponse;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -44,6 +27,7 @@ public class ADBanHangController {
     public ResponseEntity<?> getProductDetails(ADPDProductDetailRequest request) {
         return Helper.createResponseEntity(adBanHangService.getProductDetails(request));
     }
+
 
     @GetMapping("/list-hoa-don")
     public List<ListHoaDon> getListHoaDon() {
@@ -108,56 +92,6 @@ public class ADBanHangController {
     @PostMapping("/huy")
     public ResponseEntity<?> huyHoaDon(ADHuyRequest adNhanVienRequest) {
         return Helper.createResponseEntity(adBanHangService.huy(adNhanVienRequest));
-    }
-
-    @GetMapping("/screens")
-    ResponseEntity<?> getScreens() {
-        return Helper.createResponseEntity(adBanHangService.getScreens());
-    }
-
-    @GetMapping("/batteries")
-    ResponseEntity<?> getBatteries() {
-        return Helper.createResponseEntity(adBanHangService.getBatteries());
-    }
-
-    @GetMapping("/operating-systems")
-    ResponseEntity<?> getOperatingSystems() {
-        return Helper.createResponseEntity(adBanHangService.getOperatingSystems());
-    }
-
-    @GetMapping("/brands")
-    ResponseEntity<?> getBrands() {
-        return Helper.createResponseEntity(adBanHangService.getBrands());
-    }
-
-    @GetMapping("/colors")
-    ResponseEntity<?> getColors() {
-        return Helper.createResponseEntity(adBanHangService.getColors());
-    }
-
-    @GetMapping("/rams")
-    ResponseEntity<?> getRAMs() {
-        return Helper.createResponseEntity(adBanHangService.getRAMs());
-    }
-
-    @GetMapping("/cpus")
-    ResponseEntity<?> getCPUs() {
-        return Helper.createResponseEntity(adBanHangService.getCPUs());
-    }
-
-    @GetMapping("/hard-drives")
-    ResponseEntity<?> getHardDrives() {
-        return Helper.createResponseEntity(adBanHangService.getHardDrivers());
-    }
-
-    @GetMapping("/materials")
-    ResponseEntity<?> getMaterials() {
-        return Helper.createResponseEntity(adBanHangService.getMaterials());
-    }
-
-    @GetMapping("/gpus")
-    ResponseEntity<?> getGPUs() {
-        return Helper.createResponseEntity(adBanHangService.getGPUs());
     }
 
 }

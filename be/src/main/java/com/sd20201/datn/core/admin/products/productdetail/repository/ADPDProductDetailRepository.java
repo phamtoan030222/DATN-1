@@ -118,7 +118,6 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
                         , p.urlImage as urlImage
                         , MAX(d.percentage) as percentage
-                        , MAX(d.endDate) as endDate
             FROM ProductDetail p
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
                 LEFT JOIN Discount d on pdd.discount.id = d.id
@@ -203,13 +202,10 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             , p.hardDrive.name as hardDriveName
             , p.color.name as colorName
             , MAX(d.percentage) as percentage
-            , MAX(d.endDate) as endDate
+
         FROM ProductDetail p
         LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id
         LEFT JOIN Discount d ON pdd.discount.id = d.id
-            AND d.startDate <= :currentTime
-            AND d.endDate >= :currentTime
-            AND d.status = 0
         WHERE p.id = :id
         GROUP BY
             p.id, p.code, p.name, p.description, 
@@ -219,7 +215,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             p.product.name, p.cpu.name, p.ram.name, 
             p.hardDrive.name, p.color.name
     """)
-    Optional<ADPDProductDetailDetailResponse> getProductById(@Param("id") String id, @Param("currentTime") Long currentTime);
+    Optional<ADPDProductDetailDetailResponse> getProductById(@Param("id") String id);
 
     Optional<ProductDetail> findByCode(String code);
 

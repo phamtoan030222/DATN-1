@@ -32,11 +32,10 @@ onMounted( async () => {
       return
     }
     else if (user.rolesCodes.includes(ROLES.NHAN_VIEN) && user.roleScreen === 'ADMIN') {
-      router.push({ name: 'dashboard_sales' })
+      router.push({ name: 'home' })
       return
     }
     else if (user.rolesCodes.includes(ROLES.KHACH_HANG) && user.roleScreen === ROLES.KHACH_HANG) {
-      router.push({ name: 'home' })
       return
     }
   }

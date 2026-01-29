@@ -15,8 +15,6 @@ import {
 } from "./components";
 import Content from "./Content.vue";
 import { ProLayout, useLayoutMenu } from "pro-naive-ui";
-import { localStorageAction } from "@/utils";
-import { USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
 
 const route = useRoute();
 const appStore = useAppStore();
@@ -29,8 +27,6 @@ const { layout, activeKey } = useLayoutMenu({
   accordion: true,
   menus: routeStore.menus,
 });
-
-const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY)
 
 watch(
   () => route.path,
@@ -56,14 +52,13 @@ const hidenCollapaseButton = computed(
 
 <template>
   <SettingDrawer />
-  <!-- appStore.showTabs -->
   <ProLayout
     v-model:collapsed="appStore.collapsed"
     :mode="layoutMode"
     :is-mobile="appStore.isMobile"
     :show-logo="appStore.showLogo && !appStore.isMobile"
     :show-footer="appStore.showFooter"
-    :show-tabbar="false"
+    :show-tabbar="appStore.showTabs"
     nav-fixed
     show-nav
     show-sidebar
@@ -112,10 +107,10 @@ const hidenCollapaseButton = computed(
         </template>
 
         <template v-else>
-          <span class="font-500">
-            {{ userInfo?.fullName }}
-          </span>
           <Notices />
+          <FullScreen />
+          <DarkModeSwitch />
+          <LangsSwitch />
           <Setting />
           <UserCenter />
         </template>

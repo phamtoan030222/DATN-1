@@ -2,9 +2,8 @@ import type { MenuOption } from "naive-ui";
 import { router } from "@/router";
 import { staticRoutes } from "@/router/routes.static";
 import { fetchUserRoutes } from "@/service";
-import { $t, localStorageAction } from "@/utils";
+import { $t } from "@/utils";
 import { createMenus, createRoutes, generateCacheRoutes } from "./helper";
-import { USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
 
 interface RoutesStatus {
   isInitAuthRoute: boolean;
@@ -53,8 +52,7 @@ export const useRouteStore = defineStore("route-store", {
         }
       } else {
         this.rowRoutes = staticRoutes;
-        const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY);
-        return userInfo && userInfo.rolesCodes ? staticRoutes.filter((route) => route.roles?.includes(userInfo.rolesCodes[0])) : staticRoutes;
+        return staticRoutes;
       }
     },
     async initAuthRoute() {

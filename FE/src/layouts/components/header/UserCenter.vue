@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
 import { useAuthStore } from "@/store";
-import { localStorageAction } from "@/utils/storage.helper";
 import IconLogout from "~icons/icon-park-outline/logout";
 import IconUser from "~icons/icon-park-outline/user";
 
 const { t } = useI18n();
 
-const { logout } = useAuthStore();
-const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY);
+const { userInfo, logout } = useAuthStore();
 const router = useRouter();
 
 const options = computed(() => {
@@ -51,13 +48,13 @@ function handleSelect(key: string | number) {
 
 <template>
   <n-dropdown trigger="click" :options="options" @select="handleSelect">
-      <n-avatar round class="cursor-pointer" size="small" :src="userInfo?.pictureUrl">
-        <template #fallback>
-          <div class="wh-full flex-center">
-            <icon-park-outline-user />
-          </div>
-        </template>
-      </n-avatar>
+    <n-avatar round class="cursor-pointer" :src="userInfo?.avatar">
+      <template #fallback>
+        <div class="wh-full flex-center">
+          <icon-park-outline-user />
+        </div>
+      </template>
+    </n-avatar>
   </n-dropdown>
 </template>
 

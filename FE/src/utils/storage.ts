@@ -1,13 +1,13 @@
-const STORAGE_PREFIX = import.meta.env.VITE_STORAGE_PREFIX
+const STORAGE_PREFIX = import.meta.env.VITE_STORAGE_PREFIX;
 
 interface StorageData<T> {
-  value: T
-  expire: number | null
+  value: T;
+  expire: number | null;
 }
 export const localStorageAction = {
   get: (key: string, defaultValue = null) => {
     const value = localStorage.getItem(key)
-    return value ? JSON.parse(value) : defaultValue
+    return value ? JSON.parse(value) : defaultValue;
   },
   set: (key: string, value: any) => localStorage.setItem(key, JSON.stringify(value)),
   remove: (key: string) => sessionStorage.removeItem(key),
@@ -18,75 +18,71 @@ function createLocalStorage<T extends Storage.Local>() {
   function set<K extends keyof T>(
     key: K,
     value: T[K],
-    expire: number = 60 * 60 * 24 * 7,
+    expire: number = 60 * 60 * 24 * 7
   ) {
     const storageData: StorageData<T[K]> = {
       value,
       expire: new Date().getTime() + expire * 1000,
-    }
-    const json = JSON.stringify(storageData)
-    window.localStorage.setItem(`${STORAGE_PREFIX}${String(key)}`, json)
+    };
+    const json = JSON.stringify(storageData);
+    window.localStorage.setItem(`${STORAGE_PREFIX}${String(key)}`, json);
   }
 
   function get<K extends keyof T>(key: K) {
-    const json = window.localStorage.getItem(`${STORAGE_PREFIX}${String(key)}`)
-    if (!json)
-      return null
+    const json = window.localStorage.getItem(`${STORAGE_PREFIX}${String(key)}`);
+    if (!json) return null;
 
-    const storageData: StorageData<T[K]> | null = JSON.parse(json)
+    const storageData: StorageData<T[K]> | null = JSON.parse(json);
 
     if (storageData) {
-      const { value, expire } = storageData
-      if (expire === null || expire >= Date.now())
-        return value
+      const { value, expire } = storageData;
+      if (expire === null || expire >= Date.now()) return value;
     }
-    remove(key)
-    return null
+    remove(key);
+    return null;
   }
 
   function remove(key: keyof T) {
-    window.localStorage.removeItem(`${STORAGE_PREFIX}${String(key)}`)
+    window.localStorage.removeItem(`${STORAGE_PREFIX}${String(key)}`);
   }
 
-  const clear = window.localStorage.clear
+  const clear = window.localStorage.clear;
 
   return {
     set,
     get,
     remove,
     clear,
-  }
+  };
 }
 
 function createSessionStorage<T extends Storage.Session>() {
   function set<K extends keyof T>(key: K, value: T[K]) {
-    const json = JSON.stringify(value)
-    window.sessionStorage.setItem(`${STORAGE_PREFIX}${String(key)}`, json)
+    const json = JSON.stringify(value);
+    window.sessionStorage.setItem(`${STORAGE_PREFIX}${String(key)}`, json);
   }
   function get<K extends keyof T>(key: K) {
-    const json = sessionStorage.getItem(`${STORAGE_PREFIX}${String(key)}`)
-    if (!json)
-      return null
+    const json = sessionStorage.getItem(`${STORAGE_PREFIX}${String(key)}`);
+    if (!json) return null;
 
-    const storageData: T[K] | null = JSON.parse(json)
+    const storageData: T[K] | null = JSON.parse(json);
 
-    if (storageData)
-      return storageData
+    if (storageData) return storageData;
 
-    return null
+    return null;
   }
   function remove(key: keyof T) {
-    window.sessionStorage.removeItem(`${STORAGE_PREFIX}${String(key)}`)
+    window.sessionStorage.removeItem(`${STORAGE_PREFIX}${String(key)}`);
   }
-  const clear = window.sessionStorage.clear
+  const clear = window.sessionStorage.clear;
 
   return {
     set,
     get,
     remove,
     clear,
-  }
+  };
 }
 
-export const local = createLocalStorage()
-export const session = createSessionStorage()
+export const local = createLocalStorage();
+export const session = createSessionStorage();

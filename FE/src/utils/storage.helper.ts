@@ -6,18 +6,18 @@ export const localStorageAction = {
   },
   set: (key: string, value: any) => localStorage.setItem(key, JSON.stringify(value)),
   remove: (key: string) => localStorage.removeItem(key),
-  clear: () => localStorage.clear(),
+  clear: () => localStorage.clear()
 }
 
 export const sessionStorageAction = {
   get: (key: string, defaultValue = '') => {
     const value = sessionStorage.getItem(key)
 
-    return value || defaultValue
+    return value ? value : defaultValue
   },
   set: (key: string, value: any) => sessionStorage.setItem(key, value),
   remove: (key: string) => sessionStorage.removeItem(key),
-  clear: () => sessionStorage.clear(),
+  clear: () => sessionStorage.clear()
 }
 
 export const cookieStorageAction = {
@@ -40,9 +40,9 @@ export const cookieStorageAction = {
   clear: () => {
     const keys = document.cookie.match(/[^ =;]+(?==)/g)
     if (keys) {
-      for (let i = keys.length; i--;) {
+      for (let i = keys.length; i--; ) {
         document.cookie = `${keys[i]}=0;expire=${new Date(0).toUTCString()}`
       }
     }
-  },
+  }
 }

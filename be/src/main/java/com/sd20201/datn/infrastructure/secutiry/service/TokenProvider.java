@@ -213,7 +213,6 @@ public class TokenProvider {
 
         tokenInfoResponse.setUserId(staff.getId());
         tokenInfoResponse.setFullName(staff.getName());
-        tokenInfoResponse.setPictureUrl(staff.getAvatarUrl());
         tokenInfoResponse.setUserCode(staff.getCode());
         tokenInfoResponse.setEmail(staff.getEmail() != null ? staff.getEmail() : "");
         tokenInfoResponse.setUsername(staff.getAccount().getUsername());
@@ -235,7 +234,6 @@ public class TokenProvider {
         tokenInfoResponse.setUserId(customer.getId());
         tokenInfoResponse.setFullName(customer.getName());
         tokenInfoResponse.setUserCode(customer.getCode());
-        tokenInfoResponse.setPictureUrl(customer.getAvatarUrl());
         tokenInfoResponse.setEmail(customer.getEmail() != null ? customer.getEmail() : "");
         tokenInfoResponse.setUsername(customer.getAccount().getUsername());
         List<String> rolesCode = roleRepository.getRoleCodeByUsername(customer.getAccount().getUsername());

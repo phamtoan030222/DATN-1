@@ -41,24 +41,4 @@ public interface ADBanHangService {
     VoucherSuggestionResponse goiYVoucher(
             VoucherSuggestionRequest req
     );
-
-    ResponseObject<?> getScreens();
-
-    ResponseObject<?> getBrands();
-
-    ResponseObject<?> getBatteries();
-
-    ResponseObject<?> getOperatingSystems();
-
-    ResponseObject<?> getColors();
-
-    ResponseObject<?> getRAMs();
-
-    ResponseObject<?> getCPUs();
-
-    ResponseObject<?> getHardDrivers();
-
-    ResponseObject<?> getGPUs();
-
-    ResponseObject<?> getMaterials();
 }

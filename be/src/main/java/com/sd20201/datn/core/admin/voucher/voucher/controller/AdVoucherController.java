@@ -4,7 +4,6 @@ import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherCreate
 import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.admin.voucher.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.admin.voucher.voucher.service.AdVoucherService;
-import com.sd20201.datn.core.admin.voucher.voucher.service.impl.AdVoucherServiceImpl;
 import com.sd20201.datn.core.admin.voucher.voucher.service.impl.VoucherExportService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
@@ -40,7 +39,7 @@ import java.util.Map;
 @RequestMapping(MappingConstants.API_ADMIN_PREFIX_DISCOUNT_VOUCHER)
 public class AdVoucherController {
     @Autowired
-    private AdVoucherServiceImpl voucherService;
+    private AdVoucherService voucherService;
 
     @Autowired
     private AdVoucherRepository voucherRepository;
