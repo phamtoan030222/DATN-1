@@ -19,9 +19,12 @@ import {
   Person,
   Search,
 } from '@vicons/ionicons5'
+import { localStorageAction } from '@/utils'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { useAuthStore } from '@/store'
 
 const router = useRouter()
-const route = useRoute() 
+const route = useRoute()
 
 // --- DATA ---
 const menuOptions: MenuOption[] = [
@@ -32,12 +35,21 @@ const menuOptions: MenuOption[] = [
   { label: 'TRA CỨU ĐƠN HÀNG', key: 'tracking', href: '/tra-cuu' },
 ]
 
-const userOptions = [{ label: 'Đăng nhập', key: 'login' }]
+const userOptions = computed(() => {
+  if (userInfo) {
+    return [
+      { label: 'Đăng xuất', key: 'logout' },
+    ]
+  } else {
+    return [{ label: 'Đăng nhập', key: 'login' }]
+  }
+})
 
 // Không gán cứng nữa, để null hoặc 'home' ban đầu
 const activeKey = ref<string | null>(null)
 const showDrawer = ref(false)
 const keyword = ref('')
+const userInfo = reactive(localStorageAction.get(USER_INFO_STORAGE_KEY))
 
 // --- LOGIC TỰ ĐỘNG CẬP NHẬT MENU THEO URL ---
 watch(
@@ -79,9 +91,23 @@ function handleMenuClick(key: string, item: MenuOption) {
   showDrawer.value = false
 }
 
+const { logout } = useAuthStore()
+
 const handlerAccountDropdown = (key: string) => {
   if (key === 'login') {
-    router.push({name: 'login'})
+    router.push({ name: 'login' })
+  } else if (key === 'logout') {
+    window.$dialog?.info({
+      title: 'Đăng xuất',
+      content: 'Bạn có chắc chắn muốn đăng xuất không?',
+      positiveText: 'Xác nhận',
+      negativeText: 'Hủy',
+      onPositiveClick: () => {
+        logout()
+        window.location.reload()
+      },
+    })
+
   }
 }
 </script>
@@ -97,10 +123,8 @@ const handlerAccountDropdown = (key: string) => {
           Dành riêng cho sinh viên nhập học
         </p>
       </div>
-      <img
-        src="https://truonggiang.vn/wp-content/uploads/2022/09/banner-laptop-sinh-vien-2048x943-1.jpg"
-        class="banner-img"
-      >
+      <img src="https://truonggiang.vn/wp-content/uploads/2022/09/banner-laptop-sinh-vien-2048x943-1.jpg"
+        class="banner-img">
     </div>
 
     <div class="header-inner container">
@@ -166,24 +190,14 @@ const handlerAccountDropdown = (key: string) => {
 
     <div class="nav-background d-none d-lg-block">
       <div class="container nav-wrapper">
-        <NMenu
-          v-model:value="activeKey"
-          mode="horizontal"
-          :options="menuOptions"
-          class="modern-menu"
-          @update:value="handleMenuClick"
-        />
+        <NMenu v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
+          @update:value="handleMenuClick" />
       </div>
     </div>
 
     <NDrawer v-model:show="showDrawer" width="280" placement="left">
       <NDrawerContent title="MENU">
-        <NMenu
-          v-model:value="activeKey"
-          mode="vertical"
-          :options="menuOptions"
-          @update:value="handleMenuClick"
-        />
+        <NMenu v-model:value="activeKey" mode="vertical" :options="menuOptions" @update:value="handleMenuClick" />
       </NDrawerContent>
     </NDrawer>
   </header>
@@ -191,62 +205,228 @@ const handlerAccountDropdown = (key: string) => {
 
 <style scoped>
 /* Reset & Base */
-.main-header-wrapper { background: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-.container { max-width: 1200px; margin: 0 auto; padding: 0 15px; width: 100%; }
+.main-header-wrapper {
+  background: white;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 15px;
+  width: 100%;
+}
 
 /* Utilities */
-.d-none { display: none !important; }
-.d-lg-block { display: block !important; }
-.d-lg-none { display: none !important; }
-.d-lg-flex { display: flex !important; }
-.d-sm-flex { display: flex !important; }
-.d-sm-block { display: block !important; }
-.d-xl-block { display: block !important; }
-@media (max-width: 1200px) { .d-xl-block { display: none !important; } }
+.d-none {
+  display: none !important;
+}
+
+.d-lg-block {
+  display: block !important;
+}
+
+.d-lg-none {
+  display: none !important;
+}
+
+.d-lg-flex {
+  display: flex !important;
+}
+
+.d-sm-flex {
+  display: flex !important;
+}
+
+.d-sm-block {
+  display: block !important;
+}
+
+.d-xl-block {
+  display: block !important;
+}
+
+@media (max-width: 1200px) {
+  .d-xl-block {
+    display: none !important;
+  }
+}
+
 @media (min-width: 992px) {
-  .d-lg-block { display: block !important; }
-  .d-lg-none { display: none !important; }
-  .d-lg-flex { display: flex !important; }
-  .d-none { display: none; }
+  .d-lg-block {
+    display: block !important;
+  }
+
+  .d-lg-none {
+    display: none !important;
+  }
+
+  .d-lg-flex {
+    display: flex !important;
+  }
+
+  .d-none {
+    display: none;
+  }
 }
 
 /* Banner */
-.top-banner { position: relative; height: 160px; overflow: hidden; background: #000; }
-.banner-img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
-.banner-overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 2; text-align: center; }
-.banner-title { color: #fff; font-size: 1.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
-.banner-subtitle { color: #f0f0f0; font-size: 1rem; margin-top: 5px; }
+.top-banner {
+  position: relative;
+  height: 160px;
+  overflow: hidden;
+  background: #000;
+}
+
+.banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.6;
+}
+
+.banner-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  text-align: center;
+}
+
+.banner-title {
+  color: #fff;
+  font-size: 1.8rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin: 0;
+}
+
+.banner-subtitle {
+  color: #f0f0f0;
+  font-size: 1rem;
+  margin-top: 5px;
+}
 
 /* Header Layout */
-.header-inner { height: 90px; display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.header-inner {
+  height: 90px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
 
 /* Logo */
-.logo-area { display: flex; align-items: center; text-decoration: none; }
-.logo-img { height: 50px; width: 50px; }
-.brand-text { font-size: 1.6rem; font-weight: 900; color: #049d14; margin-left: 10px; letter-spacing: -0.5px; }
+.logo-area {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.logo-img {
+  height: 50px;
+  width: 50px;
+}
+
+.brand-text {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #049d14;
+  margin-left: 10px;
+  letter-spacing: -0.5px;
+}
 
 /* Search Box */
-.search-area { flex: 1; max-width: 500px; }
+.search-area {
+  flex: 1;
+  max-width: 500px;
+}
 
 /* Actions Area */
-.actions-area { display: flex; align-items: center; gap: 25px; }
+.actions-area {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+}
 
 /* Hotline Group */
-.hotline-group { align-items: center; gap: 10px; margin-right: 15px; padding-right: 20px; border-right: 1px solid #eee; }
-.hotline-info { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.2; }
-.hotline-label { font-size: 0.7rem; color: #666; font-weight: 600; }
-.hotline-number { font-size: 1.1rem; color: #049d14; font-weight: 800; }
-.icon-wrapper { width: 40px; height: 40px; background: #f0fdf4; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+.hotline-group {
+  align-items: center;
+  gap: 10px;
+  margin-right: 15px;
+  padding-right: 20px;
+  border-right: 1px solid #eee;
+}
+
+.hotline-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.hotline-label {
+  font-size: 0.7rem;
+  color: #666;
+  font-weight: 600;
+}
+
+.hotline-number {
+  font-size: 1.1rem;
+  color: #049d14;
+  font-weight: 800;
+}
+
+.icon-wrapper {
+  width: 40px;
+  height: 40px;
+  background: #f0fdf4;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 
 /* Action Buttons */
-.action-btn { display: flex; flex-direction: column; align-items: center; cursor: pointer; color: #333; transition: 0.2s; position: relative; }
-.action-btn:hover { color: #049d14; }
-.action-btn:hover :deep(.n-icon) { color: #049d14  !important; }
-.action-label { font-size: 0.75rem; font-weight: 600; margin-top: 2px; }
+.action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  color: #333;
+  transition: 0.2s;
+  position: relative;
+}
+
+.action-btn:hover {
+  color: #049d14;
+}
+
+.action-btn:hover :deep(.n-icon) {
+  color: #049d14 !important;
+}
+
+.action-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-top: 2px;
+}
 
 /* === MENU HIỆN ĐẠI === */
-.nav-background { background-color: #049d14; height: 50px; }
-.nav-wrapper { display: flex; justify-content: center; height: 100%; }
+.nav-background {
+  background-color: #049d14;
+  height: 50px;
+}
+
+.nav-wrapper {
+  display: flex;
+  justify-content: center;
+  height: 100%;
+}
 
 :deep(.modern-menu) {
   background: transparent !important;
@@ -304,5 +484,12 @@ const handlerAccountDropdown = (key: string) => {
   width: 100%;
 }
 
-.mobile-toggle { background: none; border: none; cursor: pointer; padding: 0; display: flex; align-items: center; }
+.mobile-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+}
 </style>

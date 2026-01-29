@@ -4,7 +4,6 @@ import { useRouteStore } from "./router";
 import { useTabStore } from "./tab";
 import { localStorageAction } from "@/utils/storage.helper";
 import { ACCESS_TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY, USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
-import { postLogin } from "@/service/api/auth/auth.api";
 
 interface AuthStatus {
   userInfo: Api.Login.Info | null;
@@ -39,9 +38,6 @@ export const useAuthStore = defineStore("auth-store", {
       if (route.meta.requiresAuth) {
         router.push({
           name: "login",
-          query: {
-            redirect: route.fullPath,
-          },
         });
       }
     },
@@ -84,12 +80,6 @@ export const useAuthStore = defineStore("auth-store", {
 
       const routeStore = useRouteStore();
       await routeStore.initAuthRoute();
-
-      const route = unref(router.currentRoute);
-      // const query = route.query as { redirect: string };
-      // router.push({
-      //   path: query.redirect || "/",
-      // });
     },
   },
 });
