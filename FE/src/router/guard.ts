@@ -40,7 +40,7 @@ export function setupRouterGuard(router: Router) {
       return
     }
 
-    if (!routeStore.isInitAuthRoute && to.name !== 'login') {
+    if (!(to.name === 'login' || to.name === 'login_admin') && !routeStore.isInitAuthRoute) {
       try {
         await routeStore.initAuthRoute()
         if (to.name === 'not-found') {
@@ -54,13 +54,12 @@ export function setupRouterGuard(router: Router) {
         }
       }
       catch {
-        const redirect = to.fullPath !== '/' ? to.fullPath : undefined
-        next({ path: '/login', query: redirect ? { redirect } : undefined })
+        next({ path: '/login'})
         return
       }
     }
 
-    if (to.name === 'login' && isLogin) {
+    if ((to.name === 'login' || to.name === 'login_admin') && isLogin) {
       next({ path: '/' })
       return
     }

@@ -20,6 +20,9 @@ import {
   Person,
   Search,
 } from '@vicons/ionicons5'
+import { localStorageAction } from '@/utils'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { useAuthStore } from '@/store'
 
 // Import Store đã nâng cấp
 import { CartStore } from '@/utils/cartStore'
@@ -36,11 +39,21 @@ const menuOptions: MenuOption[] = [
   { label: 'TRA CỨU ĐƠN HÀNG', key: 'tracking', href: '/tra-cuu' },
 ]
 
-const userOptions = [{ label: 'Đăng nhập', key: 'login' }]
+const userOptions = computed(() => {
+  if (userInfo) {
+    return [
+      { label: 'Đăng xuất', key: 'logout' },
+    ]
+  }
+  else {
+    return [{ label: 'Đăng nhập', key: 'login' }]
+  }
+})
 
 const activeKey = ref<string | null>(null)
 const showDrawer = ref(false)
 const keyword = ref('')
+const userInfo = reactive(localStorageAction.get(USER_INFO_STORAGE_KEY))
 
 // [QUAN TRỌNG] Gọi updateCount khi layout được load
 onMounted(() => {

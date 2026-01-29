@@ -1,47 +1,54 @@
 <script setup lang="ts">
-import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
-import { toast } from 'vue3-toastify'
-import 'vue3-toastify/dist/index.css'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import type {
+  GoiYVoucherResponse,
+  KhachHangResponse,
+  PhieuGiamGiaResponse,
+  PhuongThucThanhToanResponse,
+  ThongTinGiaoHangResponse,
+} from '@/service/api/admin/banhang.api'
+import {
   GeOneKhachHang,
+  getColors,
+  getCPUs,
   getCreateHoaDon,
   GetGioHang,
+  getGPUs,
+  getHardDrives,
   GetHoaDons,
+  getImeiProductDetail,
   GetKhachHang,
   getMaGiamGia,
-  getMaGiamGiaKoDu,
+  getMaterials,
   getPhuongThucThanhToan,
   getProductDetails,
-  GoiYVoucherResponse,
+  getRAMs,
   huyHoaDon,
-  type KhachHangResponse,
-  type PhieuGiamGiaResponse,
-  type PhuongThucThanhToanResponse,
+
   suaGiaoHang,
   thanhToanThanhCong,
   themKhachHang,
   themMoiKhachHang,
   themSanPham,
   themSL,
-  type ThongTinGiaoHangResponse,
+
   xoaSL,
   xoaSP,
-
 } from '@/service/api/admin/banhang.api'
-import type { DataTableColumns } from 'naive-ui'
 import type { ADPDImeiResponse, ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/admin/product/productDetail.api'
-import { getColors, getCPUs, getGPUs, getHardDrives, getImeiProductDetail, getMaterials, getRAMs } from '@/service/api/admin/product/productDetail.api'
-import { calculateFee, getAvailableServices, getGHNDistricts, getGHNProvinces, getGHNWards } from '@/service/api/ghn.api'
 import type { AvailableServiceRequest, ShippingFeeRequest } from '@/service/api/ghn.api'
+import { calculateFee, getAvailableServices, getGHNDistricts, getGHNProvinces, getGHNWards } from '@/service/api/ghn.api'
+import { localStorageAction } from '@/utils/storage'
 import { Html5Qrcode } from 'html5-qrcode'
 import { debounce } from 'lodash'
-import { localStorageAction } from '@/utils/storage'
-import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import type { DataTableColumns } from 'naive-ui'
+import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
+import { toast } from 'vue3-toastify'
+import 'vue3-toastify/dist/index.css'
 
 // Naive UI Icons
 import {
   AddCircleOutline,
-  QrCodeOutline,
   ReloadOutline,
   SearchOutline,
   TrashOutline,
@@ -2896,8 +2903,8 @@ deleteProduc
             <div class="pending-invoices-wrapper">
               <NSpace :wrap="false">
                 <div
-                  v-for="tab in tabs" :key="tab.id" class="pending-invoice-card"
-                  :class="[{ active: activeTab === tab.id }]"
+                  v-for="tab in tabs" :key="tab.id"
+                  class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
                   @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
                 >
                   <div class="invoice-header">
@@ -3003,8 +3010,8 @@ deleteProduc
 
             <NFormItemGi :span="4" path="phuongXa" label="Phường/Xã" required>
               <NSelect
-                v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards" filterable
-                clearable @update:value="onWardChange"
+                v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards"
+                filterable clearable @update:value="onWardChange"
               />
             </NFormItemGi>
 
@@ -3168,7 +3175,8 @@ deleteProduc
               <template #suffix>
                 <NButton
                   type="primary" size="small" :disabled="selectedVoucher?.voucherId === voucher.voucherId"
-                  :loading="applyingVoucher === voucher.voucherId" @click="selectVoucher(voucher)"
+                  :loading="applyingVoucher === voucher.voucherId"
+                  @click="selectVoucher(voucher)"
                 >
                   {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
                 </NButton>
@@ -3209,8 +3217,8 @@ deleteProduc
         <NScrollbar style="max-height: 250px;">
           <NList size="small" bordered>
             <NListItem
-              v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon" :key="suggestion.voucherId"
-              :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }"
+              v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon"
+              :key="suggestion.voucherId" :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }"
             >
               <NThing :title="suggestion.code">
                 <template #avatar>
@@ -3421,14 +3429,14 @@ deleteProduc
             </NText>
             <NSpace>
               <NButton
-                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small" secondary
-                @click="handlePaymentMethod('0')"
+                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small"
+                secondary @click="handlePaymentMethod('0')"
               >
                 Tiền mặt
               </NButton>
               <NButton
-                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'" size="small" secondary
-                @click="handlePaymentMethod('1')"
+                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'" size="small"
+                secondary @click="handlePaymentMethod('1')"
               >
                 Chuyển khoản
               </NButton>

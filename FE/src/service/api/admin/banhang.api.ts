@@ -1,14 +1,14 @@
 import type { AxiosResponse } from 'axios'
 import request from '@/service/request'
-import { API_ADMIN_PRODUCT_DETAIL, PREFIX_API_BAN_HANG_ADMIN } from '@/constants/url'
+import { PREFIX_API_BAN_HANG_ADMIN } from '@/constants/url'
 import type {
   DefaultResponse,
   PaginationParams,
   PaginationResponse,
-  ResponseList,
 } from '@/service/api.common'
 import type { ADPDImeiResponse, ADProductDetailRequest } from './product/productDetail.api'
 import type { ADProductDetailResponse } from './product/product.api'
+import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 export interface ParamsGetSanPham extends PaginationParams {
   q?: string | ''
@@ -190,6 +190,11 @@ export type SanPhamResponse = ResponseList & {
   status: string
 }
 
+export type ADBHPropertiesComboboxResponse = Readonly<SelectMixedOption> & {
+  readonly label: string
+  readonly value: string
+}
+
 export async function GetHoaDons(params: ParamsGetHoaDon) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/list-hoa-don`,
@@ -216,7 +221,7 @@ export async function getProductDetails(params: ADProductDetailRequest) {
 
 export async function getImeiProductDetail(idProductDetail: string) {
   const res = (await request({
-    url: `${API_ADMIN_PRODUCT_DETAIL}/imei/${idProductDetail}`,
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/imei/${idProductDetail}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<Array<ADPDImeiResponse>>>
 
@@ -415,3 +420,57 @@ export async function suaGiaoHang(id: string) {
   return res.data
 }
 // NEW: API call to add/update delivery information
+
+export async function getColors() {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/colors`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADBHPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getCPUs() {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/cpus`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADBHPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getGPUs() {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/gpus`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADBHPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getHardDrives() {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/hard-drives`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADBHPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getRAMs() {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/rams`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADBHPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getMaterials() {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/materials`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADBHPropertiesComboboxResponse>>>
+
+  return res.data
+}
