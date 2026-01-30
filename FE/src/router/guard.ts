@@ -60,7 +60,7 @@ export function setupRouterGuard(router: Router) {
     }
 
     if ((to.name === 'login' || to.name === 'login_admin') && isLogin) {
-      next({ path: '/' })
+      next({ path: to.name === 'login_admin' ? '/dashboard/sales' : '/' })
       return
     }
 

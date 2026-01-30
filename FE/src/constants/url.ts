@@ -14,9 +14,13 @@ export const API_AUTH_REGISTER_CUSTOMER = `${API_AUTH_REGISTER}/customer` as str
 
 // SUB_REDIRECT
 export const SCREEN_ROLE_ADMIN = `&screen=ADMIN`
+export const SCREEN_ROLE_CUSTOMER = `&screen=CUSTOMER`
 
 export const URL_OAUTH2_GOOGLE_ADMIN
   = `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_ADMIN}` as string
+
+export const URL_OAUTH2_GOOGLE_CUSTOMER =
+  `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_CUSTOMER}` as string
 
 // ADMIN API
 export const PREFIX_API_ADMIN = `${API_URL}/admin` as string
@@ -103,8 +107,5 @@ export const PREFIX_API_BAN_HANG_CUSTOMER = `${PREFIX_API_CUSTOMER}/ban-hang` as
 export const PREFIX_API_HOA_DON_CUSTOMER = `${PREFIX_API_CUSTOMER}/hoa-don` as string
 
 export const API_ORDER_ONLINE = `${API_URL}/order-online`
-
-
-export const URL_OAUTH2_GOOGLE_CUSTOMER = '/oauth2/authorization/google';
 
 // ------------- END -------------
