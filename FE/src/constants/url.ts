@@ -14,11 +14,15 @@ export const API_AUTH_REGISTER_CUSTOMER = `${API_AUTH_REGISTER}/customer` as str
 
 // SUB_REDIRECT
 export const SCREEN_ROLE_ADMIN = `&screen=ADMIN`
+export const SCREEN_ROLE_CUSTOMER = `&screen=CUSTOMER`
 
 export const SCREEN_ROLE_CUSTOMER = `&screen=CUSTOMER`
 
 export const URL_OAUTH2_GOOGLE_ADMIN =
   `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_ADMIN}` as string
+
+export const URL_OAUTH2_GOOGLE_CUSTOMER =
+  `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_CUSTOMER}` as string
 
 export const URL_OAUTH2_GOOGLE_CUSTOMER =
   `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_CUSTOMER}` as string

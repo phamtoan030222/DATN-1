@@ -411,6 +411,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     path: '/discounts/voucher/detail/:id',
     title: 'Chi tiết Phiếu giảm giá',
     requiresAuth: true,
+    roles: ['QUAN_LY'],
     hide: true,
     icon: 'icon-park-outline:edit',
     menuType: 'page',

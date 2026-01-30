@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
 
-    @Query(value = """
+        @Query(value = """
     SELECT
         p.id as id,
         p.code as code,
@@ -27,10 +27,17 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
         p.status as status,
         (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0) as quantity,
         p.urlImage as urlImage,
-        COALESCE(d.percentage, 0) as percentage
+        COALESCE((
+            SELECT MAX(d.percentage)
+            FROM ProductDetailDiscount pdd 
+            JOIN Discount d ON pdd.discount.id = d.id
+            WHERE pdd.productDetail.id = p.id
+            AND pdd.status = 0
+            AND d.status = 0
+            AND d.startDate <= :currentTime 
+            AND d.endDate >= :currentTime
+        ), 0) as percentage
     FROM ProductDetail p
-    LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id AND pdd.status = 0
-    LEFT JOIN Discount d ON d.id = pdd.discount.id AND d.status = 0
     WHERE (
         :#{#request.q} IS NULL 
         OR p.name LIKE CONCAT('%', :#{#request.q}, '%') 
@@ -45,10 +52,10 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     AND (:#{#request.idProduct} IS NULL OR p.product.id = :#{#request.idProduct})
     AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
-    AND p.status = 0 
+    AND p.status = 0
     ORDER BY p.createdDate DESC
     """,
-            countQuery = """
+                countQuery = """
     SELECT COUNT(p.id)
     FROM ProductDetail p
     WHERE (
@@ -67,6 +74,10 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
     AND p.status = 0
     """)
-    Page<ADPDProductDetailResponse> getProductDetails(Pageable pageable, @Param("request") ADPDProductDetailRequest request);
+        Page<ADPDProductDetailResponse> getProductDetails(
+                Pageable pageable,
+                @Param("request") ADPDProductDetailRequest request,
+                @Param("currentTime") Long currentTime
+        );
+    }
 
-}

@@ -125,6 +125,17 @@ export const getTopProductsChart = async (type: string = 'week', rangeDate?: num
     return []
   }
 }
+export const getGrowthStats = async () => {
+  try {
+    const res = await request.get<DefaultResponse<any[]>>( // Thay any bằng interface GrowthItem nếu muốn chặt chẽ
+      `${API_ADMIN_STATISTICS}/growth`
+    )
+    return res.data.data || []
+  } catch (error) {
+    console.error("Lỗi lấy dữ liệu tăng trưởng:", error)
+    return []
+  }
+}
 
 // --- 3. EXPORT ---
 export const statisticsApi = {
@@ -135,5 +146,6 @@ export const statisticsApi = {
   getOrderStatusChart,
   getOrderStatusChartData: getOrderStatusChart, 
   getTopProductsChart,
-  exportRevenueExcel
+  exportRevenueExcel,
+  getGrowthStats
 }

@@ -1,19 +1,31 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, h } from "vue";
 import { statisticsApi } from "@/service/api/admin/statistics/api";
 import { Icon } from '@iconify/vue';
-import { useMessage } from 'naive-ui';
+import { useMessage, NAvatar, NTag, NText, NNumberAnimation } from 'naive-ui';
 
-// Components Biểu đồ (Import file vừa sửa ở trên)
+// Import Component Biểu đồ (Giữ nguyên của bạn)
 import Chart from "./components/chart.vue";
 import Chart3 from "./components/chart3.vue";
 
+// --- KHAI BÁO DỮ LIỆU TĂNG TRƯỞNG ---
+interface GrowthItem {
+  label: string;
+  value: string;
+  percent: number;
+  isIncrease: boolean;
+  type: string;
+}
+
 const message = useMessage();
 const overviewData = ref<any>({});
+const growthData = ref<GrowthItem[]>([]); // Biến chứa dữ liệu tăng trưởng
+const loadingGrowth = ref(false);
+
 const filterType = ref("month"); // Mặc định tháng
 const rangeDate = ref<[number, number] | null>(null);
 
-// Map hiển thị tiêu đề Viết Hoa
+// Map hiển thị tiêu đề
 const periodMap: any = {
   today: { label: 'Hôm nay' },
   week: { label: 'Tuần này' },
@@ -27,40 +39,46 @@ const formatMoney = (val: number) => {
 
 // Tính toán số liệu hiển thị trong bộ lọc
 const currentFilterStats = computed(() => {
-  // Nếu là tùy chỉnh, ta lấy số liệu của 'month' hoặc xử lý riêng nếu API hỗ trợ trả về stats custom
-  // Ở đây fallback về month để tránh lỗi hiển thị khi chọn custom
   if (filterType.value === 'custom') return overviewData.value['month'] || {}; 
-  
   return overviewData.value[filterType.value] || {};
 });
 
+// --- API CALLS ---
 const fetchOverviewData = async () => {
   const res = await statisticsApi.getOverview();
   if (res) overviewData.value = res;
 };
 
+// Hàm gọi API Tăng trưởng (MỚI)
+const fetchGrowthData = async () => {
+  loadingGrowth.value = true;
+  try {
+    const res = await statisticsApi.getGrowthStats();
+    growthData.value = res || [];
+  } catch (error) {
+    console.error(error);
+  } finally {
+    loadingGrowth.value = false;
+  }
+};
+
 const handleExportExcel = async () => {
   try {
     message.loading("Đang tạo báo cáo Excel...");
-    
-    // 1. Gọi API nhận về Blob (file nhị phân)
     const blobData = await statisticsApi.exportRevenueExcel();
-    
     if (!blobData) {
       message.error("Không có dữ liệu để xuất!");
       return;
     }
-
     const url = window.URL.createObjectURL(new Blob([blobData]));
     const link = document.createElement('a');
     link.href = url;
     const fileName = `BaoCaoDoanhThu_${new Date().getTime()}.xlsx`;
     link.setAttribute('download', fileName);
-        document.body.appendChild(link);
+    document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-        window.URL.revokeObjectURL(url);
-    
+    window.URL.revokeObjectURL(url);
     message.success("Xuất báo cáo thành công!");
   } catch (error) {
     console.error(error);
@@ -70,6 +88,7 @@ const handleExportExcel = async () => {
 
 onMounted(() => {
   fetchOverviewData();
+  fetchGrowthData(); // Gọi hàm này khi vào trang
 });
 </script>
 
@@ -92,12 +111,10 @@ onMounted(() => {
       <n-gi v-for="(info, key) in periodMap" :key="key">
         <n-card :bordered="false" class="period-card shadow-sm">
           <div class="period-header">{{ info.label }}</div>
-          <div class="period-revenue  text-green">{{ formatMoney(overviewData[key]?.revenue) }}</div>
-          
+          <div class="period-revenue text-green">{{ formatMoney(overviewData[key]?.revenue) }}</div>
           <div class="period-sub">
             Sản phẩm đã bán: {{ overviewData[key]?.soldProducts || 0 }} | Đơn hàng: {{ overviewData[key]?.totalOrders || 0 }}
           </div>
-          
           <div class="period-sub" style="margin-top: 4px;">
             Hoàn thành: <span class="text-green">{{ overviewData[key]?.completed || 0 }}</span> | 
             Hủy: <span class="text-red">{{ overviewData[key]?.cancelled || 0 }}</span> | 
@@ -122,7 +139,6 @@ onMounted(() => {
               <n-radio-button value="year">Năm nay</n-radio-button>
               <n-radio-button value="custom">Tùy chỉnh</n-radio-button>
             </n-radio-group>
-
             <n-date-picker 
               v-if="filterType === 'custom'" 
               v-model:value="rangeDate" 
@@ -130,19 +146,16 @@ onMounted(() => {
               size="small"
               clearable 
             />
-
             <n-button type="success" @click="handleExportExcel">Xuất báo cáo</n-button>
           </n-space>
         </div>
-
         <n-divider style="margin: 5px 0" />
-
         <n-grid :cols="6" class="filter-stats-row">
           <n-gi>
             <div class="mini-label">Tổng số đơn hàng ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
             <div class="mini-value text-black">{{ currentFilterStats.totalOrders || 0 }}</div>
           </n-gi>
-            <n-gi>
+          <n-gi>
             <div class="mini-label">Số lượng sản phẩm({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
             <div class="mini-value text-black">{{ (currentFilterStats.soldProducts) }}</div>
           </n-gi>
@@ -159,7 +172,13 @@ onMounted(() => {
             <div class="mini-value text-red">{{ (currentFilterStats.cancelled) }}</div>
           </n-gi>
           <n-gi>
-            <div class="mini-label">Tổng doanh thu ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+              <div class="mini-stat-label">DT Dự kiến (Tạm tính)</div>
+              <div class="mini-stat-val" style="color: #8a2be2">
+                 {{ formatMoney(currentFilterStats.expectedRevenue) }}
+              </div>
+           </n-gi>
+          <n-gi>
+            <div class="mini-label">Doanh thu(thực tế) ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
             <div class="mini-value text-green">{{ formatMoney(currentFilterStats.revenue) }}</div>
           </n-gi>
         </n-grid>
@@ -181,32 +200,7 @@ onMounted(() => {
 
     <n-grid :x-gap="16" :cols="12">
       <n-gi span="6">
-        <n-card title="Bảng Thống Kê Chi Tiết" :bordered="false" class="shadow-sm">
-          <n-table :single-line="false" size="small" striped>
-            <thead>
-              <tr>
-                <th>Thời gian</th>
-                <th>Doanh thu</th>
-                <th>Số đơn</th>
-                <th>Giá trị TB</th>
-                <th>Tăng trưởng</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(info, key) in periodMap" :key="key">
-                <td class="font-bold">{{ info.label }}</td>
-                <td class="font-bold">{{ formatMoney(overviewData[key]?.revenue) }}</td>
-                <td>{{ overviewData[key]?.totalOrders || 0 }}</td>
-                <td>{{ formatMoney(overviewData[key]?.revenue / (overviewData[key]?.totalOrders || 1)) }}</td>
-                <td class="text-green">{{ overviewData[key]?.growthRate || '+0%' }}</td>
-              </tr>
-            </tbody>
-          </n-table>
-        </n-card>
-      </n-gi>
-
-      <n-gi span="6">
-        <n-card title="Top sản phẩm bán chạy" :bordered="false" class="shadow-sm">
+        <n-card title="Top sản phẩm bán chạy" :bordered="false" class="shadow-sm h-full">
           <n-table :single-line="false" size="small">
             <thead>
               <tr>
@@ -231,38 +225,125 @@ onMounted(() => {
           </n-table>
         </n-card>
       </n-gi>
-    </n-grid>
+
+      <n-gi span="6">
+        <n-card 
+          title="Tốc độ tăng trưởng" 
+          :bordered="false" 
+          class="shadow-sm h-full"
+          size="small"
+        >
+          <template #header-extra>
+             <n-button quaternary circle size="tiny" @click="fetchGrowthData" :loading="loadingGrowth">
+                <template #icon><Icon icon="carbon:renew" /></template>
+             </n-button>
+          </template>
+
+          <div class="growth-list">
+             <div v-for="(item, index) in growthData" :key="index" class="growth-item">
+                <div class="g-left">
+                   <div class="icon-box" :class="item.type">
+                      <Icon v-if="item.type === 'revenue'" icon="carbon:chart-line-data" />
+                      <Icon v-else-if="item.type === 'order'" icon="carbon:shopping-cart" />
+                      <Icon v-else icon="carbon:box" />
+                   </div>
+                   <span class="g-label">{{ item.label }}</span>
+                </div>
+
+                <div class="g-right">
+                   <span class="g-value">{{ item.value }}</span>
+                   <div class="g-badge" :class="item.isIncrease ? 'bg-inc' : 'bg-dec'">
+                      <Icon v-if="item.isIncrease" icon="carbon:arrow-up" />
+                      <Icon v-else icon="carbon:arrow-down" />
+                      {{ item.percent.toFixed(1) }}%
+                   </div>
+                </div>
+             </div>
+          </div>
+        </n-card>
+      </n-gi>
+      </n-grid>
   </n-space>
 </template>
 
 <style scoped>
+/* CSS CŨ CỦA BẠN (GIỮ NGUYÊN) */
 .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 8px; }
-
-/* Filter styles */
 .filter-header-row { display: flex; justify-content: space-between; align-items: center; }
-.main-title { margin: 0; font-size: 20px; font-weight: 600;  }
+.main-title { margin: 0; font-size: 20px; font-weight: 600; }
 .sub-title { margin: 4px 0 0 0; color: #767c82; font-size: 13px; }
-
 .filter-stats-row .mini-label { color: #767c82; font-size: 13px; margin-bottom: 4px; }
 .filter-stats-row .mini-value { font-size: 18px; font-weight: 700; }
-
-/* Colors */
 .text-green { color: #18a058; }
 .text-blue { color: #2080f0; }
 .text-red { color: #d03050; }
 .text-orange { color: #f0a020; }
 .text-black { color: #000; }
 .font-bold { font-weight: 600; }
-
-/* Table styles - Chữ thường cho dữ liệu */
 th { font-weight: 600 !important; color: #666; }
 td { font-weight: 400 !important; }
-
-/* Card styles */
 .period-card { height: 160px; display: flex; flex-direction: column; justify-content: center; }
 .period-header { color: #666; font-size: 14px; margin-bottom: 8px; font-weight: 600; }
-.period-revenue { font-size: 22px; font-weight: 700;  }
+.period-revenue { font-size: 22px; font-weight: 700; }
 .period-sub { font-size: 11px; color: #999; margin-top: 8px; }
-
 .n-ellipsis { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+.h-full { height: 100%; }
+
+/* --- CSS MỚI CHO PHẦN TĂNG TRƯỞNG (CLEAN LIGHT THEME) --- */
+.growth-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.growth-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid #f0f0f0; /* Kẻ mờ */
+}
+.growth-item:last-child { border-bottom: none; }
+
+.g-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.g-label {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+.icon-box {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.icon-box.revenue { background: #e6f7ff; color: #1890ff; }
+.icon-box.order { background: #f6ffed; color: #52c41a; }
+.icon-box.product { background: #fff7e6; color: #fa8c16; }
+
+.g-right {
+  display: flex;
+  align-items: center;
+}
+
+.g-value {
+  font-size: 13px;
+  font-weight: 600;
+  margin-right: 12px;
+  color: #000;
+}
+
+.g-badge {
+  display: flex; align-items: center; gap: 2px;
+  font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 10px;
+  min-width: 60px; justify-content: center;
+}
+.bg-inc { background: rgba(24, 160, 88, 0.1); color: #18a058; } /* Xanh nhạt */
+.bg-dec { background: rgba(208, 48, 80, 0.1); color: #d03050; } /* Đỏ nhạt */
 </style>

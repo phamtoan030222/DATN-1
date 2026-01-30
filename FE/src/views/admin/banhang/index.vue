@@ -1,880 +1,4 @@
-<template>
-  <div class="main-layout">
-    <div class="left-column">
-      <div class="top-header">
-        <div class="search-and-create-section">
-          <n-button type="primary" @click="createInvoice" class="btn-create-new-invoice">
-            <template #icon>
-              <n-icon>
-                <AddCircleOutline />
-              </n-icon>
-            </template>
-            Tạo hóa đơn mới
-          </n-button>
-        </div>
-      </div>
 
-      <n-card class="card" size="small">
-        <template #header>
-          <n-text type="primary" strong>Hóa đơn chờ</n-text>
-        </template>
-        <div class="pending-invoices-container">
-          <n-scrollbar x-scrollable>
-            <div class="pending-invoices-wrapper">
-              <n-space :wrap="false">
-                <div v-for="tab in tabs" :key="tab.id"
-                  :class="['pending-invoice-card', { active: activeTab === tab.id }]"
-                  @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)">
-                  <div class="invoice-header">
-                    <n-text strong>{{ tab.ma }}</n-text>
-                    <n-popconfirm
-    :show-icon="false"
-    positive-text="Xác nhận hủy"
-    negative-text="Hủy bỏ"
-    @positive-click="() => huy(tab.idHD)"
-    @negative-click="() => {}"
-  >
-    <template #trigger>
-      <n-button 
-        text 
-        type="error" 
-        size="tiny" 
-        class="delete-invoice-btn"
-        @click.stop
-      >
-        <n-icon>
-          <TrashOutline />
-        </n-icon>
-      </n-button>
-    </template>
-    <div class="popconfirm-content">
-      <n-text strong style="display: block; margin-bottom: 8px;">
-        Xác nhận hủy hóa đơn
-      </n-text>
-      <n-text depth="3" style="font-size: 14px;">
-        Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.ma }}</strong>?<br>
-        Hành động này không thể hoàn tác.
-      </n-text>
-    </div>
-  </n-popconfirm>
-                  </div>
-                  <n-space vertical :size="4">
-                    <n-tag type="warning" size="small" round>Chờ xử lý</n-tag>
-                    <n-text depth="3">{{ tab.soLuong || 0 }} sản phẩm</n-text>
-                  </n-space>
-                </div>
-              </n-space>
-            </div>
-          </n-scrollbar>
-        </div>
-      </n-card>
-
-      <n-card class="card" size="small">
-        <template #header>
-          <n-text type="primary" strong>Giỏ hàng</n-text>
-        </template>
-        <template #header-extra>
-          <n-space>
-            <n-button type="primary" size="small" @click="openProductSelectionModal">
-              Chọn sản phẩm
-            </n-button>
-            <!-- <n-button type="primary" size="small" @click="openQrModal">
-              <template #icon>
-                <n-icon>
-                  <QrCodeOutline />
-                </n-icon>
-              </template>
-              Quét QR
-            </n-button> -->
-          </n-space>
-        </template>
-        <div v-if="state.gioHang.length > 0">
-          <n-data-table :columns="columnsGiohang" :data="state.gioHang" :max-height="280" size="small"
-            :pagination="{ pageSize: 5 }" />
-        </div>
-        <n-empty v-else description="Không có sản phẩm nào trong giỏ hàng" size="small" />
-      </n-card>
-
-      <n-card v-if="isDeliveryEnabled" class="card" size="small">
-        <template #header>
-          <n-text type="primary" strong>Thông tin người nhận</n-text>
-        </template>
-        <n-form ref="deliveryForm" :model="deliveryInfo" label-placement="left" :label-width="140">
-          <n-grid :cols="12" :x-gap="12" :y-gap="12">
-            <n-form-item-gi :span="6" path="tenNguoiNhan" label="Tên người nhận" required>
-              <n-input v-model:value="deliveryInfo.tenNguoiNhan" placeholder="Nhập tên người nhận" clearable />
-            </n-form-item-gi>
-
-            <n-form-item-gi :span="6" path="sdtNguoiNhan" label="Số điện thoại" required>
-              <n-input v-model:value="deliveryInfo.sdtNguoiNhan" placeholder="Nhập số điện thoại" clearable />
-            </n-form-item-gi>
-
-            <n-form-item-gi :span="4" path="tinhThanhPho" label="Tỉnh/Thành phố" required>
-              <n-select v-model:value="deliveryInfo.tinhThanhPho" placeholder="Chọn tỉnh/thành phố" :options="provinces"
-                @update:value="onProvinceChange" filterable clearable />
-            </n-form-item-gi>
-
-            <n-form-item-gi :span="4" path="quanHuyen" label="Quận/Huyện" required>
-              <n-select v-model:value="deliveryInfo.quanHuyen" placeholder="Chọn quận/huyện" :options="districts"
-                @update:value="onDistrictChange" filterable clearable />
-            </n-form-item-gi>
-
-            <n-form-item-gi :span="4" path="phuongXa" label="Phường/Xã" required>
-              <n-select v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards"
-                @update:value="onWardChange" filterable clearable />
-            </n-form-item-gi>
-
-            <n-form-item-gi :span="12" path="diaChiCuThe" label="Địa chỉ cụ thể" required>
-              <n-input v-model:value="deliveryInfo.diaChiCuThe" placeholder="Nhập số nhà, tên đường..." clearable />
-            </n-form-item-gi>
-
-            <n-form-item-gi :span="12" path="ghiChu" label="Ghi chú">
-              <n-input v-model:value="deliveryInfo.ghiChu" type="textarea" placeholder="Nhập ghi chú (nếu có)"
-                :rows="3" />
-            </n-form-item-gi>
-          </n-grid>
-        </n-form>
-      </n-card>
-    </div>
-
-    <div class="right-column">
-      <n-card class="card" size="small">
-        <template #header>
-          <n-text type="primary" strong>Khách hàng</n-text>
-        </template>
-        <div v-if="state.detailKhachHang">
-          <n-space vertical :size="16">
-            <div>
-              <n-text depth="3">Tên khách hàng</n-text>
-              <n-input :value="state.detailKhachHang.ten" readonly class="mt-1" />
-            </div>
-            <div>
-              <n-text depth="3">Số điện thoại</n-text>
-              <n-input :value="state.detailKhachHang.sdt" readonly class="mt-1" />
-            </div>
-          </n-space>
-        </div>
-        <div v-else>
-          <n-space vertical :size="16">
-            <div>
-              <n-text depth="3">Tên khách hàng</n-text>
-              <n-input v-model:value="newCustomer.ten" placeholder="Tên khách hàng" class="mt-1" />
-            </div>
-            <div>
-              <n-text depth="3">Số điện thoại</n-text>
-              <n-input v-model:value="newCustomer.sdt" placeholder="Số điện thoại" class="mt-1" />
-            </div>
-          </n-space>
-        </div>
-        <template #footer>
-          <n-space>
-            <n-button type="primary" @click="showKhachHangModal = true" secondary>
-              Chọn khách hàng
-            </n-button>
-            <n-button type="primary" @click="addCustomer" :loading="addCustomerLoading" secondary>
-              Thêm khách hàng
-            </n-button>
-          </n-space>
-        </template>
-      </n-card>
-
-      <n-card v-if="state.autoVoucherResult?.voucherApDung?.length > 0" class="card" size="small"
-        :segmented="{ content: true }">
-        <template #header>
-          <n-space align="center" justify="space-between" style="width: 100%">
-            <n-text type="primary" strong>
-              <n-icon :component="TicketOutline" style="margin-right: 6px;" />
-              Voucher khả dụng
-            </n-text>
-            <n-tag type="success" size="small" round>
-              {{ state.autoVoucherResult.voucherApDung.length }} mã
-            </n-tag>
-          </n-space>
-        </template>
-
-        <!-- Voucher đang được áp dụng -->
-        <div v-if="selectedVoucher" class="current-voucher-section mb-3">
-          <n-alert type="success" :show-icon="true" title="Đang áp dụng">
-            <n-space vertical :size="8">
-              <n-space justify="space-between" align="center">
-                <n-text strong>{{ selectedVoucher.code }}</n-text>
-                <n-tag type="success" size="small">
-                  {{ selectedVoucher.typeVoucher === 'PERCENTAGE' ? `${selectedVoucher.discountValue}%` : 'Giảm cố định'
-                  }}
-                </n-tag>
-              </n-space>
-              <n-space justify="space-between">
-                <n-text depth="3">Giá trị giảm:</n-text>
-                <n-text type="success" strong>
-                  -{{ formatCurrency(selectedVoucher.giamGiaThucTe) }}
-                </n-text>
-              </n-space>
-              <n-space justify="space-between" v-if="selectedVoucher.dieuKien > 0">
-                <n-text depth="3">Điều kiện:</n-text>
-                <n-text depth="3">{{ formatCurrency(selectedVoucher.dieuKien) }}</n-text>
-              </n-space>
-            </n-space>
-          </n-alert>
-        </div>
-
-        <!-- Danh sách voucher có thể áp dụng -->
-        <n-scrollbar style="max-height: 200px;">
-          <n-list size="small" bordered>
-            <n-list-item v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId"
-              :class="{ 'active-voucher': selectedVoucher?.voucherId === voucher.voucherId }">
-              <n-thing :title="voucher.code">
-                <template #avatar>
-                  <n-tag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
-                    {{ voucher.typeVoucher === 'PERCENTAGE' ? `${voucher.discountValue}%` : 'Cố định' }}
-                  </n-tag>
-                </template>
-                <template #description>
-                  <n-space vertical :size="3" style="margin-top: 4px">
-                    <n-space justify="space-between">
-                      <n-text depth="3" size="small">Giảm:</n-text>
-                      <n-text strong class="text-success" size="small">
-                        {{ formatCurrency(voucher.giamGiaThucTe) }}
-                      </n-text>
-                    </n-space>
-                    <n-space justify="space-between" v-if="voucher.dieuKien > 0">
-                      <n-text depth="3" size="small">Điều kiện:</n-text>
-                      <n-text depth="3" size="small">{{ formatCurrency(voucher.dieuKien) }}</n-text>
-                    </n-space>
-                    <n-space justify="space-between" v-if="voucher.maxValue">
-                      <n-text depth="3" size="small">Tối đa:</n-text>
-                      <n-text depth="3" size="small">{{ formatCurrency(voucher.maxValue) }}</n-text>
-                    </n-space>
-                  </n-space>
-                </template>
-              </n-thing>
-              <template #suffix>
-                <n-button type="primary" size="small" @click="selectVoucher(voucher)"
-                  :disabled="selectedVoucher?.voucherId === voucher.voucherId"
-                  :loading="applyingVoucher === voucher.voucherId">
-                  {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
-                </n-button>
-              </template>
-            </n-list-item>
-          </n-list>
-        </n-scrollbar>
-
-        <template #footer>
-          <n-space justify="space-between" align="center" style="width: 100%">
-            <n-text depth="3" size="small">
-              Tự động chọn voucher tốt nhất
-            </n-text>
-            <n-button @click="removeVoucher" type="error" size="tiny" text v-if="selectedVoucher">
-              Bỏ chọn
-            </n-button>
-          </n-space>
-        </template>
-      </n-card>
-
-      <!-- CARD GỢI Ý MUA THÊM (THÊM MỚI) -->
-      <n-card v-if="state.autoVoucherResult?.voucherTotHon?.length > 0" class="card" size="small"
-        :segmented="{ content: true }">
-        <template #header>
-          <n-space align="center" justify="space-between" style="width: 100%">
-            <n-text type="primary" strong>
-              <n-icon :component="RocketOutline" style="margin-right: 6px;" />
-              Gợi ý mua thêm
-            </n-text>
-            <n-tag type="warning" size="small" round>
-              {{ state.autoVoucherResult.voucherTotHon.length }} đề xuất
-            </n-tag>
-          </n-space>
-        </template>
-
-        <n-scrollbar style="max-height: 250px;">
-          <n-list size="small" bordered>
-            <n-list-item v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon"
-              :key="suggestion.voucherId" :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }">
-              <n-thing :title="suggestion.code">
-                <template #avatar>
-                  <n-tag :type="getSuggestionTagType(suggestion.hieuQua)" size="small" round>
-                    {{ suggestion.hieuQua }}%
-                  </n-tag>
-                </template>
-                <template #description>
-                  <n-space vertical :size="4" style="margin-top: 4px">
-                    <n-space justify="space-between">
-                      <n-text depth="3" size="small">Cần mua thêm:</n-text>
-                      <n-text strong class="text-warning" size="small">
-                        {{ formatCurrency(suggestion.canMuaThem) }}
-                      </n-text>
-                    </n-space>
-                    <n-space justify="space-between">
-                      <n-text depth="3" size="small">Giảm thêm:</n-text>
-                      <n-text strong class="text-success" size="small">
-                        +{{ formatCurrency(suggestion.giamThem) }}
-                      </n-text>
-                    </n-space>
-                    <n-space justify="space-between">
-                      <n-text depth="3" size="small">Tổng giảm mới:</n-text>
-                      <n-text strong class="text-success" size="small">
-                        {{ formatCurrency(suggestion.giamGiaMoi) }}
-                      </n-text>
-                    </n-space>
-                    <n-space justify="space-between">
-                      <n-text depth="3" size="small">Điều kiện:</n-text>
-                      <n-text depth="3" size="small">{{ formatCurrency(suggestion.dieuKien) }}</n-text>
-                    </n-space>
-                  </n-space>
-                </template>
-              </n-thing>
-              <template #suffix>
-                <n-space vertical :size="4" style="align-items: flex-end;">
-                  <n-button type="warning" size="small" @click="showSuggestionDetail(suggestion)"
-                    :loading="applyingBetterVoucher === suggestion.voucherId">
-                    Chi tiết
-                  </n-button>
-                  <n-text v-if="suggestion.hieuQua >= 50" type="error" size="tiny" strong>
-                    Rất hiệu quả!
-                  </n-text>
-                </n-space>
-              </template>
-            </n-list-item>
-          </n-list>
-        </n-scrollbar>
-
-        <template #footer>
-          <n-text depth="3" size="small">
-            <n-icon :component="InformationCircleOutline" style="margin-right: 4px;" />
-            Hiệu quả: % giảm thêm trên số tiền mua thêm
-          </n-text>
-        </template>
-      </n-card>
-
-      <!-- CARD THÔNG TIN ĐƠN HÀNG (CẬP NHẬT) -->
-      <n-card class="card" size="small">
-        <template #header>
-          <n-space justify="space-between" align="center" style="width: 100%">
-            <n-text type="primary" strong>Thông tin đơn hàng</n-text>
-            <n-space align="center">
-              <n-text depth="3">Giao hàng</n-text>
-              <n-switch v-model:value="isDeliveryEnabled" @update:value="giaoHang" size="small" />
-              <n-button type="primary" size="small" @click="triggerAutoApplyVoucher" :loading="autoApplying" secondary
-                circle>
-                <template #icon>
-                  <n-icon>
-                    <RocketOutline />
-                  </n-icon>
-                </template>
-              </n-button>
-            </n-space>
-          </n-space>
-        </template>
-
-        <n-space vertical :size="16">
-          <!-- Phần chọn voucher -->
-          <div>
-            <n-text depth="3">Mã giảm giá</n-text>
-            <n-space align="center" class="mt-1">
-              <n-input v-model:value="selectedDiscountCode" placeholder="Chọn mã giảm giá" readonly style="flex: 1">
-                <template #prefix>
-                  <n-icon :component="TicketOutline" />
-                </template>
-              </n-input>
-              <n-button @click="removeVoucher" type="error" size="small" secondary v-if="selectedVoucher">
-                Bỏ chọn
-              </n-button>
-            </n-space>
-
-            <!-- Thông báo voucher tốt hơn -->
-            <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
-              <n-alert type="warning" size="small" :show-icon="true">
-                <template #icon>
-                  <n-icon>
-                    <AlertCircleOutline />
-                  </n-icon>
-                </template>
-                Có voucher tốt hơn!
-                <n-button text type="primary" size="tiny" @click="applyBestSuggestion">
-                  Xem ngay
-                </n-button>
-              </n-alert>
-            </div>
-          </div>
-
-          <n-divider style="margin: 8px 0" />
-
-          <!-- Tổng tiền chi tiết -->
-          <n-space vertical :size="12">
-            <n-space justify="space-between">
-              <n-text depth="3">Tổng tiền hàng:</n-text>
-              <n-text strong>{{ formatCurrency(tienHang) }}</n-text>
-            </n-space>
-
-            <n-space v-if="giamGia > 0" justify="space-between">
-              <n-text depth="3">Đợt giảm giá:</n-text>
-              <n-text type="success">-{{ formatCurrency(giamGia) }}</n-text>
-            </n-space>
-
-            <n-space v-if="giamGia > 0" justify="space-between">
-              <n-text depth="3">Giảm giá:</n-text>
-              <n-text type="success">-{{ formatCurrency(giamGia) }}</n-text>
-            </n-space>
-
-            <!-- Phí vận chuyển -->
-            <template v-if="isDeliveryEnabled">
-              <n-space justify="space-between" align="center">
-                <n-text depth="3">Phí vận chuyển:</n-text>
-                <n-space align="center">
-                  <n-input-number v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
-                    :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 120px" />
-                  <img src="/images/ghn-logo.webp" alt="GHN Logo" style="height: 20px" />
-                </n-space>
-              </n-space>
-              <n-alert v-if="isFreeShipping" type="success" size="small" show-icon>
-                Miễn phí vận chuyển (Đơn hàng trên 5,000,000 VND)
-              </n-alert>
-            </template>
-
-            <n-divider style="margin: 8px 0" />
-
-            <!-- Tổng cuối cùng -->
-            <n-space justify="space-between">
-              <n-text strong size="large">Tổng thanh toán:</n-text>
-              <n-text strong type="primary" size="large">
-                {{ formatCurrency(tongTien) }}
-              </n-text>
-            </n-space>
-
-            <!-- Tiết kiệm được -->
-            <n-alert v-if="giamGia > 0" type="success" size="small" show-icon>
-              <n-space justify="space-between" align="center">
-                <span>Bạn tiết kiệm được:</span>
-                <n-text strong type="success">
-                  {{ formatCurrency(giamGia) }}
-                </n-text>
-              </n-space>
-            </n-alert>
-          </n-space>
-
-          <n-divider style="margin: 12px 0" />
-
-          <!-- Phương thức thanh toán -->
-          <n-space vertical :size="8">
-            <n-text depth="3">Phương thức thanh toán:</n-text>
-            <n-space>
-              <n-button :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small"
-                @click="handlePaymentMethod('0')" secondary>
-                Tiền mặt
-              </n-button>
-              <n-button :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'" size="small"
-                @click="handlePaymentMethod('1')" secondary>
-                Chuyển khoản
-              </n-button>
-            </n-space>
-          </n-space>
-
-          <!-- Nút xác nhận thanh toán -->
-          <n-popconfirm @positive-click="xacNhan(0)" positive-text="Đồng ý" negative-text="Hủy">
-            <template #trigger>
-              <n-button type="primary" size="large" style="width: 100%; margin-top: 8px">
-                Xác nhận thanh toán
-              </n-button>
-            </template>
-            <n-text depth="3">Bạn có chắc chắn muốn xác nhận thanh toán hóa đơn này?</n-text>
-          </n-popconfirm>
-        </n-space>
-      </n-card>
-    </div>
-
-    <!-- MODAL CHI TIẾT GỢI Ý (THÊM MỚI) -->
-    <n-modal v-model:show="showSuggestionDetailModal" preset="dialog" title="Chi tiết voucher tốt hơn"
-      style="width: 500px">
-      <n-card v-if="selectedSuggestion" size="small">
-        <n-space vertical :size="16">
-          <n-space justify="space-between" align="center">
-            <n-text strong size="large">{{ selectedSuggestion.code }}</n-text>
-            <n-tag :type="getSuggestionTagType(selectedSuggestion.hieuQua)" size="medium">
-              Hiệu quả: {{ selectedSuggestion.hieuQua }}%
-            </n-tag>
-          </n-space>
-
-          <n-divider />
-
-          <n-space vertical :size="12">
-            <n-space justify="space-between">
-              <n-text depth="3">Tổng tiền hiện tại:</n-text>
-              <n-text strong>{{ formatCurrency(tienHang) }}</n-text>
-            </n-space>
-
-            <n-space justify="space-between">
-              <n-text depth="3">Cần đạt tổng:</n-text>
-              <n-text strong class="text-primary">
-                {{ formatCurrency(selectedSuggestion.dieuKien) }}
-              </n-text>
-            </n-space>
-
-            <n-space justify="space-between">
-              <n-text depth="3">Cần mua thêm:</n-text>
-              <n-text strong class="text-warning">
-                {{ formatCurrency(selectedSuggestion.canMuaThem) }}
-              </n-text>
-            </n-space>
-
-            <n-divider />
-
-            <n-space justify="space-between">
-              <n-text depth="3">Giảm giá hiện tại:</n-text>
-              <n-text depth="3">{{ formatCurrency(giamGia) }}</n-text>
-            </n-space>
-
-            <n-space justify="space-between">
-              <n-text depth="3">Giảm giá mới:</n-text>
-              <n-text strong class="text-success">
-                {{ formatCurrency(selectedSuggestion.giamGiaMoi) }}
-              </n-text>
-            </n-space>
-
-            <n-space justify="space-between">
-              <n-text depth="3">Được thêm:</n-text>
-              <n-text strong class="text-success">
-                +{{ formatCurrency(selectedSuggestion.giamThem) }}
-              </n-text>
-            </n-space>
-          </n-space>
-
-          <n-divider />
-
-          <n-space justify="space-between" align="center">
-            <n-text depth="3" size="small">
-              Mua thêm <strong>{{ formatCurrency(selectedSuggestion.canMuaThem) }}</strong>
-              để được giảm thêm <strong>{{ formatCurrency(selectedSuggestion.giamThem) }}</strong>
-            </n-text>
-            <n-button type="primary" @click="applySuggestionVoucher">
-              Áp dụng khi đủ điều kiện
-            </n-button>
-          </n-space>
-        </n-space>
-      </n-card>
-    </n-modal>
-
-    <!-- MODAL CHỌN VOUCHER (CẬP NHẬT) -->
-    <n-modal v-model:show="showDiscountModal" preset="dialog" title="Chọn mã giảm giá" style="width: 700px"
-      :mask-closable="false">
-      <n-card size="small" :bordered="false">
-        <n-tabs type="segment" v-model:value="discountTab">
-          <n-tab-pane name="auto" tab="Voucher khả dụng">
-            <div v-if="state.autoVoucherResult?.voucherApDung?.length > 0">
-              <n-scrollbar style="max-height: 400px;">
-                <n-list bordered class="discount-list">
-                  <n-list-item v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId">
-                    <n-thing :title="voucher.code">
-                      <template #avatar>
-                        <n-tag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
-                          {{ voucher.typeVoucher === 'PERCENTAGE' ? `${voucher.discountValue}%` : 'Cố định' }}
-                        </n-tag>
-                      </template>
-                      <template #description>
-                        <n-space vertical :size="3" style="margin-top: 4px">
-                          <n-text depth="3" size="small">Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}</n-text>
-                          <n-text depth="3" size="small" v-if="voucher.dieuKien > 0">
-                            Điều kiện: {{ formatCurrency(voucher.dieuKien) }}
-                          </n-text>
-                          <n-text depth="3" size="small" v-if="voucher.maxValue">
-                            Tối đa: {{ formatCurrency(voucher.maxValue) }}
-                          </n-text>
-                        </n-space>
-                      </template>
-                    </n-thing>
-                    <template #suffix>
-                      <n-button type="primary" size="small" @click="selectVoucher(voucher)"
-                        :disabled="selectedVoucher?.voucherId === voucher.voucherId">
-                        {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
-                      </n-button>
-                    </template>
-                  </n-list-item>
-                </n-list>
-              </n-scrollbar>
-            </div>
-            <n-empty v-else description="Không có voucher nào phù hợp" />
-          </n-tab-pane>
-
-          <n-tab-pane name="suggestions" tab="Gợi ý mua thêm" v-if="state.autoVoucherResult?.voucherTotHon?.length > 0">
-            <n-scrollbar style="max-height: 400px;">
-              <n-list bordered class="discount-list">
-                <n-list-item v-for="suggestion in state.autoVoucherResult.voucherTotHon" :key="suggestion.voucherId">
-                  <n-thing :title="suggestion.code">
-                    <template #avatar>
-                      <n-tag :type="getSuggestionTagType(suggestion.hieuQua)" size="small" round>
-                        {{ suggestion.hieuQua }}%
-                      </n-tag>
-                    </template>
-                    <template #description>
-                      <n-space vertical :size="3" style="margin-top: 4px">
-                        <n-text depth="3" size="small">Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem)
-                        }}</n-text>
-                        <n-text depth="3" size="small">Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}</n-text>
-                        <n-text depth="3" size="small">Điều kiện: {{ formatCurrency(suggestion.dieuKien) }}</n-text>
-                      </n-space>
-                    </template>
-                  </n-thing>
-                  <template #suffix>
-                    <n-button type="warning" size="small" @click="showSuggestionDetail(suggestion)">
-                      Chi tiết
-                    </n-button>
-                  </template>
-                </n-list-item>
-              </n-list>
-            </n-scrollbar>
-          </n-tab-pane>
-        </n-tabs>
-      </n-card>
-      <template #action>
-        <n-space justify="end">
-          <n-button @click="removeVoucher" v-if="selectedVoucher">Bỏ chọn</n-button>
-          <n-button @click="triggerAutoApplyVoucher" type="primary" :loading="autoApplying">
-            Tìm lại voucher
-          </n-button>
-          <n-button @click="showDiscountModal = false">Đóng</n-button>
-        </n-space>
-      </template>
-    </n-modal>
-  </div>
-
-  <!-- Modals -->
-  <n-modal v-model:show="showProductModal" preset="dialog" title="Chọn sản phẩm" style="width: 90%; max-width: 1400px"
-    :mask-closable="false">
-    <n-card size="small" :bordered="false">
-      <template #header>
-        <n-space vertical :size="12">
-          <!-- Hàng 1: Tìm kiếm và khoảng giá -->
-          <n-grid :cols="24" :x-gap="12" :y-gap="12">
-            <!-- Ô tìm kiếm -->
-            <n-gi :span="12">
-              <n-input v-model:value="localSearchQuery" placeholder="Tìm kiếm sản phẩm..." clearable />
-            </n-gi>
-
-            <!-- Khoảng giá với slider -->
-            <n-gi :span="12">
-              <n-form-item label="Khoảng giá" label-placement="left">
-                <n-space vertical :size="12" style="width: 100%">
-                  <n-slider v-model:value="priceRange" range :step="100000" :min="stateMinMaxPrice.priceMin"
-                    :max="stateMinMaxPrice.priceMax" :format-tooltip="formatTooltipRangePrice" style="width: 100%" />
-                  <n-space justify="space-between" style="width: 100%">
-                    <n-text depth="3">{{ formatCurrency(priceRange[0]) }}</n-text>
-                    <n-text depth="3">{{ formatCurrency(priceRange[1]) }}</n-text>
-                  </n-space>
-                </n-space>
-              </n-form-item>
-            </n-gi>
-          </n-grid>
-
-          <!-- Hàng 2: 6 combobox filter -->
-          <n-grid :cols="24" :x-gap="12" :y-gap="12">
-            <n-gi :span="4">
-              <n-select v-model:value="localColor" :options="ColorOptions" placeholder="Màu sắc" clearable />
-            </n-gi>
-            <n-gi :span="4">
-              <n-select v-model:value="localCPU" :options="CpuOptions" placeholder="CPU" clearable />
-            </n-gi>
-            <n-gi :span="4">
-              <n-select v-model:value="localGPU" :options="GpuOptions" placeholder="GPU" clearable />
-            </n-gi>
-            <n-gi :span="4">
-              <n-select v-model:value="localRAM" :options="RamOptions" placeholder="RAM" clearable />
-            </n-gi>
-            <n-gi :span="4">
-              <n-select v-model:value="localHardDrive" :options="HardDriveOptions" placeholder="Ổ cứng" clearable />
-            </n-gi>
-            <n-gi :span="4">
-              <n-select v-model:value="localSelectedMaterial" :options="MaterialOptions" placeholder="Chất liệu"
-                clearable />
-            </n-gi>
-          </n-grid>
-
-          <!-- Hàng 3: Nút reset -->
-          <n-grid :cols="24" :x-gap="12">
-            <n-gi :span="24">
-              <n-space justify="end">
-                <n-button @click="resetFilters" type="default" size="small" secondary>
-                  <template #icon>
-                    <n-icon>
-                      <ReloadOutline />
-                    </n-icon>
-                  </template>
-                  Đặt lại bộ lọc
-                </n-button>
-              </n-space>
-            </n-gi>
-          </n-grid>
-        </n-space>
-      </template>
-      <n-data-table :columns="columns" :data="stateSP.products" :max-height="400" size="small" :pagination="{
-        page: stateSP.paginationParams.page,
-        pageSize: stateSP.paginationParams.size,
-        pageCount: Math.ceil(stateSP.totalItems / stateSP.paginationParams.size),
-        showSizePicker: true,
-        pageSizes: [10, 20, 30, 40, 50]
-      }" @update:page="handlePageChange" @update:page-size="handlePageSizeChange" />
-    </n-card>
-  </n-modal>
-
-  <!-- Modal chọn serial -->
-  <n-modal v-model:show="showSerialModal" preset="dialog" title="Chọn Serial Sản Phẩm"
-    style="width: 90%; max-width: 1200px" :mask-closable="false">
-    <n-card size="small" :bordered="false">
-      <template #header>
-        <n-space align="center" justify="space-between" class="serial-modal-header">
-          <div>
-            <n-text strong>{{ selectedProductDetail?.name }} - {{ selectedProductDetail?.code }}</n-text>
-            <n-text depth="3" size="small" style="display: block; margin-top: 4px">
-              Giá: {{ formatCurrency(selectedProductDetail?.price || 0) }}
-            </n-text>
-          </div>
-          <div style="text-align: right">
-            <n-text type="primary" strong>
-              Còn {{ availableSerialsCount }} serial khả dụng
-            </n-text>
-            <n-text depth="3" size="small" style="display: block; margin-top: 4px">
-              Tổng: {{ selectedSerials.length }} serial
-            </n-text>
-          </div>
-        </n-space>
-      </template>
-
-      <!-- Thêm loading state -->
-      <div v-if="loadingSerials" style="text-align: center; padding: 40px">
-        <n-spin size="large">
-          <template #description>
-            Đang tải danh sách serial...
-          </template>
-        </n-spin>
-      </div>
-
-      <!-- Data table khi có dữ liệu -->
-      <n-data-table v-else :columns="serialColumns" :data="selectedSerials" :max-height="400" size="small"
-        :pagination="{ pageSize: 10 }" :loading="loadingSerials" :bordered="false" />
-
-      <template #footer>
-        <n-space justify="space-between" align="center" style="width: 100%">
-          <n-text depth="3">
-            Đã chọn {{ selectedSerialIds.length }} serial
-          </n-text>
-          <n-space>
-            <n-button @click="showSerialModal = false">Hủy</n-button>
-            <n-button type="primary" @click="addSerialToCart"
-              :disabled="selectedSerialIds.length === 0 || loadingSerials" :loading="loadingSerials">
-              Thêm {{ selectedSerialIds.length }} serial vào giỏ
-            </n-button>
-          </n-space>
-        </n-space>
-      </template>
-    </n-card>
-  </n-modal>
-
-  <n-modal v-model:show="showKhachHangModal" preset="dialog" title="Chọn khách hàng"
-    style="width: 90%; max-width: 1000px" :mask-closable="false">
-    <n-card size="small" :bordered="false">
-      <n-space vertical :size="16">
-        <n-input v-model:value="customerSearchQuery" placeholder="Tìm kiếm theo tên hoặc số điện thoại..." clearable>
-          <template #prefix>
-            <n-icon>
-              <SearchOutline />
-            </n-icon>
-          </template>
-        </n-input>
-
-        <n-data-table :columns="columnsKhachHang" :data="state.khachHang" :max-height="400" size="small" :pagination="{
-          page: state.paginationParams.page,
-          pageSize: state.paginationParams.size,
-          pageCount: Math.ceil(state.totalItemsKH / state.paginationParams.size),
-          showSizePicker: true,
-          pageSizes: [10, 20, 30, 40, 50]
-        }" @update:page="handleCustomerPageChange" @update:page-size="handleCustomerPageSizeChange" />
-      </n-space>
-    </n-card>
-  </n-modal>
-
-  <n-modal v-model:show="isBothPaymentModalVisible" preset="dialog" title="Thanh toán kết hợp" positive-text="Xác nhận"
-    negative-text="Hủy" @positive-click="confirmBothPayment" @negative-click="closeBothPaymentModal"
-    :loading="bothPaymentLoading">
-    <n-space vertical :size="16">
-      <n-text depth="3">Quét QR để thanh toán phần còn lại</n-text>
-      <n-image src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
-      <n-form :model="paymentForm">
-        <n-form-item label="Số tiền khách đưa (VND)" path="amountPaid">
-          <n-input-number v-model:value="amountPaid" placeholder="Nhập số tiền" style="width: 100%" :min="0" />
-        </n-form-item>
-      </n-form>
-      <n-space vertical :size="8">
-        <n-space justify="space-between">
-          <n-text depth="3">Tổng tiền khách đã trả:</n-text>
-          <n-text strong>
-            {{ formatCurrency(tienKhachThanhToan + (amountPaid || 0)) }}
-          </n-text>
-        </n-space>
-        <n-space justify="space-between">
-          <n-text depth="3">Tiền còn thiếu:</n-text>
-          <n-text type="error" strong>
-            {{ formatCurrency(Math.max(0, tongTien - (tienKhachThanhToan + (amountPaid || 0)))) }}
-          </n-text>
-        </n-space>
-      </n-space>
-    </n-space>
-  </n-modal>
-
-  <n-modal v-model:show="isQrVNpayModalVisible" preset="dialog" title="Quét QR thanh toán" positive-text="Đã thanh toán"
-    @positive-click="closeQrModalVnPay" :mask-closable="false">
-    <n-space vertical align="center" :size="16">
-      <n-text depth="3">Quét mã QR để thanh toán qua VNPay</n-text>
-      <n-image src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
-    </n-space>
-  </n-modal>
-
-  <n-modal v-model:show="showDeliveryModal" preset="dialog" title="Áp dụng phiếu giảm giá tốt hơn"
-    positive-text="Áp dụng" negative-text="Không" @positive-click="confirmQuantityP" @negative-click="closeModalP"
-    :mask-closable="false">
-    <n-space vertical align="center" :size="16">
-      <n-text>Đang có một phiếu giảm giá tốt hơn</n-text>
-      <n-text type="primary" strong>{{ phieuNgon }}</n-text>
-      <n-text depth="3">Bạn có muốn áp dụng không?</n-text>
-    </n-space>
-  </n-modal>
-
-  <n-modal v-model:show="isQrModalVisible" preset="dialog" title="Quét mã QR sản phẩm" :mask-closable="false"
-    @after-leave="stopQrScanning">
-    <n-card size="small" :bordered="false">
-      <div id="reader" style="width: 100%; max-width: 400px; margin: 0 auto;"></div>
-      <n-alert v-if="!hasCamera" type="error" title="Lỗi camera" class="mt-2">
-        Không tìm thấy camera hoặc không có quyền truy cập camera.
-      </n-alert>
-    </n-card>
-  </n-modal>
-
-  <n-modal v-model:show="showDiscountModal" preset="dialog" title="Chọn mã giảm giá" style="width: 600px"
-    :mask-closable="false">
-    <n-card size="small" :bordered="false">
-      <n-list v-if="state.discountList.length > 0" class="discount-list">
-        <n-list-item v-for="item in state.discountList" :key="item.id">
-          <n-thing :title="item.ma" :description="item.ten">
-            <template #avatar>
-              <n-tag type="success" size="small">{{ formatCurrency(item.giaTriGiamThucTe) }}</n-tag>
-            </template>
-          </n-thing>
-          <template #suffix>
-            <n-button type="primary" size="small" @click="selectDiscount(item)"
-              :disabled="!!selectedDiscount && selectedDiscount.id === item.id">
-              {{ selectedDiscount?.id === item.id ? 'Đã chọn' : 'Chọn' }}
-            </n-button>
-          </template>
-        </n-list-item>
-      </n-list>
-      <n-empty v-else description="Không có mã giảm giá nào phù hợp" />
-    </n-card>
-    <template #action>
-      <n-space justify="end">
-        <n-button @click="resetDiscount" v-if="selectedDiscount">Bỏ chọn</n-button>
-        <n-button @click="showDiscountModal = false">Đóng</n-button>
-      </n-space>
-    </template>
-  </n-modal>
-</template>
-
-deleteProduc
 <script setup lang="ts">
 import { ref, onMounted, reactive, watch, nextTick, h, computed } from 'vue'
 import { toast } from 'vue3-toastify'
@@ -1243,6 +367,8 @@ const maxProductPrice = computed(() => {
   const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
   return prices.length > 0 ? Math.max(...prices) : 0
 })
+
+
 
 // Tính số lượng serial khả dụng
 const availableSerialsCount = computed(() => {
@@ -1668,7 +794,7 @@ const checkFromDistrictAndWard = async () => {
     const districtExists = response.data?.some((d: any) => d.DistrictID === FROM_DISTRICT_ID) || false
     if (!districtExists) {
       console.error(`FROM_DISTRICT_ID ${FROM_DISTRICT_ID} không hợp lệ!`)
-      toast.error('Mã quận/huyện nguồn không hợp lệ.')
+//      toast.error('Mã quận/huyện nguồn không hợp lệ.')
       return false
     }
     const wardResponse = await getGHNWards(FROM_DISTRICT_ID, GHN_API_TOKEN)
@@ -3517,12 +2643,11 @@ const debouncedFetchProducts = debounce(async () => {
   await fetchProducts()
 }, 300)
 
-
 watch(() => state.gioHang, calculateTotalAmounts, { deep: true })
-watch(giamGia, calculateTotalAmounts);
-watch(shippingFee, calculateTotalAmounts);
+watch(giamGia, calculateTotalAmounts)
+watch(shippingFee, calculateTotalAmounts)
 
-const capNhatDanhSach = async () => {
+async function capNhatDanhSach() {
   const response = await GetHoaDons()
   if (response && Array.isArray(response)) {
     tabs.value = response.map((invoice, index) => ({
@@ -3531,12 +2656,591 @@ const capNhatDanhSach = async () => {
       ma: invoice.ma,
       soLuong: invoice.soLuong,
       loaiHoaDon: invoice.loaiHoaDon,
-      products: invoice.data?.products || []
+      products: invoice.data?.products || [],
     }))
   }
 }
 
 const isQrVNpayModalVisible = ref(false)
+
+function openQrModalVNPayCaHai() {
+  isBothPaymentModalVisible.value = true
+  amountPaid.value = 0
+}
+
+function openQrModalVNPay() {
+  isQrVNpayModalVisible.value = true
+}
+
+function closeQrModalVnPay() {
+  isQrVNpayModalVisible.value = false
+}
+
+const isQrModalVisible = ref(false)
+const qrData = ref('')
+const hasCamera = ref(true)
+
+let html5QrCode: Html5Qrcode
+
+function openQrModal() {
+  isQrModalVisible.value = true
+  nextTick(() => {
+    startQrScanning()
+  })
+}
+
+function startQrScanning() {
+  const qrRegionId = 'reader'
+  const qrRegionElement = document.getElementById(qrRegionId)
+  if (!qrRegionElement) {
+    console.error('Không tìm thấy phần tử với id \'reader\'')
+    return
+  }
+
+  html5QrCode = new Html5Qrcode(qrRegionId)
+
+  Html5Qrcode.getCameras()
+    .then((cameras: { id: string, label: string }[]) => {
+      if (cameras && cameras.length) {
+        hasCamera.value = true
+        const cameraId = cameras[0].id
+        html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: 250 },
+          (qrCodeMessage: string) => {
+            qrData.value = qrCodeMessage
+            // Tìm sản phẩm theo serial hoặc mã
+            const product = stateSP.products.find(p =>
+              p.code === qrCodeMessage || p.id === qrCodeMessage,
+            )
+            if (product) {
+              selectProductForSerial(product)
+            }
+            else {
+              toast.error('Không tìm thấy sản phẩm với mã này!')
+            }
+            html5QrCode.stop()
+            closeQrModal()
+          },
+          (errorMessage) => {
+            console.warn('Lỗi đọc QR: ', errorMessage)
+          },
+        )
+      }
+      else {
+        console.warn('Không tìm thấy camera nào!')
+        hasCamera.value = false
+        toast.error('Không tìm thấy camera hoặc không có quyền truy cập camera!')
+      }
+    })
+    .catch((error: any) => {
+      console.error('Lỗi khi lấy camera: ', error)
+      hasCamera.value = false
+      toast.error(`Lỗi khi truy cập camera: ${error.message}`)
+    })
+}
+
+function closeQrModal() {
+  isQrModalVisible.value = false
+  stopQrScanning()
+}
+
+function stopQrScanning() {
+  html5QrCode.stop().catch(err => console.error('Không thể dừng scanner:', err))
+}
+
+const addCustomerLoading = ref(false)
+
+async function addCustomer() {
+  try {
+    if (!newCustomer.ten || !newCustomer.sdt) {
+      toast.error('Vui lòng nhập đầy đủ thông tin khách hàng!')
+      return
+    }
+
+    const phoneRegex = /^\d{10}$/
+    if (!phoneRegex.test(newCustomer.sdt)) {
+      toast.error('Số điện thoại phải là 10 chữ số!')
+      return
+    }
+
+    if (!idHDS.value) {
+      toast.error('Vui lòng chọn hoặc tạo hóa đơn trước khi thêm khách hàng!')
+      return
+    }
+
+    addCustomerLoading.value = true
+
+    const formData = new FormData()
+    formData.append('ten', newCustomer.ten)
+    formData.append('sdt', newCustomer.sdt)
+
+    const response = await themMoiKhachHang(formData)
+    const newCustomerId = response.data.id
+
+    const selectFormData = new FormData()
+    selectFormData.append('idHD', idHDS.value)
+    selectFormData.append('idKH', newCustomerId)
+    await themKhachHang(selectFormData)
+
+    const responseKH = await GeOneKhachHang(idHDS.value)
+    state.detailKhachHang = responseKH.id ? responseKH : null
+
+    newCustomer.ten = ''
+    newCustomer.sdt = ''
+
+    toast.success('Thêm và chọn khách hàng thành công!')
+  }
+  catch (error) {
+    console.error('Failed to add customer:', error)
+    toast.error('Thêm khách hàng thất bại!')
+  }
+  finally {
+    addCustomerLoading.value = false
+  }
+}
+
+onMounted(async () => {
+  const storedDiscount = localStorage.getItem('selectedDiscount')
+  const storedBestDiscount = localStorage.getItem('isBestDiscountApplied')
+  if (storedDiscount) {
+    selectedDiscount.value = JSON.parse(storedDiscount)
+  }
+  if (storedBestDiscount) {
+    isBestDiscountApplied.value = JSON.parse(storedBestDiscount)
+  }
+  const storedDeliveryInfo = localStorage.getItem('deliveryInfoByInvoice')
+  if (storedDeliveryInfo) {
+    Object.assign(deliveryInfoByInvoice, JSON.parse(storedDeliveryInfo))
+  }
+  await fetchCustomers()
+  await fetchHoaDon()
+  if (idHDS.value) {
+    await fetchDiscounts(idHDS.value)
+  }
+  setDefaultPaymentMethod()
+  await fetchProvinces()
+
+  if (idHDS.value && state.gioHang.length > 0) {
+    await fetchDiscounts(idHDS.value)
+  }
+})
+// code tâm thêm
+// Tự động tìm voucher giảm nhiều tiền nhất
+const bestSuggestion = computed(() => {
+  const suggestions = state.autoVoucherResult?.voucherTotHon || [];
+  if (suggestions.length === 0) return null;
+
+  // Sắp xếp giảm dần theo số tiền được giảm thêm  và lấy cái đầu tiên
+  return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0];
+});
+</script>
+
+
+<template>
+  <div class="main-layout">
+    <div class="left-column">
+      <div class="top-header">
+        <div class="search-and-create-section">
+          <NButton type="primary" class="btn-create-new-invoice" @click="createInvoice">
+            <template #icon>
+              <NIcon>
+                <AddCircleOutline />
+              </NIcon>
+            </template>
+            Tạo hóa đơn mới
+          </NButton>
+        </div>
+      </div>
+
+      <NCard class="card" size="small">
+        <template #header>
+          <NText type="primary" strong>
+            Hóa đơn chờ
+          </NText>
+        </template>
+        <div class="pending-invoices-container">
+          <NScrollbar x-scrollable>
+            <div class="pending-invoices-wrapper">
+              <NSpace :wrap="false">
+                <div
+                  v-for="tab in tabs" :key="tab.id"
+                  class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
+                  @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
+                >
+                  <div class="invoice-header">
+                    <NText strong>
+                      {{ tab.ma }}
+                    </NText>
+                    <NPopconfirm
+                     v-if="tab.soLuong > 0"
+                      :show-icon="false"
+                       positive-text="Xác nhận hủy"
+                        negative-text="Hủy bỏ"
+                      @positive-click="() => huy(tab.idHD)"
+                       @negative-click="() => { }"
+                    >
+                      <template #trigger>
+                        <NButton text type="error" size="tiny" class="delete-invoice-btn" @click.stop>
+                          <NIcon>
+                            <TrashOutline />
+                          </NIcon>
+                        </NButton>
+                      </template>
+                      <div class="popconfirm-content">
+                        <NText strong style="display: block; margin-bottom: 8px;">
+                          Xác nhận hủy hóa đơn
+                        </NText>
+                        <NText depth="3" style="font-size: 14px;">
+                          Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.ma }}</strong>?<br>
+                          Hành động này không thể hoàn tác.
+                        </NText>
+                      </div>
+                    </NPopconfirm>
+                        <NButton 
+                          v-else 
+                          text 
+                          type="error" 
+                          size="tiny" 
+                          class="delete-invoice-btn" 
+                          @click.stop="huy(tab.idHD)"
+                        >
+                          <NIcon>
+                            <TrashOutline />
+                          </NIcon>
+                        </NButton>
+                  </div>
+                  <NSpace vertical :size="4">
+                    <NTag type="warning" size="small" round>
+                      Chờ xử lý
+                    </NTag>
+                    <NText depth="3">
+                      {{ tab.soLuong || 0 }} sản phẩm
+                    </NText>
+                  </NSpace>
+                </div>
+              </NSpace>
+            </div>
+          </NScrollbar>
+        </div>
+      </NCard>
+
+      <NCard class="card" size="small">
+        <template #header>
+          <NText type="primary" strong>
+            Giỏ hàng
+          </NText>
+        </template>
+        <template #header-extra>
+          <NSpace>
+            <NButton type="primary" size="small" @click="openProductSelectionModal">
+              Chọn sản phẩm
+            </NButton>
+            <!-- <n-button type="primary" size="small" @click="openQrModal">
+              <template #icon>
+                <n-icon>
+                  <QrCodeOutline />
+                </n-icon>
+              </template>
+  Quét QR
+  </n-button> -->
+          </NSpace>
+        </template>
+        <div v-if="state.gioHang.length > 0">
+          <NDataTable
+            :columns="columnsGiohang" :data="state.gioHang" :max-height="280" size="small"
+            :pagination="{ pageSize: 5 }"
+          />
+        </div>
+        <NEmpty v-else description="Không có sản phẩm nào trong giỏ hàng" size="small" />
+      </NCard>
+
+      <NCard v-if="isDeliveryEnabled" class="card" size="small">
+        <template #header>
+          <NText type="primary" strong>
+            Thông tin người nhận
+          </NText>
+        </template>
+        <NForm ref="deliveryForm" :model="deliveryInfo" label-placement="left" :label-width="140">
+          <NGrid :cols="12" :x-gap="12" :y-gap="12">
+            <NFormItemGi :span="6" path="tenNguoiNhan" label="Tên người nhận" required>
+              <NInput v-model:value="deliveryInfo.tenNguoiNhan" placeholder="Nhập tên người nhận" clearable />
+            </NFormItemGi>
+
+            <NFormItemGi :span="6" path="sdtNguoiNhan" label="Số điện thoại" required>
+              <NInput v-model:value="deliveryInfo.sdtNguoiNhan" placeholder="Nhập số điện thoại" clearable />
+            </NFormItemGi>
+
+            <NFormItemGi :span="4" path="tinhThanhPho" label="Tỉnh/Thành phố" required>
+              <NSelect
+                v-model:value="deliveryInfo.tinhThanhPho" placeholder="Chọn tỉnh/thành phố" :options="provinces"
+                filterable clearable @update:value="onProvinceChange"
+              />
+            </NFormItemGi>
+
+            <NFormItemGi :span="4" path="quanHuyen" label="Quận/Huyện" required>
+              <NSelect
+                v-model:value="deliveryInfo.quanHuyen" placeholder="Chọn quận/huyện" :options="districts"
+                filterable clearable @update:value="onDistrictChange"
+              />
+            </NFormItemGi>
+
+            <NFormItemGi :span="4" path="phuongXa" label="Phường/Xã" required>
+              <NSelect
+                v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards"
+                filterable clearable @update:value="onWardChange"
+              />
+            </NFormItemGi>
+
+            <NFormItemGi :span="12" path="diaChiCuThe" label="Địa chỉ cụ thể" required>
+              <NInput v-model:value="deliveryInfo.diaChiCuThe" placeholder="Nhập số nhà, tên đường..." clearable />
+            </NFormItemGi>
+
+            <NFormItemGi :span="12" path="ghiChu" label="Ghi chú">
+              <NInput
+                v-model:value="deliveryInfo.ghiChu" type="textarea" placeholder="Nhập ghi chú (nếu có)"
+                :rows="3"
+              />
+            </NFormItemGi>
+          </NGrid>
+        </NForm>
+      </NCard>
+    </div>
+
+    <div class="right-column">
+      <NCard class="card" size="small">
+        <template #header>
+          <NText type="primary" strong>
+            Khách hàng
+          </NText>
+        </template>
+        <div v-if="state.detailKhachHang">
+          <NSpace vertical :size="16">
+            <div>
+              <NText depth="3">
+                Tên khách hàng
+              </NText>
+              <NInput :value="state.detailKhachHang.ten" readonly class="mt-1" />
+            </div>
+            <div>
+              <NText depth="3">
+                Số điện thoại
+              </NText>
+              <NInput :value="state.detailKhachHang.sdt" readonly class="mt-1" />
+            </div>
+          </NSpace>
+        </div>
+        <div v-else>
+          <NSpace vertical :size="16">
+            <div>
+              <NText depth="3">
+                Tên khách hàng
+              </NText>
+              <NInput v-model:value="newCustomer.ten" placeholder="Tên khách hàng" class="mt-1" />
+            </div>
+            <div>
+              <NText depth="3">
+                Số điện thoại
+              </NText>
+              <NInput v-model:value="newCustomer.sdt" placeholder="Số điện thoại" class="mt-1" />
+            </div>
+          </NSpace>
+        </div>
+        <template #footer>
+          <NSpace>
+            <NButton type="primary" secondary @click="showKhachHangModal = true">
+              Chọn khách hàng
+            </NButton>
+            <NButton type="primary" :loading="addCustomerLoading" secondary @click="addCustomer">
+              Thêm khách hàng
+            </NButton>
+          </NSpace>
+        </template>
+      </NCard>
+
+      <NCard
+        v-if="idHDS && state.autoVoucherResult?.voucherApDung?.length > 0"
+         class="card" size="small"
+        :segmented="{ content: true }"
+      >
+        <template #header>
+          <NSpace align="center" justify="space-between" style="width: 100%">
+            <NText type="primary" strong>
+              <NIcon :component="TicketOutline" style="margin-right: 6px;" />
+              Voucher khả dụng
+            </NText>
+            <NTag type="success" size="small" round>
+              {{ state.autoVoucherResult.voucherApDung.length }} mã
+            </NTag>
+          </NSpace>
+        </template>
+
+        <!-- Voucher đang được áp dụng -->
+        <div v-if="selectedVoucher" class="current-voucher-section mb-3">
+          <NAlert type="success" :show-icon="true" title="Đang áp dụng">
+            <NSpace vertical :size="8">
+              <NSpace justify="space-between" align="center">
+                <NText strong>
+                  {{ selectedVoucher.code }}
+                </NText>
+                <NTag type="success" size="small">
+                  {{ selectedVoucher.typeVoucher === 'PERCENTAGE' ? `${selectedVoucher.discountValue}%` : 'Giảm cố định'
+                  }}
+                </NTag>
+              </NSpace>
+              <NSpace justify="space-between">
+                <NText depth="3">
+                  Giá trị giảm:
+                </NText>
+                <NText type="success" strong>
+                  -{{ formatCurrency(selectedVoucher.giamGiaThucTe) }}
+                </NText>
+              </NSpace>
+              <NSpace v-if="selectedVoucher.dieuKien > 0" justify="space-between">
+                <NText depth="3">
+                  Điều kiện:
+                </NText>
+                <NText depth="3">
+                  {{ formatCurrency(selectedVoucher.dieuKien) }}
+                </NText>
+              </NSpace>
+            </NSpace>
+          </NAlert>
+        </div>
+
+        <!-- Danh sách voucher có thể áp dụng -->
+        <NScrollbar style="max-height: 200px;">
+          <NList size="small" bordered>
+            <NListItem
+              v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId"
+              :class="{ 'active-voucher': selectedVoucher?.voucherId === voucher.voucherId }"
+            >
+              <NThing :title="voucher.code">
+                <template #avatar>
+                  <NTag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
+                    {{ voucher.typeVoucher === 'PERCENTAGE' ? `${voucher.discountValue}%` : 'Cố định' }}
+                  </NTag>
+                </template>
+                <template #description>
+                  <NSpace vertical :size="3" style="margin-top: 4px">
+                    <NSpace justify="space-between">
+                      <NText depth="3" size="small">
+                        Giảm:
+                      </NText>
+                      <NText strong class="text-success" size="small">
+                        {{ formatCurrency(voucher.giamGiaThucTe) }}
+                      </NText>
+                    </NSpace>
+                    <NSpace v-if="voucher.dieuKien > 0" justify="space-between">
+                      <NText depth="3" size="small">
+                        Điều kiện:
+                      </NText>
+                      <NText depth="3" size="small">
+                        {{ formatCurrency(voucher.dieuKien) }}
+                      </NText>
+                    </NSpace>
+                    <NSpace v-if="voucher.maxValue" justify="space-between">
+                      <NText depth="3" size="small">
+                        Tối đa:
+                      </NText>
+                      <NText depth="3" size="small">
+                        {{ formatCurrency(voucher.maxValue) }}
+                      </NText>
+                    </NSpace>
+                  </NSpace>
+                </template>
+              </NThing>
+              <template #suffix>
+                <NButton
+                  type="primary" size="small" :disabled="selectedVoucher?.voucherId === voucher.voucherId"
+                  :loading="applyingVoucher === voucher.voucherId"
+                  @click="selectVoucher(voucher)"
+                >
+                  {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
+                </NButton>
+              </template>
+            </NListItem>
+          </NList>
+        </NScrollbar>
+
+        <template #footer>
+          <NSpace justify="space-between" align="center" style="width: 100%">
+            <NText depth="3" size="small">
+              Tự động chọn voucher tốt nhất
+            </NText>
+            <NButton v-if="selectedVoucher" type="error" size="tiny" text @click="removeVoucher">
+              Bỏ chọn
+            </NButton>
+          </NSpace>
+        </template>
+      </NCard>
+
+      <!-- CARD GỢI Ý MUA THÊM (THÊM MỚI) -->
+      <NCard
+        v-if="idHDS && state.autoVoucherResult?.voucherTotHon?.length > 0" 
+        class="card" size="small"
+        :segmented="{ content: true }"
+      >
+        <template #header>
+          <NSpace align="center" justify="space-between" style="width: 100%">
+            <NText type="primary" strong>
+              <NIcon :component="RocketOutline" style="margin-right: 6px;" />
+              Gợi ý mua thêm
+            </NText>
+            <NTag type="warning" size="small" round>
+              {{ state.autoVoucherResult.voucherTotHon.length }} đề xuất
+            </NTag>
+          </NSpace>
+        </template>
+
+const debouncedFetchProducts = debounce(async () => {
+  stateSP.searchQuery = localSearchQuery.value
+  stateSP.selectedMaterial = localSelectedMaterial.value
+  await fetchProducts()
+}, 300)
+
+
+watch(() => state.gioHang, calculateTotalAmounts, { deep: true })
+watch(giamGia, calculateTotalAmounts);
+watch(shippingFee, calculateTotalAmounts);
+
+        <NSpace vertical :size="16">
+          <!-- Phần chọn voucher -->
+          <div v-if="idHDS" >
+            <NText depth="3">
+              Mã giảm giá
+            </NText>
+            <NSpace align="center" class="mt-1">
+              <NInput v-model:value="selectedDiscountCode" placeholder="Chọn mã giảm giá" readonly style="flex: 1">
+                <template #prefix>
+                  <NIcon :component="TicketOutline" />
+                </template>
+              </NInput>
+              <NButton v-if="selectedVoucher" type="error" size="small" secondary @click="removeVoucher">
+                Bỏ chọn
+              </NButton>
+            </NSpace>
+
+            <!--Tâm thêm-->
+            <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
+                  </div>
+              </div>
+
+              <!--Code của toàn-->
+            <!-- <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
+              <NAlert type="warning" size="small" :show-icon="true">
+                <template #icon>
+                  <NIcon>
+                    <AlertCircleOutline />
+                  </NIcon>
+                </template>
+                Có voucher tốt hơn!
+                <NButton text type="primary" size="tiny" @click="applyBestSuggestion">
+                  Xem ngay
+                </NButton>
+              </NAlert>
+            </div>
+          </div> -->
 
 const openQrModalVNPayCaHai = () => {
   isBothPaymentModalVisible.value = true;

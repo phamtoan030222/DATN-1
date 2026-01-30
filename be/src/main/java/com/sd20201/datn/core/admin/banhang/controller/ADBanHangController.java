@@ -4,6 +4,8 @@ import com.sd20201.datn.core.admin.banhang.model.request.*;
 import com.sd20201.datn.core.admin.banhang.model.response.*;
 import com.sd20201.datn.core.admin.banhang.service.ADBanHangService;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDImeiResponse;
+import com.sd20201.datn.core.admin.products.productdetail.service.ADProductDetailService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +22,7 @@ import java.util.List;
 @Slf4j
 @CrossOrigin(origins = "*")
 public class ADBanHangController {
+    private final ADProductDetailService productDetailService;
 
     public final ADBanHangService adBanHangService;
 
@@ -53,6 +56,11 @@ public class ADBanHangController {
     @GetMapping("/khach-hang/{id}")
     public ADChonKhachHangResponse getKhachHang(@PathVariable("id") String id) {
         return adBanHangService.getKhachHang(id);
+    }
+
+        @GetMapping("/imei/{idProductDetail}")
+    ResponseEntity<?> getImeiProduct(@PathVariable String idProductDetail) {
+        return Helper.createResponseEntity(productDetailService.getImeiProductDetail(idProductDetail));
     }
 
 
