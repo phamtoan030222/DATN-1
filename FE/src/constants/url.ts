@@ -104,4 +104,7 @@ export const PREFIX_API_HOA_DON_CUSTOMER = `${PREFIX_API_CUSTOMER}/hoa-don` as s
 
 export const API_ORDER_ONLINE = `${API_URL}/order-online`
 
+
+export const URL_OAUTH2_GOOGLE_CUSTOMER = '/oauth2/authorization/google';
+
 // ------------- END -------------

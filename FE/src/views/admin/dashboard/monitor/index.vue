@@ -180,30 +180,6 @@ onMounted(() => {
     </n-grid>
 
     <n-grid :x-gap="16" :cols="12">
-      <n-gi span="6">
-        <n-card title="Bảng Thống Kê Chi Tiết" :bordered="false" class="shadow-sm">
-          <n-table :single-line="false" size="small" striped>
-            <thead>
-              <tr>
-                <th>Thời gian</th>
-                <th>Doanh thu</th>
-                <th>Số đơn</th>
-                <th>Giá trị TB</th>
-                <th>Tăng trưởng</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(info, key) in periodMap" :key="key">
-                <td class="font-bold">{{ info.label }}</td>
-                <td class="font-bold">{{ formatMoney(overviewData[key]?.revenue) }}</td>
-                <td>{{ overviewData[key]?.totalOrders || 0 }}</td>
-                <td>{{ formatMoney(overviewData[key]?.revenue / (overviewData[key]?.totalOrders || 1)) }}</td>
-                <td class="text-green">{{ overviewData[key]?.growthRate || '+0%' }}</td>
-              </tr>
-            </tbody>
-          </n-table>
-        </n-card>
-      </n-gi>
 
       <n-gi span="6">
         <n-card title="Top sản phẩm bán chạy" :bordered="false" class="shadow-sm">
@@ -231,6 +207,31 @@ onMounted(() => {
           </n-table>
         </n-card>
       </n-gi>
+
+       <n-gi span="6">
+        <n-card title="Bảng Thống Kê Chi Tiết" :bordered="false" class="shadow-sm">
+          <n-table :single-line="false" size="small" striped>
+            <thead>
+              <tr>
+                <th>Thời gian</th>
+                <th>Doanh thu</th>
+                <th>Số đơn</th>
+                <th>Giá trị TB</th>
+                <th>Tăng trưởng</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(info, key) in periodMap" :key="key">
+                <td class="font-bold">{{ info.label }}</td>
+                <td class="font-bold">{{ formatMoney(overviewData[key]?.revenue) }}</td>
+                <td>{{ overviewData[key]?.totalOrders || 0 }}</td>
+                <td>{{ formatMoney(overviewData[key]?.revenue / (overviewData[key]?.totalOrders || 1)) }}</td>
+                <td class="text-green">{{ overviewData[key]?.growthRate || '+0%' }}</td>
+              </tr>
+            </tbody>
+          </n-table>
+        </n-card>
+      </n-gi>
     </n-grid>
   </n-space>
 </template>
@@ -246,7 +247,6 @@ onMounted(() => {
 .filter-stats-row .mini-label { color: #767c82; font-size: 13px; margin-bottom: 4px; }
 .filter-stats-row .mini-value { font-size: 18px; font-weight: 700; }
 
-/* Colors */
 .text-green { color: #18a058; }
 .text-blue { color: #2080f0; }
 .text-red { color: #d03050; }

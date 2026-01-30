@@ -133,7 +133,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
+                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL) AND d.status=0
             GROUP BY     p.id,
                          p.code,
                          p.name,
@@ -165,7 +165,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
+                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL) AND d.status=0
             GROUP BY     p.id,
                          p.code,
                          p.name,
@@ -210,7 +210,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             AND d.startDate <= :currentTime
             AND d.endDate >= :currentTime
             AND d.status = 0
-        WHERE p.id = :id
+        WHERE p.id = :id AND d.status=0
         GROUP BY
             p.id, p.code, p.name, p.description, 
             p.hardDrive.id, p.material.id, p.color.id, 

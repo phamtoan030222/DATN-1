@@ -1,6 +1,6 @@
 import type { AxiosResponse } from 'axios'
 import request from '@/service/request'
-import { PREFIX_API_BAN_HANG_ADMIN } from '@/constants/url'
+import { API_ADMIN_PRODUCT_DETAIL, PREFIX_API_BAN_HANG_ADMIN } from '@/constants/url'
 import type {
   DefaultResponse,
   PaginationParams,

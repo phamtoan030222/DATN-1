@@ -13,7 +13,7 @@ let myChart: echarts.ECharts | null = null;
 
 // Map màu sắc cố định theo tên trạng thái
 const statusColorMap: Record<string, string> = {
- 'Hoàn thành': '#00c292',
+        'Hoàn thành': '#00c292',
         'Đơn huỷ': '#FF4D4F',    
         'Đã hủy': '#FF4D4F',   
         'Chờ xác nhận': '#409eff',

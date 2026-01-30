@@ -23,7 +23,7 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
         sp.name AS ten,
         hdct.quantity AS soLuong,
         hdct.price AS giaGoc,
-        CASE
+            CASE
             WHEN discount_info.max_percentage IS NOT NULL
             THEN (hdct.price * (100 - discount_info.max_percentage)) / 100
             ELSE hdct.price
@@ -36,6 +36,7 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
         cl.name AS color,
         i.code AS imel,
         discount_info.max_percentage AS percentage, 
+        
         CASE
             WHEN hd.trang_thai_hoa_don IS NOT NULL
             THEN CAST(hd.trang_thai_hoa_don AS CHAR)
@@ -51,9 +52,13 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
             MAX(d.percentage) as max_percentage 
         FROM product_detail_discount pdd
         JOIN discount d ON pdd.id_discount = d.id
-        WHERE pdd.status = 0 AND d.status = 0 
+        WHERE pdd.status = 0 
+          AND d.status = 0
+          AND d.start_date <= :currentTime  -- Thêm điều kiện này
+          AND d.end_date >= :currentTime    -- Thêm điều kiện này
         GROUP BY pdd.id_product_detail
     ) discount_info ON spct.id = discount_info.id_product_detail
+    
     LEFT JOIN cpu c ON spct.id_cpu = c.id
     LEFT JOIN ram r ON spct.id_ram = r.id
     LEFT JOIN hard_drive hd2 ON spct.id_hard_drive = hd2.id
@@ -63,7 +68,10 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
     WHERE hd.id = :rep
     ORDER BY hdct.created_date DESC;
 """, nativeQuery = true)
-    List<ADGioHangResponse> getAllGioHang(@Param("rep") String rep);
+    List<ADGioHangResponse> getAllGioHang(
+            @Param("rep") String rep,
+            @Param("currentTime") Long currentTime
+    );
 
 
 
