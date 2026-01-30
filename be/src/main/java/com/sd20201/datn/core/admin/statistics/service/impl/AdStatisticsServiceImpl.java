@@ -4,23 +4,21 @@ import com.sd20201.datn.core.admin.statistics.model.response.*;
 import com.sd20201.datn.core.admin.statistics.repository.AdStatisticsRepository;
 import com.sd20201.datn.core.admin.statistics.service.AdStatisticsService;
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalAdjusters;
-import java.time.*;
-import java.util.*;
-import java.util.stream.Collectors;
-import java.time.DayOfWeek;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import org.apache.poi.ss.usermodel.*;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.text.NumberFormat;
+import java.time.*;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,55 +26,46 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
 
     private final AdStatisticsRepository statisticsRepo;
 
-
-    // --- 1. TỔNG QUAN (4 CARDS) ---
+    // =========================================================================
+    // 1. TỔNG QUAN (4 CARDS: HÔM NAY, TUẦN, THÁNG, NĂM)
+    // =========================================================================
     @Override
     public AdDashboardOverviewResponse getDashboardOverview() {
         LocalDateTime now = LocalDateTime.now();
 
-        // --- A. Lấy danh sách Top 5 sản phẩm (Giữ nguyên) ---
+        // --- A. Top 5 sản phẩm (Giữ nguyên) ---
         List<Object[]> rawTopProducts = statisticsRepo.getTopSellingProductsWithDetail();
         List<AdDashboardOverviewResponse.TopItemDTO> topProducts = rawTopProducts.stream()
                 .map(row -> AdDashboardOverviewResponse.TopItemDTO.builder()
                         .name((String) row[0])
                         .count(((Number) row[1]).longValue())
-                        // Xử lý null an toàn cho giá tiền
                         .price(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
                         .image((String) row[3])
                         .build())
                 .collect(Collectors.toList());
 
-        // --- B. Tính toán thời gian cho 4 thẻ (Card) ---
-
-        // 1. HÔM NAY (So với Hôm qua)
-        // Kỳ này: Từ 00:00 hôm nay đến hiện tại
+        // --- B. Định nghĩa thời gian ---
+        // 1. HÔM NAY
         LocalDateTime startToday = now.toLocalDate().atStartOfDay();
-        // Kỳ trước: Từ 00:00 hôm qua đến 23:59 hôm qua (trước khi sang hôm nay)
         LocalDateTime startYesterday = startToday.minusDays(1);
         LocalDateTime endYesterday = startToday.minusSeconds(1);
 
-        // 2. TUẦN NÀY (So với Tuần trước)
-        // Kỳ này: Từ Thứ 2 tuần này
+        // 2. TUẦN NÀY
         LocalDateTime startWeek = now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay();
-        // Kỳ trước: Từ Thứ 2 tuần trước
         LocalDateTime startLastWeek = startWeek.minusWeeks(1);
         LocalDateTime endLastWeek = startWeek.minusSeconds(1);
 
-        // 3. THÁNG NÀY (So với Tháng trước)
-        // Kỳ này: Từ ngày mùng 1 tháng này
+        // 3. THÁNG NÀY
         LocalDateTime startMonth = now.withDayOfMonth(1).toLocalDate().atStartOfDay();
-        // Kỳ trước: Từ ngày mùng 1 tháng trước
         LocalDateTime startLastMonth = startMonth.minusMonths(1);
         LocalDateTime endLastMonth = startMonth.minusSeconds(1);
 
-        // 4. NĂM NAY (So với Năm trước)
-        // Kỳ này: Từ ngày 1/1 năm nay
+        // 4. NĂM NAY
         LocalDateTime startYear = now.withDayOfYear(1).toLocalDate().atStartOfDay();
-        // Kỳ trước: Từ ngày 1/1 năm trước
         LocalDateTime startLastYear = startYear.minusYears(1);
         LocalDateTime endLastYear = startYear.minusSeconds(1);
 
-        // --- C. Truyền đủ 4 tham số vào hàm tính toán ---
+        // --- C. Trả về kết quả ---
         return AdDashboardOverviewResponse.builder()
                 .today(getStatsForPeriod(startToday, now, startYesterday, endYesterday))
                 .week(getStatsForPeriod(startWeek, now, startLastWeek, endLastWeek))
@@ -86,22 +75,48 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 .build();
     }
 
-    private AdDashboardOverviewResponse.StatisticCard getStatsForPeriod(LocalDateTime start, LocalDateTime end) {
-        // Gọi query duy nhất để lấy toàn bộ chỉ số của 1 khoảng thời gian
-        Map<String, Object> data = statisticsRepo.getStatsByPeriod(toMs(start), toMs(end));
+    /**
+     * Helper: Tính toán số liệu cho 1 Card (Bao gồm cả so sánh tăng trưởng)
+     */
+    private AdDashboardOverviewResponse.StatisticCard getStatsForPeriod(
+            LocalDateTime start, LocalDateTime end,
+            LocalDateTime prevStart, LocalDateTime prevEnd) {
+
+        // 1. Lấy số liệu KỲ HIỆN TẠI & KỲ TRƯỚC
+        Map<String, Object> currentData = statisticsRepo.getStatsByPeriod(toMs(start), toMs(end));
+        Map<String, Object> prevData = statisticsRepo.getStatsByPeriod(toMs(prevStart), toMs(prevEnd));
+
+        long currentRevenue = toLong(currentData.get("revenue"));
+        long prevRevenue = toLong(prevData.get("revenue"));
+
+        // 2. Tính % Tăng trưởng doanh thu (Fix lỗi chia cho 0)
+        double growth;
+        if (prevRevenue == 0) {
+            // Nếu kỳ trước = 0:
+            // - Kỳ này > 0 => Tăng 100%
+            // - Kỳ này = 0 => 0%
+            growth = (currentRevenue > 0) ? 100.0 : 0.0;
+        } else {
+            growth = ((double) (currentRevenue - prevRevenue) / prevRevenue) * 100;
+        }
+
+        String growthStr = (growth > 0 ? "+" : "") + String.format("%.0f", growth) + "%";
 
         return AdDashboardOverviewResponse.StatisticCard.builder()
-                .revenue(toLong(data.get("revenue")))
-                .soldProducts(toInt(data.get("soldProducts")))
-                .totalOrders(toInt(data.get("totalOrders")))
-                .completed(toInt(data.get("completed")))
-                .cancelled(toInt(data.get("cancelled")))
-                .processing(toInt(data.get("processing")))
-                .growthRate("+0%") // Logic này có thể tính thêm nếu bạn cần so sánh kỳ trước
+                .revenue(currentRevenue)
+                .expectedRevenue(toLong(currentData.get("expectedRevenue"))) // Map cột mới
+                .soldProducts(toInt(currentData.get("soldProducts")))
+                .totalOrders(toInt(currentData.get("totalOrders")))
+                .completed(toInt(currentData.get("completed")))
+                .cancelled(toInt(currentData.get("cancelled")))
+                .processing(toInt(currentData.get("processing")))
+                .growthRate(growthStr)
                 .build();
     }
 
-    // --- 2. BIỂU ĐỒ DOANH THU (LINE CHART) ---
+    // =========================================================================
+    // 2. BIỂU ĐỒ DOANH THU (LINE CHART)
+    // =========================================================================
     @Override
     public AdRevenueChartResponse getRevenueChart(String type, Long startCustom, Long endCustom) {
         LocalDateTime now = LocalDateTime.now();
@@ -113,7 +128,6 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
             case "today" -> {
                 start = now.toLocalDate().atStartOfDay();
                 end = now.toLocalDate().atTime(23, 59, 59);
-                // Kỳ trước: Hôm qua
                 prevStart = start.minusDays(1);
                 prevEnd = end.minusDays(1);
                 for (int i = 0; i < 24; i++) labels.add(i + "h");
@@ -124,12 +138,10 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 start = firstDay.atStartOfDay();
                 LocalDate lastDay = firstDay.withDayOfMonth(firstDay.lengthOfMonth());
                 end = lastDay.atTime(23, 59, 59);
-                // Kỳ trước: Tháng trước
                 LocalDate prevFirstDay = firstDay.minusMonths(1);
                 prevStart = prevFirstDay.atStartOfDay();
                 LocalDate prevLastDay = prevFirstDay.withDayOfMonth(prevFirstDay.lengthOfMonth());
                 prevEnd = prevLastDay.atTime(23, 59, 59);
-
                 for (int i = 1; i <= firstDay.lengthOfMonth(); i++) labels.add(String.valueOf(i));
                 groupBy = "day";
             }
@@ -142,39 +154,27 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 groupBy = "month";
             }
             case "custom" -> {
-                // Xử lý logic tùy chỉnh
                 if (startCustom == null || endCustom == null) {
-                    // Fallback về tuần này nếu thiếu tham số
                     start = now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay();
                     end = now.with(DayOfWeek.SUNDAY).toLocalDate().atTime(23, 59, 59);
                 } else {
                     start = Instant.ofEpochMilli(startCustom).atZone(ZoneId.systemDefault()).toLocalDateTime();
                     end = Instant.ofEpochMilli(endCustom).atZone(ZoneId.systemDefault()).toLocalDateTime();
                 }
-
-                // Tính khoảng cách ngày để xác định kỳ trước tương ứng
                 long daysDiff = ChronoUnit.DAYS.between(start, end);
                 prevStart = start.minusDays(daysDiff);
                 prevEnd = end.minusDays(daysDiff);
 
-                // Tự động sinh Labels dựa trên độ dài khoảng thời gian
                 if (daysDiff <= 1) {
-                    // Chọn 1 ngày -> Hiện theo giờ
                     for (int i = 0; i < 24; i++) labels.add(i + "h");
                     groupBy = "hour";
                 } else if (daysDiff <= 31) {
-                    // Dưới 1 tháng -> Hiện theo ngày (1, 2, 3...)
-                    for (int i = 0; i <= daysDiff; i++) {
-                        labels.add(String.valueOf(start.plusDays(i).getDayOfMonth()));
-                    }
+                    for (int i = 0; i <= daysDiff; i++) labels.add(String.valueOf(start.plusDays(i).getDayOfMonth()));
                     groupBy = "day";
                 } else {
-                    // Trên 1 tháng -> Hiện theo tháng (T1, T2...)
                     groupBy = "month";
                     long months = ChronoUnit.MONTHS.between(start, end);
-                    for (int i = 0; i <= months; i++) {
-                        labels.add("T" + start.plusMonths(i).getMonthValue());
-                    }
+                    for (int i = 0; i <= months; i++) labels.add("T" + start.plusMonths(i).getMonthValue());
                 }
             }
             default -> { // week
@@ -194,83 +194,143 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 .build();
     }
 
+    private List<Long> aggregateData(LocalDateTime start, LocalDateTime end, List<String> labels, String groupBy) {
+        List<AdChartResponse> raw = statisticsRepo.getRawRevenueData(toMs(start), toMs(end));
+        Map<String, Long> map = new HashMap<>();
 
-    // --- 3. CÁC API KHÁC ---
-    @Override
-    public List<AdChartResponse> getOrderStatusChart(String type, Long startCustom, Long endCustom) {
-        Long startDate;
-        Long endDate = System.currentTimeMillis();
-
-        switch (type) {
-            case "today":
-                startDate = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-                break;
-            case "week":
-                startDate = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-                break;
-            case "month":
-                startDate = LocalDate.now().withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-                break;
-            case "year":
-                startDate = LocalDate.now().withDayOfYear(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-                break;
-            case "custom":
-                startDate = startCustom;
-                endDate = endCustom;
-                break;
-            default:
-                startDate = LocalDate.now().withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        for (AdChartResponse item : raw) {
+            try {
+                long timestamp = Long.parseLong(item.getName());
+                LocalDateTime dt = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDateTime();
+                String key = "";
+                if ("hour".equals(groupBy)) key = dt.getHour() + "h";
+                else if ("month".equals(groupBy)) key = "T" + dt.getMonthValue();
+                else {
+                    if (labels.contains("Thứ 2") || labels.contains("CN")) key = getWeekdayLabel(dt);
+                    else key = String.valueOf(dt.getDayOfMonth());
+                }
+                map.put(key, map.getOrDefault(key, 0L) + item.getValue());
+            } catch (Exception ignored) { }
         }
-
-        return statisticsRepo.getFullOrderStatusStats(startDate, endDate);
+        return labels.stream().map(l -> map.getOrDefault(l, 0L)).collect(Collectors.toList());
     }
 
-    @Override
-    public List<AdChartResponse> getTopProductsChart(String type) {
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime start = type.equals("month") ? now.withDayOfMonth(1).toLocalDate().atStartOfDay() : now.minusDays(7).toLocalDate().atStartOfDay();
-        return statisticsRepo.getTopSellingProductsChart(toMs(start), toMs(now), PageRequest.of(0, 10));
-    }
-
-    @Override
-    public Page<AdProductResponse> getLowStockProducts(Integer limit, Pageable pageable) {
-        return statisticsRepo.getLowStockProducts(limit, pageable);
-    }
-
+    // =========================================================================
+    // 3. TỐC ĐỘ TĂNG TRƯỞNG (CHI TIẾT)
+    // =========================================================================
     @Override
     public List<AdGrowthStatResponse> getGrowthStatistics() {
-        return new ArrayList<>();
+        LocalDateTime now = LocalDateTime.now();
+        List<AdGrowthStatResponse> list = new ArrayList<>();
+
+        // Định nghĩa thời gian
+        LocalDateTime startToday = now.toLocalDate().atStartOfDay();
+        LocalDateTime endToday = now;
+        LocalDateTime startYest = startToday.minusDays(1);
+        LocalDateTime endYest = endToday.minusDays(1);
+
+        LocalDateTime startWeek = now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay();
+        LocalDateTime endWeek = now;
+        LocalDateTime startLastWeek = startWeek.minusWeeks(1);
+        LocalDateTime endLastWeek = endWeek.minusWeeks(1);
+
+        LocalDateTime startMonth = now.withDayOfMonth(1).toLocalDate().atStartOfDay();
+        LocalDateTime endMonth = now;
+        LocalDateTime startLastMonth = startMonth.minusMonths(1);
+        LocalDateTime endLastMonth = endMonth.minusMonths(1);
+
+        LocalDateTime startYear = now.withDayOfYear(1).toLocalDate().atStartOfDay();
+        LocalDateTime endYear = now;
+        LocalDateTime startLastYear = startYear.minusYears(1);
+        LocalDateTime endLastYear = endYear.minusYears(1);
+
+        // DOANH THU
+        list.add(createGrowthItem("Doanh thu ngày", startToday, endToday, startYest, endYest, "revenue"));
+        list.add(createGrowthItem("Doanh thu tuần", startWeek, endWeek, startLastWeek, endLastWeek, "revenue"));
+        list.add(createGrowthItem("Doanh thu tháng", startMonth, endMonth, startLastMonth, endLastMonth, "revenue"));
+        list.add(createGrowthItem("Doanh thu năm", startYear, endYear, startLastYear, endLastYear, "revenue"));
+
+        // ĐƠN HÀNG
+        list.add(createGrowthItem("Đơn hàng ngày", startToday, endToday, startYest, endYest, "order"));
+        list.add(createGrowthItem("Đơn hàng tuần", startWeek, endWeek, startLastWeek, endLastWeek, "order"));
+        list.add(createGrowthItem("Đơn hàng tháng", startMonth, endMonth, startLastMonth, endLastMonth, "order"));
+        list.add(createGrowthItem("Đơn hàng năm", startYear, endYear, startLastYear, endLastYear, "order"));
+
+        // SẢN PHẨM
+        list.add(createGrowthItem("Sản phẩm ngày", startToday, endToday, startYest, endYest, "product"));
+        list.add(createGrowthItem("Sản phẩm tuần", startWeek, endWeek, startLastWeek, endLastWeek, "product"));
+        list.add(createGrowthItem("Sản phẩm tháng", startMonth, endMonth, startLastMonth, endLastMonth, "product"));
+        list.add(createGrowthItem("Sản phẩm năm", startYear, endYear, startLastYear, endLastYear, "product"));
+
+        return list;
     }
 
-    // --- HELPERS ---
+    private AdGrowthStatResponse createGrowthItem(String label, LocalDateTime start, LocalDateTime end, LocalDateTime prevStart, LocalDateTime prevEnd, String type) {
+        Map<String, Object> current = statisticsRepo.getStatsByPeriod(toMs(start), toMs(end));
+        Map<String, Object> previous = statisticsRepo.getStatsByPeriod(toMs(prevStart), toMs(prevEnd));
 
-    private Long toLong(Object obj) {
-        return obj == null ? 0L : ((Number) obj).longValue();
+        double currentVal = 0;
+        double prevVal = 0;
+
+        // Parse value
+        if (type.equals("revenue")) {
+            currentVal = toLong(current.get("revenue")).doubleValue();
+            prevVal = toLong(previous.get("revenue")).doubleValue();
+        } else if (type.equals("order")) {
+            currentVal = toInt(current.get("totalOrders")).doubleValue();
+            prevVal = toInt(previous.get("totalOrders")).doubleValue();
+        } else {
+            currentVal = toInt(current.get("soldProducts")).doubleValue();
+            prevVal = toInt(previous.get("soldProducts")).doubleValue();
+        }
+
+        // --- LOGIC TÍNH % (FIX LỖI FULL ĐỎ) ---
+        double percent = 0.0;
+        boolean isIncrease = true; // Mặc định là Tăng (Xanh)
+
+        if (prevVal == 0) {
+            // Nếu kỳ trước = 0
+            if (currentVal == 0) {
+                percent = 0.0;     // 0 -> 0: Không đổi
+                isIncrease = true; // Xanh
+            } else {
+                percent = 100.0;   // 0 -> Có: Tăng tuyệt đối
+                isIncrease = true; // Xanh
+            }
+        } else {
+            // Công thức chuẩn: ((Hiện tại - Quá khứ) / Quá khứ) * 100
+            percent = ((currentVal - prevVal) / prevVal) * 100;
+            isIncrease = percent >= 0;
+        }
+
+        String valueDisplay = type.equals("revenue") ? formatCurrency(currentVal) : String.valueOf((long) currentVal);
+
+        return AdGrowthStatResponse.builder()
+                .label(label)
+                .value(valueDisplay)
+                .percent(Math.abs(percent))
+                .isIncrease(isIncrease) // Kết hợp với @JsonProperty ở DTO để gửi đúng
+                .type(type)
+                .build();
     }
 
-    private Integer toInt(Object obj) {
-        return obj == null ? 0 : ((Number) obj).intValue();
-    }
-
-
-
+    // =========================================================================
+    // 4. XUẤT EXCEL
+    // =========================================================================
     @Override
-    public byte[] exportRevenueToExcel() throws IOException{
+    public byte[] exportRevenueToExcel() throws IOException {
         LocalDateTime now = LocalDateTime.now();
 
-        // Lấy dữ liệu 4 mốc thời gian
-        AdDashboardOverviewResponse.StatisticCard today = getStatsForPeriod(now.toLocalDate().atStartOfDay(), now);
-        AdDashboardOverviewResponse.StatisticCard week = getStatsForPeriod(now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay(), now);
-        AdDashboardOverviewResponse.StatisticCard month = getStatsForPeriod(now.withDayOfMonth(1).toLocalDate().atStartOfDay(), now);
-        AdDashboardOverviewResponse.StatisticCard year = getStatsForPeriod(now.withDayOfYear(1).toLocalDate().atStartOfDay(), now);
+        AdDashboardOverviewResponse.StatisticCard today = getStatsForPeriod(now.toLocalDate().atStartOfDay(), now, now.minusDays(1), now.minusDays(1));
+        AdDashboardOverviewResponse.StatisticCard week = getStatsForPeriod(now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay(), now, now.minusWeeks(1), now.minusWeeks(1));
+        AdDashboardOverviewResponse.StatisticCard month = getStatsForPeriod(now.withDayOfMonth(1).toLocalDate().atStartOfDay(), now, now.minusMonths(1), now.minusMonths(1));
+        AdDashboardOverviewResponse.StatisticCard year = getStatsForPeriod(now.withDayOfYear(1).toLocalDate().atStartOfDay(), now, now.minusYears(1), now.minusYears(1));
 
-        // Lấy Top sản phẩm
         List<Object[]> rawTopProducts = statisticsRepo.getTopSellingProductsWithDetail();
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.createSheet("Báo Cáo Doanh Thu");
 
-            // --- STYLES ---
             CellStyle headerStyle = workbook.createCellStyle();
             Font headerFont = workbook.createFont();
             headerFont.setBold(true);
@@ -286,7 +346,6 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
             DataFormat format = workbook.createDataFormat();
             currencyStyle.setDataFormat(format.getFormat("#,##0 ₫"));
 
-            // --- BẢNG TỔNG QUAN ---
             int rowIdx = 0;
             Row titleRow = sheet.createRow(rowIdx++);
             titleRow.createCell(0).setCellValue("BÁO CÁO DOANH THU");
@@ -317,8 +376,6 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
             }
 
             rowIdx += 2;
-
-            // --- BẢNG TOP SẢN PHẨM ---
             Row titleRow2 = sheet.createRow(rowIdx++);
             titleRow2.createCell(0).setCellValue("TOP SẢN PHẨM BÁN CHẠY");
             titleRow2.getCell(0).setCellStyle(headerStyle);
@@ -343,10 +400,45 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
             return out.toByteArray();
         }
     }
+
+    // =========================================================================
+    // 5. CÁC API KHÁC (PASSTHROUGH) & UTILS
+    // =========================================================================
+    @Override
+    public List<AdChartResponse> getOrderStatusChart(String type, Long startCustom, Long endCustom) {
+        Long startDate;
+        Long endDate = System.currentTimeMillis();
+        switch (type) {
+            case "today" -> startDate = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            case "week" -> startDate = LocalDate.now().with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            case "month" -> startDate = LocalDate.now().withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            case "year" -> startDate = LocalDate.now().withDayOfYear(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+            case "custom" -> { startDate = startCustom; endDate = endCustom; }
+            default -> startDate = LocalDate.now().withDayOfMonth(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        }
+        return statisticsRepo.getFullOrderStatusStats(startDate, endDate);
+    }
+
+    @Override
+    public List<AdChartResponse> getTopProductsChart(String type) {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime start = type.equals("month") ? now.withDayOfMonth(1).toLocalDate().atStartOfDay() : now.minusDays(7).toLocalDate().atStartOfDay();
+        return statisticsRepo.getTopSellingProductsChart(toMs(start), toMs(now), PageRequest.of(0, 10));
+    }
+
+    @Override
+    public Page<AdProductResponse> getLowStockProducts(Integer limit, Pageable pageable) {
+        return statisticsRepo.getLowStockProducts(limit, pageable);
+    }
+
     private Long toMs(LocalDateTime ldt) {
         return ldt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
     }
-
+    private Long toLong(Object obj) { return obj == null ? 0L : ((Number) obj).longValue(); }
+    private Integer toInt(Object obj) { return obj == null ? 0 : ((Number) obj).intValue(); }
+    private String formatCurrency(double value) {
+        return NumberFormat.getCurrencyInstance(new Locale("vi", "VN")).format(value);
+    }
     private String getWeekdayLabel(LocalDateTime dt) {
         return switch (dt.getDayOfWeek()) {
             case MONDAY -> "Thứ 2"; case TUESDAY -> "Thứ 3"; case WEDNESDAY -> "Thứ 4";
@@ -354,78 +446,4 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
             case SUNDAY -> "CN";
         };
     }
-    // Helper: Gom nhóm dữ liệu doanh thu
-    private List<Long> aggregateData(LocalDateTime start, LocalDateTime end, List<String> labels, String groupBy) {
-        List<AdChartResponse> raw = statisticsRepo.getRawRevenueData(toMs(start), toMs(end));
-        Map<String, Long> map = new HashMap<>();
-
-        for (AdChartResponse item : raw) {
-            // Convert timestamp từ DB sang LocalDateTime
-            LocalDateTime dt = Instant.ofEpochMilli(Long.parseLong(item.getName())).atZone(ZoneId.systemDefault()).toLocalDateTime();
-
-            String key = "";
-            if ("hour".equals(groupBy)) {
-                key = dt.getHour() + "h";
-            } else if ("month".equals(groupBy)) {
-                key = "T" + dt.getMonthValue();
-            } else { // day
-                // Nếu labels là Thứ 2, Thứ 3 (Tuần)
-                if (labels.contains("Thứ 2")) {
-                    key = getWeekdayLabel(dt);
-                } else {
-                    // Nếu labels là 1, 2, 3 (Tháng hoặc Custom)
-                    key = String.valueOf(dt.getDayOfMonth());
-                }
-            }
-            map.put(key, map.getOrDefault(key, 0L) + item.getValue());
-        }
-
-        // Map dữ liệu vào labels để đảm bảo thứ tự
-        return labels.stream().map(l -> map.getOrDefault(l, 0L)).collect(Collectors.toList());
-    }
-
-    /**
-     * HÀM PHỤ TRỢ: Tính chỉ số và % tăng trưởng
-     * @param start : Bắt đầu kỳ hiện tại
-     * @param end : Kết thúc kỳ hiện tại
-     * @param prevStart : Bắt đầu kỳ trước (để so sánh)
-     * @param prevEnd : Kết thúc kỳ trước
-     */
-    private AdDashboardOverviewResponse.StatisticCard getStatsForPeriod(
-            LocalDateTime start, LocalDateTime end,
-            LocalDateTime prevStart, LocalDateTime prevEnd) {
-
-        // 1. Lấy số liệu KỲ HIỆN TẠI
-        Map<String, Object> currentData = statisticsRepo.getStatsByPeriod(toMs(start), toMs(end));
-        long currentRevenue = toLong(currentData.get("revenue"));
-
-        // 2. Lấy số liệu KỲ TRƯỚC (QUÁ KHỨ)
-        Map<String, Object> prevData = statisticsRepo.getStatsByPeriod(toMs(prevStart), toMs(prevEnd));
-        long prevRevenue = toLong(prevData.get("revenue"));
-
-        // 3. Tính % Tăng trưởng doanh thu
-        double growth;
-        if (prevRevenue == 0) {
-            // Nếu kỳ trước = 0, kỳ này > 0 => Tăng trưởng 100% (tăng tuyệt đối)
-            // Nếu cả 2 kỳ = 0 => 0%
-            growth = (currentRevenue > 0) ? 100.0 : 0.0;
-        } else {
-            // Công thức: ((Hiện tại - Quá khứ) / Quá khứ) * 100
-            growth = ((double) (currentRevenue - prevRevenue) / prevRevenue) * 100;
-        }
-
-        // 4. Format chuỗi hiển thị (VD: "+100%", "-50%", "0%")
-        String growthStr = (growth > 0 ? "+" : "") + String.format("%.0f", growth) + "%";
-
-        return AdDashboardOverviewResponse.StatisticCard.builder()
-                .revenue(currentRevenue)
-                .soldProducts(toInt(currentData.get("soldProducts")))
-                .totalOrders(toInt(currentData.get("totalOrders")))
-                .completed(toInt(currentData.get("completed")))
-                .cancelled(toInt(currentData.get("cancelled")))
-                .processing(toInt(currentData.get("processing")))
-                .growthRate(growthStr) // Gán giá trị tính toán được vào đây
-                .build();
-    }
-
 }

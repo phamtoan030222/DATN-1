@@ -18,9 +18,8 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
 
     @Query(value = """
         SELECT 
-            -- Doanh thu (Chỉ tính đơn Hoàn thành = 4)
             COALESCE(SUM(CASE WHEN i.trang_thai_hoa_don = 4 THEN i.total_amount_after_decrease ELSE 0 END), 0) as revenue,
-            -- Sản phẩm đã bán (Sub-query để SUM chính xác quantity của đơn Hoàn thành)
+            COALESCE(SUM(CASE WHEN i.trang_thai_hoa_don != 5 THEN i.total_amount_after_decrease ELSE 0 END), 0) as expectedRevenue,
             COALESCE((
                 SELECT CAST(SUM(id_det.quantity) AS SIGNED)
                 FROM invoice_detail id_det 
@@ -29,13 +28,10 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
                 AND inv_sub.trang_thai_hoa_don = 4
                 AND inv_sub.created_date BETWEEN :start AND :end
             ), 0) as soldProducts,
-            -- Tổng số đơn hàng (Bao gồm cả đơn hủy, chờ, v.v.. miễn là chưa xóa khỏi DB)
-            COUNT(i.id) as totalOrders,
             
-            -- Đếm số lượng theo nhóm trạng thái
-            SUM(CASE WHEN i.trang_thai_hoa_don = 4 THEN 1 ELSE 0 END) as completed,
+            COUNT(i.id) as totalOrders,
+                        SUM(CASE WHEN i.trang_thai_hoa_don = 4 THEN 1 ELSE 0 END) as completed,
             SUM(CASE WHEN i.trang_thai_hoa_don = 5 THEN 1 ELSE 0 END) as cancelled,
-            -- Đang xử lý: Bao gồm Chờ xác nhận(0), Đã xác nhận(1), Chờ giao(2), Đang giao(3), Lưu tạm(6)
             SUM(CASE WHEN i.trang_thai_hoa_don IN (0,1,2,3,6) THEN 1 ELSE 0 END) as processing
             
         FROM invoice i 

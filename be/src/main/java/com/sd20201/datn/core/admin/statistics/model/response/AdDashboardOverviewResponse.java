@@ -19,6 +19,7 @@ public class AdDashboardOverviewResponse {
     @Data @Builder
     public static class StatisticCard {
         private Long revenue;
+        private Long expectedRevenue;
         private Integer soldProducts;
         private Integer totalOrders;
         private Integer completed;
