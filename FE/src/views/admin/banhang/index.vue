@@ -1,3 +1,4 @@
+
 <script setup lang="ts">
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import type {
@@ -372,6 +373,8 @@ const maxProductPrice = computed(() => {
   const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
   return prices.length > 0 ? Math.max(...prices) : 0
 })
+
+
 
 // Tính số lượng serial khả dụng
 const availableSerialsCount = computed(() => {
@@ -816,7 +819,7 @@ async function checkFromDistrictAndWard() {
     const districtExists = response.data?.some((d: any) => d.DistrictID === FROM_DISTRICT_ID) || false
     if (!districtExists) {
       console.error(`FROM_DISTRICT_ID ${FROM_DISTRICT_ID} không hợp lệ!`)
-      toast.error('Mã quận/huyện nguồn không hợp lệ.')
+//      toast.error('Mã quận/huyện nguồn không hợp lệ.')
       return false
     }
     const wardResponse = await getGHNWards(FROM_DISTRICT_ID, GHN_API_TOKEN)
@@ -2873,9 +2876,18 @@ onMounted(async () => {
     await fetchDiscounts(idHDS.value)
   }
 })
+// code tâm thêm
+// Tự động tìm voucher giảm nhiều tiền nhất
+const bestSuggestion = computed(() => {
+  const suggestions = state.autoVoucherResult?.voucherTotHon || [];
+  if (suggestions.length === 0) return null;
+
+  // Sắp xếp giảm dần theo số tiền được giảm thêm  và lấy cái đầu tiên
+  return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0];
+});
 </script>
 
-deleteProduc
+
 <template>
   <div class="main-layout">
     <div class="left-column">
@@ -2912,8 +2924,12 @@ deleteProduc
                       {{ tab.ma }}
                     </NText>
                     <NPopconfirm
-                      :show-icon="false" positive-text="Xác nhận hủy" negative-text="Hủy bỏ"
-                      @positive-click="() => huy(tab.idHD)" @negative-click="() => { }"
+                     v-if="tab.soLuong > 0"
+                      :show-icon="false"
+                       positive-text="Xác nhận hủy"
+                        negative-text="Hủy bỏ"
+                      @positive-click="() => huy(tab.idHD)"
+                       @negative-click="() => { }"
                     >
                       <template #trigger>
                         <NButton text type="error" size="tiny" class="delete-invoice-btn" @click.stop>
@@ -2932,6 +2948,18 @@ deleteProduc
                         </NText>
                       </div>
                     </NPopconfirm>
+                        <NButton 
+                          v-else 
+                          text 
+                          type="error" 
+                          size="tiny" 
+                          class="delete-invoice-btn" 
+                          @click.stop="huy(tab.idHD)"
+                        >
+                          <NIcon>
+                            <TrashOutline />
+                          </NIcon>
+                        </NButton>
                   </div>
                   <NSpace vertical :size="4">
                     <NTag type="warning" size="small" round>
@@ -3082,7 +3110,8 @@ deleteProduc
       </NCard>
 
       <NCard
-        v-if="state.autoVoucherResult?.voucherApDung?.length > 0" class="card" size="small"
+        v-if="idHDS && state.autoVoucherResult?.voucherApDung?.length > 0"
+         class="card" size="small"
         :segmented="{ content: true }"
       >
         <template #header>
@@ -3199,7 +3228,8 @@ deleteProduc
 
       <!-- CARD GỢI Ý MUA THÊM (THÊM MỚI) -->
       <NCard
-        v-if="state.autoVoucherResult?.voucherTotHon?.length > 0" class="card" size="small"
+        v-if="idHDS && state.autoVoucherResult?.voucherTotHon?.length > 0" 
+        class="card" size="small"
         :segmented="{ content: true }"
       >
         <template #header>
@@ -3316,7 +3346,7 @@ deleteProduc
 
         <NSpace vertical :size="16">
           <!-- Phần chọn voucher -->
-          <div>
+          <div v-if="idHDS" >
             <NText depth="3">
               Mã giảm giá
             </NText>
@@ -3331,8 +3361,13 @@ deleteProduc
               </NButton>
             </NSpace>
 
-            <!-- Thông báo voucher tốt hơn -->
+            <!--Tâm thêm-->
             <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
+                  </div>
+              </div>
+
+              <!--Code của toàn-->
+            <!-- <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
               <NAlert type="warning" size="small" :show-icon="true">
                 <template #icon>
                   <NIcon>
@@ -3345,7 +3380,7 @@ deleteProduc
                 </NButton>
               </NAlert>
             </div>
-          </div>
+          </div> -->
 
           <NDivider style="margin: 8px 0" />
 

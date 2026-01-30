@@ -74,12 +74,15 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     }
 
 
-
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
+        Long currentTime = System.currentTimeMillis();
         return ResponseObject.successForward(
                 PageableObject.of(
-                        productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
+                        productDetailRepository.getProductDetails(
+                                Helper.createPageable(request),
+                                request,
+                                currentTime)),
                 "OKE"
         );
     }
@@ -127,7 +130,8 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     @Override
     public List<ADGioHangResponse> getListGioHang(String id) {
         try {
-            return adTaoHoaDonChiTietRepository.getAllGioHang(id);
+            Long currentTime = System.currentTimeMillis();
+            return adTaoHoaDonChiTietRepository.getAllGioHang(id,currentTime);
         } catch (Exception e) {
             log.error("Error getting cart for invoice {}: ", id, e);
             return Collections.emptyList();
