@@ -43,18 +43,23 @@ public class AdVoucherServiceImpl implements AdVoucherService {
     private final AdVoucherDetailRepository voucherDetailRepository;
     private final JavaMailSender mailSender;
 
-    // ... (Query methods giữ nguyên)
+    // --- QUERY METHODS ---
     @Override
     public ResponseObject<?> getVouchers(AdVoucherRequest request) {
-        return ResponseObject.successForward(PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)), "Lấy danh sách voucher thành công");
+        return ResponseObject.successForward(
+                PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)),
+                "Lấy danh sách voucher thành công"
+        );
     }
 
     @Override
     public ResponseObject<?> getVoucherById(String id) {
-        return voucherRepository.getVoucherById(id).map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công")).orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
+        return voucherRepository.getVoucherById(id)
+                .map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công"))
+                .orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
     }
 
-    // --- STATUS CHANGE (Đã sửa lỗi gửi mail) ---
+    // --- STATUS CHANGE METHODS ---
     @Override
     public ResponseObject<?> changeStatusVoucherToStart(String id) {
         Long now = System.currentTimeMillis();
@@ -66,11 +71,10 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             List<String> failedEmails = new ArrayList<>();
             int count = 0;
             try {
-                // Logic gửi mail cho khách hàng đã được gán voucher này
                 List<VoucherDetail> details = voucherDetailRepository.findAllByVoucher(v);
                 for (VoucherDetail vd : details) {
                     Customer c = vd.getCustomer();
-                    if (c != null && c.getEmail() != null && !c.getEmail().isBlank()) {
+                    if (c != null && c.getEmail() != null) {
                         sendVoucherStartNowEmail(c, v, failedEmails);
                         count++;
                     }
@@ -110,48 +114,49 @@ public class AdVoucherServiceImpl implements AdVoucherService {
                     Customer c = vd.getCustomer();
                     if (c != null && c.getEmail() != null && !c.getEmail().isBlank()) {
                         if (newStatus == EntityStatus.INACTIVE) {
-                            sendVoucherPausedEmail(c, voucher, failedEmails);
+                            sendVoucherPausedEmail(c, voucher, failedEmails); // Gọi hàm Paused
                             notifiedCount++;
                         } else if (newStatus == EntityStatus.ACTIVE) {
-                            sendVoucherResumedEmail(c, voucher, failedEmails);
+                            sendVoucherResumedEmail(c, voucher, failedEmails); // Gọi hàm Resumed
                             notifiedCount++;
                         }
                     }
                 }
             } catch (Exception e) {
-                log.error("Gửi email thất bại: {}", e.getMessage());
+                log.error("Gửi email thông báo trạng thái voucher thất bại: {}", e.getMessage());
             }
 
-            String msg = "Cập nhật thành công";
-            if (newStatus == EntityStatus.INACTIVE) msg += ", đã báo tạm dừng cho " + notifiedCount + " khách";
-            else msg += ", đã báo tiếp tục cho " + notifiedCount + " khách";
-
+            String msg = "Cập nhật trạng thái thành công";
+            if (newStatus == EntityStatus.INACTIVE) {
+                msg += ", đã thông báo tạm dừng cho " + notifiedCount + " khách";
+            } else if (newStatus == EntityStatus.ACTIVE) {
+                msg += ", đã thông báo tiếp tục cho " + notifiedCount + " khách";
+            }
+            if (!failedEmails.isEmpty()) msg += ". Lỗi gửi: " + String.join(", ", failedEmails);
             return ResponseObject.successForward(null, msg);
-        }).orElse(ResponseObject.errorForward("Không tìm thấy voucher", HttpStatus.NOT_FOUND));
+        }).orElse(ResponseObject.errorForward("Cập nhật thất bại! không tìm thấy voucher", HttpStatus.NOT_FOUND));
     }
 
-    // --- CRUD (Có Validate) ---
+    // --- CRUD METHODS ---
     @Override
     public ResponseObject<?> create(@Valid AdVoucherCreateUpdateRequest request) throws BadRequestException {
-        // 1. VALIDATE MỚI (Length & Value)
-        Helper.validateVoucherInput(request);
-
-        if (voucherRepository.findVoucherByName(request.getName()).isPresent())
-            throw new DuplicateKeyException("Tên trùng: " + request.getName());
+        if (voucherRepository.findVoucherByName(request.getName()).isPresent()) {
+            throw new DuplicateKeyException("Tên voucher đã tồn tại: " + request.getName());
+        }
+        Helper.validateVoucherDateRange(request.getStartDate(), request.getEndDate());
         Voucher voucher = new Voucher();
         voucher.setCode(Helper.generateCodeVoucher());
         Helper.mapRequestToVoucher(request, voucher);
-
         List<String> failedEmails = new ArrayList<>();
         if (request.getTargetType() == TargetType.ALL_CUSTOMERS) {
             if (request.getQuantity() == null || request.getQuantity() <= 0)
-                throw new IllegalArgumentException("Số lượng phải > 0");
+                throw new IllegalArgumentException("Số lượng phải lớn hơn 0 cho Voucher Công Khai");
             voucher.setQuantity(request.getQuantity());
             voucher.setRemainingQuantity(request.getQuantity());
             voucher = voucherRepository.save(voucher);
         } else if (request.getTargetType() == TargetType.INDIVIDUAL) {
             if (request.getVoucherUsers() == null || request.getVoucherUsers().isEmpty())
-                throw new IllegalArgumentException("DS khách hàng trống");
+                throw new IllegalArgumentException("Danh sách khách hàng không được để trống");
             List<Customer> customers = new ArrayList<>();
             request.getVoucherUsers().forEach(vd -> {
                 String cid = vd.getCustomer().getId();
@@ -166,43 +171,41 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             voucherDetailRepository.saveAll(details);
             for (Customer c : customers) sendVoucherStartNowEmail(c, voucher, failedEmails);
         } else {
-            throw new IllegalArgumentException("TargetType lỗi");
+            throw new IllegalArgumentException("Loại đối tượng không hợp lệ!");
         }
-
-        return ResponseObject.successForward(null, "Thêm mới thành công");
+        String message = "Thêm mới voucher thành công";
+        if (!failedEmails.isEmpty()) message += ". Gửi mail thất bại cho: " + String.join(", ", failedEmails);
+        return ResponseObject.successForward(null, message);
     }
 
     @Override
     public ResponseObject<?> update(String id, @Valid AdVoucherCreateUpdateRequest request) throws BadRequestException {
-        // 1. VALIDATE MỚI
-        Helper.validateVoucherInput(request);
-
         Voucher voucher = voucherRepository.findById(id).orElse(null);
-        if (voucher == null) return ResponseObject.errorForward("Không tìm thấy", HttpStatus.NOT_FOUND);
+        if (voucher == null) return ResponseObject.errorForward("Không tìm thấy voucher", HttpStatus.NOT_FOUND);
         TargetType oldTargetType = voucher.getTargetType();
         boolean isContentChanged = Helper.isVoucherContentChanged(voucher, request);
         if (!voucher.getName().equals(request.getName()) && voucherRepository.findVoucherByName(request.getName()).isPresent())
-            throw new DuplicateKeyException("Tên trùng");
+            throw new DuplicateKeyException("Tên voucher mới đã tồn tại: " + request.getName());
+        Helper.validateVoucherDateRange(request.getStartDate(), request.getEndDate());
         Helper.mapRequestToVoucher(request, voucher);
         if (oldTargetType == TargetType.INDIVIDUAL && request.getTargetType() == TargetType.ALL_CUSTOMERS)
-            throw new BadRequestException("Không thể đổi Cá nhân -> Công khai");
-
+            throw new BadRequestException("Không thể thay đổi Voucher từ 'Cá nhân' sang 'Công khai'!");
         List<String> failedEmails = new ArrayList<>();
         if (request.getTargetType() == TargetType.ALL_CUSTOMERS) {
             if (request.getQuantity() == null || request.getQuantity() <= 0)
-                throw new IllegalArgumentException("Số lượng > 0");
+                throw new IllegalArgumentException("Số lượng phải lớn hơn 0");
             voucher.setQuantity(request.getQuantity());
             voucher.setRemainingQuantity(request.getQuantity());
             if (oldTargetType == TargetType.INDIVIDUAL) voucherDetailRepository.deleteByVoucher(voucher);
             voucherRepository.save(voucher);
         } else if (request.getTargetType() == TargetType.INDIVIDUAL) {
             if (request.getVoucherUsers() == null || request.getVoucherUsers().isEmpty())
-                throw new IllegalArgumentException("DS khách trống");
+                throw new IllegalArgumentException("Danh sách khách hàng trống");
             List<VoucherDetail> currentDetails = voucherDetailRepository.findAllByVoucher(voucher);
             Set<String> currentCustomerIds = currentDetails.stream().map(d -> d.getCustomer().getId()).collect(Collectors.toSet());
             Set<String> requestCustomerIds = request.getVoucherUsers().stream().map(vd -> vd.getCustomer().getId()).collect(Collectors.toSet());
             if (!requestCustomerIds.containsAll(currentCustomerIds))
-                throw new BadRequestException("Không được xóa khách cũ");
+                throw new BadRequestException("Không thể hủy khách hàng đã gán");
             List<String> newCustomerIds = requestCustomerIds.stream().filter(idReq -> !currentCustomerIds.contains(idReq)).toList();
             List<Customer> customersToSendEmail = new ArrayList<>();
             if (!newCustomerIds.isEmpty()) {
@@ -223,10 +226,12 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             for (Customer c : customersToSendEmail.stream().distinct().toList())
                 sendVoucherStartNowEmail(c, voucher, failedEmails);
         }
-        return ResponseObject.successForward(null, "Cập nhật thành công");
+        String message = "Cập nhật thành công";
+        if (!failedEmails.isEmpty()) message += ". Lỗi gửi mail: " + String.join(", ", failedEmails);
+        return ResponseObject.successForward(null, message);
     }
 
-    // --- Utils & Send Mail ---
+    // --- PRIVATE METHODS ---
     private VoucherDetail createVoucherDetail(Voucher voucher, Customer c) {
         VoucherDetail vd = new VoucherDetail();
         vd.setVoucher(voucher);
@@ -238,6 +243,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         return vd;
     }
 
+    // 1. Gửi mail TẠM HOÃN
     private void sendVoucherPausedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
         try {
             String htmlBody = Helper.createPausedEmailBody(voucher, customer);
@@ -247,6 +253,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         }
     }
 
+    // 2. Gửi mail HOẠT ĐỘNG TRỞ LẠI
     private void sendVoucherResumedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
         try {
             String htmlBody = Helper.createResumedEmailBody(voucher, customer);
@@ -256,6 +263,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         }
     }
 
+    // 3. Gửi mail BẮT ĐẦU NGAY (Tạo mới)
     private void sendVoucherStartNowEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
         try {
             String htmlBody = Helper.createVoucherEmailBody(voucher, customer);
@@ -280,7 +288,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         }
     }
 
-    // ... (Maps & Delete giữ nguyên)
+    // ... (Giữ nguyên các hàm delete và maps ở cuối)
     @Override
     public ResponseObject<?> deleteById(String id) {
         voucherRepository.deleteById(id);

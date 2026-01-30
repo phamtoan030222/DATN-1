@@ -16,7 +16,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 
-import java.math.BigDecimal;
 import java.text.Normalizer;
 import java.text.NumberFormat;
 import java.time.Instant;
@@ -34,7 +33,7 @@ import java.util.regex.Pattern;
 @Slf4j
 public class Helper {
 
-    // --- Utils methods cơ bản ---
+    // --- Utils methods (Giữ nguyên) ---
     public static String appendWildcard(String url) {
         return url + "/**";
     }
@@ -116,37 +115,10 @@ public class Helper {
         return "";
     }
 
-    // --- [MỚI] LOGIC VALIDATE DỮ LIỆU ĐẦU VÀO ---
-    public static void validateVoucherInput(AdVoucherCreateUpdateRequest request) throws BadRequestException {
-        // 1. Validate Ngày tháng
+    public static void validateVoucherDateRange(Long start, Long end) throws BadRequestException {
         Long now = DateTimeUtil.getCurrentTimeMillisecondsStamp();
-        if (request.getStartDate() == null || request.getEndDate() == null)
-            throw new BadRequestException("Thời gian không được để trống!");
-        if (request.getStartDate() >= request.getEndDate())
-            throw new BadRequestException("Ngày bắt đầu phải nhỏ hơn ngày kết thúc!");
-        if (request.getStartDate() < now) {
-            throw new BadRequestException("Ngày bắt đầu không được ở trong quá khứ");
-        }
-        if (request.getEndDate() < now) {
-            throw new BadRequestException("Ngày kết thúc không được ở trong quá khứ");
-        }
-
-        // 2. Validate Độ dài tên (Dưới 50 ký tự)
-        if (request.getName() != null && request.getName().trim().length() > 50) {
-            throw new BadRequestException("Tên voucher quá dài! Vui lòng đặt dưới 50 ký tự.");
-        }
-
-        // 3. Validate Giá trị tiền (Dưới 100 triệu và 1 tỷ)
-        BigDecimal limit100Mil = new BigDecimal("100000000"); // 100 triệu
-        BigDecimal limit1Bil = new BigDecimal("1000000000");  // 1 tỷ
-
-        if (request.getMaxValue() != null && request.getMaxValue().compareTo(limit100Mil) >= 0) {
-            throw new BadRequestException("Giá giảm tối đa phải nhỏ hơn 100 triệu VNĐ!");
-        }
-
-        if (request.getConditions() != null && request.getConditions().compareTo(limit1Bil) >= 0) {
-            throw new BadRequestException("Điều kiện đơn hàng phải nhỏ hơn 1 tỷ VNĐ!");
-        }
+        if (start == null || end == null) throw new BadRequestException("StartDate hoặc EndDate không được để trống!!");
+        if (start >= end) throw new BadRequestException("Ngày bắt đầu không được lớn hơn ngày kết thúc!!");
     }
 
     public static void mapRequestToVoucher(AdVoucherCreateUpdateRequest request, Voucher voucher) {
@@ -174,13 +146,14 @@ public class Helper {
     }
 
     // =================================================================================
-    //  PHẦN GIAO DIỆN EMAIL - FINAL ARTISTIC TICKET
+    //  PHẦN GIAO DIỆN EMAIL - LUXURY TICKET 2.0 (FONT DỄ ĐỌC & SỐ TRÒN)
     // =================================================================================
 
     private static String getTicketHtmlTemplate(String headerColor, String customerName, String messageBody,
                                                 String logoUrl, String statusBadge, String voucherName, String discountDisplay,
                                                 String maxReduceStr, String voucherCode, String infoTableRows, String btnText, String btnColor) {
-        // Link Logo dự phòng
+        // Link ảnh Logo (Dùng link PostImages cho ổn định)
+        // Bạn thay link của bạn vào đây
         if (logoUrl == null || logoUrl.isEmpty()) {
             logoUrl = "https://caodang.fpt.edu.vn/wp-content/uploads/2018/01/logo-fpt-polytechnic.png";
         }
@@ -190,41 +163,40 @@ public class Helper {
                 <html>
                 <head>
                 <style>
-                    /* Import Font Nghệ thuật từ Google Fonts */
-                    @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:wght@700&display=swap');
-                
                     body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; background-color: #eeeeee; margin: 0; padding: 0; }
                     .container { max-width: 650px; margin: 30px auto; background: #eeeeee; }
                 
+                    /* HEADER: Màu tùy chỉnh (Xanh/Cam) */
                     .header { background-color: {{headerColor}}; color: #ffffff; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
                     .header h1 { margin: 0; font-size: 24px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }
                 
+                    /* VOUCHER CONTAINER */
                     .voucher-wrapper { margin: 25px 0; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.15); font-family: 'Arial', sans-serif; position: relative; background: transparent; }
                     .voucher-table { width: 100%; border-collapse: collapse; background-color: transparent; }
                 
+                    /* CỘT TRÁI */
                     .left-side { background-color: #1a4d2e; width: 28%; text-align: center; vertical-align: middle; padding: 20px 10px; border-right: 2px dashed #f8f9fa; position: relative; }
                     .vertical-text { color: #fff; font-size: 26px; font-weight: bold; text-transform: uppercase; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 6px; display: inline-block; transform: rotate(-180deg); }
                 
+                    /* CỘT PHẢI */
                     .right-side { background-color: #fffdf5; width: 72%; padding: 25px 30px; vertical-align: middle; position: relative; }
                 
+                    /* LOGO BOX */
                     .logo-img { float: right; width: 80px; height: 80px; object-fit: contain; margin-left: 10px; }
                 
-                    /* --- FONT NGHỆ THUẬT CHO TÊN VOUCHER --- */
-                    .voucher-name { 
-                        font-family: 'Dancing Script', cursive; /* Font viết tay nghệ thuật */
-                        font-size: 32px; 
-                        font-weight: 700; 
-                        color: #1a4d2e; 
-                        margin: 0; 
-                        line-height: 1.2; 
-                    }
+                    /* TYPOGRAPHY - Đã đổi sang Font dễ đọc */
+                    .voucher-name { font-family: 'Georgia', 'Times New Roman', serif; font-size: 26px; font-weight: bold; color: #1a4d2e; margin: 0; line-height: 1.3; font-style: italic; }
                 
-                    .sale-value { font-family: 'Playfair Display', serif; font-size: 60px; font-weight: 900; color: #1a4d2e; margin: 5px 0; line-height: 1; letter-spacing: -1px; }
-                    .sale-off-text { font-family: 'Arial', sans-serif; font-size: 18px; font-weight: bold; color: #d4af37; text-transform: uppercase; letter-spacing: 2px; }
+                    /* Số giảm giá: Dùng Arial Bold để dễ đọc nhất */
+                    .sale-value { font-family: 'Arial', sans-serif; font-size: 60px; font-weight: 900; color: #1a4d2e; margin: 5px 0; line-height: 1; letter-spacing: -2px; }
                 
+                    .sale-off-text { font-family: 'Georgia', serif; font-size: 18px; font-weight: bold; color: #d4af37; text-transform: uppercase; letter-spacing: 2px; }
+                
+                    /* NOTCHES (Vết lõm) */
                     .notch-top { position: absolute; top: -12px; right: -12px; width: 24px; height: 24px; background-color: #eeeeee; border-radius: 50%; z-index: 10; box-shadow: inset 0 -2px 2px rgba(0,0,0,0.1); }
                     .notch-bottom { position: absolute; bottom: -12px; right: -12px; width: 24px; height: 24px; background-color: #eeeeee; border-radius: 50%; z-index: 10; box-shadow: inset 0 2px 2px rgba(0,0,0,0.1); }
                 
+                    /* TABLE INFO */
                     .info-table { width: 100%; margin-top: 15px; font-family: 'Arial', sans-serif; font-size: 13px; color: #555; border-top: 1px solid #eee; padding-top: 10px; clear: both; }
                     .info-label { color: #888; padding: 4px 0; }
                     .info-val { text-align: right; font-weight: 600; color: #333; }
@@ -252,10 +224,10 @@ public class Helper {
                                 </td>
                                 <td class='right-side'>
                                     <img src='{{logoUrl}}' alt='Logo' class='logo-img' />
+                
                                     {{statusBadge}}
                 
                                     <div class='voucher-name'>{{voucherName}}</div>
-                
                                     <div class='sale-value'>{{discountDisplay}}</div>
                                     <div class='sale-off-text'>SALE OFF</div>
                                     <div style='margin-top: 5px; font-size: 13px; color: #666; font-style: italic;'>
@@ -294,20 +266,24 @@ public class Helper {
                 .replace("{{btnColor}}", btnColor);
     }
 
-    // --- CÁC HÀM GỌI MAIL ---
+    // --- 1. Mail BẮT ĐẦU NGAY (Start Now) ---
     public static String createVoucherEmailBody(Voucher voucher, Customer customer) {
         return generateCommonBody(voucher, customer, "START");
     }
 
+    // --- 2. Mail TẠM HOÃN (Paused) ---
     public static String createPausedEmailBody(Voucher voucher, Customer customer) {
         return generateCommonBody(voucher, customer, "PAUSED");
     }
 
+    // --- 3. Mail HOẠT ĐỘNG TRỞ LẠI (Resumed) ---
     public static String createResumedEmailBody(Voucher voucher, Customer customer) {
         return generateCommonBody(voucher, customer, "RESUMED");
     }
 
+    // Hàm xử lý logic chung cho 3 loại mail
     private static String generateCommonBody(Voucher voucher, Customer customer, String type) {
+        // Format dữ liệu
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
         Locale localeVN = new Locale("vi", "VN");
         NumberFormat currencyVN = NumberFormat.getCurrencyInstance(localeVN);
@@ -315,12 +291,15 @@ public class Helper {
         LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
         LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
 
-        // --- XỬ LÝ SỐ LIỆU (BỎ .00) ---
+        // --- XỬ LÝ HIỂN THỊ SỐ (BỎ .00) ---
         String discountDisplay;
         if (voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE) {
-            // stripTrailingZeros(): 68.00 -> 68
+            // Nếu là % (ví dụ 68.00 -> 68, 68.50 -> 68.5)
+            // stripTrailingZeros(): Bỏ số 0 thừa ở cuối
+            // toPlainString(): Chuyển về chuỗi bình thường (không dùng ký hiệu khoa học E)
             discountDisplay = voucher.getDiscountValue().stripTrailingZeros().toPlainString() + "%";
         } else {
+            // Nếu là tiền (ví dụ 100.000 đ)
             discountDisplay = currencyVN.format(voucher.getDiscountValue());
         }
 
@@ -330,40 +309,48 @@ public class Helper {
         String endTimeStr = end.format(dateFormatter);
         String customerName = (customer.getName() != null) ? customer.getName() : "Quý khách";
         String voucherName = (voucher.getName() != null) ? voucher.getName() : "Gift Voucher";
-        String logoUrl = "https://i.postimg.cc/cCtdbqwT/logggggggo.png";
+        String logoUrl = "https://i.imgur.com/kP10jE0.png"; // THAY LINK LOGO CỦA BẠN Ở ĐÂY
 
-        String headerColor = "#218838";
+        // Biến thay đổi theo từng loại mail
+        String headerColor = "#218838"; // Mặc định xanh
         String messageBody = "";
         String statusBadge = "";
         String infoTableRows = "";
         String btnText = "MUA SẮM NGAY";
         String btnColor = "#218838";
 
+        // --- CẤU HÌNH RIÊNG TỪNG LOẠI ---
+
         if (type.equals("PAUSED")) {
-            headerColor = "#ff6600"; // Cam
-            messageBody = "Chúng tôi thành thật xin lỗi. Voucher <strong>" + voucherName + "</strong> hiện đang tạm ngưng sử dụng do <strong>lỗi hệ thống</strong>. Chúng tôi sẽ khắc phục sớm nhất.";
+            // 1. TẠM HOÃN: Banner Cam, Lý do lỗi hệ thống
+            headerColor = "#ff6600";
+            messageBody = "Chúng tôi thành thật xin lỗi vì sự bất tiện này. Voucher <strong>" + voucherName + "</strong> hiện đang tạm ngưng sử dụng do <strong>lỗi hệ thống</strong>. Đội ngũ kỹ thuật đang khắc phục sớm nhất.";
             statusBadge = "<div style='display: inline-block; background: #ffebee; color: #d32f2f; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #ffcdd2; margin-bottom: 5px;'>● TẠM KHÓA</div>";
             btnText = "VỀ TRANG CHỦ";
             btnColor = "#ff6600";
 
+            // Chỉ hiện thông tin cơ bản
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>";
+                    "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>";
         } else if (type.equals("RESUMED")) {
-            headerColor = "#218838"; // Xanh
-            messageBody = "Tin vui! Voucher <strong>" + voucherName + "</strong> đã hoạt động trở lại. Số lượng có hạn, sử dụng ngay!";
+            // 2. HOẠT ĐỘNG LẠI: Banner Xanh, Hiện Số lượng & Hạn dùng
+            headerColor = "#218838";
+            messageBody = "Tin vui! Voucher <strong>" + voucherName + "</strong> đã hoạt động trở lại. Số lượng có hạn, hãy sử dụng ngay nhé!";
             statusBadge = "<div style='display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #c8e6c9; margin-bottom: 5px;'>● ĐANG HOẠT ĐỘNG</div>";
 
+            // Hiện đầy đủ thông tin: Số lượng còn & Hạn dùng
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Số lượng còn:</td><td class='info-val' style='color:#1565c0'>" + voucher.getRemainingQuantity() + "</td></tr>" +
-                            "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
-        } else { // START
+                    "<tr><td class='info-label'>Số lượng còn:</td><td class='info-val' style='color:#1565c0'>" + voucher.getRemainingQuantity() + "</td></tr>" +
+                    "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
+        } else {
+            // 3. START (Mặc định): Banner Xanh
             headerColor = "#218838";
             messageBody = "Chúng tôi xin gửi tặng bạn một mã giảm giá đặc biệt. Hãy sử dụng ngay để mua sắm thả ga nhé!";
             statusBadge = "<div style='display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #c8e6c9; margin-bottom: 5px;'>● ĐANG HOẠT ĐỘNG</div>";
 
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
+                    "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>" +
+                    "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
         }
 
         return getTicketHtmlTemplate(headerColor, customerName, messageBody, logoUrl, statusBadge,
