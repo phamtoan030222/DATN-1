@@ -43,7 +43,7 @@ function continueShopping() {
   justify-content: center;
   align-items: center;
   min-height: 70vh;
-  background-color: #f9fafb;
+  /* background-color: #f9fafb; */
   padding: 20px;
 }
 
