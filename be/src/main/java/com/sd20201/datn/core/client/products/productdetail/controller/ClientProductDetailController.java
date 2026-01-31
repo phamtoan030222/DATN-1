@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping(MappingConstants.API_CUSTOMER_PREFIX_PRODUCTS_DETAIL)
+@RequestMapping(MappingConstants.API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL)
 @RequiredArgsConstructor
 public class ClientProductDetailController {
 
@@ -78,30 +78,11 @@ public class ClientProductDetailController {
         return Helper.createResponseEntity(productDetailService.changeStatus(id));
     }
 
-    @PostMapping
-    ResponseEntity<?> modifyProductDetail(@RequestBody ClientPDProductDetailCreateUpdateRequest request) {
-        return Helper.createResponseEntity(productDetailService.modify(request));
-    }
-
-    @PutMapping
-    ResponseEntity<?> updateProduct(@RequestBody ClientPDProductDetailCreateUpdateRequest request) {
-        return Helper.createResponseEntity(productDetailService.update(request));
-    }
-
-    @PostMapping(value = "/variant", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    ResponseEntity<?> createVariant(@RequestPart String idProduct, @RequestPart ClientPDVariantRequest variant) {
-        return Helper.createResponseEntity(productDetailService.createVariant(idProduct,variant));
-    }
-
     @PostMapping("/imei-exists")
     ResponseEntity<?> isIMEIExist(@RequestBody List<String> id) {
         return Helper.createResponseEntity(productDetailService.isIMEIExist(id));
     }
 
-    @PostMapping("/quick-add")
-    ResponseEntity<?> quickAddPropertiesProduct(@RequestBody Map<String, Object> request) {
-        return Helper.createResponseEntity(productDetailService.quickAddPropertiesProduct(request));
-    }
 
     @GetMapping("/min-max-price")
     ResponseEntity<?> getMinMaxPrice() {
@@ -118,18 +99,10 @@ public class ClientProductDetailController {
         return Helper.createResponseEntity(productDetailService.changeStatusImei(idImei));
     }
 
-    @PostMapping("/save-image")
-    ResponseEntity<?> saveImage(@RequestPart MultipartFile file) {
-        return Helper.createResponseEntity(productDetailService.saveImage(file));
-    }
 
     @PostMapping("/exist-variant")
     ResponseEntity<?> checkExistVariant(@RequestBody ClientPDExistVariantRequest request) {
         return Helper.createResponseEntity(productDetailService.checkExistVariant(request));
     }
 
-    @PostMapping("/add-serial-number")
-    ResponseEntity<?> addSerialNumberToProductDetail(@RequestBody ClientAddSerialNumberRequest request) {
-        return Helper.createResponseEntity(productDetailService.addImeiToExistProductDetail(request));
-    }
 }

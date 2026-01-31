@@ -28,8 +28,8 @@ import {
   getMaGiamGia,
   thanhToanThanhCong,
   themSanPham,
-} from '@/service/api/admin/banhang.api'
-import type { ParamsThanhCong, VoucherApDungDTO } from '@/service/api/admin/banhang.api'
+} from '@/service/api/client/banhang.api'
+import type { ParamsThanhCong, VoucherApDungDTO } from '@/service/api/client/banhang.api'
 
 const route = useRoute()
 const router = useRouter()

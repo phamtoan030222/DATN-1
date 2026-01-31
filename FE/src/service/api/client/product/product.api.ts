@@ -1,4 +1,4 @@
-import { API_CUSTOMER_PRODUCTS } from '@/constants/url'
+import { API_PREFIX_ORDER_ONLINE_PRODUCT } from '@/constants/url'
 import request from '@/service/request'
 import type { DefaultResponse, PaginationParams, PaginationResponse } from '@/typings/api/api.common'
 import type { AxiosResponse } from 'axios'
@@ -13,39 +13,30 @@ export type ADProductRequest = PaginationParams & {
   maxPrice: number
 }
 
-export interface ADProductCreateUpdateRequest {
-  id?: string
-  name: string
-  idBrand: string
-  idBattery: string
-  idScreen: string
-  idOperatingSystem: string
-}
-
 export interface ADProductResponse {
-  id?: string
-  code: string
-  name: string
-  status?: string
-  brand: string
-  battery: string
-  screen: string
-  operatingSystem: string
-  minPrice: number
-  maxPrice: number
-  quantity: number
-  urlImage: string
-  percentage?: number
+  // id?: string
+  // code: string
+  // name: string
+  // status?: string
+  // brand: string
+  // battery: string
+  // screen: string
+  // operatingSystem: string
+  // minPrice: number
+  // maxPrice: number
+  // quantity: number
+  // urlImage: string
+  // percentage?: number
 }
 
 export interface ADProductDetailResponse {
-  id?: string
-  code: string
-  name: string
-  idBrand: string
-  idBattery: string
-  idScreen: string
-  idOperatingSystem: string
+  // id?: string
+  // code: string
+  // name: string
+  // idBrand: string
+  // idBattery: string
+  // idScreen: string
+  // idOperatingSystem: string
 }
 
 export type ADPRPropertiesComboboxResponse = SelectMixedOption & {
@@ -56,7 +47,7 @@ export type ADPRPropertiesComboboxResponse = SelectMixedOption & {
 
 export async function getProducts(params: ADProductRequest) {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}`,
     method: 'GET',
     params,
   })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<ADProductResponse>>>>
@@ -66,7 +57,7 @@ export async function getProducts(params: ADProductRequest) {
 
 export async function getScreens() {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/screens`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/screens`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
 
@@ -75,7 +66,7 @@ export async function getScreens() {
 
 export async function getBatteries() {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/batteries`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/batteries`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
 
@@ -84,7 +75,7 @@ export async function getBatteries() {
 
 export async function getBrands() {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/brands`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/brands`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
 
@@ -93,7 +84,7 @@ export async function getBrands() {
 
 export async function getOperatingSystems() {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/operating-systems`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/operating-systems`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
 
@@ -102,7 +93,7 @@ export async function getOperatingSystems() {
 
 export async function getProductById(id: string) {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/${id}`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/${id}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<ADProductDetailResponse>>
 
@@ -120,7 +111,7 @@ export async function modifyProduct(data: ADProductCreateUpdateRequest, images: 
   }
 
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}`,
     method: 'POST',
     data: formData,
     headers: {
@@ -133,7 +124,7 @@ export async function modifyProduct(data: ADProductCreateUpdateRequest, images: 
 
 export async function changeProductStatus(id: string) {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/change-status/${id}`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/change-status/${id}`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<null>>
 
@@ -142,7 +133,7 @@ export async function changeProductStatus(id: string) {
 
 export async function uploadImages(data: FormData, id: string) {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/upload-images/${id}`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/upload-images/${id}`,
     method: 'POST',
     data,
     headers: {
@@ -153,22 +144,9 @@ export async function uploadImages(data: FormData, id: string) {
   return res.data
 }
 
-export async function updateProduct(data: ADProductCreateUpdateRequest) {
-  const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}`,
-    method: 'PUT',
-    data: JSON.stringify(data),
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  })) as AxiosResponse<DefaultResponse<string>>
-
-  return res.data
-}
-
 export async function getProductsCombobox() {
   const res = (await request({
-    url: `${API_CUSTOMER_PRODUCTS}/combobox`,
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT}/combobox`,
     method: 'GET',
   })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
 

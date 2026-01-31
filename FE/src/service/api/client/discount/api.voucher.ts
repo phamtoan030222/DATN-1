@@ -1,7 +1,7 @@
 // API Voucher
 import type { DefaultResponse } from '@/typings/api/api.common'
 import request from '@/service/request'
-import { API_CUSTOMER_DISCOUNTS_VOUCHER } from '@/constants/url'
+import { API_PREFIX_ORDER_ONLINE_VOUCHER } from '@/constants/url'
 import axios from 'axios'
 
 /* ===================== Types ===================== */
@@ -55,7 +55,7 @@ export interface ADVoucherUpsertPayload {
 
 export async function getVouchers(params: ADVoucherQuery) {
   try {
-    const res = await request(`${API_CUSTOMER_DISCOUNTS_VOUCHER}`, {
+    const res = await request(`${API_PREFIX_ORDER_ONLINE_VOUCHER}`, {
       method: 'GET',
       params,
     })
@@ -84,7 +84,7 @@ export async function getVouchers(params: ADVoucherQuery) {
 
 export async function getVoucherById(id: string) {
   const res = await request<DefaultResponse<ADVoucherResponse>>({
-    url: `${API_CUSTOMER_DISCOUNTS_VOUCHER}/${id}`,
+    url: `${API_PREFIX_ORDER_ONLINE_VOUCHER}/${id}`,
     method: 'GET',
   })
   return res.data

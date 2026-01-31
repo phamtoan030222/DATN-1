@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping(MappingConstants.API_CUSTOMER_PREFIX_DISCOUNT_VOUCHER)
+@RequestMapping(MappingConstants.API_PREFIX_ORDER_ONLINE_VOUCHER)
 public class ClientVoucherController {
     @Autowired
     private ClientVoucherServiceImpl voucherService;
