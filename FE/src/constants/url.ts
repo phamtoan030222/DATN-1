@@ -19,8 +19,8 @@ export const SCREEN_ROLE_CUSTOMER = `&screen=CUSTOMER`
 export const URL_OAUTH2_GOOGLE_ADMIN
   = `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_ADMIN}` as string
 
-export const URL_OAUTH2_GOOGLE_CUSTOMER =
-  `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_CUSTOMER}` as string
+export const URL_OAUTH2_GOOGLE_CUSTOMER
+  = `${VITE_BASE_URL_SERVER}/oauth2/authorize/google?redirect_uri=${VITE_BASE_URL_CLIENT}/redirect${SCREEN_ROLE_CUSTOMER}` as string
 
 // ADMIN API
 export const PREFIX_API_ADMIN = `${API_URL}/admin` as string
@@ -71,9 +71,11 @@ export const PREFIX_API_HOA_DON_ADMIN = `${PREFIX_API_ADMIN}/hoa-don` as string
 // export const API_ADMIN_SALES = `${}`
 
 // CUSTOMER API
+export const API_ORDER_ONLINE = `${API_URL}/order-online`
+
 export const PREFIX_API_CUSTOMER = `${API_URL}/customer` as string
 
-export const API_CUSTOMER_PRODUCTS = `${PREFIX_API_CUSTOMER}/products` as string
+export const API_CUSTOMER_PRODUCTS = `${API_ORDER_ONLINE}/products` as string
 
 export const API_CUSTOMER_PRODUCT_DETAIL
   = `${API_CUSTOMER_PRODUCTS}/product-detail` as string
@@ -106,6 +108,9 @@ export const API_CUSTOMER_DISCOUNT = `${PREFIX_API_CUSTOMER}/discounts/discount`
 export const PREFIX_API_BAN_HANG_CUSTOMER = `${PREFIX_API_CUSTOMER}/ban-hang` as string
 export const PREFIX_API_HOA_DON_CUSTOMER = `${PREFIX_API_CUSTOMER}/hoa-don` as string
 
-export const API_ORDER_ONLINE = `${API_URL}/order-online`
+// Bán hàng không cần login
+export const API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL = `${API_ORDER_ONLINE}/product-detail` as string
+export const API_PREFIX_ORDER_ONLINE_PRODUCT = `${API_ORDER_ONLINE}/product` as string
+export const API_PREFIX_ORDER_ONLINE_VOUCHER = `${API_ORDER_ONLINE}/voucher` as string
 
 // ------------- END -------------

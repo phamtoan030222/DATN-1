@@ -19,8 +19,8 @@ import banner4 from '@/assets/images/banner7.jpg'
 import banner5 from '@/assets/images/banner8.jpg'
 
 // Import API
-import { getProductDetails } from '@/service/api/admin/product/productDetail.api'
-import type { ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/admin/product/productDetail.api'
+import { getProductDetails } from '@/service/api/client/product/productDetail.api'
+import type { ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/client/product/productDetail.api'
 
 const router = useRouter()
 const productDetails = ref<ADProductDetailResponse[]>([])
@@ -46,12 +46,12 @@ const banners = ref([
   {
     id: 4,
     url: banner4,
-    title: 'Săn máy tính sịn sò con bò',
+    title: 'Săn máy tính sịn sò con bò cái',
   },
   {
     id: 5,
     url: banner5,
-    title: 'Săn máy tính sịn sò con bò',
+    title: 'Săn máy tính sịn sò con bò đực',
   },
 ])
 

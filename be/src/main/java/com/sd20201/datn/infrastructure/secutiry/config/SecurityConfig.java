@@ -90,7 +90,7 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config.applyPermitDefaultValues());
         config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "*"));
         config.setAllowedOrigins(Collections.singletonList(allowedOrigin));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS","PATCH"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowCredentials(true);
         config.setExposedHeaders(List.of("Authorization"));
         return source;
@@ -105,12 +105,12 @@ public class SecurityConfig {
         http.exceptionHandling(e -> e.authenticationEntryPoint(new RestAuthenticationEntryPoint()));
 
         http.formLogin(login ->
-                    login.loginProcessingUrl(MappingConstants.API_LOGIN).permitAll()
-                            .usernameParameter("username")
-                            .passwordParameter("password")
-                            .successHandler(loginAuthenticationSuccessHandler)
-                            .failureHandler(loginAuthenticationFailureHandler)
-                );
+                login.loginProcessingUrl(MappingConstants.API_LOGIN).permitAll()
+                        .usernameParameter("username")
+                        .passwordParameter("password")
+                        .successHandler(loginAuthenticationSuccessHandler)
+                        .failureHandler(loginAuthenticationFailureHandler)
+        );
 
         http.oauth2Login(
                 oauth2 -> oauth2.authorizationEndpoint(a -> a.baseUri("/oauth2/authorize"))
@@ -122,8 +122,15 @@ public class SecurityConfig {
         );
 
         // api admin
-        http.authorizeHttpRequests( request ->
+        http.authorizeHttpRequests(request ->
                 request
+
+//                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/order-online/**").permitAll()
+//                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/products/**").permitAll()
+//                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/discounts/voucher/**").permitAll()
+//                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/discounts/discount/**").permitAll()
+
+
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_PRODUCTS)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_DISCOUNT)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STATISTICS)).hasAnyAuthority(RoleConstant.QUAN_LY.name())

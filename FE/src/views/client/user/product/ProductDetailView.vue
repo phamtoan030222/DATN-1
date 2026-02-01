@@ -43,10 +43,10 @@ import {
   getProductDetailById,
   getProductDetails,
   getRAMs,
-} from '@/service/api/admin/product/productDetail.api'
+} from '@/service/api/client/product/productDetail.api'
 
-import { getVouchers } from '@/service/api/admin/discount/api.voucher'
-import type { ADVoucherResponse } from '@/service/api/admin/discount/api.voucher'
+import { getVouchers } from '@/service/api/client/discount/api.voucher'
+import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
 
 // Import Store
 import { CartStore } from '@/utils/cartStore'

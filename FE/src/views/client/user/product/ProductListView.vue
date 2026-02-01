@@ -14,8 +14,8 @@ import {
 } from 'naive-ui'
 
 // Import API (Giữ nguyên import của bạn)
-import { getProductDetails } from '@/service/api/admin/product/productDetail.api'
-import type { ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/admin/product/productDetail.api'
+import { getProductDetails } from '@/service/api/client/product/productDetail.api'
+import type { ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/client/product/productDetail.api'
 
 const router = useRouter()
 const productDetails = ref<ADProductDetailResponse[]>([])

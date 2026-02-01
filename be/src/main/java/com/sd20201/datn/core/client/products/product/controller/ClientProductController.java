@@ -20,7 +20,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 
 @RestController
-@RequestMapping(MappingConstants.API_CUSTOMER_PREFIX_PRODUCTS)
+@RequestMapping(MappingConstants.API_PREFIX_ORDER_ONLINE_PRODUCT)
 @RequiredArgsConstructor
 public class ClientProductController {
 
