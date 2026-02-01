@@ -290,6 +290,7 @@ async function addSerialToCart() {
     // 6. Refresh giỏ hàng
     await refreshCart()
     await fetchDiscounts(idHDS.value)
+    await fetchHoaDon()
   }
   catch (error) {
     console.error('Failed to add serials to cart:', error)
@@ -2233,8 +2234,7 @@ async function xacNhan(check: number) {
       giamGia: giamGia.value,
       phuongThucThanhToan: state.currentPaymentMethod, // '0', '1', '2'
       idPGG: selectedDiscount.value?.id,
-      check,
-      isDeliveryEnabled: isDeliveryEnabled.value,
+      check: isDeliveryEnabled.value ? 1 : 0,
 
       // THÊM FIELD IMEI (quan trọng)
       loaiHoaDon,

@@ -1015,44 +1015,11 @@ const productColumns: DataTableColumns = [
     width: 120, 
     align: "right",
     render: (row) => {
-      const price = row.isImeiRow ? row.giaBanImei : row.giaBan
+      const price = row.giaBan
       return h('div', { class: 'font-semibold' }, formatCurrency(price))
     }
   },
-  { 
-    title: "SL", 
-    key: "quantity", 
-    width: 80, 
-    align: "center",
-    render: (row) => {
-      const quantity = row.isImeiRow ? 1 : (row.soLuong || 1)
-      return h('div', { 
-        class: `inline-flex items-center justify-center w-8 h-8 rounded-full font-medium ${
-          row.isImeiRow ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'
-        }`
-      }, quantity)
-    }
-  },
-  { 
-    title: "Thành tiền", 
-    key: "total", 
-    width: 140, 
-    align: "right",
-    render: (row) => {
-      let total
-      if (row.isImeiRow) {
-        total = row.tongTienImei || row.giaBanImei || 0
-      } else {
-        total = row.tongTien || (row.giaBan ? row.giaBan * (row.soLuong || 1) : 0)
-      }
-      
-      return h('div', { 
-        class: `font-bold ${
-          row.isImeiRow ? 'text-blue-600' : 'text-red-600'
-        }`
-      }, formatCurrency(total))
-    }
-  }
+
 ]
 
 // Filter dữ liệu để loại bỏ các dòng không có sản phẩm

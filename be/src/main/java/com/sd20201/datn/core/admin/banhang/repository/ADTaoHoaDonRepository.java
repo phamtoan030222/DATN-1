@@ -20,7 +20,7 @@ public interface ADTaoHoaDonRepository extends InvoiceRepository {
             hd.type_invoice as loaiHoaDon
     FROM invoice hd
     LEFT JOIN invoice_detail hdct on hd.id = hdct.id_invoice
-    WHERE hd.trang_thai_hoa_don = 0 and (hd.type_invoice = 0 or hd.type_invoice = 1)
+    WHERE hd.trang_thai_hoa_don = 0 and (hd.type_invoice = 0 or hd.type_invoice = 2)
     GROUP BY hd.id, hd.code
     ORDER BY hd.created_date ASC
     """, nativeQuery = true)
