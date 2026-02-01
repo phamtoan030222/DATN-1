@@ -13,5 +13,5 @@ public class ADChangeStatusRequest {
     private String maHoaDon;               // Mã hóa đơn
     private EntityTrangThaiHoaDon statusTrangThaiHoaDon; // Trạng thái mới
     private String note;                   // Ghi chú (lý do)
-    private String nhanVien;                // Nhân viên thực hiện (có thể để null, hệ thống tự lấy)
+    private String idNhanVien;                // Nhân viên thực hiện (có thể để null, hệ thống tự lấy)
 }

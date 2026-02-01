@@ -15,7 +15,7 @@ public interface ADTaoHoaDonRepository extends InvoiceRepository {
 
     @Query(value = """
     SELECT hd.id as id,
-            hd.code as ma,
+            hd.code as code,
             sum(hdct.quantity) as soLuong,
             hd.type_invoice as loaiHoaDon
     FROM invoice hd

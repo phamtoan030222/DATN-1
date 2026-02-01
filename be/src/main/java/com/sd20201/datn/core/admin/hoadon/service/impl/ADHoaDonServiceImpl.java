@@ -72,11 +72,11 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
 
             Staff nhanVien;
             // Nếu request có gửi id nhân viên → lấy theo ID
-            if (request.getNhanVien() != null) {
-                nhanVien = staffRepository.findById(request.getNhanVien())
+            if (request.getIdNhanVien() != null) {
+                nhanVien = staffRepository.findById(request.getIdNhanVien())
                         .orElseThrow(() ->
                                 new RuntimeException("Không tìm thấy nhân viên ID = "
-                                        + request.getNhanVien())
+                                        + request.getIdNhanVien())
                         );
             } else {
                 // Nếu không gửi → lấy nhân viên đang đăng nhập
