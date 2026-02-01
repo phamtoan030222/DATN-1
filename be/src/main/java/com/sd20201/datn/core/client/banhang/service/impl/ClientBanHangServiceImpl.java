@@ -4,12 +4,10 @@ import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailRepository;
 import com.sd20201.datn.core.admin.staff.repository.ADStaffRepository;
-import com.sd20201.datn.core.admin.voucher.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.client.banhang.model.request.*;
 import com.sd20201.datn.core.client.banhang.model.response.*;
 import com.sd20201.datn.core.client.banhang.repository.*;
 import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
-import com.sd20201.datn.core.client.products.productdetail.repository.ClientPDProductDetailRepository;
 import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
@@ -18,7 +16,7 @@ import com.sd20201.datn.infrastructure.constant.*;
 import com.sd20201.datn.infrastructure.exception.BusinessException;
 import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.InvoiceRepository;
-import com.sd20201.datn.repository.LichSuThanhToanResposiotry;
+import com.sd20201.datn.repository.LichSuThanhToanRepository;
 import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
@@ -31,10 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -49,7 +45,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ADStaffRepository adNhanVienRepository;
     public final ClientVoucherRepository adVoucherRepository;
     public final ADPDProductDetailRepository adPDProductDetailRepository;
-    public final LichSuThanhToanResposiotry adLichSuThanhToanRepository;
+    public final LichSuThanhToanRepository adLichSuThanhToanRepository;
     public final ClientBanHangSanPhamChiTiet productDetailRepository;
     public final ClientBHVoucherDetailRepository adbhvoucher;
     public final AdCustomerRepository khachHangRepository;

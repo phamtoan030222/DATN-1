@@ -47,7 +47,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     private final ADStaffRepository adNhanVienRepository;
     public final AdVoucherRepository adVoucherRepository;
     public final ADPDProductDetailRepository adPDProductDetailRepository;
-    public final LichSuThanhToanResposiotry adLichSuThanhToanRepository;
+    public final LichSuThanhToanRepository adLichSuThanhToanRepository;
     public final ADBanHangSanPhamChiTiet productDetailRepository;
 
     public final ADBHVoucherDetailRepository adbhvoucher;
@@ -112,6 +112,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
             // Tạo lịch sử trạng thái
             LichSuTrangThaiHoaDon lichSuTrangThaiHoaDon = new LichSuTrangThaiHoaDon();
+            lichSuTrangThaiHoaDon.setNhanVien(nhanVien);
             lichSuTrangThaiHoaDon.setThoiGian(LocalDateTime.now());
             lichSuTrangThaiHoaDon.setNote("Đơn hàng đã được tạo và đang chờ xử lý.");
             lichSuTrangThaiHoaDon.setHoaDon(hoaDon);

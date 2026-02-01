@@ -11,4 +11,6 @@ public interface VoucherDetailRepository extends JpaRepository<VoucherDetail, St
     boolean existsByVoucherAndCustomer(Voucher voucher, Customer customer);
 
     void deleteByVoucher(Voucher voucher);
+
+    VoucherDetail findByInvoiceId(String id);
 }

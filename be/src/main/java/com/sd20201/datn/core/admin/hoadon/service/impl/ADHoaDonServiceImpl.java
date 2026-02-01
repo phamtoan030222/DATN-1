@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.hoadon.service.impl;
 
+import com.sd20201.datn.core.admin.banhang.repository.ADBanHangIMEIRepository;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADChangeStatusRequest;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonDetailRequest;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonSearchRequest;
@@ -11,21 +12,24 @@ import com.sd20201.datn.core.admin.hoadon.service.ADHoaDonService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.*;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
+import com.sd20201.datn.infrastructure.constant.ImeiStatus;
+import com.sd20201.datn.infrastructure.constant.TargetType;
 import com.sd20201.datn.infrastructure.constant.TypeInvoice;
-import com.sd20201.datn.repository.LichSuThanhToanResposiotry;
-import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
-import com.sd20201.datn.repository.StaffRepository;
+import com.sd20201.datn.repository.*;
 import com.sd20201.datn.utils.EmailService;
 import com.sd20201.datn.utils.Helper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -33,291 +37,445 @@ import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ADHoaDonServiceImpl implements ADHoaDonService {
 
-    public final ADInvoiceRepository adHoaDonRepository;
-
-    public final ADHoaDonChiTietRepository adHoaDonChiTietRepository;
-
-    public final LichSuTrangThaiHoaDonRepository lichSuTrangThaiRepository;
-
-    public final StaffRepository staffRepository;
-
+    private final ADInvoiceRepository adHoaDonRepository;
+    private final ADHoaDonChiTietRepository adHoaDonChiTietRepository;
+    private final LichSuTrangThaiHoaDonRepository lichSuTrangThaiRepository;
+    private final StaffRepository staffRepository;
+    private final ADBanHangIMEIRepository imeiRepository;
+    private final VoucherRepository voucherRepository;
+    private final VoucherDetailRepository voucherDetailRepository;
+    private final LichSuThanhToanRepository lichSuThanhToanRepository;
+    private final CustomerRepository customerRepository;
 
     @Override
-    public ResponseObject<?> getAllHoaDon(ADHoaDonSearchRequest request) {
+    @Transactional
+    public ResponseObject<?> capNhatTrangThaiHoaDon(ADChangeStatusRequest request) {
         try {
-            Pageable pageable = Helper.createPageable(request, "created_date");
-            HoaDonPageResponse result = adHoaDonRepository.getAllHoaDonResponse(request, pageable);
+            log.info("Bắt đầu cập nhật trạng thái hóa đơn: {}", request.getMaHoaDon());
 
-            return new ResponseObject<>(
-                    result,
-                    HttpStatus.OK,
-                    "Lấy danh sách hóa đơn thành công"
+            // 1. Lấy hóa đơn theo mã
+            Invoice hoaDon = adHoaDonRepository.findByMa(request.getMaHoaDon())
+                    .orElseThrow(() ->
+                            new RuntimeException("Không tìm thấy hóa đơn: " + request.getMaHoaDon())
+                    );
+
+            EntityTrangThaiHoaDon trangThaiCu = hoaDon.getEntityTrangThaiHoaDon();
+            EntityTrangThaiHoaDon trangThaiMoi = request.getStatusTrangThaiHoaDon();
+
+            log.info("Trạng thái cũ: {}, Trạng thái mới: {}", trangThaiCu, trangThaiMoi);
+
+            // 2. Kiểm tra luồng trạng thái hợp lệ
+            kiemTraChuyenTrangThai(trangThaiCu, trangThaiMoi);
+
+            Staff nhanVien;
+            // Nếu request có gửi id nhân viên → lấy theo ID
+            if (request.getNhanVien() != null) {
+                nhanVien = staffRepository.findById(request.getNhanVien())
+                        .orElseThrow(() ->
+                                new RuntimeException("Không tìm thấy nhân viên ID = "
+                                        + request.getNhanVien())
+                        );
+            } else {
+                // Nếu không gửi → lấy nhân viên đang đăng nhập
+                nhanVien = getCurrentStaff();
+            }
+
+            // 4. Cập nhật trạng thái hóa đơn
+            hoaDon.setEntityTrangThaiHoaDon(trangThaiMoi);
+            hoaDon.setLastModifiedDate(System.currentTimeMillis());
+
+            // Cập nhật paymentDate nếu chuyển sang trạng thái HOÀN THÀNH
+            if (trangThaiMoi == EntityTrangThaiHoaDon.HOAN_THANH && hoaDon.getPaymentDate() == null) {
+                hoaDon.setPaymentDate(System.currentTimeMillis());
+            }
+
+            // Reset paymentDate nếu hủy đơn hàng đã thanh toán
+            if (trangThaiMoi == EntityTrangThaiHoaDon.DA_HUY && hoaDon.getPaymentDate() != null) {
+                hoaDon.setPaymentDate(null);
+            }
+
+            Invoice hoaDonDaCapNhat = adHoaDonRepository.save(hoaDon);
+
+            // 5. Lưu lịch sử trạng thái vào bảng lịch sử
+            LichSuTrangThaiHoaDon lichSu = luuLichSuTrangThaiHoaDon(
+                    hoaDonDaCapNhat,
+                    trangThaiMoi,
+                    request.getNote(),
+                    nhanVien
             );
+
+            // 6. XỬ LÝ NGHIỆP VỤ THEO TRẠNG THÁI
+            switch (trangThaiMoi) {
+                case CHO_XAC_NHAN:
+                case DA_XAC_NHAN:
+                    khoaIMEIKhiChoXacNhan(hoaDonDaCapNhat);
+                    break;
+
+                case CHO_GIAO:
+                    danhDauIMEIDaBan(hoaDonDaCapNhat);
+                    luuLichSuThanhToan(hoaDonDaCapNhat, nhanVien);
+                    danhDauVoucherDaSuDung(hoaDonDaCapNhat);
+                    break;
+
+                case DANG_GIAO:
+                    // Không phát sinh nghiệp vụ mới
+                    break;
+
+                case HOAN_THANH:
+                    // Kết thúc vòng đời hóa đơn
+                    break;
+
+                case DA_HUY:
+                    traIMEIVeKho(hoaDonDaCapNhat);
+                    hoanTraVoucher(hoaDonDaCapNhat);
+                    hoanTienNeuCan(hoaDonDaCapNhat, nhanVien);
+                    break;
+
+                default:
+                    break;
+            }
+
+            // 7. Gửi email thông báo (bất đồng bộ)
+            sendStatusUpdateEmailAsync(hoaDonDaCapNhat, trangThaiMoi);
+
+            log.info("Cập nhật trạng thái thành công cho hóa đơn: {}", request.getMaHoaDon());
+
+            // 8. Trả về thông tin chi tiết bao gồm thời gian từ lịch sử
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("maHoaDon", hoaDonDaCapNhat.getCode());
+            responseData.put("trangThaiCu", trangThaiCu);
+            responseData.put("trangThaiMoi", trangThaiMoi);
+            responseData.put("ngayCapNhat", System.currentTimeMillis());
+            responseData.put("thoiGianCapNhat", lichSu.getThoiGian());
+            responseData.put("nhanVien", nhanVien.getName());
+            responseData.put("paymentDate", hoaDonDaCapNhat.getPaymentDate());
+            responseData.put("ghiChu", lichSu.getNote());
+
+            return new ResponseObject<>(responseData, HttpStatus.OK, "Cập nhật trạng thái thành công");
+
+        } catch (RuntimeException e) {
+            log.error("Lỗi cập nhật trạng thái hóa đơn: {}", e.getMessage(), e);
+            throw e;
         } catch (Exception e) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Lỗi khi lấy danh sách hóa đơn: " + e.getMessage()
-            );
+            log.error("Lỗi không xác định khi cập nhật trạng thái: {}", e.getMessage(), e);
+            throw new RuntimeException("Lỗi hệ thống: " + e.getMessage(), e);
         }
     }
 
-    @Override
-    public ResponseObject<?> getAllHoaDonCT(ADHoaDonDetailRequest request) {
-        try {
-            Pageable pageable = Helper.createPageable(request, "created_date");
-            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getAllHoaDonChiTietResponse(request.getMaHoaDon(), pageable);
-            return new ResponseObject<>(
-                    page,
-                    HttpStatus.OK,
-                    "Lấy danh sách chi tiết hóa đơn thành công"
-            );
-        } catch (Exception e) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Lỗi khi lấy chi tiết hóa đơn: " + e.getMessage()
-            );
+    /**
+     * Lưu lịch sử thay đổi trạng thái hóa đơn
+     */
+    private LichSuTrangThaiHoaDon luuLichSuTrangThaiHoaDon(
+            Invoice hoaDon,
+            EntityTrangThaiHoaDon trangThai,
+            String ghiChu,
+            Staff nhanVien) {
+
+        LichSuTrangThaiHoaDon lichSu = new LichSuTrangThaiHoaDon();
+        lichSu.setHoaDon(hoaDon);
+        lichSu.setTrangThai(trangThai);
+        lichSu.setThoiGian(LocalDateTime.now());
+        lichSu.setNote(ghiChu != null ? ghiChu : "Cập nhật từ hệ thống quản trị");
+        lichSu.setNhanVien(nhanVien);
+
+        LichSuTrangThaiHoaDon saved = lichSuTrangThaiRepository.save(lichSu);
+        log.info("Đã lưu lịch sử trạng thái: {} cho hóa đơn {}", trangThai, hoaDon.getCode());
+
+        return saved;
+    }
+
+    /**
+     * Lấy danh sách lịch sử trạng thái của hóa đơn
+     */
+    public List<LichSuTrangThaiHoaDon> getLichSuTrangThaiHoaDon(String maHoaDon) {
+        Invoice hoaDon = adHoaDonRepository.findByMa(maHoaDon)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn: " + maHoaDon));
+
+        return lichSuTrangThaiRepository.findByHoaDonOrderByThoiGianDesc(hoaDon);
+    }
+
+    /**
+     * Lấy thời gian của một trạng thái cụ thể từ lịch sử
+     */
+    public LocalDateTime getThoiGianTrangThai(String maHoaDon, EntityTrangThaiHoaDon trangThai) {
+        Invoice hoaDon = adHoaDonRepository.findByMa(maHoaDon)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn: " + maHoaDon));
+
+        return lichSuTrangThaiRepository
+                .findFirstByHoaDonAndTrangThaiOrderByThoiGianDesc(hoaDon, trangThai)
+                .map(LichSuTrangThaiHoaDon::getThoiGian)
+                .orElse(null);
+    }
+
+    /**
+     * Lấy thông tin timeline của hóa đơn
+     */
+    public Map<String, Object> getTimelineHoaDon(String maHoaDon) {
+        Invoice hoaDon = adHoaDonRepository.findByMa(maHoaDon)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn: " + maHoaDon));
+
+        List<LichSuTrangThaiHoaDon> lichSu = lichSuTrangThaiRepository
+                .findByHoaDonOrderByThoiGianAsc(hoaDon);
+
+        Map<String, Object> timeline = new LinkedHashMap<>();
+        for (LichSuTrangThaiHoaDon item : lichSu) {
+            Map<String, Object> step = new HashMap<>();
+            step.put("trangThai", item.getTrangThai());
+            step.put("tenTrangThai", getStatusText(item.getTrangThai()));
+            step.put("thoiGian", item.getThoiGian());
+            step.put("ghiChu", item.getNote());
+            step.put("nhanVien", item.getNhanVien() != null ? item.getNhanVien().getName() : "Hệ thống");
+
+            timeline.put(item.getTrangThai().name(), step);
+        }
+
+        return timeline;
+    }
+
+    /**
+     * Kiểm tra hóa đơn có được phép chuyển sang trạng thái mới hay không
+     */
+    private void kiemTraChuyenTrangThai(
+            EntityTrangThaiHoaDon trangThaiCu,
+            EntityTrangThaiHoaDon trangThaiMoi) {
+
+        if (trangThaiCu == trangThaiMoi) {
+            throw new RuntimeException("Hóa đơn đã ở trạng thái này");
+        }
+
+        if (trangThaiCu == EntityTrangThaiHoaDon.DA_HUY) {
+            throw new RuntimeException("Hóa đơn đã bị hủy, không thể cập nhật");
+        }
+
+        if (trangThaiCu == EntityTrangThaiHoaDon.HOAN_THANH) {
+            throw new RuntimeException("Hóa đơn đã hoàn thành, không thể cập nhật");
+        }
+
+        // Kiểm tra luồng hợp lệ
+        Map<EntityTrangThaiHoaDon, List<EntityTrangThaiHoaDon>> validTransitions = new HashMap<>();
+        validTransitions.put(EntityTrangThaiHoaDon.CHO_XAC_NHAN,
+                Arrays.asList(EntityTrangThaiHoaDon.DA_XAC_NHAN, EntityTrangThaiHoaDon.DA_HUY));
+        validTransitions.put(EntityTrangThaiHoaDon.DA_XAC_NHAN,
+                Arrays.asList(EntityTrangThaiHoaDon.CHO_GIAO, EntityTrangThaiHoaDon.DA_HUY));
+        validTransitions.put(EntityTrangThaiHoaDon.CHO_GIAO,
+                Arrays.asList(EntityTrangThaiHoaDon.DANG_GIAO, EntityTrangThaiHoaDon.DA_HUY));
+        validTransitions.put(EntityTrangThaiHoaDon.DANG_GIAO,
+                Arrays.asList(EntityTrangThaiHoaDon.HOAN_THANH));
+
+        List<EntityTrangThaiHoaDon> allowedTransitions = validTransitions.get(trangThaiCu);
+        if (allowedTransitions == null || !allowedTransitions.contains(trangThaiMoi)) {
+            throw new RuntimeException(String.format(
+                    "Không thể chuyển từ trạng thái %s sang %s",
+                    getStatusText(trangThaiCu), getStatusText(trangThaiMoi)
+            ));
         }
     }
 
-//    @Override
-//    @Transactional
-//    public ResponseObject<?> changeStatus(ADChangeStatusRequest adChangeStatusRequest) {
-//        try {
-//            // 1. Tìm hóa đơn theo mã
-//            Invoice invoice = (Invoice) adHoaDonRepository.findByCode(adChangeStatusRequest.getMaHoaDon())
-//                    .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn với mã: " + adChangeStatusRequest.getMaHoaDon()));
-//
-//            // 2. Cập nhật trạng thái hóa đơn
-//            invoice.setEntityTrangThaiHoaDon(adChangeStatusRequest.getStatus());
-//            invoice.setLastModifiedDate(System.currentTimeMillis());
-//
-//            Invoice updatedInvoice = adHoaDonRepository.save(invoice);
-//
-//            // 3. Tạo lịch sử trạng thái
-//            LichSuTrangThaiHoaDon statusHistory = new LichSuTrangThaiHoaDon();
-//            statusHistory.setHoaDon(updatedInvoice);
-//            statusHistory.setTrangThai(adChangeStatusRequest.getStatus());
-//            statusHistory.setThoiGian(LocalDateTime.now());
-//            statusHistory.setNote(adChangeStatusRequest.getNote());
-//            lichSuTrangThaiRepository.save(statusHistory);
-//
-//            System.out.println("Cập nhật trạng thái hóa đơn: " + updatedInvoice.getCode() + " -> " + adChangeStatusRequest.getStatus());
-//
-//            // 4. Xử lý đặc biệt cho trạng thái HỦY
-//            if (adChangeStatusRequest.getStatus() == EntityTrangThaiHoaDon.DA_HUY) {
-//                handleCancelledInvoice(updatedInvoice);
-//            }
-//
-//            if (adChangeStatusRequest.getStatus() == EntityTrangThaiHoaDon.DA_XAC_NHAN) {
-//                handleCancelledInvoice(updatedInvoice);
-//            }
-//
-//            // Xử lý đặc biệt cho trạng thái HOÀN THÀNH
-//            else if (adChangeStatusRequest.getStatus() == EntityTrangThaiHoaDon.HOAN_THANH) {
-//                handleCompletedInvoice(updatedInvoice);
-//            }
-//            // Xử lý đặc biệt cho trạng thái ĐANG GIAO
-//            else if (adChangeStatusRequest.getStatus() == EntityTrangThaiHoaDon.DANG_GIAO) {
-//                handleShippingInvoice(updatedInvoice);
-//            }
-//
-//            // 5. Gửi email thông báo (nếu có email)
-//            sendStatusUpdateEmail(updatedInvoice, adChangeStatusRequest.getStatus());
-//
-//            // 6. Trả về response
-//            Map<String, Object> responseData = new HashMap<>();
-//            responseData.put("id", updatedInvoice.getId());
-//            responseData.put("maHoaDon", updatedInvoice.getCode());
-//            responseData.put("tenHoaDon", updatedInvoice.getName());
-//            responseData.put("trangThai", updatedInvoice.getEntityTrangThaiHoaDon());
-//            responseData.put("loaiHoaDon", updatedInvoice.getTypeInvoice());
-//            responseData.put("ngayCapNhat", updatedInvoice.getLastModifiedDate());
-//
-//            return new ResponseObject<>(
-//                    responseData,
-//                    HttpStatus.OK,
-//                    "Cập nhật trạng thái thành công"
-//            );
-//
-//        } catch (Exception e) {
-//            log.error("Lỗi khi cập nhật trạng thái hóa đơn: ", e);
-//            return new ResponseObject<>(
-//                    null,
-//                    HttpStatus.INTERNAL_SERVER_ERROR,
-//                    "Lỗi khi cập nhật trạng thái: " + e.getMessage()
-//            );
-//        }
-//    }
-//
-//    private void handleCancelledInvoice(Invoice invoice) {
-//        System.out.println("Xử lý hóa đơn bị hủy: " + invoice.getCode());
-//
-//        try {
-//            // 1. Hoàn trả số lượng sản phẩm (nếu là laptop)
-//            Invoice invoiceDetails = adHoaDonRepository.findByInvoice(invoice.getId());
-//
-//            if (invoiceDetails != null && !invoiceDetails.isEmpty()) {
-//                for (Optional<InvoiceDetail> detail : invoiceDetails) {
-//                    if (detail.getProductDetail() != null) {
-//                        // Đối với laptop, có thể không có số lượng tồn kho trực tiếp
-//                        // Tùy thuộc vào logic quản lý kho của bạn
-//                        System.out.println("Chi tiết hóa đơn: " + detail.getId() +
-//                                ", Sản phẩm: " + detail.getProductDetail().getProduct().getName());
-//
-//                        // Nếu có IMEI, đánh dấu IMEI là chưa bán
-//                        if (detail.getImeis() != null && !detail.getImeis().isEmpty()) {
-//                            for (IMEI imei : detail.getImeis()) {
-//                                imei.setInvoiceDetail(null); // Bỏ liên kết với hóa đơn
-//                                imei.setStatus(IMEIStatus.AVAILABLE); // Đánh dấu có sẵn
-//                                imeiRepository.save(imei);
-//                                System.out.println("Đã hoàn trả IMEI: " + imei.getCode());
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//
-//            // 2. Hoàn trả voucher (nếu có)
-//            if (invoice.getVoucher() != null) {
-//                Voucher voucher = invoice.getVoucher();
-//                if (voucher.getRemainingQuantity() != null) {
-//                    voucher.setRemainingQuantity(voucher.getRemainingQuantity() + 1);
-//                    voucherRepository.save(voucher);
-//                    System.out.println("Đã hoàn trả voucher: " + voucher.getCode());
-//                }
-//
-//                // Cập nhật trạng thái sử dụng trong voucher detail
-//                VoucherDetail voucherDetail = voucherDetailRepository.findByInvoiceId(invoice.getId());
-//                if (voucherDetail != null) {
-//                    voucherDetail.setUsageStatus(false); // Đánh dấu chưa sử dụng
-//                    voucherDetail.setUsedDate(null);
-//                    voucherDetail.setInvoiceId(null);
-//                    voucherDetailRepository.save(voucherDetail);
-//                }
-//            }
-//
-//            // 3. Hủy đơn vận chuyển (nếu có)
-//            if (invoice.getShippingMethod() != null && invoice.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
-//                // Tìm và hủy đơn vận chuyển
-//                ShippingOrder shippingOrder = shippingOrderRepository.findByInvoiceId(invoice.getId());
-//                if (shippingOrder != null) {
-//                    shippingOrder.setStatus(ShippingStatus.CANCELLED);
-//                    shippingOrderRepository.save(shippingOrder);
-//                    System.out.println("Đã hủy đơn vận chuyển: " + shippingOrder.getCode());
-//                }
-//            }
-//
-//            // 4. Tạo lịch sử hoàn tiền (nếu đã thanh toán)
-//            if (invoice.getTotalAmountAfterDecrease() != null &&
-//                    invoice.getTotalAmountAfterDecrease().compareTo(BigDecimal.ZERO) > 0) {
-//
-//                LichSuThanhToan refundHistory = new LichSuThanhToan();
-//                refundHistory.setHoaDon(invoice);
-//                refundHistory.setSoTien(invoice.getTotalAmountAfterDecrease().negate()); // Số âm = hoàn tiền
-//                refundHistory.setThoiGian(LocalDateTime.now());
-//                refundHistory.setMaGiaoDich("REFUND-" + invoice.getCode());
-//                refundHistory.setLoaiGiaoDich("HOAN_TIEN");
-//                refundHistory.setGhiChu("Hoàn tiền do hủy đơn hàng");
-//
-//                // Lấy nhân viên hiện tại (có thể từ SecurityContext)
-//                Staff currentStaff = getCurrentStaff();
-//                if (currentStaff != null) {
-//                    refundHistory.setNhanVien(currentStaff);
-//                }
-//
-//                lichSuThanhToanRepository.save(refundHistory);
-//                System.out.println("Đã tạo lịch sử hoàn tiền cho hóa đơn: " + invoice.getCode());
-//            }
-//
-//        } catch (Exception e) {
-//            System.err.println("Lỗi khi xử lý hóa đơn hủy: " + e.getMessage());
-//            // Không throw để tránh rollback transaction chính
-//        }
-//    }
-//
-//    private void handleCompletedInvoice(Invoice invoice) {
-//        System.out.println("Xử lý hóa đơn hoàn thành: " + invoice.getCode());
-//
-//        try {
-//            // 1. Cập nhật thông tin thanh toán cuối cùng
-//            if (invoice.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
-//                // Đánh dấu đã giao hàng thành công
-//                ShippingOrder shippingOrder = shippingOrderRepository.findByInvoiceId(invoice.getId());
-//                if (shippingOrder != null) {
-//                    shippingOrder.setStatus(ShippingStatus.DELIVERED);
-//                    shippingOrder.setActualDeliveryDate(System.currentTimeMillis());
-//                    shippingOrderRepository.save(shippingOrder);
-//                }
-//            }
-//
-//            // 2. Cập nhật thống kê doanh thu
-//            updateRevenueStatistics(invoice);
-//
-//            // 3. Đánh dấu IMEI đã bán (nếu có)
-//            List<InvoiceDetail> invoiceDetails = invoiceDetailRepository.findByInvoiceId(invoice.getId());
-//            if (invoiceDetails != null) {
-//                for (InvoiceDetail detail : invoiceDetails) {
-//                    if (detail.getImeis() != null) {
-//                        for (IMEI imei : detail.getImeis()) {
-//                            imei.setStatus(IMEIStatus.SOLD);
-//                            imeiRepository.save(imei);
-//                        }
-//                    }
-//                }
-//            }
-//
-//        } catch (Exception e) {
-//            System.err.println("Lỗi khi xử lý hóa đơn hoàn thành: " + e.getMessage());
-//        }
-//    }
-//
-//    private void handleShippingInvoice(Invoice invoice) {
-//        System.out.println("Xử lý hóa đơn đang giao: " + invoice.getCode());
-//
-//        try {
-//            // Tạo hoặc cập nhật thông tin vận chuyển
-//            if (invoice.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
-//                ShippingOrder shippingOrder = shippingOrderRepository.findByInvoiceId(invoice.getId());
-//
-//                if (shippingOrder == null) {
-//                    // Tạo mới đơn vận chuyển
-//                    shippingOrder = new ShippingOrder();
-//                    shippingOrder.setCode("SO-" + invoice.getCode());
-//                    shippingOrder.setInvoice(invoice);
-//                    shippingOrder.setShippingAddress(invoice.getAddressReceiver());
-//                    shippingOrder.setReceiverName(invoice.getNameReceiver());
-//                    shippingOrder.setReceiverPhone(invoice.getPhoneReceiver());
-//                    shippingOrder.setShippingFee(invoice.getShippingFee());
-//                    shippingOrder.setStatus(ShippingStatus.PICKED_UP);
-//                    shippingOrder.setEstimatedDeliveryDate(invoice.getEstimatedDeliveryDate());
-//                } else {
-//                    shippingOrder.setStatus(ShippingStatus.IN_TRANSIT);
-//                }
-//
-//                shippingOrderRepository.save(shippingOrder);
-//
-//                // Cập nhật tracking code (nếu có dịch vụ vận chuyển bên thứ 3)
-//                String trackingCode = generateTrackingCode();
-//                shippingOrder.setTrackingCode(trackingCode);
-//                shippingOrderRepository.save(shippingOrder);
-//
-//                System.out.println("Đã tạo tracking code: " + trackingCode);
-//            }
-//
-//        } catch (Exception e) {
-//            System.err.println("Lỗi khi xử lý hóa đơn đang giao: " + e.getMessage());
-//        }
-//    }
+    /**
+     * Lấy nhân viên hiện tại từ Security Context
+     */
+    private Staff getCurrentStaff() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new RuntimeException("Không xác định được nhân viên thực hiện");
+        }
 
-    private void sendStatusUpdateEmail(Invoice invoice, EntityTrangThaiHoaDon newStatus) {
+        String username = authentication.getName();
+        return staffRepository.findByName(username)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin nhân viên: " + username));
+    }
+
+    /**
+     * Khóa IMEI khi hóa đơn chờ xác nhận / đã xác nhận
+     */
+    private void khoaIMEIKhiChoXacNhan(Invoice hoaDon) {
+        List<InvoiceDetail> danhSachChiTiet =
+                adHoaDonChiTietRepository.findByInvoiceId(hoaDon.getId());
+
+        int imeiCount = 0;
+        for (InvoiceDetail chiTiet : danhSachChiTiet) {
+            if (chiTiet.getImeis() != null && !chiTiet.getImeis().isEmpty()) {
+                for (IMEI imei : chiTiet.getImeis()) {
+                    imei.setImeiStatus(ImeiStatus.RESERVED);
+                    imei.setLockedAt(System.currentTimeMillis());
+                }
+                imeiRepository.saveAll(chiTiet.getImeis());
+                imeiCount += chiTiet.getImeis().size();
+            }
+        }
+        log.info("Đã khóa {} IMEI cho hóa đơn {}", imeiCount, hoaDon.getCode());
+    }
+
+    /**
+     * Đánh dấu IMEI đã bán khi chuyển sang chờ giao
+     */
+    private void danhDauIMEIDaBan(Invoice hoaDon) {
+        List<InvoiceDetail> danhSachChiTiet =
+                adHoaDonChiTietRepository.findByInvoiceId(hoaDon.getId());
+
+        int imeiCount = 0;
+        for (InvoiceDetail chiTiet : danhSachChiTiet) {
+            if (chiTiet.getImeis() != null && !chiTiet.getImeis().isEmpty()) {
+                for (IMEI imei : chiTiet.getImeis()) {
+                    imei.setImeiStatus(ImeiStatus.SOLD);
+                    imei.setSoldAt(System.currentTimeMillis());
+                }
+                imeiRepository.saveAll(chiTiet.getImeis());
+                imeiCount += chiTiet.getImeis().size();
+            }
+        }
+        log.info("Đã đánh dấu {} IMEI là đã bán cho hóa đơn {}", imeiCount, hoaDon.getCode());
+    }
+
+    /**
+     * Trả toàn bộ IMEI về trạng thái AVAILABLE khi hủy hóa đơn
+     */
+    private void traIMEIVeKho(Invoice hoaDon) {
+        List<InvoiceDetail> danhSachChiTiet =
+                adHoaDonChiTietRepository.findByInvoiceId(hoaDon.getId());
+
+        int imeiCount = 0;
+        for (InvoiceDetail chiTiet : danhSachChiTiet) {
+            if (chiTiet.getImeis() != null && !chiTiet.getImeis().isEmpty()) {
+                for (IMEI imei : chiTiet.getImeis()) {
+                    imei.setImeiStatus(ImeiStatus.AVAILABLE);
+                    imei.setInvoiceDetail(null);
+                    imei.setInvoiceHolding(null);
+                    imei.setLockedAt(null);
+                }
+                imeiRepository.saveAll(chiTiet.getImeis());
+                imeiCount += chiTiet.getImeis().size();
+            }
+        }
+        log.info("Đã trả {} IMEI về kho cho hóa đơn {}", imeiCount, hoaDon.getCode());
+    }
+
+    /**
+     * Đánh dấu voucher đã được sử dụng khi chuyển sang CHỜ GIAO
+     */
+    private void danhDauVoucherDaSuDung(Invoice hoaDon) {
+        Voucher voucher = hoaDon.getVoucher();
+        if (voucher == null) {
+            return;
+        }
+
+        // Tìm voucher detail cho hóa đơn này
+        VoucherDetail voucherDetail = voucherDetailRepository.findByInvoiceId(hoaDon.getId());
+        if (voucherDetail != null && !Boolean.TRUE.equals(voucherDetail.getUsageStatus())) {
+            // Đánh dấu đã sử dụng
+            voucherDetail.markAsUsed(hoaDon.getId());
+            voucherDetailRepository.save(voucherDetail);
+
+            // Giảm số lượng remaining quantity của voucher
+            if (voucher.getRemainingQuantity() != null && voucher.getRemainingQuantity() > 0) {
+                voucher.setRemainingQuantity(voucher.getRemainingQuantity() - 1);
+                voucherRepository.save(voucher);
+            }
+
+            log.info("Đã đánh dấu voucher {} đã sử dụng cho hóa đơn {}", voucher.getCode(), hoaDon.getCode());
+        }
+    }
+
+    /**
+     * Hoàn trả voucher khi hủy hóa đơn
+     */
+    private void hoanTraVoucher(Invoice hoaDon) {
+        Voucher voucher = hoaDon.getVoucher();
+        if (voucher == null) {
+            return;
+        }
+
+        // Tìm voucher detail của hóa đơn
+        VoucherDetail voucherDetail = voucherDetailRepository.findByInvoiceId(hoaDon.getId());
+        if (voucherDetail != null && Boolean.TRUE.equals(voucherDetail.getUsageStatus())) {
+            // Reset trạng thái voucher detail
+            voucherDetail.setUsageStatus(false);
+            voucherDetail.setUsedDate(null);
+            voucherDetail.setInvoiceId(null);
+            voucherDetailRepository.save(voucherDetail);
+
+            // Tăng lại remaining quantity của voucher
+            if (voucher.getRemainingQuantity() != null) {
+                voucher.setRemainingQuantity(voucher.getRemainingQuantity() + 1);
+                voucherRepository.save(voucher);
+            }
+
+            // Nếu là voucher cá nhân, cập nhật lại customer
+            if (voucher.getTargetType() == TargetType.INDIVIDUAL) {
+                Customer customer = hoaDon.getCustomer();
+                if (customer != null && voucherDetail.getCustomer() == null) {
+                    voucherDetail.setCustomer(customer);
+                    voucherDetailRepository.save(voucherDetail);
+                }
+            }
+
+            log.info("Đã hoàn trả voucher {} cho hóa đơn {}", voucher.getCode(), hoaDon.getCode());
+        }
+    }
+
+    /**
+     * Lưu lịch sử thanh toán khi chuyển sang chờ giao
+     */
+    private void luuLichSuThanhToan(Invoice hoaDon, Staff nhanVien) {
+        if (hoaDon.getPaymentDate() != null) {
+            return; // Đã thanh toán rồi
+        }
+
+        LichSuThanhToan thanhToan = new LichSuThanhToan();
+        thanhToan.setHoaDon(hoaDon);
+        thanhToan.setSoTien(hoaDon.getTotalAmountAfterDecrease() != null ?
+                hoaDon.getTotalAmountAfterDecrease() : hoaDon.getTotalAmount());
+        thanhToan.setThoiGian(LocalDateTime.now());
+        thanhToan.setLoaiGiaoDich("THANH_TOAN");
+        thanhToan.setMaGiaoDich("PAY-" + hoaDon.getCode() + "-" + System.currentTimeMillis());
+        thanhToan.setNhanVien(nhanVien);
+        thanhToan.setGhiChu("Thanh toán khi xác nhận đơn hàng");
+
+        lichSuThanhToanRepository.save(thanhToan);
+        hoaDon.setPaymentDate(System.currentTimeMillis());
+        adHoaDonRepository.save(hoaDon);
+
+        log.info("Đã lưu lịch sử thanh toán cho hóa đơn {}", hoaDon.getCode());
+    }
+
+    /**
+     * Hoàn tiền khi hủy hóa đơn đã thanh toán
+     */
+    private void hoanTienNeuCan(Invoice hoaDon, Staff nhanVien) {
+        if (hoaDon.getPaymentDate() == null) {
+            return; // Chưa thanh toán thì không hoàn
+        }
+
+        LichSuThanhToan hoanTien = new LichSuThanhToan();
+        hoanTien.setHoaDon(hoaDon);
+        hoanTien.setSoTien(hoaDon.getTotalAmountAfterDecrease() != null ?
+                hoaDon.getTotalAmountAfterDecrease().negate() :
+                hoaDon.getTotalAmount().negate());
+        hoanTien.setThoiGian(LocalDateTime.now());
+        hoanTien.setLoaiGiaoDich("HOAN_TIEN");
+        hoanTien.setMaGiaoDich("REFUND-" + hoaDon.getCode() + "-" + System.currentTimeMillis());
+        hoanTien.setNhanVien(nhanVien);
+        hoanTien.setGhiChu("Hoàn tiền do hủy hóa đơn");
+
+        lichSuThanhToanRepository.save(hoanTien);
+        hoaDon.setPaymentDate(null); // Reset payment date
+        adHoaDonRepository.save(hoaDon);
+
+        log.info("Đã hoàn tiền cho hóa đơn {}", hoaDon.getCode());
+    }
+
+    /**
+     * Gửi email thông báo thay đổi trạng thái (bất đồng bộ)
+     */
+    @Async
+    public void sendStatusUpdateEmailAsync(Invoice invoice, EntityTrangThaiHoaDon newStatus) {
         try {
             Customer customer = invoice.getCustomer();
             if (customer == null || customer.getEmail() == null) {
-                System.out.println("Không có email khách hàng, bỏ qua gửi email");
+                log.warn("Không có email khách hàng, bỏ qua gửi email cho hóa đơn {}", invoice.getCode());
                 return;
             }
 
@@ -325,18 +483,11 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             String subject = getEmailSubject(newStatus);
             String content = buildEmailContent(invoice, newStatus);
 
-            // Gửi email bất đồng bộ
-            CompletableFuture.runAsync(() -> {
-                try {
-                    EmailService.sendEmail(email, subject, content);
-                    System.out.println("Đã gửi email thông báo đến: " + email);
-                } catch (Exception e) {
-                    System.err.println("Lỗi khi gửi email: " + e.getMessage());
-                }
-            });
+            EmailService.sendEmail(email, subject, content);
+            log.info("Đã gửi email thông báo đến: {} cho hóa đơn {}", email, invoice.getCode());
 
         } catch (Exception e) {
-            System.err.println("Lỗi khi chuẩn bị gửi email: " + e.getMessage());
+            log.error("Lỗi khi gửi email cho hóa đơn {}: {}", invoice.getCode(), e.getMessage(), e);
         }
     }
 
@@ -429,35 +580,40 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
         }
     }
 
-    private Staff getCurrentStaff() {
-        // Lấy thông tin nhân viên từ SecurityContext
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated()) {
-            String username = authentication.getName();
-            return (Staff) staffRepository.findByAccountUsername(username).orElse(null);
+    // Các phương thức khác giữ nguyên
+    @Override
+    public ResponseObject<?> getAllHoaDon(ADHoaDonSearchRequest request) {
+        try {
+            Pageable pageable = Helper.createPageable(request, "created_date");
+            HoaDonPageResponse result = adHoaDonRepository.getAllHoaDonResponse(request, pageable);
+
+            return new ResponseObject<>(
+                    result,
+                    HttpStatus.OK,
+                    "Lấy danh sách hóa đơn thành công"
+            );
+        } catch (Exception e) {
+            log.error("Lỗi khi lấy danh sách hóa đơn: {}", e.getMessage(), e);
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Lỗi khi lấy danh sách hóa đơn: " + e.getMessage()
+            );
         }
-        return null;
-    }
-
-    private String generateTrackingCode() {
-        return "MLT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
-    private void updateRevenueStatistics(Invoice invoice) {
-        // Cập nhật thống kê doanh thu, best seller, v.v.
-        // Tùy thuộc vào yêu cầu business của bạn
     }
 
     @Override
-    public ResponseObject<?> getAllHoaDonCT1(ADHoaDonDetailRequest request) {
+    public ResponseObject<?> getAllHoaDonCT(ADHoaDonDetailRequest request) {
         try {
-            List<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getAllHoaDonChiTietResponse2(request.getMaHoaDon());
+            Pageable pageable = Helper.createPageable(request, "created_date");
+            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getAllHoaDonChiTietResponse(request.getMaHoaDon(), pageable);
             return new ResponseObject<>(
                     page,
                     HttpStatus.OK,
                     "Lấy danh sách chi tiết hóa đơn thành công"
             );
         } catch (Exception e) {
+            log.error("Lỗi khi lấy chi tiết hóa đơn: {}", e.getMessage(), e);
             return new ResponseObject<>(
                     null,
                     HttpStatus.INTERNAL_SERVER_ERROR,
@@ -465,5 +621,4 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             );
         }
     }
-
 }

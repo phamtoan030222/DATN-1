@@ -1,26 +1,15 @@
 <template>
   <div class="container mx-auto px-4 py-6 space-y-6">
-    <!-- Breadcrumb -->
-    <div class="mb-6">
-      <BreadcrumbDefault 
-        :pageTitle="'Chi tiết hóa đơn'" 
-        :routes="[
-          { path: '/admin/hoa-don', name: 'Quản lý hóa đơn' },
-          { path: '', name: `Hóa đơn #${invoiceCode}` },
-        ]" 
-      />
-    </div>
-
     <!-- Header -->
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
       <div>
         <h1 class="text-2xl lg:text-3xl font-bold text-gray-900">Hóa đơn #{{ invoiceCode }}</h1>
         <div class="flex flex-wrap items-center gap-2 mt-2">
-          <NTag :type="getStatusTagType(hoaDonData?.trangThaiHoaDon)" size="medium" round>
+          <NTag :type="getStatusTagType(currentStatus)" size="medium" round>
             <template #icon>
-              <n-icon :component="getStatusIcon(hoaDonData?.trangThaiHoaDon)" />
+              <n-icon :component="getStatusIcon(currentStatus)" />
             </template>
-            {{ getStatusText(hoaDonData?.trangThaiHoaDon) }}
+            {{ getStatusText(currentStatus) }}
           </NTag>
           
           <NTag type="info" size="small" round>
@@ -55,7 +44,7 @@
       <template #header>
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-gray-900">Tiến trình đơn hàng</h3>
-          <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.ngayTao) }}</span>
+          <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.thoiGianCapNhatCuoi || hoaDonData?.ngayTao) }}</span>
         </div>
       </template>
 
@@ -94,7 +83,7 @@
               <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
                 {{ step.title }}
               </p>
-              <p class="text-xs text-gray-500">
+              <p class="text-xs text-gray-500 min-h-[20px]">
                 {{ getStepTime(step.key) || 'Đang chờ' }}
               </p>
             </div>
@@ -114,7 +103,7 @@
             <div>
               <p class="text-sm text-gray-500">Trạng thái hiện tại</p>
               <p class="font-semibold" :class="getCurrentStatusTextClass()">
-                {{ getStatusText(hoaDonData?.trangThaiHoaDon) }}
+                {{ getStatusText(currentStatus) }}
               </p>
             </div>
           </div>
@@ -128,7 +117,7 @@
             <div>
               <p class="text-sm text-gray-500">Tổng tiền</p>
               <p class="font-semibold text-red-600">
-                {{ formatCurrency(hoaDonData?.thanhTien) }}
+                {{ formatCurrency(hoaDonData?.tongTienSauGiam) }}
               </p>
             </div>
           </div>
@@ -142,7 +131,7 @@
             <div>
               <p class="text-sm text-gray-500">Số lượng sản phẩm</p>
               <p class="font-semibold text-gray-900">
-                {{ invoiceItems?.length || 0 }} sản phẩm
+                {{ totalQuantity }} sản phẩm
               </p>
             </div>
           </div>
@@ -168,16 +157,16 @@
             </div>
             <div class="flex-1 min-w-0">
               <h4 class="font-semibold text-gray-900 truncate">
-                {{ hoaDonData?.tenKhachHang2 || 'Khách lẻ' }}
+                {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}
               </h4>
               <div class="flex flex-wrap gap-2 mt-2">
                 <span class="inline-flex items-center gap-1 text-sm text-gray-600">
                   <n-icon size="14"><CallOutline /></n-icon>
-                  {{ hoaDonData?.sdtKH2 || 'Chưa cập nhật' }}
+                  {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}
                 </span>
                 <span class="inline-flex items-center gap-1 text-sm text-gray-600">
                   <n-icon size="14"><MailOutline /></n-icon>
-                  {{ hoaDonData?.email2 || 'Chưa có email' }}
+                  {{ hoaDonData?.email2 || hoaDonData?.email || 'Chưa có email' }}
                 </span>
               </div>
             </div>
@@ -185,9 +174,9 @@
           
           <div class="space-y-3 pt-4 border-t border-gray-100">
             <div>
-              <p class="text-sm text-gray-600 mb-1">Địa chỉ:</p>
+              <p class="text-sm text-gray-600 mb-1">Địa chỉ giao hàng:</p>
               <p class="text-sm font-medium text-gray-900 bg-gray-50 p-3 rounded">
-                {{ formatAddress(hoaDonData?.diaChi2) || 'Không có địa chỉ' }}
+                {{ formatAddress(hoaDonData?.diaChi) || formatAddress(hoaDonData?.diaChi2) || 'Không có địa chỉ' }}
               </p>
             </div>
           </div>
@@ -207,7 +196,13 @@
           <div class="grid grid-cols-2 gap-3">
             <div class="bg-gray-50 p-3 rounded-lg">
               <p class="text-xs text-gray-500">Tổng sản phẩm</p>
-              <p class="text-lg font-bold text-gray-900">{{ invoiceItems?.length || 0 }}</p>
+              <div v-if="productCount > 0">
+                <p class="text-lg font-bold text-gray-900">{{ productCount }} sản phẩm</p>
+                <p class="text-xs text-gray-500 mt-1">{{ imeiProducts.length }} IMEI</p>
+              </div>
+              <div v-else>
+                <p class="text-lg font-bold text-gray-900 text-red-500">Không có sản phẩm</p>
+              </div>
             </div>
             <div class="bg-gray-50 p-3 rounded-lg">
               <p class="text-xs text-gray-500">Tổng số lượng</p>
@@ -269,12 +264,12 @@
                 </n-icon>
               </div>
               <div>
-                <p class="font-medium">Tiền mặt</p>
+                <p class="font-medium">{{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</p>
                 <p class="text-xs text-gray-500">Phương thức</p>
               </div>
             </div>
-            <NTag type="success" size="small">
-              Đã thanh toán
+            <NTag :type="getPaymentStatusTagType()" size="small">
+              {{ getPaymentStatusText() }}
             </NTag>
           </div>
           
@@ -314,17 +309,24 @@
             <n-icon size="20" color="#4b5563"><CubeOutline /></n-icon>
             <h3 class="text-lg font-semibold text-gray-900">Danh sách sản phẩm</h3>
           </div>
-          <span class="text-sm text-gray-500">{{ invoiceItems?.length || 0 }} sản phẩm</span>
+          <div class="flex items-center gap-4">
+            <span class="text-sm text-gray-500">{{ productCount }} sản phẩm</span>
+            <span class="text-sm text-gray-500">{{ totalQuantity }} số lượng</span>
+            <NTag v-if="imeiProducts.length > 0" type="info" size="small">
+              {{ imeiProducts.length }} IMEI
+            </NTag>
+          </div>
         </div>
       </template>
       
       <div class="overflow-x-auto">
         <n-data-table
           :columns="productColumns"
-          :data="invoiceItems"
+          :data="filteredImeiProducts"
           :pagination="false"
           striped
           class="min-w-full"
+          :row-class-name="rowClassName"
         />
       </div>
       
@@ -389,8 +391,8 @@
           
           <div class="flex justify-between items-center py-1">
             <span class="text-gray-600">Trạng thái:</span>
-            <NTag :type="getStatusTagType(hoaDonData?.trangThaiHoaDon)" size="small">
-              {{ getStatusText(hoaDonData?.trangThaiHoaDon) }}
+            <NTag :type="getStatusTagType(currentStatus)" size="small">
+              {{ getStatusText(currentStatus) }}
             </NTag>
           </div>
           
@@ -399,9 +401,9 @@
             <span class="font-medium">{{ formatCurrency(hoaDonData?.phiVanChuyen || 0) }}</span>
           </div>
           
-          <div v-if="hoaDonData?.thoiGian" class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Thời gian xử lý:</span>
-            <span class="font-medium">{{ hoaDonData.thoiGian }}</span>
+          <div v-if="hoaDonData?.thoiGianCapNhatCuoi" class="flex justify-between items-center py-1">
+            <span class="text-gray-600">Cập nhật lần cuối:</span>
+            <span class="font-medium">{{ formatDateTimeFromString(hoaDonData.thoiGianCapNhatCuoi) }}</span>
           </div>
         </div>
       </NCard>
@@ -446,6 +448,67 @@
         </div>
       </NCard>
     </div>
+
+    <!-- Status Update Modal -->
+    <NModal v-model:show="showStatusModal" preset="dialog" title="Cập nhật trạng thái hóa đơn">
+      <template #header>
+        <div class="flex items-center gap-2">
+          <n-icon size="20" color="#3b82f6"><RefreshOutline /></n-icon>
+          <span class="font-semibold">Cập nhật trạng thái</span>
+        </div>
+      </template>
+      
+      <div class="space-y-4 py-4">
+        <div class="p-3 bg-blue-50 rounded-lg">
+          <p class="text-sm text-gray-600">Mã hóa đơn: <span class="font-bold">{{ hoaDonData?.maHoaDon }}</span></p>
+          <div class="flex items-center gap-2 mt-2">
+            <NTag :type="getStatusTagType(currentStatus)" size="small">
+              {{ getStatusText(currentStatus) }}
+            </NTag>
+            <n-icon size="16" class="text-gray-400"><ArrowForwardOutline /></n-icon>
+            <NTag :type="getStatusTagType(selectedStatus?.toString())" size="small">
+              {{ getStatusText(selectedStatus?.toString()) }}
+            </NTag>
+          </div>
+        </div>
+        
+        <NFormItem label="Chọn trạng thái mới:" required>
+          <NSelect
+            v-model:value="selectedStatus"
+            :options="availableStatusOptions"
+            placeholder="Chọn trạng thái"
+            clearable
+            :disabled="isCompleted || isCancelled"
+          />
+        </NFormItem>
+        
+        <NFormItem label="Ghi chú (tùy chọn):">
+          <NInput
+            v-model:value="statusNote"
+            type="textarea"
+            placeholder="Nhập ghi chú cho trạng thái mới..."
+            :rows="3"
+          />
+        </NFormItem>
+        
+        <div v-if="selectedStatus != null" class="p-3 bg-gray-50 rounded">
+          <p class="text-sm font-medium text-gray-700 mb-1">Xác nhận thay đổi:</p>
+          <p class="text-sm text-gray-600">
+            Chuyển từ <span class="font-bold text-yellow-600">{{ getStatusText(currentStatus) }}</span>
+            sang <span class="font-bold text-green-600">{{ getStatusText(selectedStatus?.toString()) }}</span>
+          </p>
+        </div>
+      </div>
+      
+      <template #action>
+        <div class="flex gap-2 justify-end">
+          <NButton @click="showStatusModal = false">Hủy</NButton>
+          <NButton type="primary" @click="confirmStatusUpdate" :disabled="!selectedStatus" :loading="isUpdating">
+            Xác nhận cập nhật
+          </NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -459,14 +522,18 @@ import {
   NCard,
   NTag,
   NAvatar,
+  NFormItem,
+  NSelect,
+  NInput,
+  NModal,
   useMessage,
-  type DataTableColumns
+  type DataTableColumns,
+  type SelectOption
 } from 'naive-ui'
-import BreadcrumbDefault from '@/layouts/components/header/Breadcrumb.vue'
-import { getHoaDonChiTiets } from '@/service/api/admin/hoadon.api'
-import type { HoaDonResponse, ParamsGetHoaDonCT } from '@/service/api/admin/hoadon.api'
+import { getHoaDonChiTiets, changeOrderStatus, type ADChangeStatusRequest, parseIMEIList } from '@/service/api/admin/hoadon.api'
+import type { HoaDonChiTietItem } from '@/service/api/admin/hoadon.api'
 
-// Icons từ Naive UI/Ionicons
+// Icons
 import {
   TimeOutline,
   CheckmarkCircleOutline,
@@ -487,17 +554,80 @@ import {
   ArrowBackOutline,
   CreateOutline,
   RefreshOutline,
-  InformationCircleOutline
+  InformationCircleOutline,
+  ArrowForwardOutline
 } from '@vicons/ionicons5'
+import { localStorageAction } from '@/utils/storage'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 
+const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
+
 // State
-const invoiceItems = ref<HoaDonResponse[]>([])
+const invoiceItems = ref<HoaDonChiTietItem[]>([])
 const printLoading = ref(false)
 const isLoading = ref(false)
+const isUpdating = ref(false)
+const showStatusModal = ref(false)
+const selectedStatus = ref<number | null>(null)
+const statusNote = ref('')
+
+// Transform dữ liệu: mỗi IMEI thành 1 hàng
+const imeiProducts = computed(() => {
+  if (!invoiceItems.value || !Array.isArray(invoiceItems.value)) {
+    return []
+  }
+  
+  const result: any[] = []
+  let stt = 1
+  
+  invoiceItems.value.forEach((invoiceItem) => {
+    // Parse danh sách IMEI
+    const imeiList = parseIMEIList(invoiceItem.danhSachImei)
+    
+    // Nếu có IMEI, tạo hàng cho mỗi IMEI
+    if (imeiList.length > 0) {
+      imeiList.forEach((imei) => {
+        result.push({
+          // Thông tin từ hóa đơn chi tiết
+          ...invoiceItem,
+          // Thông tin IMEI
+          imeiId: imei.id,
+          imeiCode: imei.code || imei.imeiCode,
+          imeiStatus: imei.status,
+          imeiStatusText: imei.statusText,
+          // STT
+          stt: stt++,
+          // Số lượng cho mỗi IMEI là 1
+          soLuongImei: 1,
+          // Giá cho mỗi IMEI = tổng giá / số lượng IMEI
+          giaBanImei: invoiceItem.giaBan ? invoiceItem.giaBan / imeiList.length : 0,
+          // Thành tiền cho mỗi IMEI
+          tongTienImei: invoiceItem.tongTien ? invoiceItem.tongTien / imeiList.length : 0,
+          // Đánh dấu đây là hàng IMEI
+          isImeiRow: true
+        })
+      })
+    } else {
+      // Nếu không có IMEI, giữ nguyên hàng
+      result.push({
+        ...invoiceItem,
+        stt: stt++,
+        imeiCode: null,
+        imeiStatus: null,
+        imeiStatusText: 'Không có IMEI',
+        isImeiRow: false,
+        giaBanImei: invoiceItem.giaBan,
+        tongTienImei: invoiceItem.tongTien
+      })
+    }
+  })
+  
+  return result
+})
 
 // Computed values
 const invoiceCode = computed(() => route.params.id as string || 'N/A')
@@ -505,12 +635,32 @@ const invoiceCode = computed(() => route.params.id as string || 'N/A')
 // Lấy dữ liệu tổng hợp từ danh sách sản phẩm
 const hoaDonData = computed(() => {
   if (!invoiceItems.value || invoiceItems.value.length === 0) return null
-  // Lấy thông tin từ item đầu tiên (tất cả đều giống nhau về thông tin hóa đơn)
+  // Lấy thông tin từ item đầu tiên
   return invoiceItems.value[0]
 })
 
+const currentStatus = computed(() => {
+  return parseInt(hoaDonData.value?.trangThaiHoaDon || '0')
+})
+
+const productCount = computed(() => {
+  return (invoiceItems.value || []).filter(item => 
+    item?.tenSanPham && item?.soLuong != null
+  ).length
+})
+
 const totalQuantity = computed(() => {
-  return invoiceItems.value?.reduce((sum, item) => sum + (item.soLuong || 1), 0) || 0
+  if (!invoiceItems.value || !Array.isArray(invoiceItems.value)) {
+    return 0
+  }
+  
+  return invoiceItems.value.reduce((sum, item) => {
+    const isProduct = item?.tenSanPham
+    if (isProduct && item.soLuong != null) {
+      return sum + item.soLuong
+    }
+    return sum
+  }, 0)
 })
 
 const totalAmount = computed(() => {
@@ -518,19 +668,43 @@ const totalAmount = computed(() => {
 })
 
 const progressWidth = computed(() => {
-  const currentStep = parseInt(hoaDonData.value?.trangThaiHoaDon || '0')
-  return `${(currentStep / 4) * 100}%` // 4 là số bước tối đa
+  const currentStep = currentStatus.value
+  return `${(currentStep / 4) * 100}%` // 4 là số bước tối đa (0-4)
 })
 
-const isCompleted = computed(() => hoaDonData.value?.trangThaiHoaDon === '4')
-const isCancelled = computed(() => hoaDonData.value?.trangThaiHoaDon === '5')
+const isCompleted = computed(() => currentStatus.value === 4)
+const isCancelled = computed(() => currentStatus.value === 5)
+
+// Trạng thái có thể chuyển tiếp
+const availableStatusOptions = computed<SelectOption[]>(() => {
+  const options: SelectOption[] = []
+  const current = currentStatus.value
+  
+  // Nếu đã hoàn thành hoặc đã hủy, không cho cập nhật
+  if (isCompleted.value || isCancelled.value) {
+    return options
+  }
+  
+  // Thêm các trạng thái có thể chuyển đến
+  const possibleStatus = [
+    { value: 0, label: 'Chờ xác nhận' },
+    { value: 1, label: 'Đã xác nhận' },
+    { value: 2, label: 'Chờ giao hàng' },
+    { value: 3, label: 'Đang giao hàng' },
+    { value: 4, label: 'Hoàn thành' },
+    { value: 5, label: 'Đã hủy' }
+  ]
+  
+  // Chỉ hiển thị trạng thái >= trạng thái hiện tại (không cho lùi lại)
+  return possibleStatus.filter(status => status.value >= current)
+})
 
 // Timeline steps
 const timelineSteps = [
   { key: '0', title: 'Chờ xác nhận', icon: TimeOutline, color: 'yellow' },
   { key: '1', title: 'Đã xác nhận', icon: CheckmarkCircleOutline, color: 'blue' },
-  { key: '2', title: 'Đang xử lý', icon: CartOutline, color: 'purple' },
-  { key: '3', title: 'Đang giao', icon: CheckmarkCircleOutline, color: 'info' },
+  { key: '2', title: 'Chờ giao hàng', icon: CartOutline, color: 'purple' },
+  { key: '3', title: 'Đang giao hàng', icon: CheckmarkCircleOutline, color: 'info' },
   { key: '4', title: 'Hoàn thành', icon: CheckmarkDoneOutline, color: 'green' },
   { key: '5', title: 'Đã hủy', icon: CloseCircleOutline, color: 'red' }
 ]
@@ -562,26 +736,44 @@ const formatDateTime = (timestamp: number | undefined): string => {
   }
 }
 
+const formatDateTimeFromString = (dateString: string | undefined): string => {
+  if (!dateString) return "N/A"
+  try {
+    const date = new Date(dateString)
+    return date.toLocaleString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    })
+  } catch {
+    return dateString
+  }
+}
+
 const formatAddress = (address: string | undefined): string => {
   if (!address) return ''
   // Format lại địa chỉ từ format API
   return address.replace(/,/g, ', ').replace(/_/g, ' ')
 }
 
-const getStatusText = (status: string | undefined): string => {
+const getStatusText = (status: string | number | undefined): string => {
   const statusMap: Record<string, string> = {
     '0': 'Chờ xác nhận',
     '1': 'Đã xác nhận',
-    '2': 'Đang xử lý',
-    '3': 'Đang giao',
+    '2': 'Chờ giao hàng',
+    '3': 'Đang giao hàng',
     '4': 'Hoàn thành',
     '5': 'Đã hủy'
   }
-  return statusMap[status || '0'] || 'Không xác định'
+  
+  const statusStr = typeof status === 'number' ? status.toString() : status
+  return statusMap[statusStr || '0'] || 'Không xác định'
 }
 
-const getStatusIcon = (status: string | undefined): any => {
-  const iconMap: Record<string, any> = {
+const getStatusIcon = (status: string | number | undefined): any => {
+  const statusMap: Record<string, any> = {
     '0': TimeOutline,
     '1': CheckmarkCircleOutline,
     '2': CartOutline,
@@ -589,10 +781,12 @@ const getStatusIcon = (status: string | undefined): any => {
     '4': CheckmarkDoneOutline,
     '5': CloseCircleOutline
   }
-  return iconMap[status || '0'] || TimeOutline
+  
+  const statusStr = typeof status === 'number' ? status.toString() : status
+  return statusMap[statusStr || '0'] || TimeOutline
 }
 
-const getStatusTagType = (status: string | undefined): string => {
+const getStatusTagType = (status: string | number | undefined): string => {
   const typeMap: Record<string, string> = {
     '0': 'warning',
     '1': 'info',
@@ -601,7 +795,9 @@ const getStatusTagType = (status: string | undefined): string => {
     '4': 'success',
     '5': 'error'
   }
-  return typeMap[status || '0'] || 'default'
+  
+  const statusStr = typeof status === 'number' ? status.toString() : status
+  return typeMap[statusStr || '0'] || 'default'
 }
 
 const getInvoiceTypeText = (type: string | undefined): string => {
@@ -622,8 +818,33 @@ const getInvoiceTypeTagType = (type: string | undefined): string => {
   return typeMap[type || '0'] || 'default'
 }
 
+const getPaymentMethodText = (method: string | undefined): string => {
+  if (!method) return 'Tiền mặt'
+  const methodMap: Record<string, string> = {
+    'CASH': 'Tiền mặt',
+    'BANKING': 'Chuyển khoản',
+    'CREDIT_CARD': 'Thẻ tín dụng',
+    'MOMO': 'Ví MoMo',
+    'ZALOPAY': 'Ví ZaloPay'
+  }
+  return methodMap[method] || method
+}
+
+const getPaymentStatusText = (): string => {
+  if (hoaDonData.value?.duNo && hoaDonData.value.duNo > 0) {
+    return 'Còn nợ'
+  }
+  return 'Đã thanh toán'
+}
+
+const getPaymentStatusTagType = (): string => {
+  if (hoaDonData.value?.duNo && hoaDonData.value.duNo > 0) {
+    return 'warning'
+  }
+  return 'success'
+}
+
 const getCurrentStatusTextClass = (): string => {
-  const status = hoaDonData.value?.trangThaiHoaDon || '0'
   const classMap: Record<string, string> = {
     '0': 'text-yellow-600',
     '1': 'text-blue-600',
@@ -632,22 +853,23 @@ const getCurrentStatusTextClass = (): string => {
     '4': 'text-green-600',
     '5': 'text-red-600'
   }
-  return classMap[status] || 'text-gray-600'
+  
+  const statusStr = currentStatus.value.toString()
+  return classMap[statusStr] || 'text-gray-600'
 }
 
 const getCurrentStepIcon = (): any => {
-  return getStatusIcon(hoaDonData.value?.trangThaiHoaDon)
+  return getStatusIcon(currentStatus.value)
 }
 
 // Timeline functions
 const isStepCompleted = (stepKey: string): boolean => {
-  const currentStep = parseInt(hoaDonData.value?.trangThaiHoaDon || '0')
   const stepIndex = parseInt(stepKey)
-  return stepIndex < currentStep && stepKey !== '5'
+  return stepIndex < currentStatus.value && stepKey !== '5'
 }
 
 const isStepCurrent = (stepKey: string): boolean => {
-  return hoaDonData.value?.trangThaiHoaDon === stepKey
+  return currentStatus.value.toString() === stepKey
 }
 
 const getStepCircleClass = (stepKey: string): string => {
@@ -681,14 +903,168 @@ const getStepTextClass = (stepKey: string): string => {
 }
 
 const getStepTime = (stepKey: string): string | null => {
-  if (stepKey === '0') return formatDateTime(hoaDonData.value?.ngayTao)
-  return null
+  if (!hoaDonData.value?.lichSuTrangThai) {
+    return null
+  }
+  
+  try {
+    const lichSuArray = JSON.parse(hoaDonData.value.lichSuTrangThai)
+    const targetItem = lichSuArray.find(
+      (item: any) => item.trangThai?.toString() === stepKey
+    )
+    
+    if (targetItem?.thoiGian) {
+      const [datePart, timePart] = targetItem.thoiGian.split(' ')
+      if (!datePart || !timePart) return targetItem.thoiGian
+      
+      const [year, month, day] = datePart.split('-')
+      const [hours, minutes] = timePart.split(':')
+      return `${day}/${month}/${year} ${hours}:${minutes}`
+    }
+    
+    return null
+  } catch (error) {
+    console.error('Error parsing lichSuTrangThai:', error)
+    return null
+  }
 }
 
 const isStepSelectable = (stepKey: string): boolean => {
-  if (isCancelled.value) return false
-  if (isCompleted.value) return false
-  return false
+  if (isCancelled.value || isCompleted.value) return false
+  const stepIndex = parseInt(stepKey)
+  // Chỉ cho phép chọn các step tiếp theo
+  return stepIndex === currentStatus.value + 1
+}
+
+// Table columns
+const productColumns: DataTableColumns = [
+  { 
+    title: "STT", 
+    key: "stt", 
+    width: 60, 
+    align: "center",
+    render: (row) => h('span', { class: 'font-medium' }, row.stt)
+  },
+{ 
+    title: "Sản phẩm", 
+    key: "productInfo", 
+    width: 250,
+    render: (row) => {
+      // Nếu không có tên sản phẩm, ẩn hàng này
+      if (row.tenSanPham === null) {
+        return h('div', { class: 'hidden' })
+      }
+      
+      const indentClass = row.isImeiRow ? 'ml-6' : ''
+      
+      return h('div', { class: 'flex items-center gap-3' }, [
+        h(NAvatar, {
+          src: row.anhSanPham,
+          size: row.isImeiRow ? 'small' : 'medium',
+          round: false,
+          class: `border ${indentClass}`,
+          fallbackSrc: 'https://via.placeholder.com/40?text=No+Image'
+        }),
+        h('div', { class: 'flex-1 min-w-0' }, [
+          h('div', { 
+            class: `font-semibold text-gray-900 truncate ${row.isImeiRow ? 'text-sm' : ''}` 
+          }, row.tenSanPham),
+          h('div', { class: 'flex flex-wrap gap-1 mt-1' }, [
+            row.thuongHieu && h(NTag, { 
+              size: 'tiny', 
+              type: 'info',
+              bordered: false 
+            }, { default: () => row.thuongHieu }),
+            row.mauSac && h(NTag, { 
+              size: 'tiny', 
+              type: 'default',
+              bordered: false 
+            }, { default: () => row.mauSac }),
+          ]),
+          h('div', { class: 'text-xs text-gray-500 mt-1 truncate' }, row.size || '')
+        ])
+      ])
+    }
+  },
+  { 
+    title: "IMEI", 
+    key: "imeiCode", 
+    width: 150,
+    align: "center",
+    render: (row) => {
+      if (!row.imeiCode) {
+        return h('div', { class: 'text-center text-gray-400 italic text-sm' }, 'Không có IMEI')
+      }
+      
+      return h('div', { class: 'space-y-1' }, [
+        h('div', { 
+          class: 'font-mono font-bold text-center text-gray-800 text-sm p-1 bg-gray-50 rounded border'
+        }, row.imeiCode),
+        h(NTag, {
+          size: "small",
+          type: row.imeiStatus === 1 ? 'success' : 'info',
+          round: true,
+          class: 'mx-auto'
+        }, { default: () => row.imeiStatusText || 'Đã bán' })
+      ])
+    }
+  },
+  { 
+    title: "Đơn giá", 
+    key: "price", 
+    width: 120, 
+    align: "right",
+    render: (row) => {
+      const price = row.isImeiRow ? row.giaBanImei : row.giaBan
+      return h('div', { class: 'font-semibold' }, formatCurrency(price))
+    }
+  },
+  { 
+    title: "SL", 
+    key: "quantity", 
+    width: 80, 
+    align: "center",
+    render: (row) => {
+      const quantity = row.isImeiRow ? 1 : (row.soLuong || 1)
+      return h('div', { 
+        class: `inline-flex items-center justify-center w-8 h-8 rounded-full font-medium ${
+          row.isImeiRow ? 'bg-blue-100 text-blue-700' : 'bg-gray-100'
+        }`
+      }, quantity)
+    }
+  },
+  { 
+    title: "Thành tiền", 
+    key: "total", 
+    width: 140, 
+    align: "right",
+    render: (row) => {
+      let total
+      if (row.isImeiRow) {
+        total = row.tongTienImei || row.giaBanImei || 0
+      } else {
+        total = row.tongTien || (row.giaBan ? row.giaBan * (row.soLuong || 1) : 0)
+      }
+      
+      return h('div', { 
+        class: `font-bold ${
+          row.isImeiRow ? 'text-blue-600' : 'text-red-600'
+        }`
+      }, formatCurrency(total))
+    }
+  }
+]
+
+// Filter dữ liệu để loại bỏ các dòng không có sản phẩm
+const filteredImeiProducts = computed(() => {
+  return imeiProducts.value.filter(row => row.tenSanPham !== null)
+})
+
+const rowClassName = (row: any) => {
+  if (row.isImeiRow) {
+    return 'imei-row bg-blue-50 hover:bg-blue-100'
+  }
+  return 'product-row hover:bg-gray-50'
 }
 
 // Actions
@@ -696,7 +1072,9 @@ const handleStepClick = (stepKey: string): void => {
   if (!isStepSelectable(stepKey)) {
     return
   }
-  message.info('Chức năng cập nhật trạng thái đang phát triển')
+  const stepIndex = parseInt(stepKey)
+  selectedStatus.value = stepIndex
+  showStatusModal.value = true
 }
 
 const handlePrintPDF = (): void => {
@@ -709,7 +1087,7 @@ const handlePrintPDF = (): void => {
 }
 
 const handleBack = (): void => {
-  router.push('/admin/hoa-don')
+  router.push('/orders/list')
 }
 
 const handleComplete = (): void => {
@@ -717,11 +1095,51 @@ const handleComplete = (): void => {
     message.warning('Đơn hàng đã hoàn thành')
     return
   }
-  message.info('Chức năng cập nhật trạng thái đang phát triển')
+  selectedStatus.value = 4 // Hoàn thành
+  showStatusModal.value = true
 }
 
 const handleUpdateStatus = (): void => {
-  message.info('Chức năng cập nhật trạng thái đang phát triển')
+  showStatusModal.value = true
+}
+
+const confirmStatusUpdate = async (): Promise<void> => {
+  if (selectedStatus.value === null || !hoaDonData.value?.maHoaDon) {
+    message.error('Vui lòng chọn trạng thái mới')
+    return
+  }
+
+  isUpdating.value = true
+  try {
+    console.log('Selected status:', idNV.userId)
+    const requestData: ADChangeStatusRequest = {
+      maHoaDon: hoaDonData.value.maHoaDon,
+      statusTrangThaiHoaDon: selectedStatus.value,
+      note: statusNote.value || '',
+      idNhanVien: idNV.userId
+    }
+
+    const response = await changeOrderStatus(requestData)
+    
+    if (response.success) {
+      message.success('Cập nhật trạng thái thành công')
+      
+      // Refresh dữ liệu
+      await fetchInvoiceDetails()
+      
+      // Reset form
+      selectedStatus.value = null
+      statusNote.value = ''
+      showStatusModal.value = false
+    } else {
+      message.error(response.message || 'Cập nhật thất bại')
+    }
+  } catch (error: any) {
+    console.error('Error updating status:', error)
+    message.error(error.message || 'Đã xảy ra lỗi khi cập nhật')
+  } finally {
+    isUpdating.value = false
+  }
 }
 
 const handleEditInvoice = (): void => {
@@ -744,91 +1162,28 @@ const openCancelModal = (): void => {
       ghost: false
     },
     onPositiveClick: () => {
-      message.info('Chức năng hủy đơn hàng đang phát triển')
+      selectedStatus.value = 5 // Đã hủy
+      showStatusModal.value = true
     }
   })
 }
-
-// Table configuration
-const productColumns: DataTableColumns = [
-  { 
-    title: "STT", 
-    key: "stt", 
-    width: 60, 
-    align: "center",
-    render: (_, index) => h('span', { class: 'font-medium' }, index + 1)
-  },
-  { 
-    title: "Sản phẩm", 
-    key: "productInfo", 
-    width: 300,
-    render: (row) => h('div', { class: 'flex items-center gap-3' }, [
-      h(NAvatar, {
-        src: row.anhSanPham,
-        size: 'medium',
-        round: false,
-        class: 'border',
-        fallbackSrc: 'https://via.placeholder.com/60?text=No+Image'
-      }),
-      h('div', { class: 'flex-1 min-w-0' }, [
-        h('div', { class: 'font-semibold text-gray-900 truncate' }, row.tenSanPham || 'Không có tên'),
-        h('div', { class: 'flex flex-wrap gap-1 mt-1' }, [
-          h(NTag, { 
-            size: 'tiny', 
-            type: 'info',
-            bordered: false 
-          }, { default: () => row.thuongHieu || 'No brand' }),
-          h(NTag, { 
-            size: 'tiny', 
-            type: 'default',
-            bordered: false 
-          }, { default: () => row.mauSac || 'No color' }),
-        ]),
-        h('div', { class: 'text-xs text-gray-500 mt-1 truncate' }, row.size || 'No spec')
-      ])
-    ])
-  },
-  { 
-    title: "Đơn giá", 
-    key: "price", 
-    width: 120, 
-    align: "right",
-    render: (row) => h('div', { class: 'font-semibold' }, formatCurrency(row.giaBan))
-  },
-  { 
-    title: "SL", 
-    key: "quantity", 
-    width: 80, 
-    align: "center",
-    render: (row) => h('div', { 
-      class: 'inline-flex items-center justify-center w-8 h-8 bg-gray-100 rounded-full font-medium'
-    }, row.soLuong || 1)
-  },
-  { 
-    title: "Thành tiền", 
-    key: "total", 
-    width: 140, 
-    align: "right",
-    render: (row) => h('div', { class: 'font-bold text-red-600' }, formatCurrency(row.tongTien || row.giaBan))
-  }
-]
 
 // Fetch invoice details
 const fetchInvoiceDetails = async (): Promise<void> => {
   try {
     isLoading.value = true
     
-    const params: ParamsGetHoaDonCT = {
+    const params = {
       maHoaDon: invoiceCode.value,
       page: 0,
-      size: 100 // Lấy tất cả sản phẩm
+      size: 100
     }
     
     const response = await getHoaDonChiTiets(params)
     
     if (response.success && response.data?.content) {
       invoiceItems.value = response.data.content
-      message.success(`Đã tải ${invoiceItems.value.length} sản phẩm trong hóa đơn`)
+      console.log('Invoice items loaded:', invoiceItems.value.length)
     } else {
       message.error(response.message || 'Không thể tải chi tiết hóa đơn')
     }
@@ -899,17 +1254,12 @@ onMounted(() => {
   background: #a8a8a8;
 }
 
-/* Animation for progress bar */
-@keyframes progress {
-  from {
-    width: 0%;
-  }
-  to {
-    width: v-bind(progressWidth);
-  }
+/* Row styles */
+:deep(.imei-row) {
+  border-left: 4px solid #3b82f6 !important;
 }
 
-.bg-blue-500 {
-  animation: progress 1s ease-out;
+:deep(.product-row) {
+  border-left: 4px solid #d1d5db !important;
 }
 </style>
