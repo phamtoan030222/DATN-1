@@ -423,3 +423,11 @@ export function tangSoLuong(idHDCT: string) {
 export function giamSoLuong(idHDCT: string) {
   return request.post(`${API_ORDER_ONLINE}/giam-so-luong?idHDCT=${idHDCT}`)
 }
+
+export function createOrder(data: any) {
+  return request({
+    url: `${API_ORDER_ONLINE}/checkout/create-order`, // Đường dẫn tới Controller mới
+    method: 'post',
+    data,
+  })
+}

@@ -7,7 +7,6 @@ import {
   NEmpty,
   NGrid,
   NGridItem,
-  NIcon,
   NSpin,
   NTag,
 } from 'naive-ui'

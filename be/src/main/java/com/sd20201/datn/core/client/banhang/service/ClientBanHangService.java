@@ -23,6 +23,9 @@ import java.util.List;
 public interface ClientBanHangService {
     List<ClientListHoaDon> getHoaDon();
 
+    @Transactional
+    ResponseObject<?> createOrder(ClientThanhToanRequest request);
+
     ResponseObject<?> getProductDetails(ADPDProductDetailRequest request);
 
     ResponseObject<?> createHoaDon(ClientNhanVienRequest adNhanVienRequest);

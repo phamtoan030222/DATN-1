@@ -4,12 +4,10 @@ import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailRepository;
 import com.sd20201.datn.core.admin.staff.repository.ADStaffRepository;
-import com.sd20201.datn.core.admin.voucher.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.client.banhang.model.request.*;
 import com.sd20201.datn.core.client.banhang.model.response.*;
 import com.sd20201.datn.core.client.banhang.repository.*;
 import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
-import com.sd20201.datn.core.client.products.productdetail.repository.ClientPDProductDetailRepository;
 import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
@@ -25,16 +23,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +56,105 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     public List<ClientListHoaDon> getHoaDon() {
         return adTaoHoaDonRepository.getAll();
+    }
+
+
+    @Transactional
+    @Override
+    public ResponseObject<?> createOrder(ClientThanhToanRequest request) {
+        try {
+            // 1. Tạo Invoice (Hóa đơn)
+            Invoice invoice = new Invoice();
+
+            // Gen mã hóa đơn: HD + Timestamp (hoặc logic riêng của bạn)
+            invoice.setCode("ONLINE_" + System.currentTimeMillis());
+
+            // Set thông tin khách hàng
+            invoice.setNameReceiver(request.getTen());
+            invoice.setPhoneReceiver(request.getSdt());
+            invoice.setAddressReceiver(request.getDiaChi());
+            invoice.setDescription(request.getGhiChu());
+
+            // Set tiền (Lấy từ request hoặc tính lại nếu cần bảo mật cao)
+            invoice.setTotalAmount(request.getTienHang());
+            invoice.setShippingFee(request.getTienShip());
+//            invoice.setDiscountAmount(request.getGiamGia());
+            invoice.setTotalAmountAfterDecrease(request.getTongTien());
+
+            // Set Loại & Trạng thái
+            if ("TAI_QUAY".equals(request.getLoaiHoaDon())) {
+                invoice.setTypeInvoice(TypeInvoice.TAI_QUAY); // Enum 0
+            } else {
+                invoice.setTypeInvoice(TypeInvoice.ONLINE); // Enum 1 (Giao hàng)
+            }
+            invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
+            invoice.setCreatedDate(System.currentTimeMillis());
+
+            // Lưu hóa đơn trước để có ID
+            invoice = invoiceRepository.save(invoice);
+
+            // 2. Xử lý danh sách sản phẩm (Từ LocalStorage gửi lên)
+            List<InvoiceDetail> details = new ArrayList<>();
+            List<IMEI> imeisToUpdate = new ArrayList<>();
+
+            for (ClientProductItemRequest item : request.getProducts()) {
+
+                // a. Tìm thông tin sản phẩm trong DB
+                ProductDetail productDetail = productDetailRepository.findById(item.getProductDetailId())
+                        .orElseThrow(() -> new BusinessException("Sản phẩm không tồn tại: " + item.getProductDetailId()));
+
+                // b. [QUAN TRỌNG] Tự động tìm IMEI đang AVAILABLE
+                // Lấy ra đúng số lượng khách mua
+                Pageable limit = PageRequest.of(0, item.getQuantity());
+                List<IMEI> availableImeis = imeiRepository.findAvailableImei(
+                        productDetail.getId(),
+                        ImeiStatus.AVAILABLE,
+                        limit
+                );
+
+                // c. Check tồn kho
+                if (availableImeis.size() < item.getQuantity()) {
+                    throw new BusinessException("Sản phẩm '" + productDetail.getProduct().getName() +
+                            "' không đủ số lượng tồn kho (Còn: " + availableImeis.size() + ")");
+                }
+
+                // d. Tạo Hóa đơn chi tiết
+                InvoiceDetail detail = new InvoiceDetail();
+                detail.setInvoice(invoice);
+                detail.setProductDetail(productDetail);
+                detail.setQuantity(item.getQuantity());
+                detail.setPrice(item.getPrice()); // Giá bán tại thời điểm đặt
+                // Tính tổng tiền dòng này (để lưu DB cho chắc)
+                detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+
+                detail = invoiceDetailRepository.save(detail);
+                details.add(detail);
+
+                // e. Gán IMEI cho chi tiết hóa đơn & Đổi trạng thái
+                for (IMEI imei : availableImeis) {
+                    imei.setInvoiceDetail(detail);
+                    imei.setImeiStatus(ImeiStatus.SOLD); // Hoặc PENDING_DELIVERY tùy quy trình
+                    imeisToUpdate.add(imei);
+                }
+            }
+
+            // Lưu cập nhật tất cả IMEI 1 lần (Batch update)
+            imeiRepository.saveAll(imeisToUpdate);
+
+            // 3. Ghi log lịch sử trạng thái
+            LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
+            history.setHoaDon(invoice);
+            history.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+            history.setThoiGian(LocalDateTime.now());
+            history.setNote("Khách đặt hàng Online mới");
+            lichSuTrangThaiHoaDonRepository.save(history);
+
+            return ResponseObject.successForward(invoice, "Đặt hàng thành công");
+
+        } catch (Exception e) {
+            log.error("Lỗi đặt hàng: ", e);
+            throw new BusinessException(e.getMessage()); // Throw ra để Controller bắt lỗi trả về 400
+        }
     }
 
     @Override
@@ -294,12 +390,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
             hoaDonToUpdate.setTypeInvoice(TypeInvoice.ONLINE);
 
-
-            // 5. Cập nhật Nhân viên (Nếu có - trường hợp Admin tạo hộ)
-            if (id.getIdNV() != null && !id.getIdNV().trim().isEmpty()) {
-                Staff nhanVien = adNhanVienRepository.findById(id.getIdNV()).orElse(null);
-                hoaDonToUpdate.setStaff(nhanVien);
-            }
 
             // 6. CHỐT ĐƠN: Luôn set trạng thái CHỜ XÁC NHẬN với đơn Online
             hoaDonToUpdate.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);

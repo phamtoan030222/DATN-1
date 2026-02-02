@@ -13,6 +13,7 @@ import com.sd20201.datn.core.client.banhang.model.response.ClientPhuongThucThanh
 import com.sd20201.datn.core.client.banhang.model.response.ClientListHoaDon;
 import com.sd20201.datn.core.client.banhang.model.response.ClientVoucherSuggestionResponse;
 import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
+import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,17 @@ import java.util.List;
 public class ClientBanHangController {
 
     public final ClientBanHangService adBanHangService;
+
+    @PostMapping("/checkout/create-order")
+    public ResponseEntity<?> createOrder(@RequestBody ClientThanhToanRequest request) {
+
+        // 3. Gọi hàm xử lý bên Service
+        // Controller chỉ nhận request -> chuyển cho Service làm -> nhận kết quả trả về
+        ResponseObject<?> result = adBanHangService.createOrder(request);
+
+        // 4. Trả kết quả về cho Frontend (Vue.js)
+        return ResponseEntity.ok(result);
+    }
 
     @GetMapping("/san-pham-chi-tiet")
     public ResponseEntity<?> getProductDetails(ADPDProductDetailRequest request) {
