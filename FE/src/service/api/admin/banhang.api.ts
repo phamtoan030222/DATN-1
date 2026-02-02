@@ -5,6 +5,7 @@ import type {
   DefaultResponse,
   PaginationParams,
   PaginationResponse,
+  ResponseList,
 } from '@/service/api.common'
 import type { ADPDImeiResponse, ADProductDetailRequest } from './product/productDetail.api'
 import type { ADProductDetailResponse } from './product/product.api'

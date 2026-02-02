@@ -14,29 +14,29 @@ export type ADProductRequest = PaginationParams & {
 }
 
 export interface ADProductResponse {
-  id?: string
-  code: string
-  name: string
-  status?: string
-  brand: string
-  battery: string
-  screen: string
-  operatingSystem: string
-  minPrice: number
-  maxPrice: number
-  quantity: number
-  urlImage: string
-  percentage?: number
+  // id?: string
+  // code: string
+  // name: string
+  // status?: string
+  // brand: string
+  // battery: string
+  // screen: string
+  // operatingSystem: string
+  // minPrice: number
+  // maxPrice: number
+  // quantity: number
+  // urlImage: string
+  // percentage?: number
 }
 
 export interface ADProductDetailResponse {
-  id?: string
-  code: string
-  name: string
-  idBrand: string
-  idBattery: string
-  idScreen: string
-  idOperatingSystem: string
+  // id?: string
+  // code: string
+  // name: string
+  // idBrand: string
+  // idBattery: string
+  // idScreen: string
+  // idOperatingSystem: string
 }
 
 export type ADPRPropertiesComboboxResponse = SelectMixedOption & {

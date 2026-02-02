@@ -33,4 +33,8 @@ public class LichSuTrangThaiHoaDon implements Serializable {
     @Column(name = "note")
     private String note;
 
+    @ManyToOne
+    @JoinColumn(name = "nhan_vien_id")
+    private Staff nhanVien;
+
 }

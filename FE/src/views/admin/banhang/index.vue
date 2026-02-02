@@ -120,7 +120,7 @@ const idHDS = ref('')
 const tabs = ref<Array<{
   id: number
   idHD: string
-  ma: string
+  code: string
   soLuong: number
   products: any[]
   loaiHoaDon: string
@@ -290,6 +290,7 @@ async function addSerialToCart() {
     // 6. Refresh giỏ hàng
     await refreshCart()
     await fetchDiscounts(idHDS.value)
+    await fetchHoaDon()
   }
   catch (error) {
     console.error('Failed to add serials to cart:', error)
@@ -1274,7 +1275,7 @@ async function fetchHoaDon() {
       tabs.value = response.map((invoice, index) => ({
         id: index + 1,
         idHD: invoice.id,
-        ma: invoice.ma,
+        code: invoice.code,
         soLuong: invoice.soLuong,
         loaiHoaDon: invoice.loaiHoaDon,
         products: invoice.data?.products || [],
@@ -2094,6 +2095,8 @@ async function huy(idHD: string) {
     await fetchProducts()
     await capNhatDanhSach()
 
+    await fetchHoaDon()
+
     const indexToRemove = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
     if (indexToRemove !== -1) {
       tabs.value.splice(indexToRemove, 1)
@@ -2231,8 +2234,7 @@ async function xacNhan(check: number) {
       giamGia: giamGia.value,
       phuongThucThanhToan: state.currentPaymentMethod, // '0', '1', '2'
       idPGG: selectedDiscount.value?.id,
-      check,
-      isDeliveryEnabled: isDeliveryEnabled.value,
+      check: isDeliveryEnabled.value ? 1 : 0,
 
       // THÊM FIELD IMEI (quan trọng)
       loaiHoaDon,
@@ -2397,7 +2399,7 @@ async function createInvoice() {
   tabs.value.push({
     id: newTabId,
     idHD: '', // Chưa có DB id
-    ma: tempMa, // Mã tạm
+    code: tempMa, // Mã tạm
     soLuong: 0,
     loaiHoaDon: 'TAI_QUAY',
     products: [],
@@ -2449,7 +2451,7 @@ async function createInvoice() {
     const tab = tabs.value.find(t => t.id === newTabId)
     if (tab) {
       tab.idHD = newInvoice.data.id
-      tab.ma = newInvoice.data.ma
+      tab.code = newInvoice.data.code
       tab.loaiHoaDon = newInvoice.data.loaiHoaDon || 'OFFLINE'
       tab.isTemp = false
     }
@@ -2921,7 +2923,7 @@ const bestSuggestion = computed(() => {
                 >
                   <div class="invoice-header">
                     <NText strong>
-                      {{ tab.ma }}
+                      {{ tab.code }}
                     </NText>
                     <NPopconfirm
                      v-if="tab.soLuong > 0"
@@ -2943,7 +2945,7 @@ const bestSuggestion = computed(() => {
                           Xác nhận hủy hóa đơn
                         </NText>
                         <NText depth="3" style="font-size: 14px;">
-                          Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.ma }}</strong>?<br>
+                          Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.code }}</strong>?<br>
                           Hành động này không thể hoàn tác.
                         </NText>
                       </div>

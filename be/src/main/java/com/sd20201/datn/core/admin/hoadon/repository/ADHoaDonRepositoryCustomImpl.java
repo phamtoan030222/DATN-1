@@ -50,6 +50,7 @@ public class ADHoaDonRepositoryCustomImpl
                       AND (:startDate IS NULL OR CAST(hd.createdDate AS BIGINTEGER) >= :startDate)
                       AND (:endDate IS NULL OR CAST(hd.createdDate AS BIGINTEGER) <= :endDate)
                       AND hd.entityTrangThaiHoaDon != :luuTam
+                      AND hd.totalAmount > 0
                     ORDER BY hd.createdDate ASC
                 """;
 
@@ -65,6 +66,7 @@ public class ADHoaDonRepositoryCustomImpl
                       AND (:startDate IS NULL OR CAST(hd.createdDate AS BIGINTEGER) >= :startDate)
                       AND (:endDate IS NULL OR CAST(hd.createdDate AS BIGINTEGER) <= :endDate)
                       AND hd.entityTrangThaiHoaDon != :luuTam
+                      AND hd.totalAmount > 0
                     GROUP BY hd.entityTrangThaiHoaDon
                 """;
 
@@ -81,6 +83,7 @@ public class ADHoaDonRepositoryCustomImpl
                       AND (:startDate IS NULL OR CAST(hd.createdDate AS BIGINTEGER) >= :startDate)
                       AND (:endDate IS NULL OR CAST(hd.createdDate AS BIGINTEGER) <= :endDate)
                       AND hd.entityTrangThaiHoaDon != :luuTam
+                      AND hd.totalAmount > 0
                 """;
 
         List<Object[]> countByStatusList = entityManager.createQuery(countByStatusHql)

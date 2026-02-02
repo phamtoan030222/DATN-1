@@ -38,6 +38,8 @@ public class IMEI extends PrimaryEntity implements Serializable {
     @JoinColumn(name = "id_invoice")
     private Invoice invoiceHolding;  // Hóa đơn đang giữ (giỏ hàng)
 
-    private LocalDateTime lockedAt;
+    private Long lockedAt;
 
+    public void setSoldAt(long l) {
+    }
 }

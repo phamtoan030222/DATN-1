@@ -2,6 +2,7 @@ package com.sd20201.datn.core.admin.hoadon.model.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface ADHoaDonChiTietResponseDetail {
     // Thông tin hóa đơn
@@ -55,4 +56,14 @@ public interface ADHoaDonChiTietResponseDetail {
     // Thông tin nợ và hoàn phí (từ LichSuThanhToan)
     BigDecimal getDuNo(); // Thay Double bằng BigDecimal
     BigDecimal getHoanPhi(); // Thay Double bằng BigDecimal
+
+    // Thêm các field mới
+    String getLichSuTrangThai(); // JSON string
+    String getTrangThaiText();
+    LocalDateTime getThoiGianCapNhatCuoi();
+
+    List<String> getDanhSachImei();
+
+    Integer getSoLuongImei();
+
 }

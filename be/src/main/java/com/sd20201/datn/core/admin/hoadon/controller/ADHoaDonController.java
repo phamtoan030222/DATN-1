@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.hoadon.controller;
 
+import com.sd20201.datn.core.admin.hoadon.model.request.ADChangeStatusRequest;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonDetailRequest;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonSearchRequest;
 import com.sd20201.datn.core.admin.hoadon.service.ADHoaDonService;
@@ -28,11 +29,11 @@ public class ADHoaDonController {
     public ResponseEntity<?> getHDCT(@ModelAttribute ADHoaDonDetailRequest request) {
         return Helper.createResponseEntity(service.getAllHoaDonCT(request));
     }
-//
-//    @PutMapping("/change-status")
-//    public ResponseEntity<?> changeStatus(@ModelAttribute ADChangeStatusRequest adChangeStatusRequest) {
-//        return Helper.createResponseEntity(service.changeStatus(adChangeStatusRequest));
-//    }
+
+    @PutMapping("/change-status")
+    public ResponseEntity<?> changeStatus(@RequestBody ADChangeStatusRequest adChangeStatusRequest) {
+        return Helper.createResponseEntity(service.capNhatTrangThaiHoaDon(adChangeStatusRequest));
+    }
 
 
 }

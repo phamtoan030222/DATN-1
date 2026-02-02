@@ -16,7 +16,7 @@ import com.sd20201.datn.infrastructure.constant.*;
 import com.sd20201.datn.infrastructure.exception.BusinessException;
 import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.InvoiceRepository;
-import com.sd20201.datn.repository.LichSuThanhToanResposiotry;
+import com.sd20201.datn.repository.LichSuThanhToanRepository;
 import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
@@ -46,7 +46,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ADStaffRepository adNhanVienRepository;
     public final ClientVoucherRepository adVoucherRepository;
     public final ADPDProductDetailRepository adPDProductDetailRepository;
-    public final LichSuThanhToanResposiotry adLichSuThanhToanRepository;
+    public final LichSuThanhToanRepository adLichSuThanhToanRepository;
     public final ClientBanHangSanPhamChiTiet productDetailRepository;
     public final ClientBHVoucherDetailRepository adbhvoucher;
     public final AdCustomerRepository khachHangRepository;
