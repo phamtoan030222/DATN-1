@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import bg from '@/assets/images/banner4.jpg'
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NBadge,
@@ -22,15 +21,37 @@ import {
 } from '@vicons/ionicons5'
 import { localStorageAction } from '@/utils'
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { useAuthStore } from '@/store'
-
-// Import Store đã nâng cấp
+// [QUAN TRỌNG] Import Store mới
 import { CartStore } from '@/utils/cartStore'
 
 const router = useRouter()
 const route = useRoute()
 
-// --- DATA ---
+// --- LOGIC GIỎ HÀNG MỚI (CLIENT-SIDE) ---
+// 1. Tạo biến hứng số lượng
+const cartCount = ref(0)
+
+// 2. Hàm cập nhật số lượng từ LocalStorage (Không gọi API)
+function updateCartBadge() {
+  cartCount.value = CartStore.getTotalQuantity()
+}
+
+// 3. Lắng nghe sự kiện khi Component được load
+onMounted(() => {
+  // Cập nhật ngay lần đầu
+  updateCartBadge()
+
+  // Đăng ký lắng nghe sự kiện 'cart-updated' từ CartStore bắn ra
+  window.addEventListener('cart-updated', updateCartBadge)
+})
+
+// 4. Dọn dẹp sự kiện khi Component bị hủy (để tránh rò rỉ bộ nhớ)
+onUnmounted(() => {
+  window.removeEventListener('cart-updated', updateCartBadge)
+})
+
+// --- CÁC LOGIC KHÁC GIỮ NGUYÊN ---
+
 const menuOptions: MenuOption[] = [
   { label: 'TRANG CHỦ', key: 'home', href: '/' },
   { label: 'SẢN PHẨM', key: 'products', href: '/san-pham' },
@@ -39,8 +60,12 @@ const menuOptions: MenuOption[] = [
   { label: 'TRA CỨU ĐƠN HÀNG', key: 'tracking', href: '/tra-cuu' },
 ]
 
+// Xử lý thông tin user
+const userInfo = reactive(localStorageAction.get(USER_INFO_STORAGE_KEY) || {})
+
 const userOptions = computed(() => {
-  if (userInfo) {
+  // Kiểm tra xem có user info hay không
+  if (userInfo && Object.keys(userInfo).length > 0) {
     return [
       { label: 'Đăng xuất', key: 'logout' },
     ]
@@ -53,12 +78,6 @@ const userOptions = computed(() => {
 const activeKey = ref<string | null>(null)
 const showDrawer = ref(false)
 const keyword = ref('')
-const userInfo = reactive(localStorageAction.get(USER_INFO_STORAGE_KEY))
-
-// [QUAN TRỌNG] Gọi updateCount khi layout được load
-onMounted(() => {
-  CartStore.updateCount()
-})
 
 // Tự động cập nhật Menu Active
 watch(
@@ -76,8 +95,7 @@ watch(
       activeKey.value = 'tracking'
     else activeKey.value = null
 
-    // Mỗi khi chuyển trang cũng cập nhật lại số lượng cho chắc
-    CartStore.updateCount()
+    // [FIX LỖI] Đã xóa dòng CartStore.updateCount() gây lỗi treo ở đây
   },
   { immediate: true },
 )
@@ -89,8 +107,16 @@ function handleMenuClick(key: string, item: MenuOption) {
 }
 
 function handlerAccountDropdown(key: string) {
-  if (key === 'login')
+  if (key === 'login') {
     router.push({ name: 'login' })
+  }
+  else if (key === 'logout') {
+    // Xử lý đăng xuất (ví dụ: xóa token)
+    localStorageAction.remove(USER_INFO_STORAGE_KEY)
+    router.push({ name: 'login' })
+    // Refresh trang để cập nhật lại state nếu cần
+    setTimeout(() => window.location.reload(), 100)
+  }
 }
 
 function handleCartClick() {
@@ -105,9 +131,6 @@ function handleCartClick() {
         <h2 class="banner-title">
           i'm sorry, please forgive me, thank you, i love you
         </h2>
-        <!-- <p class="banner-subtitle">
-          Dành riêng cho sinh viên nhập học
-        </p> -->
       </div>
       <img src="/src/assets/images/banner7.jpg" class="banner-img">
     </div>
@@ -161,7 +184,7 @@ function handleCartClick() {
         </NDropdown>
 
         <div class="action-btn cart-btn" @click="handleCartClick">
-          <NBadge :value="CartStore.count.value" :max="99" color="#d03050">
+          <NBadge :value="cartCount" :max="99" color="#d03050">
             <NIcon size="28" color="#333">
               <Cart />
             </NIcon>
@@ -189,7 +212,7 @@ function handleCartClick() {
 </template>
 
 <style scoped>
-/* (Giữ nguyên style của bạn) */
+/* Giữ nguyên toàn bộ CSS cũ của bạn */
 .layout-container {
   display: flex;
   flex-direction: column;

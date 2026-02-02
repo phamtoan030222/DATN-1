@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Setter
 @Getter
@@ -14,7 +15,6 @@ import java.math.BigDecimal;
 public class ClientThanhToanRequest {
 
     private String idHD; // ID Hóa đơn
-    private String idNV; // Có thể null
 
     // Thông tin khách hàng
     private String ten;
@@ -33,5 +33,7 @@ public class ClientThanhToanRequest {
     private String idPGG; // ID Voucher
     private String loaiHoaDon;
     private Integer check; // 0 hoặc 1
+
+    private List<ClientProductItemRequest> products;
 }
 

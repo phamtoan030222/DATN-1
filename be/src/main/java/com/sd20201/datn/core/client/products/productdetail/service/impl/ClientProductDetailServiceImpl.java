@@ -102,7 +102,7 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
 
         if (!idCurrentDiscounts.isEmpty()) {
             return ResponseObject.successForward(
-                    PageableObject.of(productDetailRepository.getProductDetailsDiscount(Helper.createPageable(request), request, idCurrentDiscounts)),
+                    PageableObject.of(productDetailRepository.getProductDetailsDiscount(Helper.createPageable(request), request, idCurrentDiscounts,currentTime)),
                     "OKE"
             );
         }
