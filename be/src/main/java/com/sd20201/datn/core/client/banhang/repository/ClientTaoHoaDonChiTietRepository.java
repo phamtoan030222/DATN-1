@@ -3,7 +3,7 @@ package com.sd20201.datn.core.client.banhang.repository;
 import com.sd20201.datn.core.client.banhang.model.request.ClientThemSanPhamRequest;
 import com.sd20201.datn.core.client.banhang.model.request.ClientListKhachHangRequest;
 import com.sd20201.datn.core.client.banhang.model.response.ClientChonKhachHangResponse;
-import com.sd20201.datn.core.client.banhang.model.response.ClientGioHangResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientCartItemResponse;
 import com.sd20201.datn.core.client.banhang.model.response.ClientPhuongThucThanhToanRespones;
 import com.sd20201.datn.repository.InvoiceDetailRepository;
 import org.springframework.data.domain.Page;
@@ -57,7 +57,7 @@ public interface ClientTaoHoaDonChiTietRepository extends InvoiceDetailRepositor
                          c.name, r.name, hd2.name, g.name, cl.name, hdct.created_date
                 ORDER BY hdct.created_date DESC
             """, nativeQuery = true)
-    List<ClientGioHangResponse> getAllGioHang(@Param("rep") String rep, @Param("now") Long now);
+    List<ClientCartItemResponse> getAllGioHang(@Param("rep") String rep, @Param("now") Long now);
 
     @Query(value = """
                 SELECT kh.id AS id, kh.name AS ten, kh.phone AS sdt

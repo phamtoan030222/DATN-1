@@ -4,21 +4,42 @@ import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailRepository;
 import com.sd20201.datn.core.admin.staff.repository.ADStaffRepository;
-import com.sd20201.datn.core.client.banhang.model.request.*;
-import com.sd20201.datn.core.client.banhang.model.response.*;
-import com.sd20201.datn.core.client.banhang.repository.*;
+import com.sd20201.datn.core.client.banhang.model.response.ClientApplicableVoucherResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientBetterVoucherResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientChonKhachHangResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientPhuongThucThanhToanRespones;
+import com.sd20201.datn.core.client.banhang.model.response.ClientVoucherSuggestionResponse;
+import com.sd20201.datn.core.client.banhang.repository.ClientBHVoucherDetailRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartItemRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonChiTietRepository;
+import com.sd20201.datn.core.client.banhang.model.request.ClientChonPhieuGiamGiaRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientListKhachHangRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientNhanVienRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThanhToanRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThemKhachHangRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThemSanPhamRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientVoucherSuggestionRequest;
 import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
+import com.sd20201.datn.core.client.banhang.model.request.ClientProductItemRequest;
+import com.sd20201.datn.core.client.banhang.model.response.ClientCartItemResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientListHoaDon;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangIMEIRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangSanPhamChiTiet;
+import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonRepository;
 import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.*;
 import com.sd20201.datn.infrastructure.constant.*;
 import com.sd20201.datn.infrastructure.exception.BusinessException;
+import com.sd20201.datn.repository.CustomerRepository;
 import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.InvoiceRepository;
 import com.sd20201.datn.repository.LichSuThanhToanRepository;
 import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
 import com.sd20201.datn.utils.Helper;
+import com.sd20201.datn.utils.UserContextHelper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
@@ -52,6 +73,14 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     public final AdCustomerRepository khachHangRepository;
     public final InvoiceRepository invoiceRepository;
     private final InvoiceDetailRepository invoiceDetailRepository;
+
+    private final UserContextHelper userContextHelper;
+
+    private final ClientBanHangCartRepository cartRepository;
+
+    private final ClientBanHangCartItemRepository cartItemRepository;
+
+    private final CustomerRepository customerRepository;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -103,21 +132,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 ProductDetail productDetail = productDetailRepository.findById(item.getProductDetailId())
                         .orElseThrow(() -> new BusinessException("Sản phẩm không tồn tại: " + item.getProductDetailId()));
 
-                // b. [QUAN TRỌNG] Tự động tìm IMEI đang AVAILABLE
-                // Lấy ra đúng số lượng khách mua
-                Pageable limit = PageRequest.of(0, item.getQuantity());
-                List<IMEI> availableImeis = imeiRepository.findAvailableImei(
-                        productDetail.getId(),
-                        ImeiStatus.AVAILABLE,
-                        limit
-                );
-
-                // c. Check tồn kho
-                if (availableImeis.size() < item.getQuantity()) {
-                    throw new BusinessException("Sản phẩm '" + productDetail.getProduct().getName() +
-                            "' không đủ số lượng tồn kho (Còn: " + availableImeis.size() + ")");
-                }
-
                 // d. Tạo Hóa đơn chi tiết
                 InvoiceDetail detail = new InvoiceDetail();
                 detail.setInvoice(invoice);
@@ -129,13 +143,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
                 detail = invoiceDetailRepository.save(detail);
                 details.add(detail);
-
-                // e. Gán IMEI cho chi tiết hóa đơn & Đổi trạng thái
-                for (IMEI imei : availableImeis) {
-                    imei.setInvoiceDetail(detail);
-                    imei.setImeiStatus(ImeiStatus.SOLD); // Hoặc PENDING_DELIVERY tùy quy trình
-                    imeisToUpdate.add(imei);
-                }
             }
 
             // Lưu cập nhật tất cả IMEI 1 lần (Batch update)
@@ -202,13 +209,12 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     }
 
     @Override
-    public List<ClientGioHangResponse> getListGioHang(String id) {
-        try {
-            return adTaoHoaDonChiTietRepository.getAllGioHang(id, System.currentTimeMillis());
-        } catch (Exception e) {
-            log.error("Error getting cart for invoice {}: ", id, e);
-            return Collections.emptyList();
-        }
+    public ResponseObject<?> getListGioHang(String id) {
+        Long currentTime = System.currentTimeMillis();
+        return ResponseObject.successForward(
+                cartItemRepository.getCartItemsById(id, currentTime),
+                "OKE"
+        );
     }
 
     @Override
@@ -262,74 +268,35 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     public ResponseObject<?> createThemSanPham(ClientThemSanPhamRequest request) {
 
         // 1. Tìm hóa đơn. Nếu không thấy -> Tự tạo mới luôn!
-        Invoice invoice = invoiceRepository.findById(request.getInvoiceId()).orElse(null);
+        Cart cart = Optional.ofNullable(request.getCartId())
+                .flatMap(cartRepository::findById)
+                .orElseGet(() -> {
+                    Cart newCart = new Cart();
 
-        if (invoice == null) {
-            log.warn("Hóa đơn ID {} không tồn tại. Đang tạo mới...", request.getInvoiceId());
-            invoice = new Invoice();
-            invoice.setTotalAmount(BigDecimal.ZERO);
-            invoice.setTotalAmountAfterDecrease(BigDecimal.ZERO);
-            invoice.setCode("HD_AUTO_" + System.currentTimeMillis()); // Mã tự sinh
-            invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-            invoice.setTypeInvoice(TypeInvoice.ONLINE);
-            invoice.setCreatedDate(System.currentTimeMillis());
-            invoice = adTaoHoaDonRepository.save(invoice);
-
-            // Ghi log lịch sử tạo
-            LichSuTrangThaiHoaDon lichSu = new LichSuTrangThaiHoaDon();
-            lichSu.setThoiGian(LocalDateTime.now());
-            lichSu.setNote("Hóa đơn được tạo tự động khi thêm giỏ hàng.");
-            lichSu.setHoaDon(invoice);
-            lichSu.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-            lichSuTrangThaiHoaDonRepository.save(lichSu);
-        }
+                    newCart.setCustomer(
+                            userContextHelper.getCurrentUserId().flatMap(customerRepository::findById)
+                                    .orElse(null));
+                    cartRepository.save(newCart);
+                    return newCart;
+                });
 
         // 2. Tìm sản phẩm
         ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId())
                 .orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
 
-        // 3. Validate và lấy IMEI (Giữ nguyên logic của bạn)
-        List<IMEI> imeis = imeiRepository.findAllById(request.getImeiIds());
-        boolean invalidImei = imeis.stream().anyMatch(
-                imei -> imei.getImeiStatus() != ImeiStatus.AVAILABLE ||
-                        !imei.getProductDetail().getId().equals(productDetail.getId())
-        );
-        if (invalidImei) throw new BusinessException("IMEI không hợp lệ hoặc đã bán");
-
         // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
-        InvoiceDetail existingDetail = adTaoHoaDonChiTietRepository.findByInvoiceAndProductDetail(invoice, productDetail);
-        InvoiceDetail invoiceDetail;
+        CartItem cartItem = cartItemRepository.findByCartAndProductDetail(cart, productDetail)
+                .orElseGet(() -> {
+                    CartItem newCartItem = new CartItem();
+                    newCartItem.setCart(cart);
+                    newCartItem.setProductDetail(productDetail);
 
-        if (existingDetail != null) {
-            invoiceDetail = existingDetail;
-            invoiceDetail.setQuantity(invoiceDetail.getQuantity() + imeis.size());
-            BigDecimal newTotal = invoiceDetail.getPrice().multiply(BigDecimal.valueOf(invoiceDetail.getQuantity()));
-            invoiceDetail.setTotalAmount(newTotal);
-        } else {
-            invoiceDetail = new InvoiceDetail();
-            invoiceDetail.setInvoice(invoice);
-            invoiceDetail.setProductDetail(productDetail);
-            invoiceDetail.setPrice(productDetail.getPrice());
-            invoiceDetail.setQuantity(imeis.size());
-            invoiceDetail.setTotalAmount(productDetail.getPrice().multiply(BigDecimal.valueOf(imeis.size())));
-            invoiceDetail.setCreatedDate(System.currentTimeMillis());
-        }
+                    return newCartItem;
+                });
+        cartItem.setQuantity(request.getQuantity());
+        cartItemRepository.save(cartItem);
 
-        invoiceDetailRepository.save(invoiceDetail);
-
-        // 5. Cập nhật IMEI (Giữ nguyên)
-        for (IMEI imei : imeis) {
-            imei.setInvoiceDetail(invoiceDetail);
-            imei.setImeiStatus(ImeiStatus.RESERVED);
-        }
-        imeiRepository.saveAll(imeis);
-
-        // [QUAN TRỌNG NHẤT] Trả về ID hóa đơn (Mới hoặc cũ) để Frontend biết
-        Map<String, String> responseData = new HashMap<>();
-        responseData.put("invoiceId", invoice.getId());
-        responseData.put("message", "Thêm thành công");
-
-        return new ResponseObject<>(responseData, HttpStatus.OK, "Thêm sản phẩm thành công");
+        return new ResponseObject<>(cartItem.getId(), HttpStatus.OK, "Thêm sản phẩm thành công");
     }
 
     @Override

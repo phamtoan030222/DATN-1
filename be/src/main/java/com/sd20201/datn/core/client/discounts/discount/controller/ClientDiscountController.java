@@ -66,9 +66,4 @@ public class ClientDiscountController {
         return Helper.createResponseEntity(adDiscountService.filterDiscounts(request));
     }
 
-//    @PostMapping("/sendEmail/{id}")
-//    public ResponseEntity<?> sendMail(@PathVariable String id){
-//        return Helper.createResponseEntity(adDiscountService.sendEmailDiscount(id));
-//    }
-
 }

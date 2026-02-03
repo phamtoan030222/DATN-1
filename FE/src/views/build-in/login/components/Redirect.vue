@@ -1,6 +1,9 @@
 <script lang="ts" setup>
 import { ROLES } from '@/constants/roles'
+import { CUSTOMER_CART_ID } from '@/constants/storageKey'
+import { getCartByCustomer } from '@/service/api/client/customer/customer.api'
 import { useAuthStore } from '@/store'
+import { localStorageAction } from '@/utils'
 import { getUserInformation } from '@/utils/token.helper'
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -35,8 +38,10 @@ onMounted( async () => {
       router.push({ name: 'dashboard_sales' })
       return
     }
-    else if (user.rolesCodes.includes(ROLES.KHACH_HANG) && user.roleScreen === ROLES.KHACH_HANG) {
-      router.push({ name: 'home' })
+    else if (user.rolesCodes.includes(ROLES.KHACH_HANG) && user.roleScreen === 'CUSTOMER') {
+      const res = await getCartByCustomer(user.userId as string)
+      localStorageAction.set(CUSTOMER_CART_ID, res.data)
+      router.push({ name: 'Home' })
       return
     }
   }
