@@ -53,6 +53,9 @@ public class CreatePrimaryEntityListener {
             case "HardDrive" -> {
                 return "HD" + generateCode();
             }
+            case "Cart" -> {
+                return "CART" + generateCode();
+            }
         }
 
         return entity.getCode();
