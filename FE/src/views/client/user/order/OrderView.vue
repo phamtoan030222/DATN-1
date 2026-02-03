@@ -275,8 +275,7 @@ function formatCurrency(val: number) {
               <div
                 class="flex-1 p-3 border rounded-lg cursor-pointer transition-all flex items-center justify-center gap-2"
                 :class="deliveryType === 'GIAO_HANG' ? 'border-orange-500 bg-orange-50 text-orange-700 font-bold ring-1 ring-orange-500' : 'border-gray-200 hover:bg-gray-50'"
-                @click="deliveryType = 'GIAO_HANG'"
-              >
+                @click="deliveryType = 'GIAO_HANG'">
                 <NIcon size="20">
                   <LocationOutline />
                 </NIcon> Giao tận nơi
@@ -284,8 +283,7 @@ function formatCurrency(val: number) {
               <div
                 class="flex-1 p-3 border rounded-lg cursor-pointer transition-all flex items-center justify-center gap-2"
                 :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'border-gray-200 hover:bg-gray-50'"
-                @click="deliveryType = 'TAI_QUAY'"
-              >
+                @click="deliveryType = 'TAI_QUAY'">
                 <NIcon size="20">
                   <StorefrontOutline />
                 </NIcon> Nhận tại cửa hàng
@@ -298,52 +296,40 @@ function formatCurrency(val: number) {
               <NInput v-model:value="customerInfo.email" placeholder="Email (Không bắt buộc)" class="md:col-span-2" />
 
               <template v-if="deliveryType === 'GIAO_HANG'">
-                <NInput
-                  v-model:value="customerInfo.diaChi" placeholder="Địa chỉ chi tiết (Số nhà, đường, phường/xã...)"
-                  class="md:col-span-2"
-                />
+                <NInput v-model:value="customerInfo.diaChi" placeholder="Địa chỉ chi tiết (Số nhà, đường, phường/xã...)"
+                  class="md:col-span-2" />
               </template>
               <template v-else>
-                <NSelect
-                  v-model:value="customerInfo.storeId" :options="storeOptions"
-                  placeholder="Chọn siêu thị nhận hàng" class="md:col-span-2"
-                />
+                <NSelect v-model:value="customerInfo.storeId" :options="storeOptions"
+                  placeholder="Chọn siêu thị nhận hàng" class="md:col-span-2" />
               </template>
 
-              <NInput
-                v-model:value="customerInfo.ghiChu" type="textarea"
-                placeholder="Ghi chú đơn hàng (VD: Giao giờ hành chính)" class="md:col-span-2"
-              />
+              <NInput v-model:value="customerInfo.ghiChu" type="textarea"
+                placeholder="Ghi chú đơn hàng (VD: Giao giờ hành chính)" class="md:col-span-2" />
             </div>
           </NCard>
 
           <NCard title="2. Phương thức thanh toán" class="mb-4 shadow-sm" size="small">
             <NRadioGroup v-model:value="paymentMethod" name="paymentGroup" class="w-full">
               <div class="space-y-3">
-                <NRadio
-                  value="TIEN_MAT" class="w-full p-3 border rounded-lg"
-                  :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'TIEN_MAT' }"
-                >
+                <NRadio value="TIEN_MAT" class="w-full p-3 border rounded-lg"
+                  :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'TIEN_MAT' }">
                   <div class="flex items-center gap-2">
                     <NIcon size="20">
                       <CashOutline />
                     </NIcon> Thanh toán tiền mặt khi nhận hàng (COD)
                   </div>
                 </NRadio>
-                <NRadio
-                  value="CHUYEN_KHOAN" class="w-full p-3 border rounded-lg"
-                  :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'CHUYEN_KHOAN' }"
-                >
+                <NRadio value="CHUYEN_KHOAN" class="w-full p-3 border rounded-lg"
+                  :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'CHUYEN_KHOAN' }">
                   <div class="flex items-center gap-2">
                     <NIcon size="20">
                       <CardOutline />
                     </NIcon> Chuyển khoản ngân hàng
                   </div>
                 </NRadio>
-                <NRadio
-                  value="QUET_QR" class="w-full p-3 border rounded-lg"
-                  :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'QUET_QR' }"
-                >
+                <NRadio value="QUET_QR" class="w-full p-3 border rounded-lg"
+                  :class="{ 'bg-orange-50 border-orange-200': paymentMethod === 'QUET_QR' }">
                   <div class="flex items-center gap-2">
                     <NIcon size="20">
                       <QrCodeOutline />
@@ -364,13 +350,10 @@ function formatCurrency(val: number) {
               <div v-else class="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                 <div v-for="item in cartItems" :key="item.id" class="flex gap-3 mb-4 last:mb-0">
                   <div class="relative">
-                    <img
-                      :src="item.anhSanPham || 'https://via.placeholder.com/80'"
-                      class="w-16 h-16 object-cover rounded border bg-gray-100"
-                    >
+                    <img :src="item.anhSanPham || 'https://via.placeholder.com/80'"
+                      class="w-16 h-16 object-cover rounded border bg-gray-100">
                     <span
-                      class="absolute -top-2 -right-2 bg-gray-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full"
-                    >
+                      class="absolute -top-2 -right-2 bg-gray-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
                       {{ item.soLuong }}
                     </span>
                   </div>
@@ -394,12 +377,10 @@ function formatCurrency(val: number) {
                 <div class="text-sm font-bold text-gray-700 mb-2">
                   Mã giảm giá
                 </div>
-                <NSelect
-                  v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
+                <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
                   value-field="voucherId" placeholder="Chọn mã giảm giá"
                   :render-label="(option) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
-                  clearable
-                />
+                  clearable />
               </div>
 
               <NDivider style="margin: 12px 0" />
@@ -426,11 +407,9 @@ function formatCurrency(val: number) {
                 <span class="font-bold text-red-600 text-xl">{{ formatCurrency(finalTotal) }}</span>
               </div>
 
-              <NButton
-                block type="primary" color="#f97316" size="large" :loading="submitLoading"
+              <NButton block type="primary" color="#f97316" size="large" :loading="submitLoading"
                 :disabled="cartItems.length === 0" class="font-bold shadow-orange-200 shadow-lg"
-                @click="handleFinalSubmit"
-              >
+                @click="handleFinalSubmit">
                 ĐẶT HÀNG NGAY
               </NButton>
             </NCard>

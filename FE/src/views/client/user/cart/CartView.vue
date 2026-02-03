@@ -92,7 +92,7 @@ onMounted(() => {
     >
       <NEmpty description="Giỏ hàng đang trống" size="large">
         <template #extra>
-          <NButton type="primary" color="#d70018" @click="router.push('/san-pham')">
+          <NButton type="primary" color="#d70018" @click="router.push('/home')">
             TIẾP TỤC MUA SẮM
           </NButton>
         </template>

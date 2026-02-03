@@ -347,27 +347,37 @@ public class Helper {
             btnColor = "#ff6600";
 
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>";
+                    "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>";
         } else if (type.equals("RESUMED")) {
             headerColor = "#218838"; // Xanh
             messageBody = "Tin vui! Voucher <strong>" + voucherName + "</strong> đã hoạt động trở lại. Số lượng có hạn, sử dụng ngay!";
             statusBadge = "<div style='display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #c8e6c9; margin-bottom: 5px;'>● ĐANG HOẠT ĐỘNG</div>";
 
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Số lượng còn:</td><td class='info-val' style='color:#1565c0'>" + voucher.getRemainingQuantity() + "</td></tr>" +
-                            "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
+                    "<tr><td class='info-label'>Số lượng còn:</td><td class='info-val' style='color:#1565c0'>" + voucher.getRemainingQuantity() + "</td></tr>" +
+                    "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
         } else { // START
             headerColor = "#218838";
             messageBody = "Chúng tôi xin gửi tặng bạn một mã giảm giá đặc biệt. Hãy sử dụng ngay để mua sắm thả ga nhé!";
             statusBadge = "<div style='display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #c8e6c9; margin-bottom: 5px;'>● ĐANG HOẠT ĐỘNG</div>";
 
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>" +
-                            "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
+                    "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>" +
+                    "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
         }
 
         return getTicketHtmlTemplate(headerColor, customerName, messageBody, logoUrl, statusBadge,
                 voucherName, discountDisplay, maxReduceStr, voucher.getCode(),
                 infoTableRows, btnText, btnColor);
+    }
+
+    public static String convertLongToDateString(Long timestamp) {
+        // Định dạng ngày tháng bạn mong muốn
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
+
+        // Chuyển Long (milliseconds) sang Instant, sau đó áp dụng múi giờ hệ thống
+        return Instant.ofEpochMilli(timestamp)
+                .atZone(ZoneId.systemDefault())
+                .format(formatter);
     }
 }

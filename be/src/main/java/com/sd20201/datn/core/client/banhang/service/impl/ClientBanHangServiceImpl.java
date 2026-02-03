@@ -4,15 +4,45 @@ import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailRepository;
 import com.sd20201.datn.core.admin.staff.repository.ADStaffRepository;
-import com.sd20201.datn.core.client.banhang.model.request.*;
-import com.sd20201.datn.core.client.banhang.model.response.*;
-import com.sd20201.datn.core.client.banhang.repository.*;
+import com.sd20201.datn.core.client.banhang.model.request.ClientChonPhieuGiamGiaRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientListKhachHangRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientNhanVienRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientProductItemRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThanhToanRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThemKhachHangRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThemSanPhamRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientVoucherSuggestionRequest;
+import com.sd20201.datn.core.client.banhang.model.response.ClientApplicableVoucherResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientBetterVoucherResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientChonKhachHangResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientGioHangResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientListHoaDon;
+import com.sd20201.datn.core.client.banhang.model.response.ClientPhuongThucThanhToanRespones;
+import com.sd20201.datn.core.client.banhang.model.response.ClientVoucherSuggestionResponse;
+import com.sd20201.datn.core.client.banhang.repository.ClientBHVoucherDetailRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangIMEIRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangSanPhamChiTiet;
+import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonChiTietRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonRepository;
 import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
 import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
-import com.sd20201.datn.entity.*;
-import com.sd20201.datn.infrastructure.constant.*;
+import com.sd20201.datn.entity.Customer;
+import com.sd20201.datn.entity.IMEI;
+import com.sd20201.datn.entity.Invoice;
+import com.sd20201.datn.entity.InvoiceDetail;
+import com.sd20201.datn.entity.LichSuThanhToan;
+import com.sd20201.datn.entity.LichSuTrangThaiHoaDon;
+import com.sd20201.datn.entity.ProductDetail;
+import com.sd20201.datn.entity.Staff;
+import com.sd20201.datn.entity.Voucher;
+import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
+import com.sd20201.datn.infrastructure.constant.ImeiStatus;
+import com.sd20201.datn.infrastructure.constant.TargetType;
+import com.sd20201.datn.infrastructure.constant.TypeInvoice;
+import com.sd20201.datn.infrastructure.constant.TypePayment;
+import com.sd20201.datn.infrastructure.constant.TypeVoucher;
 import com.sd20201.datn.infrastructure.exception.BusinessException;
 import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.InvoiceRepository;
@@ -31,7 +61,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -80,13 +116,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             invoice.setShippingFee(request.getTienShip());
 //            invoice.setDiscountAmount(request.getGiamGia());
             invoice.setTotalAmountAfterDecrease(request.getTongTien());
-
-            // Set Loại & Trạng thái
-            if ("TAI_QUAY".equals(request.getLoaiHoaDon())) {
-                invoice.setTypeInvoice(TypeInvoice.TAI_QUAY); // Enum 0
-            } else {
-                invoice.setTypeInvoice(TypeInvoice.ONLINE); // Enum 1 (Giao hàng)
-            }
+            invoice.setTypeInvoice(TypeInvoice.ONLINE);
             invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
             invoice.setCreatedDate(System.currentTimeMillis());
 
@@ -100,22 +130,16 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             for (ClientProductItemRequest item : request.getProducts()) {
 
                 // a. Tìm thông tin sản phẩm trong DB
-                ProductDetail productDetail = productDetailRepository.findById(item.getProductDetailId())
-                        .orElseThrow(() -> new BusinessException("Sản phẩm không tồn tại: " + item.getProductDetailId()));
+                ProductDetail productDetail = productDetailRepository.findById(item.getProductDetailId()).orElseThrow(() -> new BusinessException("Sản phẩm không tồn tại: " + item.getProductDetailId()));
 
                 // b. [QUAN TRỌNG] Tự động tìm IMEI đang AVAILABLE
                 // Lấy ra đúng số lượng khách mua
                 Pageable limit = PageRequest.of(0, item.getQuantity());
-                List<IMEI> availableImeis = imeiRepository.findAvailableImei(
-                        productDetail.getId(),
-                        ImeiStatus.AVAILABLE,
-                        limit
-                );
+                List<IMEI> availableImeis = imeiRepository.findAvailableImei(productDetail.getId(), ImeiStatus.AVAILABLE, limit);
 
                 // c. Check tồn kho
                 if (availableImeis.size() < item.getQuantity()) {
-                    throw new BusinessException("Sản phẩm '" + productDetail.getProduct().getName() +
-                            "' không đủ số lượng tồn kho (Còn: " + availableImeis.size() + ")");
+                    throw new BusinessException("Sản phẩm '" + productDetail.getProduct().getName() + "' không đủ số lượng tồn kho (Còn: " + availableImeis.size() + ")");
                 }
 
                 // d. Tạo Hóa đơn chi tiết
@@ -159,11 +183,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
-        return ResponseObject.successForward(
-                PageableObject.of(
-                        productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
-                "OKE"
-        );
+        return ResponseObject.successForward(PageableObject.of(productDetailRepository.getProductDetails(Helper.createPageable(request), request)), "OKE");
     }
 
     @Override
@@ -215,8 +235,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Transactional
     public ResponseObject<?> xoaSanPhamKhoiGioHang(String idHoaDonChiTiet) {
         try {
-            InvoiceDetail detail = invoiceDetailRepository.findById(idHoaDonChiTiet)
-                    .orElseThrow(() -> new BadRequestException("Sản phẩm không tồn tại trong giỏ"));
+            InvoiceDetail detail = invoiceDetailRepository.findById(idHoaDonChiTiet).orElseThrow(() -> new BadRequestException("Sản phẩm không tồn tại trong giỏ"));
 
             List<IMEI> imeis = imeiRepository.findByInvoiceDetail(detail);
 
@@ -285,15 +304,11 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         }
 
         // 2. Tìm sản phẩm
-        ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
+        ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
 
         // 3. Validate và lấy IMEI (Giữ nguyên logic của bạn)
         List<IMEI> imeis = imeiRepository.findAllById(request.getImeiIds());
-        boolean invalidImei = imeis.stream().anyMatch(
-                imei -> imei.getImeiStatus() != ImeiStatus.AVAILABLE ||
-                        !imei.getProductDetail().getId().equals(productDetail.getId())
-        );
+        boolean invalidImei = imeis.stream().anyMatch(imei -> imei.getImeiStatus() != ImeiStatus.AVAILABLE || !imei.getProductDetail().getId().equals(productDetail.getId()));
         if (invalidImei) throw new BusinessException("IMEI không hợp lệ hoặc đã bán");
 
         // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
@@ -352,8 +367,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             throw new BadRequestException("ID hóa đơn không được để trống");
         }
 
-        Invoice hoaDonToUpdate = adTaoHoaDonRepository.findById(id.getIdHD())
-                .orElseThrow(() -> new BadRequestException("Hóa đơn không tồn tại"));
+        Invoice hoaDonToUpdate = adTaoHoaDonRepository.findById(id.getIdHD()).orElseThrow(() -> new BadRequestException("Hóa đơn không tồn tại"));
 
         // 2. Xử lý Voucher (Nếu có)
         if (id.getIdPGG() != null && !id.getIdPGG().trim().isEmpty()) {
@@ -396,8 +410,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             adTaoHoaDonRepository.save(hoaDonToUpdate);
 
             // 7. Ghi lịch sử
-            createStatusHistory(hoaDonToUpdate, EntityTrangThaiHoaDon.CHO_XAC_NHAN,
-                    "Khách đặt đơn Online (" + (id.getLoaiHoaDon().equals("GIAO_HANG") ? "Giao tận nơi" : "Nhận tại cửa hàng") + ")");
+            createStatusHistory(hoaDonToUpdate, EntityTrangThaiHoaDon.CHO_XAC_NHAN, "Khách đặt đơn Online (" + (id.getLoaiHoaDon().equals("GIAO_HANG") ? "Giao tận nơi" : "Nhận tại cửa hàng") + ")");
 
             // 8. Ghi lịch sử thanh toán (Nếu là chuyển khoản)
             if ("1".equals(id.getPhuongThucThanhToan())) {
@@ -504,10 +517,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         for (Voucher v : vouchers) {
             if (tongTien.compareTo(v.getConditions()) >= 0) {
                 BigDecimal giam = tinhGiam(v, tongTien);
-                apDung.add(new ClientApplicableVoucherResponse(
-                        v.getId(), v.getCode(), v.getTypeVoucher(), v.getDiscountValue(),
-                        v.getMaxValue(), v.getConditions(), giam, tongTien.subtract(giam)
-                ));
+                apDung.add(new ClientApplicableVoucherResponse(v.getId(), v.getCode(), v.getTypeVoucher(), v.getDiscountValue(), v.getMaxValue(), v.getConditions(), giam, tongTien.subtract(giam)));
             } else {
                 BigDecimal canMua = v.getConditions().subtract(tongTien);
             }
@@ -522,9 +532,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     }
 
     private BigDecimal tinhGiam(Voucher v, BigDecimal tongTien) {
-        BigDecimal giam = v.getTypeVoucher() == TypeVoucher.PERCENTAGE
-                ? tongTien.multiply(v.getDiscountValue()).divide(BigDecimal.valueOf(100))
-                : v.getDiscountValue();
+        BigDecimal giam = v.getTypeVoucher() == TypeVoucher.PERCENTAGE ? tongTien.multiply(v.getDiscountValue()).divide(BigDecimal.valueOf(100)) : v.getDiscountValue();
         if (v.getMaxValue() != null) giam = giam.min(v.getMaxValue());
         return giam.min(tongTien);
     }
@@ -532,13 +540,9 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     @Transactional
     public ResponseObject<?> tangSoLuongSanPham(String idHDCT) {
-        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
+        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT).orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
 
-        List<IMEI> availableImeis = imeiRepository.findByProductDetailAndImeiStatus(
-                detail.getProductDetail(),
-                ImeiStatus.AVAILABLE
-        );
+        List<IMEI> availableImeis = imeiRepository.findByProductDetailAndImeiStatus(detail.getProductDetail(), ImeiStatus.AVAILABLE);
 
         if (availableImeis.isEmpty()) {
             throw new BusinessException("Sản phẩm đã hết hàng trong kho!");
@@ -560,8 +564,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Transactional
     @Override
     public ResponseObject<?> giamSoLuongSanPham(String idHDCT) {
-        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
+        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT).orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
 
         if (detail.getQuantity() <= 1) {
             return xoaSanPhamKhoiGioHang(idHDCT);
