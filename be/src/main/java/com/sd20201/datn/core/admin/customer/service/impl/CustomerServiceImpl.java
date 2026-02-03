@@ -19,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Calendar;
@@ -34,6 +35,7 @@ import java.util.Map;
 public class CustomerServiceImpl implements CustomerService {
     private final AdCustomerRepository adCustomerRepository;
     private final AccountRepository accountRepository;
+    private final PasswordEncoder passwordEncoder;
 
     @Override
     public ResponseObject<?> getAllCustomers(CustomerRequest request) {
@@ -98,7 +100,7 @@ public class CustomerServiceImpl implements CustomerService {
             }
 
             account.setUsername(username);
-            account.setPassword("123456");
+            account.setPassword(passwordEncoder.encode("12345"));
             account.setRoleConstant(RoleConstant.KHACH_HANG);
 
             // Lưu Account trước
