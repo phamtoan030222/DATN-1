@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import {
+  CardOutline,
+  CashOutline,
+  LocationOutline,
+  StorefrontOutline,
+  TicketOutline
+} from '@vicons/ionicons5'
 import {
   NButton,
   NCard,
@@ -14,28 +19,21 @@ import {
   NSelect,
   useMessage,
 } from 'naive-ui'
-import {
-  CardOutline,
-  CashOutline,
-  CheckmarkCircle,
-  LocationOutline,
-  StorefrontOutline,
-  TicketOutline,
-} from '@vicons/ionicons5'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 // Import Store & API
-import { CartStore } from '@/utils/cartStore'
-import type { CartItem } from '@/utils/cartStore'
-import { createOrder, getMaGiamGia } from '@/service/api/client/banhang.api'
+import { CUSTOMER_CART_ID, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { CartItemResponse, createOrder, GetGioHang, getMaGiamGia } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
-import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { CartStore } from '@/utils/cartStore'
 
 const router = useRouter()
 const message = useMessage()
 const processing = ref(false)
 
 // Data
-const cartItems = ref<CartItem[]>([])
+const cartItems = ref<CartItemResponse[]>([])
 const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY)
 
 // Form Info
@@ -48,6 +46,8 @@ const customerInfo = ref({
   ghiChu: '',
 })
 
+const cartId = ref<string | null>()
+
 // Voucher
 const selectedVoucher = ref<string | null>(null)
 const availableVouchers = ref<any[]>([])
@@ -57,14 +57,15 @@ onMounted(() => {
   loadCart()
 })
 
-function loadCart() {
-  cartItems.value = CartStore.getCartItems()
-  if (cartItems.value.length === 0) {
+async function loadCart() {
+  cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
+  const res = await GetGioHang(cartId.value as string)
+  cartItems.value = res.data
+  if (res.data.length === 0) {
     message.warning('Giỏ hàng trống')
     router.push('/cart')
   }
   else {
-    // Load voucher ngay khi có giỏ hàng
     loadVouchers()
   }
 }

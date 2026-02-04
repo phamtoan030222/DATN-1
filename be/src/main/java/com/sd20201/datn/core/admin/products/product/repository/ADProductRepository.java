@@ -44,8 +44,8 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
-          AND (ip.index = 1 or ip.id is null) AND d.status=0
-          AND (d.startDate <= :date and :date <= d.endDate OR d.id IS NULL)
+          AND (ip.index = 1 or ip.id is null)
+          AND ((d.startDate <= :date and :date <= d.endDate AND d.status=0) OR d.id IS NULL)
     GROUP BY     p.id,
                  p.code,
                  p.name,
@@ -73,8 +73,8 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idBattery} is NULL OR p.battery.id like concat('%',:#{#request.idBattery},'%'))
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
-          AND (ip.index = 1 or ip.id is null) AND d.status=0
-          AND (d.startDate <= :date and :date <= d.endDate OR d.id IS NULL)
+          AND (ip.index = 1 or ip.id is null)
+          AND ((d.startDate <= :date and :date <= d.endDate AND d.status=0) OR d.id IS NULL)
     GROUP BY     p.id,
                  p.code,
                  p.name,

@@ -19,7 +19,8 @@ public class UserContextHelper {
     private HttpServletRequest request;
 
     public Optional<String> getCurrentUserId() {
-        return Optional.ofNullable(tokenProvider.getUserIdFormToken(getJwtFromRequest(request)));
+        return Optional.ofNullable(getJwtFromRequest(request))
+                .map(jwt -> tokenProvider.getUserIdFormToken(jwt));
     }
 
     public String getCurrentUserEmail() {

@@ -13,10 +13,10 @@ import java.util.List;
 @AllArgsConstructor
 public class ClientThemSanPhamRequest {
 
-    private String invoiceId;
+    private String cartId;
 
     private String productDetailId;
 
-    private List<String> imeiIds;
+    private Integer quantity;
 
 }

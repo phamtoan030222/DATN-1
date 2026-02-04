@@ -1,14 +1,14 @@
-import type { AxiosResponse } from 'axios'
-import request from '@/service/request'
-import { API_CUSTOMER_PRODUCT_DETAIL, API_O, API_ORDER_ONLINE, API_ORDER_ONLINERDER_ONLINE } from '@/constants/url'
+import { API_CUSTOMER_PRODUCT_DETAIL, API_ORDER_ONLINE } from '@/constants/url'
 import type {
   DefaultResponse,
   PaginationParams,
   PaginationResponse,
   ResponseList,
 } from '@/service/api.common'
-import type { ADPDImeiResponse, ADProductDetailRequest } from './product/productDetail.api'
+import request from '@/service/request'
+import type { AxiosResponse } from 'axios'
 import type { ADProductDetailResponse } from './product/product.api'
+import type { ADPDImeiResponse, ADProductDetailRequest } from './product/productDetail.api'
 
 export interface ParamsGetSanPham extends PaginationParams {
   q?: string | ''
@@ -138,9 +138,9 @@ export type tongTienResponse = ResponseList & {
 }
 
 export interface ADThemSanPhamRequest {
-  invoiceId: string
-  productDetailId: string
-  imeiIds: string[]
+  cartId: string;
+  productDetailId: string;
+  quantity: number;
 }
 
 export type PhieuGiamGiaResponse = ResponseList & {
@@ -186,6 +186,23 @@ export type SanPhamResponse = ResponseList & {
   idMau: string
   idSize: string
   status: string
+}
+
+
+export type CartItemResponse = {
+  id: string;
+  quantity: number;
+  price: number;
+  percentage: number;
+  imageUrl: string;
+  cpu: string;
+  ram: string;
+  hardDrive: string;
+  gpu: string;
+  color: string;
+  material: string;
+  productDetailId: string;
+  name: string;
 }
 
 export async function GetHoaDons(params: ParamsGetHoaDon) {
@@ -258,7 +275,7 @@ export async function GetGioHang(id: string) {
   const res = (await request({
     url: `${API_ORDER_ONLINE}/list-gio-hang/${id}`,
     method: 'GET',
-  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<BanHangResponse>>>>
+  })) as AxiosResponse<DefaultResponse<Array<CartItemResponse>>>
 
   return res.data
 }
