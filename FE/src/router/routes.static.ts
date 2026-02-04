@@ -480,7 +480,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     roles: ['QUAN_LY'],
     icon: 'icon-park-outline:communication',
     menuType: 'page',
-    componentPath: '/admin/support/chat/index.vue',
+    componentPath: '/admin/support/Chat.vue',
     id: 701,
     pid: 7,
   },

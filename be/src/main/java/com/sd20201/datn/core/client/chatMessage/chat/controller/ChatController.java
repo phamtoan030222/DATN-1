@@ -2,7 +2,6 @@ package com.sd20201.datn.core.client.chatMessage.chat.controller;
 
 import com.sd20201.datn.core.client.chatMessage.chat.model.request.ChatRequest;
 import com.sd20201.datn.core.client.chatMessage.chat.service.ChatServiceImpl;
-import com.sd20201.datn.core.client.chatMessage.chat.service.GeminiService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import dev.langchain4j.model.chat.ChatLanguageModel;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import java.util.Map;
 
 @RestController
 @RequestMapping(MappingConstants.API_CHAT_AI)
@@ -21,7 +21,6 @@ import org.springframework.web.bind.annotation.RestController;
 @CrossOrigin("*")
 public class ChatController {
     private final ChatServiceImpl chatService;
-    private final GeminiService geminiService;
 
     @PostMapping("/ask")
     public ResponseEntity<String> askAi(@RequestBody ChatRequest request) {
@@ -29,12 +28,23 @@ public class ChatController {
         return ResponseEntity.ok(aiResponse);
     }
 
-    @Autowired
-    ChatLanguageModel chatLanguageModel;
 
-    @GetMapping("/test-gemini")
-    public String test() {
-        return chatLanguageModel.generate("Xin chào");
+    //Api chuyển sang gặp nhân viên khi yêu cầu
+    @PostMapping("/switch-to-human")
+    public ResponseEntity<?>switchToHuman(@RequestBody Map<String, String> payload) {
+        String sessionId = payload.get("sessionId");
+        chatService.enableHumanSupport(sessionId);
+        return ResponseEntity.ok("Đã chuyển sang chế độ nhờ nhân viên hỗ trợ");
     }
 
+    // nhân viên trả lời
+    @PostMapping("/staff/reply")
+    public ResponseEntity<?> staffReply(@RequestBody Map<String, String> payload) {
+        String sessionId = payload.get("sessionId");
+        String message = payload.get("message");
+        String staffId = payload.get("staffId");
+
+        chatService.staffReply(sessionId, message, staffId);
+        return ResponseEntity.ok("Đã gửi tin nhắn trả lời");
+    }
 }
