@@ -25,7 +25,6 @@ public class IMEI extends PrimaryEntity implements Serializable {
     @JoinColumn(name = "id_product_detail", referencedColumnName = "id")
     private ProductDetail productDetail;
 
-
     @Enumerated(EnumType.ORDINAL)
     @Column(name = "trang_thai_imei")
     private ImeiStatus imeiStatus = ImeiStatus.AVAILABLE;

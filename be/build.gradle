@@ -71,6 +71,13 @@ dependencies {
     // excel
     implementation 'org.apache.poi:poi-ooxml:5.2.3'
     implementation 'org.apache.poi:poi:5.2.3'
+
+    // Ai của gemini
+    // LangChain4j của gemini
+    implementation platform("dev.langchain4j:langchain4j-bom:0.36.2")
+    implementation "dev.langchain4j:langchain4j"
+    implementation "dev.langchain4j:langchain4j-google-ai-gemini"
+
 }
 
 
