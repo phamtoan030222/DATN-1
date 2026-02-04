@@ -103,6 +103,11 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             invoice.setPhoneReceiver(request.getSdt());
             invoice.setAddressReceiver(request.getDiaChi());
             invoice.setDescription(request.getGhiChu());
+            invoice.setCustomer(
+                    userContextHelper.getCurrentUserId()
+                            .flatMap(customerRepository::findById)
+                            .orElse(null)
+            );
 
             // Set tiền (Lấy từ request hoặc tính lại nếu cần bảo mật cao)
             invoice.setTotalAmount(request.getTienHang());
