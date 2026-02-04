@@ -60,7 +60,7 @@ public class ChatServiceImpl {
         Page<ClientPDProductDetailResponse> pageResult;
 
         if (!idCurrentDiscounts.isEmpty()) {
-            pageResult = productDetailRepository.getProductDetailsDiscount(pageable, productReq, idCurrentDiscounts);
+            pageResult = productDetailRepository.getProductDetailsDiscount(pageable, productReq, idCurrentDiscounts,currentTime);
         } else {
             pageResult = productDetailRepository.getProductDetails(pageable, productReq);
         }
@@ -70,7 +70,6 @@ public class ChatServiceImpl {
         if (pageResult != null && pageResult.hasContent()) {
             productContext = pageResult.getContent().stream()
                     .map(p -> {
-                        // --- SỬA LỖI TẠI ĐÂY ---
                         // Chuyển Double -> BigDecimal an toàn
                         BigDecimal originalPrice = (p.getPrice() != null)
                                 ? BigDecimal.valueOf(p.getPrice())
