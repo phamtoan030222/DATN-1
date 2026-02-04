@@ -79,4 +79,7 @@ public class MappingConstants {
     public static final String API_PREFIX_ORDER_ONLINE_PRODUCT = API_ORDER_ONLINE + "/product";
     public static final String API_PREFIX_ORDER_ONLINE_VOUCHER = API_ORDER_ONLINE + "/voucher";
 
+    //AI
+    public static final String API_CHAT_AI = API_VERSION_PREFIX + "/chat";
+
 }
