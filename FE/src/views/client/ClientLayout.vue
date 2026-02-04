@@ -3,6 +3,7 @@ import { NConfigProvider, NGlobalStyle } from 'naive-ui'
 import type { GlobalThemeOverrides } from 'naive-ui'
 import NavBar from '@/components/custom/layout/NavBar.vue'
 import Footer from '@/components/custom/layout/BottomFooter.vue'
+import ChatWidget from '../../views/client/user/chat/index.vue'
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
@@ -36,6 +37,7 @@ const themeOverrides: GlobalThemeOverrides = {
       </main>
 
       <Footer />
+      <ChatWidget />
     </div>
   </NConfigProvider>
 </template>

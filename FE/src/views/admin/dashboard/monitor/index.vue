@@ -150,38 +150,47 @@ onMounted(() => {
           </n-space>
         </div>
         <n-divider style="margin: 5px 0" />
-        <n-grid :cols="6" class="filter-stats-row">
-          <n-gi>
-            <div class="mini-label">Tổng số đơn hàng ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-            <div class="mini-value text-black">{{ currentFilterStats.totalOrders || 0 }}</div>
-          </n-gi>
-          <n-gi>
-            <div class="mini-label">Số lượng sản phẩm({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-            <div class="mini-value text-black">{{ (currentFilterStats.soldProducts) }}</div>
-          </n-gi>
-          <n-gi>
-            <div class="mini-label">Hoàn thành({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-            <div class="mini-value text-blue">{{ (currentFilterStats.completed) }}</div>
-          </n-gi>
-          <n-gi>
-            <div class="mini-label">Đang xử lý({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-            <div class="mini-value text-yellow">{{ (currentFilterStats.processing) }}</div>
-          </n-gi>
-          <n-gi>
-            <div class="mini-label">Huỷ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-            <div class="mini-value text-red">{{ (currentFilterStats.cancelled) }}</div>
-          </n-gi>
-          <n-gi>
-              <div class="mini-stat-label">DT Dự kiến (Tạm tính)</div>
-              <div class="mini-stat-val" style="color: #8a2be2">
-                 {{ formatMoney(currentFilterStats.expectedRevenue) }}
+        <n-grid :cols="10" :x-gap="12" :y-gap="12" class="filter-stats-row">
+    
+            <n-gi :span="2">
+              <div class="mini-label">Tổng số đơn hàng ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+              <div class="mini-value text-black">{{ currentFilterStats.totalOrders || 0 }}</div>
+            </n-gi>
+
+            <n-gi :span="2">
+              <div class="mini-label">Số lượng sản phẩm ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+              <div class="mini-value text-black">{{ currentFilterStats.soldProducts }}</div>
+            </n-gi>
+
+            <n-gi :span="2">
+              <div class="mini-label">Hoàn thành ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+              <div class="mini-value text-blue">{{ currentFilterStats.completed }}</div>
+            </n-gi>
+
+            <n-gi :span="2">
+              <div class="mini-label">Đang xử lý ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+              <div class="mini-value text-yellow">{{ currentFilterStats.processing }}</div>
+            </n-gi>
+
+            <n-gi :span="2">
+              <div class="mini-label">Huỷ ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+              <div class="mini-value text-red">{{ currentFilterStats.cancelled }}</div>
+            </n-gi>
+
+            <n-gi :span="3" :offset="2">
+              <div class="mini-label">DT Dự kiến (Tạm tính)</div>
+              <div class="mini-value "  style="color: #8a2be2">
+                {{ formatMoney(currentFilterStats.expectedRevenue) }}
               </div>
-           </n-gi>
-          <n-gi>
-            <div class="mini-label">Doanh thu(thực tế) ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-            <div class="mini-value text-green">{{ formatMoney(currentFilterStats.revenue) }}</div>
-          </n-gi>
-        </n-grid>
+            </n-gi>
+
+            <n-gi :span="3">
+              <div class="mini-label">Doanh thu (thực tế) ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
+              <div class="mini-value text-green">{{ formatMoney(currentFilterStats.revenue) }}</div>
+            </n-gi>
+
+  </n-grid>
+        
       </n-space>
     </n-card>
 
