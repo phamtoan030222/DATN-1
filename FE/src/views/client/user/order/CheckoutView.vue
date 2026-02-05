@@ -23,8 +23,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 // Import Store & API
-import { CUSTOMER_CART_ID, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { CartItemResponse, createOrder, GetGioHang, getMaGiamGia } from '@/service/api/client/banhang.api'
+import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { CartItemResponse, createOrder, GetGioHang, getMaGiamGia, getProductDetailCart } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
 import { CartStore } from '@/utils/cartStore'
 
@@ -59,9 +59,23 @@ onMounted(() => {
 
 async function loadCart() {
   cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
-  const res = await GetGioHang(cartId.value as string)
-  cartItems.value = res.data
-  if (res.data.length === 0) {
+  if (cartId.value) {
+    const res = await GetGioHang(cartId.value as string)
+    cartItems.value = res.data
+  } else {
+    const cartItem = localStorageAction.get(CUSTOMER_CART_ITEM)
+    if (!cartItem) return;
+
+    const res = await getProductDetailCart(Object.keys(cartItem))
+    cartItems.value = res.data.map(productDetail => ({
+      ...productDetail,
+      id: "",
+      productDetailId: productDetail.id,
+      quantity: cartItem[productDetail.id]
+    })) || []
+  }
+
+  if (cartItems.value.length === 0) {
     message.warning('Giỏ hàng trống')
     router.push('/cart')
   }

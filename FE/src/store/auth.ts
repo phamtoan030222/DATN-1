@@ -3,7 +3,7 @@ import { local } from "@/utils";
 import { useRouteStore } from "./router";
 import { useTabStore } from "./tab";
 import { localStorageAction } from "@/utils/storage.helper";
-import { ACCESS_TOKEN_STORAGE_KEY, REFRESH_TOKEN_STORAGE_KEY, USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
+import { ACCESS_TOKEN_STORAGE_KEY, CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, REFRESH_TOKEN_STORAGE_KEY, USER_INFO_STORAGE_KEY } from "@/constants/storageKey";
 
 interface AuthStatus {
   userInfo: Api.Login.Info | null;
@@ -50,6 +50,8 @@ export const useAuthStore = defineStore("auth-store", {
       localStorageAction.remove(ACCESS_TOKEN_STORAGE_KEY)
       localStorageAction.remove(REFRESH_TOKEN_STORAGE_KEY)
       localStorageAction.remove(USER_INFO_STORAGE_KEY)
+      localStorageAction.remove(CUSTOMER_CART_ID)
+      localStorageAction.remove(CUSTOMER_CART_ITEM)
     },
 
     async login(userInfo: Entity.UserInformation, accessToken: string, refreshToken: string) {

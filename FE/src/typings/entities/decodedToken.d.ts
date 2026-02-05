@@ -3,6 +3,7 @@ namespace Entity {
         userId: string
         userCode: string
         fullName: string
+        phone: string
         rolesName: string
         rolesCode: string[]
         exp: number
