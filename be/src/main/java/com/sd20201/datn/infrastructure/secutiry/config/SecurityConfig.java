@@ -154,6 +154,7 @@ public class SecurityConfig {
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_DISCOUNT)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STATISTICS)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STAFF)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_STAFF_PREFIX)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
 
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_CUSTOMERS)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_BAN_HANG)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())

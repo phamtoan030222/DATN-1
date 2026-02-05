@@ -79,6 +79,12 @@ public class MappingConstants {
     public static final String API_PREFIX_ORDER_ONLINE_PRODUCT = API_ORDER_ONLINE + "/product";
     public static final String API_PREFIX_ORDER_ONLINE_VOUCHER = API_ORDER_ONLINE + "/voucher";
 
+    public static final String API_ADMIN_PREFIX_SCHEDULES = API_ADMIN_PREFIX + "/schedules"; // /api/v1/admin/schedules
+    public static final String API_ADMIN_PREFIX_SHIFT_HISTORY = API_ADMIN_PREFIX + "/shift-history"; // /api/v1/admin/shift-history
+
+    public static final String API_STAFF_PREFIX_SHIFTS = API_STAFF_PREFIX + "/shifts";
+    // Thêm dòng này để định nghĩa đường dẫn /api/v1/shifts
+    public static final String API_SHIFTS = API_VERSION_PREFIX + "/shifts";
     //AI
     public static final String API_CHAT_AI = API_VERSION_PREFIX + "/chat";
 
