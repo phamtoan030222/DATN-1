@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 @Repository
@@ -17,4 +18,10 @@ public interface ADInvoiceRepository extends JpaRepository<Invoice, String>, ADH
 
     @Query("SELECT h FROM Invoice h WHERE h.id = :id")
     Invoice findByInvoiceId(String id);
+
+    @Query("SELECT SUM(i.totalAmount) FROM Invoice i WHERE i.shiftHandover.id = :shiftId AND i.entityTrangThaiHoaDon = 4")
+    BigDecimal sumTotalAmountByShiftId(@Param("shiftId") String shiftId);
+
+    @Query("SELECT COUNT(i) FROM Invoice i WHERE i.shiftHandover.id = :shiftId AND i.entityTrangThaiHoaDon = 4")
+    Integer countTotalInvoices(@Param("shiftId") String shiftId);
 }

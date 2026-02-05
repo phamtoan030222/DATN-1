@@ -1,15 +1,8 @@
 package com.sd20201.datn.entity;
 
 import com.sd20201.datn.entity.base.PrimaryEntity;
-import jakarta.persistence.Entity;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import jakarta.persistence.*;
+import lombok.*;
 
 import java.io.Serializable;
 
@@ -22,8 +15,16 @@ import java.io.Serializable;
 @ToString
 public class Staff extends PrimaryEntity implements Serializable {
 
+    @Column(name = "name") // Khớp cột 'name' trong DB
+    private String name;   // Tên biến trong Java là 'name'
+
+    @Column(name = "code")
+    private String code;
+
     @OneToOne
     @JoinColumn(name = "id_account", referencedColumnName = "id", unique = true, nullable = false)
+    @ToString.Exclude           // Chặn lỗi log
+    @EqualsAndHashCode.Exclude
     private Account account;
 
     private String citizenIdentifyCard;

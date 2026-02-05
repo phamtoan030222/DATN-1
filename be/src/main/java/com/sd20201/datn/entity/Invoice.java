@@ -4,13 +4,7 @@ import com.sd20201.datn.entity.base.PrimaryEntity;
 import com.sd20201.datn.infrastructure.constant.EntityProperties;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
 import com.sd20201.datn.infrastructure.constant.TypeInvoice;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -42,6 +36,10 @@ public class Invoice extends PrimaryEntity implements Serializable {
     @ManyToOne
     @JoinColumn(name = "id_shipping_method", referencedColumnName = "id")
     private ShippingMethod shippingMethod;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "id_shift", referencedColumnName = "id") // Đặt tên cột là id_shift cho giống các cột id_staff bên trên
+    private ShiftHandover shiftHandover;
 
     @Enumerated(EnumType.ORDINAL)
     private TypeInvoice typeInvoice;
