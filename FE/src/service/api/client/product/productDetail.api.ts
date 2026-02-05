@@ -37,29 +37,32 @@ export interface ADProductDetailResponse {
   readonly brandName?: string
   readonly batteryName?: string
   readonly operatingSystemName?: string
+  readonly endDate?: number
 }
 
 export interface ADProductDetailDetailResponse {
-  // readonly id?: string
-  // readonly code: string
-  // readonly name: string
-  // readonly idCPU: string
-  // readonly idGPU: string
-  // readonly idColor: string
-  // readonly idRAM: string
-  // readonly idHardDrive: string
-  // readonly idMaterial: string
-  // readonly price: number
-  // readonly percentage?: number
-  // readonly cpuName?: string
-  // readonly ramName?: string
-  // readonly hardDriveName?: string
-  // readonly screenName?: string
-  // readonly colorName?: string
-  // readonly productName?: string
-  // readonly operatingName?: string
-  // readonly brandName?: string
-
+  readonly id?: string
+  readonly code: string
+  readonly name: string
+  readonly idCPU: string
+  readonly idGPU: string
+  readonly idColor: string
+  readonly idRAM: string
+  readonly idHardDrive: string
+  readonly idMaterial: string
+  readonly price: number
+  readonly percentage?: number
+  readonly cpuName?: string
+  readonly ramName?: string
+  readonly hardDriveName?: string
+  readonly screenName?: string
+  readonly colorName?: string
+  readonly productName?: string
+  readonly operatingName?: string
+  readonly brandName?: string
+  readonly batteryName?: string
+  readonly gpuName?: string
+  readonly endDate?: number
 }
 
 export type ADPRPropertiesComboboxResponse = Readonly<SelectMixedOption> & {

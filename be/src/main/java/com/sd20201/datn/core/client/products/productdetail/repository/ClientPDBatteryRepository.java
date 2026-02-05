@@ -15,7 +15,7 @@ public interface ClientPDBatteryRepository extends BatteryRepository {
         b.id as value
         , b.name as label
     FROM Battery b
-    ORDER BY b.createdDate desc
+    ORDER BY b.name desc
     """)
     List<ClientPRPropertyComboboxResponse> getBatteryComboboxResponse();
 

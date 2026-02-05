@@ -38,10 +38,22 @@ public interface ClientPDProductDetailDetailResponse extends IsIdentify {
 
     String getCpuName();
 
+    String getGpuName();
+
     String getRamName();
 
     String getHardDriveName();
 
     String getColorName();
-    // String getScreenName(); // Bỏ comment nếu SQL có select screenName
+
+    String getBatteryName();
+
+    String getMaterialName();
+
+    String getScreenName();
+
+    String getOperatingSystemName();
+
+    Long getEndDate();
+
 }

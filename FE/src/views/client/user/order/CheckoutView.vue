@@ -1,6 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import {
+  CardOutline,
+  CashOutline,
+  LocationOutline,
+  StorefrontOutline,
+  TicketOutline
+} from '@vicons/ionicons5'
 import {
   NButton,
   NCard,
@@ -12,148 +17,125 @@ import {
   NRadio,
   NRadioGroup,
   NSelect,
-  NSpace,
-  NTag,
   useMessage,
 } from 'naive-ui'
-import { CardOutline, CashOutline, CheckmarkCircle, LocationOutline, StorefrontOutline } from '@vicons/ionicons5'
-import {
-  GetGioHang,
-  getMaGiamGia,
-  thanhToanThanhCong,
-} from '@/service/api/client/banhang.api'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+
+// Import Store & API
+import { CUSTOMER_CART_ID, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { CartItemResponse, createOrder, GetGioHang, getMaGiamGia } from '@/service/api/client/banhang.api'
+import { localStorageAction } from '@/utils'
 import { CartStore } from '@/utils/cartStore'
 
 const router = useRouter()
 const message = useMessage()
-const loading = ref(false)
 const processing = ref(false)
 
-const invoiceId = CartStore.getInvoiceId()
-const cartItems = ref<any[]>([])
+// Data
+const cartItems = ref<CartItemResponse[]>([])
+const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY)
 
-// Form
+// Form Info
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
 const customerInfo = ref({
-  ten: '',
-  sdt: '',
+  ten: userInfo?.ten || '',
+  sdt: userInfo?.sdt || '',
   diaChi: '',
   ghiChu: '',
 })
 
+const cartId = ref<string | null>()
+
 // Voucher
 const selectedVoucher = ref<string | null>(null)
 const availableVouchers = ref<any[]>([])
+const discountAmount = ref(0) // Số tiền được giảm
 
-onMounted(async () => {
-  if (!invoiceId) {
-    message.error('Giỏ hàng trống')
-    router.push('/')
-    return
-  }
-  await loadCart()
+onMounted(() => {
+  loadCart()
 })
 
-// --- 1. SỬA LOGIC LOAD GIỎ HÀNG (QUAN TRỌNG) ---
 async function loadCart() {
-  loading.value = true
-  try {
-    const res = await GetGioHang(invoiceId!)
-
-    // 👇 CHECK KỸ CẤU TRÚC DỮ LIỆU TRẢ VỀ 👇
-    if (Array.isArray(res)) {
-      cartItems.value = res
-    }
-    else if (res && (res as any).data && Array.isArray((res as any).data)) {
-      cartItems.value = (res as any).data
-    }
-    else if (res && (res as any).content && Array.isArray((res as any).content)) {
-      // Trường hợp trả về Page
-      cartItems.value = (res as any).content
-    }
-    else {
-      cartItems.value = []
-    }
-
-    // Nếu giỏ hàng có đồ thì mới load Voucher
-    if (cartItems.value.length > 0) {
-      await loadVouchers()
-    }
-    else {
-      router.push('/cart')
-    }
+  cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
+  const res = await GetGioHang(cartId.value as string)
+  cartItems.value = res.data
+  if (res.data.length === 0) {
+    message.warning('Giỏ hàng trống')
+    router.push('/cart')
   }
-  catch (e) {
-    console.error('Lỗi load giỏ hàng:', e)
-  }
-  finally {
-    loading.value = false
+  else {
+    loadVouchers()
   }
 }
 
-// Tính tổng tiền hàng (Dùng giá sau giảm nếu có)
+// Tính tổng tiền hàng
 const subTotal = computed(() => {
-  return cartItems.value.reduce((total, item) => {
-    const price = item.giaSauGiam || item.giaBan || 0
-    return total + (price * item.soLuong)
-  }, 0)
+  return cartItems.value.reduce((total, item) => total + (item.price * item.quantity), 0)
 })
 
-// --- 2. SỬA LOGIC LOAD VOUCHER ---
-async function loadVouchers() {
-  // Tính tổng tiền thủ công để đảm bảo số liệu mới nhất
-  const currentTotal = cartItems.value.reduce((t, i) => t + ((i.giaSauGiam || i.giaBan) * i.soLuong), 0)
+const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 30000 : 0)
 
-  if (currentTotal <= 0)
+// Tổng thanh toán cuối cùng
+const finalTotal = computed(() => {
+  const total = subTotal.value + shippingFee.value - discountAmount.value
+  return total > 0 ? total : 0
+})
+
+const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+
+// --- [MỚI] LOGIC LOAD VOUCHER (CLIENT-SIDE) ---
+async function loadVouchers() {
+  if (subTotal.value <= 0)
     return
 
   try {
-    const res = await getMaGiamGia({
-      invoiceId: invoiceId!,
-      tongTien: currentTotal,
-      customerId: '',
+    // Gọi API gợi ý voucher (Không cần invoiceId vì chưa tạo hóa đơn)
+    const res: any = await getMaGiamGia({
+      invoiceId: '', // Gửi rỗng vì chưa có hóa đơn
+      tongTien: subTotal.value,
+      customerId: userInfo?.id || null,
     })
 
-    // Check cấu trúc response từ API goi-y
-    // Backend trả về: { voucherApDung: [...], voucherTotHon: [...] }
-    const data = (res as any).data || res // Axios có thể bọc trong data hoặc không tùy config
-
+    // Xử lý dữ liệu trả về (Tùy backend trả về cấu trúc nào)
+    const data = res.data || res
     if (data && data.voucherApDung) {
       availableVouchers.value = data.voucherApDung
 
-      // Tự động chọn voucher tốt nhất nếu chưa chọn
+      // Tự động chọn voucher tốt nhất
       if (availableVouchers.value.length > 0 && !selectedVoucher.value) {
-        selectedVoucher.value = availableVouchers.value[0].voucherId
+        handleSelectVoucher(availableVouchers.value[0].voucherId)
       }
     }
   }
   catch (e) {
-    console.error('Lỗi load voucher', e)
+    console.error('Lỗi load voucher:', e)
   }
 }
 
-// Watch subTotal để reload voucher khi giá thay đổi (phòng hờ)
-watch(subTotal, (newVal) => {
-  if (newVal > 0)
-    loadVouchers()
+// Khi chọn voucher
+function handleSelectVoucher(voucherId: string | null) {
+  selectedVoucher.value = voucherId
+  if (!voucherId) {
+    discountAmount.value = 0
+    return
+  }
+
+  const voucher = availableVouchers.value.find(v => v.voucherId === voucherId)
+  if (voucher) {
+    discountAmount.value = voucher.giamGiaThucTe || 0
+    message.success(`Đã áp dụng mã: ${voucher.code}`)
+  }
+}
+
+// Watch tổng tiền thay đổi -> Load lại voucher (để cập nhật mức giảm)
+watch(subTotal, () => {
+  loadVouchers()
 })
 
-const discountAmount = computed(() => {
-  if (!selectedVoucher.value)
-    return 0
-  const v = availableVouchers.value.find(x => x.voucherId === selectedVoucher.value)
-  return v ? v.giamGiaThucTe : 0
-})
-
-const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 30000 : 0)
-const finalTotal = computed(() => Math.max(0, subTotal.value - discountAmount.value + shippingFee.value))
-
-const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
-
-// --- 3. XỬ LÝ ĐẶT HÀNG ---
+// --- XỬ LÝ ĐẶT HÀNG ---
 async function handleCheckout() {
-  // Validate
   if (!customerInfo.value.ten || !customerInfo.value.sdt) {
     return message.warning('Vui lòng nhập Họ tên và Số điện thoại')
   }
@@ -163,40 +145,44 @@ async function handleCheckout() {
 
   processing.value = true
   try {
+    const productPayload = cartItems.value.map(item => ({
+      productDetailId: item.productDetailId,
+      quantity: item.quantity,
+      price: item.price,
+    }))
+
     const payload = {
-      idHD: invoiceId!,
-      idNV: null,
       ten: customerInfo.value.ten,
       sdt: customerInfo.value.sdt,
       diaChi: customerInfo.value.diaChi,
-      tongTien: finalTotal.value.toString(),
+      ghiChu: customerInfo.value.ghiChu,
+
+      tongTien: finalTotal.value,
       tienHang: subTotal.value,
       tienShip: shippingFee.value,
       giamGia: discountAmount.value,
+
       phuongThucThanhToan: paymentMethod.value,
-      idPGG: selectedVoucher.value || null,
       loaiHoaDon: deliveryType.value,
-      check: 0, // Gửi 0 để thanh toán luôn
+      idPGG: selectedVoucher.value || null, // Gửi ID Voucher lên server
+
+      products: productPayload,
     }
 
-    const res = await thanhToanThanhCong(payload)
+    const res: any = await createOrder(payload)
 
-    // Kiểm tra lỏng lẻo hơn để bắt các trường hợp thành công
-    // Backend trả về ResponseObject, axios trả về object
-    const status = res?.status || (res as any)?.code
-
-    if (status === 200 || status === 201 || status === 'OK' || status === 'CREATED') {
+    if (res.status === 200 || res.status === 'OK' || res.data) {
       message.success('Đặt hàng thành công!')
       CartStore.clearCart()
       router.push('/order-success')
     }
     else {
-      message.error((res as any)?.message || 'Có lỗi xảy ra, vui lòng thử lại')
+      message.error(res.message || 'Đặt hàng thất bại')
     }
   }
   catch (error: any) {
-    console.error('Lỗi checkout:', error)
-    const msg = error.response?.data?.message || 'Đặt hàng thất bại'
+    console.error(error)
+    const msg = error.response?.data?.message || 'Có lỗi xảy ra'
     message.error(msg)
   }
   finally {
@@ -220,8 +206,7 @@ async function handleCheckout() {
                 <div
                   class="flex-1 p-3 border rounded cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'GIAO_HANG' ? 'border-red-500 bg-red-50 text-red-700 font-bold ring-1 ring-red-500' : 'hover:bg-gray-50'"
-                  @click="deliveryType = 'GIAO_HANG'"
-                >
+                  @click="deliveryType = 'GIAO_HANG'">
                   <NIcon>
                     <LocationOutline />
                   </NIcon> Giao tận nơi
@@ -229,8 +214,7 @@ async function handleCheckout() {
                 <div
                   class="flex-1 p-3 border rounded cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-gray-50'"
-                  @click="deliveryType = 'TAI_QUAY'"
-                >
+                  @click="deliveryType = 'TAI_QUAY'">
                   <NIcon>
                     <StorefrontOutline />
                   </NIcon> Nhận tại cửa hàng
@@ -240,14 +224,10 @@ async function handleCheckout() {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <NInput v-model:value="customerInfo.ten" placeholder="Họ và tên người nhận (*)" />
                 <NInput v-model:value="customerInfo.sdt" placeholder="Số điện thoại (*)" />
-                <NInput
-                  v-if="deliveryType === 'GIAO_HANG'" v-model:value="customerInfo.diaChi"
-                  placeholder="Địa chỉ chi tiết (Số nhà, đường...)" class="md:col-span-2"
-                />
-                <NInput
-                  v-model:value="customerInfo.ghiChu" type="textarea" placeholder="Ghi chú đơn hàng"
-                  class="md:col-span-2"
-                />
+                <NInput v-if="deliveryType === 'GIAO_HANG'" v-model:value="customerInfo.diaChi"
+                  placeholder="Địa chỉ chi tiết (Số nhà, đường...)" class="md:col-span-2" />
+                <NInput v-model:value="customerInfo.ghiChu" type="textarea" placeholder="Ghi chú đơn hàng"
+                  class="md:col-span-2" />
               </div>
             </NCard>
 
@@ -285,33 +265,20 @@ async function handleCheckout() {
             </h3>
 
             <div class="space-y-3 mb-4 max-h-[300px] overflow-y-auto pr-1">
-              <div
-                v-for="item in cartItems" :key="item.id"
-                class="flex justify-between text-sm py-2 border-b border-dashed"
-              >
+              <div v-for="item in cartItems" :key="item.productDetailId"
+                class="flex justify-between text-sm py-2 border-b border-dashed">
                 <div class="flex-1 pr-2">
                   <div class="font-medium line-clamp-2">
-                    {{ item.ten }}
+                    {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
                   </div>
                   <div class="text-gray-500 text-xs mt-1">
-                    {{ item.color }} / {{ item.ram }} - x{{ item.soLuong }}
+                    SL: <strong>x{{ item.quantity }}</strong>
                   </div>
                 </div>
-
                 <div class="text-right">
-                  <template v-if="item.giaSauGiam && item.giaSauGiam < item.giaBan">
-                    <div class="font-bold text-gray-800">
-                      {{ formatCurrency(item.giaSauGiam) }}
-                    </div>
-                    <div class="text-xs text-gray-400 line-through">
-                      {{ formatCurrency(item.giaBan) }}
-                    </div>
-                  </template>
-                  <template v-else>
-                    <div class="font-bold text-gray-800">
-                      {{ formatCurrency(item.giaBan) }}
-                    </div>
-                  </template>
+                  <div class="font-bold text-gray-800">
+                    {{ formatCurrency(item.price * item.quantity) }}
+                  </div>
                 </div>
               </div>
             </div>
@@ -320,15 +287,14 @@ async function handleCheckout() {
 
             <div class="mb-4">
               <div class="text-sm font-medium mb-1 flex items-center gap-1 text-gray-700">
-                <NIcon>
-                  <CheckmarkCircle />
+                <NIcon color="#d03050">
+                  <TicketOutline />
                 </NIcon> Mã ưu đãi
               </div>
-              <NSelect
-                v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
+              <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
                 value-field="voucherId" placeholder="Chọn mã giảm giá" clearable
-                :render-label="(option) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
-              />
+                :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
+                @update:value="handleSelectVoucher" />
             </div>
 
             <div class="space-y-2 text-sm text-gray-600 bg-gray-50 p-3 rounded">
@@ -355,11 +321,9 @@ async function handleCheckout() {
               <span class="font-bold text-2xl text-red-600">{{ formatCurrency(finalTotal) }}</span>
             </div>
 
-            <NButton
-              block type="primary" color="#d70018" size="large"
+            <NButton block type="primary" color="#d70018" size="large"
               class="font-bold h-12 text-lg mt-4 shadow-lg shadow-red-200" :loading="processing"
-              @click="handleCheckout"
-            >
+              @click="handleCheckout">
               ĐẶT HÀNG NGAY
             </NButton>
           </div>

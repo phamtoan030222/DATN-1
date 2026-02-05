@@ -2887,96 +2887,85 @@ const bestSuggestion = computed(() => {
   // Sắp xếp giảm dần theo số tiền được giảm thêm  và lấy cái đầu tiên
   return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0];
 });
+
+
 </script>
 
 
 <template>
   <div class="main-layout">
     <div class="left-column">
-      <div class="top-header">
-        <div class="search-and-create-section">
-          <NButton type="primary" class="btn-create-new-invoice" @click="createInvoice">
-            <template #icon>
-              <NIcon>
-                <AddCircleOutline />
-              </NIcon>
-            </template>
-            Tạo hóa đơn mới
-          </NButton>
-        </div>
-      </div>
-
       <NCard class="card" size="small">
-        <template #header>
-          <NText type="primary" strong>
-            Hóa đơn chờ
-          </NText>
-        </template>
-        <div class="pending-invoices-container">
-          <NScrollbar x-scrollable>
-            <div class="pending-invoices-wrapper">
-              <NSpace :wrap="false">
-                <div
-                  v-for="tab in tabs" :key="tab.id"
-                  class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
-                  @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
-                >
-                  <div class="invoice-header">
-                    <NText strong>
-                      {{ tab.code }}
-                    </NText>
-                    <NPopconfirm
-                     v-if="tab.soLuong > 0"
-                      :show-icon="false"
-                       positive-text="Xác nhận hủy"
-                        negative-text="Hủy bỏ"
-                      @positive-click="() => huy(tab.idHD)"
-                       @negative-click="() => { }"
-                    >
-                      <template #trigger>
-                        <NButton text type="error" size="tiny" class="delete-invoice-btn" @click.stop>
-                          <NIcon>
-                            <TrashOutline />
-                          </NIcon>
-                        </NButton>
-                      </template>
-                      <div class="popconfirm-content">
-                        <NText strong style="display: block; margin-bottom: 8px;">
-                          Xác nhận hủy hóa đơn
-                        </NText>
-                        <NText depth="3" style="font-size: 14px;">
-                          Bạn có chắc chắn muốn hủy hóa đơn <strong>{{ tab.code }}</strong>?<br>
-                          Hành động này không thể hoàn tác.
-                        </NText>
-                      </div>
-                    </NPopconfirm>
-                        <NButton 
-                          v-else 
-                          text 
-                          type="error" 
-                          size="tiny" 
-                          class="delete-invoice-btn" 
-                          @click.stop="huy(tab.idHD)"
-                        >
-                          <NIcon>
-                            <TrashOutline />
-                          </NIcon>
-                        </NButton>
-                  </div>
-                  <NSpace vertical :size="4">
-                    <NTag type="warning" size="small" round>
-                      Chờ xử lý
-                    </NTag>
-                    <NText depth="3">
-                      {{ tab.soLuong || 0 }} sản phẩm
-                    </NText>
-                  </NSpace>
+  <template #header>
+    <NText type="primary" strong>
+      Hóa đơn chờ
+    </NText>
+  </template>
+
+  <template #header-extra>
+    <NButton type="primary" size="small" class="btn-create-new-invoice" @click="createInvoice">
+      <template #icon>
+        <NIcon>
+          <AddCircleOutline />
+        </NIcon>
+      </template>
+      Tạo hóa đơn mới
+    </NButton>
+  </template>
+
+  <div class="pending-invoices-container">
+    <NScrollbar x-scrollable>
+      <div class="pending-invoices-wrapper">
+        <NSpace :wrap="false">
+          <div
+            v-for="tab in tabs" :key="tab.id"
+            class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
+            @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
+          >
+            <div class="invoice-header">
+              <NText strong>
+                {{ tab.code }}
+              </NText>
+              
+              <NPopconfirm
+                v-if="tab.soLuong > 0"
+                :show-icon="false"
+                positive-text="Xác nhận hủy"
+                negative-text="Hủy bỏ"
+                @positive-click="() => huy(tab.idHD)"
+              >
+                <template #trigger>
+                  <NButton text type="error" size="tiny" @click.stop>
+                    <NIcon><TrashOutline /></NIcon>
+                  </NButton>
+                </template>
+                <div class="popconfirm-content">
+                  <NText strong style="display: block; margin-bottom: 8px;">Xác nhận hủy</NText>
+                  <NText depth="3">Hành động này không thể hoàn tác.</NText>
                 </div>
-              </NSpace>
+              </NPopconfirm>
+
+              <NButton 
+                v-else 
+                text 
+                type="error" 
+                size="tiny" 
+                @click.stop="huy(tab.idHD)"
+              >
+                <NIcon><TrashOutline /></NIcon>
+              </NButton>
             </div>
-          </NScrollbar>
-        </div>
-      </NCard>
+
+            <NSpace vertical :size="4">
+              <NTag type="warning" size="small" round>Chờ xử lý</NTag>
+              <NText depth="3">{{ tab.soLuong || 0 }} sản phẩm</NText>
+            </NSpace>
+          </div>
+        </NSpace>
+      </div>
+    </NScrollbar>
+  </div>
+</NCard>
 
       <NCard class="card" size="small">
         <template #header>

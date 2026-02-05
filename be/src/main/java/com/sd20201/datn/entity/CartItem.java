@@ -27,15 +27,5 @@ public class CartItem extends PrimaryEntity {
     @JoinColumn(name = "id_product_detail")
     private ProductDetail productDetail;
 
-    @OneToMany
-    @JoinColumn(name = "id_cart_item")
-    private List<IMEI> imeis = new ArrayList<>();
-
-    private BigDecimal price; //Gia tai thoi diem them vao gio
-
-    private BigDecimal totalAmount;
-
-    public void calculateTotal() {
-        this.totalAmount = this.price.multiply(BigDecimal.valueOf(this.imeis.size()));
-    }
+    private Integer quantity;
 }

@@ -17,6 +17,7 @@ import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +31,7 @@ public class ADStaffServiceImpl implements ADStaffService {
     private final ADStaffRepository repo;           // Repository của Staff
     private final AccountRepository accountRepository; // Repository của Account
     private final EmailService emailService;        // Service gửi mail
+    private final PasswordEncoder passwordEncoder;
 
     private String generateUsername(String fullName) {
         return fullName.trim().toLowerCase().replaceAll("\\s+", ".") + (new Random().nextInt(9000) + 1000);
@@ -94,7 +96,7 @@ public class ADStaffServiceImpl implements ADStaffService {
         // Tạo Account
         Account account = new Account();
         account.setUsername(username);
-        account.setPassword(password); // Nên mã hóa password nếu có security
+        account.setPassword(passwordEncoder.encode(password)); // Nên mã hóa password nếu có security
         account.setRoleConstant(roleEnum);
         account = accountRepository.save(account);
 
