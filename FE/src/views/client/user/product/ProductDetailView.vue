@@ -1,6 +1,13 @@
 <script setup lang="ts">
-import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import {
+  AlertCircleOutline,
+  ArrowBack,
+  CartOutline,
+  CheckmarkCircle,
+  Flash,
+  RefreshOutline,
+  TicketOutline,
+} from '@vicons/ionicons5'
 import {
   NButton,
   NDescriptions,
@@ -16,15 +23,8 @@ import {
   useMessage,
   useNotification,
 } from 'naive-ui'
-import {
-  AlertCircleOutline,
-  ArrowBack,
-  CartOutline,
-  CheckmarkCircle,
-  Flash,
-  RefreshOutline,
-  TicketOutline,
-} from '@vicons/ionicons5'
+import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 // [QUAN TRỌNG] Bỏ các API cũ liên quan đến hóa đơn (themSanPham, getCreateHoaDon...)
 import {
@@ -38,11 +38,11 @@ import {
   getRAMs,
 } from '@/service/api/client/product/productDetail.api'
 
-import { getVouchers } from '@/service/api/client/discount/api.voucher'
-import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
+import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
 import { themSanPham } from '@/service/api/client/banhang.api'
+import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
+import { getVouchers } from '@/service/api/client/discount/api.voucher'
 import { localStorageAction } from '@/utils'
-import { CUSTOMER_CART_ID } from '@/constants/storageKey'
 
 // [QUAN TRỌNG] Import Store mới và Type
 // import { CartStore } from '@/utils/cartStore'
@@ -94,11 +94,17 @@ const cartId = ref<string | null>(null)
 // ==========================================
 
 async function addToCartAction(isBuyNow: boolean) {
-  const res = await themSanPham({
-    cartId: cartId.value as string,
-    productDetailId: product.value.id,
-    quantity: quantity.value,
-  })
+  if (cartId.value) {
+    await themSanPham({
+      cartId: cartId.value as string,
+      productDetailId: product.value.id,
+      quantity: quantity.value,
+    })
+  } else {
+    const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
+    cart[product.value.id] = quantity.value
+    localStorageAction.set(CUSTOMER_CART_ITEM, cart)
+  }
 
   if (isBuyNow) {
     message.success('Đang chuyển đến thanh toán...')
@@ -126,6 +132,9 @@ async function addToCartAction(isBuyNow: boolean) {
 
 onMounted(() => {
   cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
+  if (cartId.value) {
+    localStorageAction.set(CUSTOMER_CART_ITEM, {})
+  }
 })
 
 const handleAddToCart = () => addToCartAction(false)
@@ -496,7 +505,8 @@ onUnmounted(() => {
                 {{ product.materialName || product.material || product.idMaterial || 'Đang cập nhật' }}
               </NDescriptionsItem>
               <NDescriptionsItem label="Hệ điều hành">
-                {{ product.operatingSystem || product.operatingSystemName || product.idOperatingSystem || 'Đang cập nhật' }}
+                {{ product.operatingSystem || product.operatingSystemName || product.idOperatingSystem ||
+                  'Đang cập nhật' }}
               </NDescriptionsItem>
             </NDescriptions>
           </div>
@@ -573,9 +583,9 @@ onUnmounted(() => {
                       active: selectedGpu === opt.value,
                       disabled: isOptionDisabled('GPU', opt.value),
                     }" @click="
-                        !isOptionDisabled('GPU', opt.value)
-                        && ((selectedGpu = opt.value), handleOptionClick())
-                        ">
+                      !isOptionDisabled('GPU', opt.value)
+                      && ((selectedGpu = opt.value), handleOptionClick())
+                      ">
                       {{ opt.label }}
                     </button>
                   </div>
@@ -589,9 +599,9 @@ onUnmounted(() => {
                       active: selectedCpu === opt.value,
                       disabled: isOptionDisabled('CPU', opt.value),
                     }" @click="
-                        !isOptionDisabled('CPU', opt.value)
-                        && ((selectedCpu = opt.value), handleOptionClick())
-                        ">
+                      !isOptionDisabled('CPU', opt.value)
+                      && ((selectedCpu = opt.value), handleOptionClick())
+                      ">
                       {{ opt.label }}
                     </button>
                   </div>
@@ -605,9 +615,9 @@ onUnmounted(() => {
                       active: selectedRam === opt.value,
                       disabled: isOptionDisabled('RAM', opt.value),
                     }" @click="
-                        !isOptionDisabled('RAM', opt.value)
-                        && ((selectedRam = opt.value), handleOptionClick())
-                        ">
+                      !isOptionDisabled('RAM', opt.value)
+                      && ((selectedRam = opt.value), handleOptionClick())
+                      ">
                       {{ opt.label }}
                     </button>
                   </div>
@@ -621,9 +631,9 @@ onUnmounted(() => {
                       active: selectedHardDrive === opt.value,
                       disabled: isOptionDisabled('HDD', opt.value),
                     }" @click="
-                        !isOptionDisabled('HDD', opt.value)
-                        && ((selectedHardDrive = opt.value), handleOptionClick())
-                        ">
+                      !isOptionDisabled('HDD', opt.value)
+                      && ((selectedHardDrive = opt.value), handleOptionClick())
+                      ">
                       {{ opt.label }}
                     </button>
                   </div>
@@ -637,9 +647,9 @@ onUnmounted(() => {
                       active: selectedColor === opt.value,
                       disabled: isOptionDisabled('COLOR', opt.value),
                     }" @click="
-                        !isOptionDisabled('COLOR', opt.value)
-                        && ((selectedColor = opt.value), handleOptionClick())
-                        ">
+                      !isOptionDisabled('COLOR', opt.value)
+                      && ((selectedColor = opt.value), handleOptionClick())
+                      ">
                       {{ opt.label }}
                     </button>
                   </div>

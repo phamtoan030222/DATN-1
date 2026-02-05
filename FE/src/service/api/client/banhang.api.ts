@@ -205,6 +205,21 @@ export type CartItemResponse = {
   name: string;
 }
 
+export type ProductDetailCartItemResponse = {
+  id: string;
+  price: number;
+  percentage: number;
+  imageUrl: string;
+  cpu: string;
+  ram: string;
+  hardDrive: string;
+  gpu: string;
+  color: string;
+  material: string;
+  productDetailId: string;
+  name: string;
+}
+
 export async function GetHoaDons(params: ParamsGetHoaDon) {
   const res = (await request({
     url: `${API_ORDER_ONLINE}/list-hoa-don`,
@@ -447,4 +462,14 @@ export function createOrder(data: any) {
     method: 'post',
     data,
   })
+}
+
+export const getProductDetailCart = async (idProductDetail: Array<string>) => {
+    const res = (await request({
+    url: `${API_ORDER_ONLINE}/product-detail`,
+    method: 'POST',
+    data: idProductDetail
+  })) as AxiosResponse<DefaultResponse<Array<ProductDetailCartItemResponse>>>
+
+  return res.data
 }

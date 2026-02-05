@@ -117,4 +117,9 @@ public class ClientBanHangController {
     public ResponseEntity<?> giamSoLuong(@RequestParam("idHDCT") String idHDCT) {
         return Helper.createResponseEntity(adBanHangService.giamSoLuongSanPham(idHDCT));
     }
+
+    @PostMapping("/product-detail")
+    public ResponseEntity<?> getSanPham(@RequestBody List<String> ids) {
+        return Helper.createResponseEntity(adBanHangService.getProductDetailCart(ids));
+    }
 }
