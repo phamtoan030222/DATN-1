@@ -128,57 +128,97 @@ public class ChatServiceImpl {
 
     private String callGeminiRAG(ChatRequest request, Customer customer) {
         ClientPDProductDetailRequest productReq = new ClientPDProductDetailRequest();
-        Pageable pageable = PageRequest.of(0, 20);
+        // Đảm bảo lấy được toàn bộ dải giá
+        productReq.setMinPrice(0);
+        productReq.setMaxPrice(1000000000);
 
+        Pageable pageable = PageRequest.of(0, 25);
         Long currentTime = System.currentTimeMillis();
+
         List<String> idCurrentDiscounts = discountRepository.getIdByDate(currentTime);
         Page<ClientPDProductDetailResponse> pageResult;
 
-        if (!idCurrentDiscounts.isEmpty()) {
+        if (idCurrentDiscounts != null && !idCurrentDiscounts.isEmpty()) {
             pageResult = productDetailRepository.getProductDetailsDiscount(pageable, productReq, idCurrentDiscounts, currentTime);
         } else {
             pageResult = productDetailRepository.getProductDetails(pageable, productReq);
         }
 
-        String productContext = "Hiện tại kho đang chưa cập nhật sản phẩm.";
+        StringBuilder sb = new StringBuilder();
         if (pageResult != null && pageResult.hasContent()) {
-            productContext = pageResult.getContent().stream()
-                    .map(p -> {
-                        BigDecimal originalPrice = (p.getPrice() != null) ? BigDecimal.valueOf(p.getPrice()) : BigDecimal.ZERO;
-                        String priceStr = formatMoney(originalPrice);
-                        String discountInfo = "";
-                        if (p.getPercentage() != null && p.getPercentage() > 0) {
-                            BigDecimal discountPercent = BigDecimal.valueOf(p.getPercentage());
-                            BigDecimal discountedPrice = originalPrice.multiply(BigDecimal.valueOf(100).subtract(discountPercent)).divide(BigDecimal.valueOf(100));
-                            discountInfo = String.format(" (🔥 GIẢM %d%% còn %s)", p.getPercentage(), formatMoney(discountedPrice));
-                        }
-                        return String.format("- %s (%s): Giá %s%s.\n  Cấu hình: CPU %s, RAM %s, GPU %s, Ổ cứng %s, Màn %s. SL còn: %d.",
-                                p.getProductName(), p.getName(), priceStr, discountInfo, p.getCpu(), p.getRam(), p.getGpu(), p.getHardDrive(), p.getScreenName(), p.getQuantity());
-                    }).collect(Collectors.joining("\n\n"));
+            for (ClientPDProductDetailResponse p : pageResult.getContent()) {
+                BigDecimal originalPrice = (p.getPrice() != null) ? BigDecimal.valueOf(p.getPrice()) : BigDecimal.ZERO;
+
+                // 1. Tính toán giá khuyến mãi
+                String discountNote = "";
+                if (p.getPercentage() != null && p.getPercentage() > 0) {
+                    BigDecimal discountPercent = BigDecimal.valueOf(p.getPercentage());
+                    BigDecimal discountedPrice = originalPrice.multiply(BigDecimal.valueOf(100).subtract(discountPercent))
+                            .divide(BigDecimal.valueOf(100));
+
+                    discountNote = String.format(" >>> [SIÊU SALE %d%%] GIÁ CHỈ CÒN: %s",
+                            p.getPercentage(), formatMoney(discountedPrice));
+                }
+
+                // 2. Thu thập đầy đủ thuộc tính từ API (Dựa trên ảnh bạn gửi)
+                sb.append(String.format("""
+                * LAPTOP: %s (Model: %s)
+                  - Thương hiệu: %s
+                  - Giá niêm yết: %s %s
+                  - Màu sắc: %s
+                  - Chất liệu vỏ: %s
+                  - Cấu hình chi tiết:
+                    + CPU: %s
+                    + RAM: %s
+                    + Card đồ họa (GPU): %s
+                    + Ổ cứng: %s
+                    + Màn hình: %s
+                    + Pin: %s
+                    + Hệ điều hành: %s
+                  - Kho hàng: Còn %d máy sẵn sàng giao ngay.
+                """,
+                        p.getProductName(), p.getName(),
+                        p.getBrandName(),
+                        formatMoney(originalPrice), discountNote,
+                        p.getColor(),
+                        p.getMaterial(),
+                        p.getCpu(), p.getRam(), p.getGpu(), p.getHardDrive(), p.getScreenName(),
+                        p.getBatteryName(),
+                        p.getOperatingSystemName(),
+                        p.getQuantity() != null ? p.getQuantity() : 0));
+                sb.append("--------------------------\n");
+            }
         }
 
-        String customerName = (customer != null) ? customer.getName() : "Khách hàng";
+        String productContext = sb.length() > 0 ? sb.toString() : "Hiện không có sản phẩm nào phù hợp trong kho.";
 
-        // Thêm hướng dẫn cho AI: Nếu không biết trả lời thì gợi ý gặp nhân viên
+        // Log để bạn kiểm tra nội dung gửi đi có "màu" chưa
+        log.info("CONTEST GỬI GEMINI: \n{}", productContext);
+
+        String customerName = (customer != null) ? customer.getName() : "khách hàng";
+
+        // 3. System Instruction: Dạy AI cách dùng các thuộc tính mới
         String systemInstruction = """
-            VAI TRÒ: Trợ lý ảo Laptop.
-            KHÁCH HÀNG: %s
-            
-            KHO HÀNG:
-            ----------------
-            %s
-            ----------------
-            
-                YÊU CẦU:
-                      1. Trả lời ngắn gọn, thân thiện, xưng hô 'em' và 'anh/chị'.
-                      2. CHỈ tư vấn sản phẩm có trong danh sách. Không bịa đặt.
-                      3. Nếu có giảm giá, hãy nhắc khách mua ngay.
-                      4. Báo giá rõ ràng.
-                      5. Nếu khách hỏi vấn đề quá khó hoặc khiếu nại, hãy bảo khách nhắn cú pháp: "gặp nhân viên" để được hỗ trợ.
-            """.formatted(customerName, productContext);
+        VAI TRÒ: Bạn là chuyên gia tư vấn Laptop nhiệt tình.
+        KHÁCH HÀNG: %s
+        
+        DỮ LIỆU KHO HÀNG CỦA BẠN:
+        %s
+        
+        HƯỚNG DẪN TƯ VẤN:
+        1. NGOẠI HÌNH: Nếu khách hỏi về vẻ ngoài, hãy dùng thông tin 'Màu sắc' và 'Chất liệu' (ví dụ: vỏ nhôm sang trọng, màu trắng thanh lịch).
+        2. ƯU ĐÃI: Luôn ưu tiên giới thiệu các máy có [SIÊU SALE] vì giá đang rất tốt.
+        3. CHUYÊN MÔN: Tư vấn máy dựa trên cấu hình (RAM, CPU, GPU). Nếu khách làm đồ họa, ưu tiên máy có GPU mạnh.
+        4. PHONG CÁCH: Trả lời thân thiện, xưng 'em', gọi 'anh/chị'.
+        5. CHỈ tư vấn sản phẩm có trong danh sách. Không bịa đặt.
+        6. Nếu có giảm giá, hãy nhắc khách mua ngay.
+        7. Báo giá rõ ràng.
+        8. Nếu khách hỏi vấn đề quá khó hoặc khiếu nại, hãy bảo khách nhắn cú pháp: "gặp nhân viên" để được hỗ trợ.
+        """.formatted(customerName, productContext);
 
-        return geminiService.callGemini(systemInstruction + "\n\nKHÁCH HỎI: " + request.getMessage());
+        return geminiService.callGemini(systemInstruction + "\n\nCÂU HỎI CỦA KHÁCH: " + request.getMessage());
     }
+
 
     // --- HÀM HỖ TRỢ ---
 
