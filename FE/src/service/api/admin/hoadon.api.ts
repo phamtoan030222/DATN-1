@@ -129,6 +129,8 @@ export interface HoaDonChiTietItem {
 
     danhSachImei?: string | null;
   soLuongImei?: number | null;
+  productDetailId?: string | null;
+  invoiceId?: string | null;
 }
 
 // Thêm interface cho IMEI
