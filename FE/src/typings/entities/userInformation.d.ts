@@ -5,6 +5,7 @@ namespace Entity {
     userId: string | undefined
     userCode: string | undefined
     fullName: string | undefined
+    phone: string | undefined
     rolesNames: string[] | string
     rolesCodes: string[] | string
     email: string | undefined

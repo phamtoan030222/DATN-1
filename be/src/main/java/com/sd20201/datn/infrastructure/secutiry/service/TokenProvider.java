@@ -194,6 +194,7 @@ public class TokenProvider {
         claims.put("userName", tokenInfoResponse.getFullName());
         claims.put("userCode", tokenInfoResponse.getUserCode());
         claims.put("username", tokenInfoResponse.getUsername());
+        claims.put("phone", tokenInfoResponse.getPhone());
         claims.put("fullName", tokenInfoResponse.getFullName());
         claims.put("pictureUrl", tokenInfoResponse.getPictureUrl());
         List<String> rolesCode = tokenInfoResponse.getRolesCode();
@@ -216,6 +217,7 @@ public class TokenProvider {
         tokenInfoResponse.setPictureUrl(staff.getAvatarUrl());
         tokenInfoResponse.setUserCode(staff.getCode());
         tokenInfoResponse.setEmail(staff.getEmail() != null ? staff.getEmail() : "");
+        tokenInfoResponse.setPhone(staff.getPhone() != null ? staff.getPhone() : "");
         tokenInfoResponse.setUsername(staff.getAccount().getUsername());
         List<String> rolesCode = roleRepository.getRoleCodeByUsername(staff.getAccount().getUsername());
         if (!rolesCode.isEmpty()) {
@@ -236,6 +238,7 @@ public class TokenProvider {
         tokenInfoResponse.setFullName(customer.getName());
         tokenInfoResponse.setUserCode(customer.getCode());
         tokenInfoResponse.setPictureUrl(customer.getAvatarUrl());
+        tokenInfoResponse.setPhone(customer.getPhone() != null ? customer.getPhone() : "");
         tokenInfoResponse.setEmail(customer.getEmail() != null ? customer.getEmail() : "");
         tokenInfoResponse.setUsername(customer.getAccount().getUsername());
         List<String> rolesCode = roleRepository.getRoleCodeByUsername(customer.getAccount().getUsername());

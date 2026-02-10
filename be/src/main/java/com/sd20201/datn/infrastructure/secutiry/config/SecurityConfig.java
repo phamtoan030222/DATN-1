@@ -83,16 +83,30 @@ public class SecurityConfig {
         return new TokenAuthenticationFilter();
     }
 
+//    @Bean
+//    CorsConfigurationSource corsConfigurationSource() {
+//        final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+//        CorsConfiguration config = new CorsConfiguration();
+//        source.registerCorsConfiguration("/**", config.applyPermitDefaultValues());
+//        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "*"));
+//        config.setAllowedOrigins(Collections.singletonList(allowedOrigin));
+//        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+//        config.setAllowCredentials(true);
+//        config.setExposedHeaders(List.of("Authorization"));
+//        return source;
+//    }
+
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         final UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         CorsConfiguration config = new CorsConfiguration();
-        source.registerCorsConfiguration("/**", config.applyPermitDefaultValues());
-        config.setAllowedHeaders(List.of("Authorization", "Cache-Control", "Content-Type", "*"));
-        config.setAllowedOrigins(Collections.singletonList(allowedOrigin));
+        config.setAllowedOriginPatterns(List.of("*"));
+        config.setAllowedHeaders(List.of("*"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowCredentials(true);
         config.setExposedHeaders(List.of("Authorization"));
+
+        source.registerCorsConfiguration("/**", config);
         return source;
     }
 
@@ -125,6 +139,11 @@ public class SecurityConfig {
         http.authorizeHttpRequests(request ->
                 request
 
+                       //  Mở quyền cho Chat & WebSocket & Upload (Public)
+                        .requestMatchers("/ws/**", "/ws/info/**", "/websocket/**").permitAll()
+                        .requestMatchers("/api/v1/chat/**").permitAll()
+                        .requestMatchers("/api/upload/**", "/uploads/**").permitAll()
+
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/order-online/**").permitAll()
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/products/**").permitAll()
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/discounts/voucher/**").permitAll()
@@ -135,6 +154,7 @@ public class SecurityConfig {
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_DISCOUNT)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STATISTICS)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STAFF)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_STAFF_PREFIX)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
 
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_CUSTOMERS)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_BAN_HANG)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())

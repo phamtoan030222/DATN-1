@@ -32,15 +32,11 @@ dependencies {
     implementation 'com.cloudinary:cloudinary-http44:1.29.0'
 
     // Lombok
-    implementation 'org.springframework.boot:spring-boot-starter-mail'
-	implementation 'org.springframework.boot:spring-boot-starter-mail'
-	implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
 
     implementation 'commons-io:commons-io:2.15.1'
 
-    developmentOnly 'org.springframework.boot:spring-boot-devtools'
 
     // Database
     runtimeOnly 'com.mysql:mysql-connector-j'
@@ -78,6 +74,8 @@ dependencies {
     implementation "dev.langchain4j:langchain4j"
     implementation "dev.langchain4j:langchain4j-google-ai-gemini"
 
+    //chat nhan vien = websocket
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
 }
 
 

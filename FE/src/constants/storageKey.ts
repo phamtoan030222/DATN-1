@@ -3,3 +3,7 @@ export const USER_INFO_STORAGE_KEY = 'q_u_i'
 export const ACCESS_TOKEN_STORAGE_KEY = 'q_a_t_token'
 
 export const REFRESH_TOKEN_STORAGE_KEY = 'q_r_f_token'
+
+export const CUSTOMER_CART_ID = "c_c_id"
+
+export const CUSTOMER_CART_ITEM = "c_c_i"

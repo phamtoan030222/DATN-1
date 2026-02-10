@@ -10,6 +10,7 @@ public interface ADStaffResponse {
     String getEmail();
     String getPhone();
     String getStatus();
+    String getCode();
     String getHometown();
     String getAvatarUrl();
     String getProvinceCode();

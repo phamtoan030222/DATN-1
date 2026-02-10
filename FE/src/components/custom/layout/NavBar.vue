@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { localStorageAction } from '@/utils'
+import {
+  Call,
+  Cart,
+  Menu as MenuIcon,
+  Person,
+  Search,
+} from '@vicons/ionicons5'
+import type { MenuOption } from 'naive-ui'
 import {
   NBadge,
   NButton,
@@ -11,26 +19,20 @@ import {
   NInput,
   NMenu,
 } from 'naive-ui'
-import type { MenuOption } from 'naive-ui'
-import {
-  Call,
-  Cart,
-  Menu as MenuIcon,
-  Person,
-  Search,
-} from '@vicons/ionicons5'
-import { localStorageAction } from '@/utils'
-import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 // [QUAN TRỌNG] Import Store mới
+import { useAuthStore } from '@/store'
 import { CartStore } from '@/utils/cartStore'
 
 const router = useRouter()
 const route = useRoute()
+const authStore = useAuthStore()
 
 // --- LOGIC GIỎ HÀNG MỚI (CLIENT-SIDE) ---
 // 1. Tạo biến hứng số lượng
 const cartCount = ref(0)
-
+const notification = useNotification();
 // 2. Hàm cập nhật số lượng từ LocalStorage (Không gọi API)
 function updateCartBadge() {
   cartCount.value = CartStore.getTotalQuantity()
@@ -61,11 +63,15 @@ const menuOptions: MenuOption[] = [
 ]
 
 // Xử lý thông tin user
-const userInfo = reactive(localStorageAction.get(USER_INFO_STORAGE_KEY) || {})
+const userInfo = ref<any>()
+
+onMounted(() => {
+  userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
+})
 
 const userOptions = computed(() => {
   // Kiểm tra xem có user info hay không
-  if (userInfo && Object.keys(userInfo).length > 0) {
+  if (userInfo.value) {
     return [
       { label: 'Đăng xuất', key: 'logout' },
     ]
@@ -112,10 +118,10 @@ function handlerAccountDropdown(key: string) {
   }
   else if (key === 'logout') {
     // Xử lý đăng xuất (ví dụ: xóa token)
-    localStorageAction.remove(USER_INFO_STORAGE_KEY)
-    router.push({ name: 'login' })
-    // Refresh trang để cập nhật lại state nếu cần
-    setTimeout(() => window.location.reload(), 100)
+    authStore.logout()
+    userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
+    router.push({ name: 'Home' })
+    notification.success({content: 'Bạn đã đăng xuất', duration: 3000})
   }
 }
 

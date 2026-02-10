@@ -5,6 +5,7 @@ import { installPinia } from '@/store'
 import { naiveI18nOptions } from '@/utils'
 import { darkTheme } from 'naive-ui'
 import { useAppStore } from './store'
+import ShiftStartModal from '@/views/admin/shiftmanager/ShiftStartModal.vue'
 
 const initializationPromise = (async () => {
   const app = getCurrentInstance()?.appContext.app
@@ -47,6 +48,7 @@ const naiveLocale = computed(() => {
     <naive-provider>
       <router-view />
       <Watermark :show-watermark="appStore.showWatermark" />
+      <ShiftStartModal />
     </naive-provider>
   </n-config-provider>
 </template>

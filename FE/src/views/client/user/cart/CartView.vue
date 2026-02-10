@@ -18,18 +18,39 @@ import {
   TrashOutline,
 } from '@vicons/ionicons5'
 import { CartStore } from '@/utils/cartStore'
-import type { CartItem } from '@/utils/cartStore' // Import Store mới
+import { localStorageAction } from '@/utils'
+import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
+import { CartItemResponse, GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
 
 const router = useRouter()
 const message = useMessage()
 const loading = ref(false)
-const cartItems = ref<CartItem[]>([])
+const cartItems = ref<CartItemResponse[]>([])
+const cartId = ref<string | null>(null)
+
+onMounted(() => {
+  cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
+})
 
 // Load giỏ hàng từ LocalStorage
-function fetchCart() {
+async function fetchCart() {
   loading.value = true
   try {
-    cartItems.value = CartStore.getCartItems()
+    if (cartId.value) {
+      const res = await GetGioHang(cartId.value as string)
+      cartItems.value = res.data || []
+    } else {
+      const cartItem = localStorageAction.get(CUSTOMER_CART_ITEM)
+      if (!cartItem) return;
+
+      const res = await getProductDetailCart(Object.keys(cartItem))
+      cartItems.value = res.data.map(productDetail => ({
+        ...productDetail,
+        id: "",
+        productDetailId: productDetail.id,
+        quantity: cartItem[productDetail.id]
+      })) || []
+    }
   }
   catch (e) {
     console.error(e)
@@ -46,15 +67,39 @@ function handleRemove(productDetailId: string) {
   message.success('Đã xóa sản phẩm')
 }
 
+const updateQuantitLocalStorage = (idProductDetail: string,quantity: number) => {
+    const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
+    cart[idProductDetail] = quantity
+    localStorageAction.set(CUSTOMER_CART_ITEM, cart)
+}
+
 // Xử lý Tăng số lượng (Client-side)
-function handleIncrease(productDetailId: string) {
-  CartStore.updateQuantity(productDetailId, 1)
+async function handleIncrease(cartItem: CartItemResponse) {
+  if (cartId.value) {
+    await themSanPham({
+      cartId: cartId.value as string,
+      productDetailId: cartItem.productDetailId,
+      quantity: cartItem.quantity + 1
+    })
+  } else {
+    updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity + 1)
+  }
+
   fetchCart()
 }
 
 // Xử lý Giảm số lượng (Client-side)
-function handleDecrease(productDetailId: string) {
-  CartStore.updateQuantity(productDetailId, -1)
+async function handleDecrease(cartItem: CartItemResponse) {
+  if (cartItem.quantity === 1) return
+  if (cartId.value) {
+    await themSanPham({
+      cartId: cartId.value as string,
+      productDetailId: cartItem.productDetailId,
+      quantity: cartItem.quantity - 1
+    })
+  } else {
+    updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity - 1)
+  }
   fetchCart()
 }
 
@@ -86,10 +131,8 @@ onMounted(() => {
       <NSpin size="large" />
     </div>
 
-    <div
-      v-else-if="cartItems.length === 0"
-      class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100"
-    >
+    <div v-else-if="cartItems.length === 0"
+      class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100">
       <NEmpty description="Giỏ hàng đang trống" size="large">
         <template #extra>
           <NButton type="primary" color="#d70018" @click="router.push('/home')">
@@ -101,14 +144,10 @@ onMounted(() => {
 
     <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2 space-y-4">
-        <div
-          v-for="item in cartItems" :key="item.productDetailId"
-          class="flex gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm relative group hover:shadow-md transition-all"
-        >
-          <img
-            :src="item.image || 'https://via.placeholder.com/100'"
-            class="w-28 h-28 object-contain border rounded-lg p-2 bg-gray-50"
-          >
+        <div v-for="item in cartItems" :key="item.productDetailId"
+          class="flex gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm relative group hover:shadow-md transition-all">
+          <img :src="item.imageUrl || 'https://via.placeholder.com/100'"
+            class="w-28 h-28 object-contain border rounded-lg p-2 bg-gray-50">
 
           <div class="flex-1 flex flex-col justify-between py-1">
             <div>
@@ -133,23 +172,19 @@ onMounted(() => {
 
             <div class="flex justify-between items-end mt-4">
               <div>
-                <template v-if="item.price < item.originalPrice">
+                <template>
                   <div class="text-gray-400 text-xs line-through">
-                    {{ formatCurrency(item.originalPrice) }}
-                  </div>
-                  <div class="text-red-600 font-bold text-xl">
                     {{ formatCurrency(item.price) }}
                   </div>
-                </template>
-                <template v-else>
-                  <div class="text-red-600 font-bold text-xl">
-                    {{ formatCurrency(item.price) }}
+                  <div v-if="item.percentage > 0" class="text-red-600 font-bold text-xl">
+                    {{ formatCurrency(item.price - (item.price * item.percentage / 100)) }}
                   </div>
                 </template>
               </div>
 
               <div class="flex items-center gap-3">
-                <NButton strong secondary circle size="small" @click="handleDecrease(item.productDetailId)">
+                <NButton strong secondary circle size="small" :disabled="item.quantity === 1"
+                  @click="handleDecrease(item)">
                   <template #icon>
                     <NIcon>
                       <RemoveOutline />
@@ -157,7 +192,7 @@ onMounted(() => {
                   </template>
                 </NButton>
                 <span class="text-base font-bold min-w-[20px] text-center">{{ item.quantity }}</span>
-                <NButton strong secondary circle size="small" @click="handleIncrease(item.productDetailId)">
+                <NButton strong secondary circle size="small" @click="handleIncrease(item)">
                   <template #icon>
                     <NIcon>
                       <AddOutline />
@@ -171,8 +206,7 @@ onMounted(() => {
           <NPopconfirm positive-text="Xóa" negative-text="Hủy" @positive-click="handleRemove(item.productDetailId)">
             <template #trigger>
               <button
-                class="absolute top-3 right-3 text-gray-400 hover:text-red-500 p-1 transition-colors rounded-full hover:bg-red-50"
-              >
+                class="absolute top-3 right-3 text-gray-400 hover:text-red-500 p-1 transition-colors rounded-full hover:bg-red-50">
                 <NIcon size="20">
                   <TrashOutline />
                 </NIcon>
@@ -193,10 +227,8 @@ onMounted(() => {
               <span class="font-bold text-lg text-gray-800">Tổng tiền:</span>
               <span class="font-bold text-xl text-red-600">{{ formatCurrency(subTotal) }}</span>
             </div>
-            <NButton
-              block type="primary" color="#d70018" size="large" class="font-bold h-12 shadow-lg shadow-red-100"
-              @click="router.push('/checkout')"
-            >
+            <NButton block type="primary" color="#d70018" size="large" class="font-bold h-12 shadow-lg shadow-red-100"
+              @click="router.push('/checkout')">
               THANH TOÁN <NIcon class="ml-2">
                 <ArrowForward />
               </NIcon>
