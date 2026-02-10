@@ -43,4 +43,7 @@ public class LichSuThanhToan implements Serializable {
     @Column(name = "ghi_chu")
     private String ghiChu;
 
+    @Column(name = "trang_thai_thanh_toan")
+    private boolean trangThaiThanhToan;
+
 }

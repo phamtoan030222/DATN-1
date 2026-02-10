@@ -478,6 +478,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             paymentHistory.setNhanVien(staff);
             paymentHistory.setMaGiaoDich("GD_" + invoice.getCode() + "_" + System.currentTimeMillis());
             paymentHistory.setGhiChu("Thanh toán hóa đơn #" + invoice.getCode());
+            paymentHistory.setTrangThaiThanhToan(true);
 
             adLichSuThanhToanRepository.save(paymentHistory);
             System.out.println("Đã tạo lịch sử thanh toán với mã: " + paymentHistory.getMaGiaoDich());

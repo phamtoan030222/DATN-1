@@ -10,6 +10,8 @@ public interface ADHoaDonChiTietResponseDetail {
     String getTenHoaDon();
     String getMaHoaDonChiTiet();
 
+    String getInvoiceId();
+
     // Thông tin sản phẩm
     String getTenSanPham();
     String getAnhSanPham();
@@ -65,5 +67,7 @@ public interface ADHoaDonChiTietResponseDetail {
     List<String> getDanhSachImei();
 
     Integer getSoLuongImei();
+
+    String getProductDetailId();
 
 }

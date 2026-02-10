@@ -14,152 +14,158 @@ import java.util.List;
 @Repository
 public interface ADHoaDonChiTietRepository extends InvoiceDetailRepository {
 
+    /**
+     * Lấy chi tiết hóa đơn (POS + ONLINE)
+     * - IMEI CHỈ xuất hiện khi hóa đơn >= ĐÃ XÁC NHẬN
+     */
     @Query(value = """
-        SELECT
-            hd.code AS maHoaDon,
-            hd.name AS tenHoaDon,
-            hdct.code AS maHoaDonChiTiet,
-            sp.name AS tenSanPham,
-            spct.url_image AS anhSanPham,
-            brand.name AS thuongHieu,
-            color.name AS mauSac,
-            CONCAT(ram.name, 'GB - ', hard_drive.name, 'GB') AS size,
-            hdct.quantity AS soLuong,
-            hdct.price AS giaBan,
-            (
-                SELECT SUM(hdsub.quantity * hdsub.price)
-                FROM invoice_detail hdsub
-                WHERE hdsub.id_invoice = hd.id
-            ) AS thanhTien,
-            kh.name AS tenKhachHang2,
-            kh.phone AS sdtKH2,
-            kh.email AS email2,
-            CONCAT(
-                COALESCE(addr.address_detail, ''),
-                ', ',
-                COALESCE(addr.ward_commune, ''),
-                ', ',
-                COALESCE(addr.district, ''),
-                ', ',
-                COALESCE(addr.province_city, '')
-            ) AS diaChi2,                               
-            hd.name_receiver AS tenKhachHang,
-            hd.phone_receiver AS sdtKH,
-            kh.email AS email,
-            hd.address_receiver AS diaChi,
-            hd.type_invoice AS loaiHoaDon,
-            hd.trang_thai_hoa_don AS trangThaiHoaDon,
-            hd.created_date AS ngayTao,
-            hd.shipping_fee AS phiVanChuyen,
-            pgg.code AS maVoucher,
-            pgg.name AS tenVoucher,
-            hd.total_amount - hd.total_amount_after_decrease AS giaTriVoucher,
-            hd.total_amount_after_decrease AS tongTienSauGiam,
-            (hdct.price * hdct.quantity) AS tongTien,
-            hd.description AS phuongThucThanhToan,
-            -- Thêm lịch sử trạng thái dạng JSON
-            (
-                SELECT JSON_ARRAYAGG(
-                    JSON_OBJECT(
-                        'id', lst.id,
-                        'trangThai', lst.trang_thai,
-                        'tenTrangThai', 
-                            CASE lst.trang_thai
-                                WHEN 0 THEN 'Chờ xác nhận'
-                                WHEN 1 THEN 'Đã xác nhận'
-                                WHEN 2 THEN 'Chờ giao hàng'
-                                WHEN 3 THEN 'Đang giao hàng'
-                                WHEN 4 THEN 'Hoàn thành'
-                                WHEN 5 THEN 'Đã hủy'
-                                ELSE 'Không xác định'
-                            END,
-                        'thoiGian', lst.thoi_gian,
-                        'ghiChu', lst.note,
-                        'nhanVien', nv.name,
-                        'maNhanVien', nv.code
-                    )
+    SELECT
+        hd.id AS invoiceId,
+        hd.code AS maHoaDon,
+        hd.name AS tenHoaDon,
+        hd.type_invoice AS loaiHoaDon,
+
+        hdct.id AS id,
+        hdct.code AS maHoaDonChiTiet,
+        hdct.quantity AS soLuong,
+        hdct.price AS giaBan,
+        (hdct.price * hdct.quantity) AS tongTien,
+
+        sp.name AS tenSanPham,
+        spct.id AS productDetailId,
+        spct.url_image AS anhSanPham,
+        brand.name AS thuongHieu,
+        color.name AS mauSac,
+        CONCAT(ram.name, 'GB - ', hard_drive.name, 'GB') AS size,
+
+        hd.trang_thai_hoa_don AS trangThaiHoaDon,
+        hd.created_date AS ngayTao,
+        hd.shipping_fee AS phiVanChuyen,
+        hd.description AS phuongThucThanhToan,
+
+        -- Tổng tiền hóa đơn
+        (
+            SELECT SUM(hdsub.quantity * hdsub.price)
+            FROM invoice_detail hdsub
+            WHERE hdsub.id_invoice = hd.id
+        ) AS thanhTien,
+
+        -- Thông tin khách hàng
+        kh.name AS tenKhachHang,
+        kh.phone AS sdtKH,
+        kh.email AS email,
+        CONCAT(
+            COALESCE(addr.address_detail, ''),
+            ', ',
+            COALESCE(addr.ward_commune, ''),
+            ', ',
+            COALESCE(addr.district, ''),
+            ', ',
+            COALESCE(addr.province_city, '')
+        ) AS diaChi,
+
+        -- Lịch sử trạng thái
+        (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'id', lst.id,
+                    'trangThai', lst.trang_thai,
+                    'tenTrangThai',
+                        CASE lst.trang_thai
+                            WHEN 0 THEN 'Chờ xác nhận'
+                            WHEN 1 THEN 'Đã xác nhận'
+                            WHEN 2 THEN 'Chờ giao hàng'
+                            WHEN 3 THEN 'Đang giao hàng'
+                            WHEN 4 THEN 'Hoàn thành'
+                            WHEN 5 THEN 'Đã hủy'
+                            ELSE 'Không xác định'
+                        END,
+                    'thoiGian', lst.thoi_gian,
+                    'ghiChu', lst.note,
+                    'nhanVien', nv.name
                 )
-                FROM lich_su_trang_thai_hoa_don lst
-                LEFT JOIN staff nv ON lst.nhan_vien_id = nv.id
-                WHERE lst.hoa_don_id = hd.id
-                ORDER BY lst.thoi_gian DESC
-            ) AS lichSuTrangThai,
-            -- Trạng thái hiện tại chi tiết
-            (
-                SELECT 
-                    CASE hd.trang_thai_hoa_don
-                        WHEN 0 THEN 'Chờ xác nhận'
-                        WHEN 1 THEN 'Đã xác nhận'
-                        WHEN 2 THEN 'Chờ giao hàng'
-                        WHEN 3 THEN 'Đang giao hàng'
-                        WHEN 4 THEN 'Hoàn thành'
-                        WHEN 5 THEN 'Đã hủy'
-                        ELSE 'Không xác định'
-                    END
-            ) AS trangThaiText,
-            -- Thời gian trạng thái gần nhất
-            (
-                SELECT MAX(lst.thoi_gian)
-                FROM lich_su_trang_thai_hoa_don lst
-                WHERE lst.hoa_don_id = hd.id
-            ) AS thoiGianCapNhatCuoi,
-            -- Danh sách IMEI của hóa đơn chi tiết này
-            (
-                SELECT JSON_ARRAYAGG(
-                    JSON_OBJECT(
-                        'id', imei.id,
-                        'code', imei.code,
-                        'imeiCode', imei.code,  -- alias để dễ dùng
-                        'status', imei.trang_thai_imei,
-                        'statusText',
-                            CASE imei.trang_thai_imei
-                                WHEN 0 THEN 'Có sẵn'
-                                WHEN 1 THEN 'Đã bán'
-                                WHEN 2 THEN 'Đang giữ'
-                                WHEN 3 THEN 'Lỗi'
-                                WHEN 4 THEN 'Đang bảo hành'
-                                ELSE 'Không xác định'
-                            END
-                    )
+            )
+            FROM lich_su_trang_thai_hoa_don lst
+            LEFT JOIN staff nv ON lst.nhan_vien_id = nv.id
+            WHERE lst.hoa_don_id = hd.id
+        ) AS lichSuTrangThai,
+
+        -- ===== IMEI (CHỈ SAU KHI XÁC NHẬN) =====
+        (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'id', i.id,
+                    'code', i.code,
+                    'status', i.trang_thai_imei,
+                    'statusText',
+                        CASE i.trang_thai_imei
+                            WHEN 2 THEN 'Đã bán'
+                            WHEN 1 THEN 'Đã đặt'
+                            WHEN 4 THEN 'Đang bảo hành'
+                            ELSE 'Không xác định'
+                        END
                 )
-                FROM imei imei
-                WHERE imei.id_invoice_detail = hdct.id
-            ) AS danhSachImei,
-            -- Số lượng IMEI của hóa đơn chi tiết này
-            (
-                SELECT COUNT(imei.id)
-                FROM imei imei
-                WHERE imei.id_invoice_detail = hdct.id
-            ) AS soLuongImei
-        FROM invoice hd
-        LEFT JOIN invoice_detail hdct ON hdct.id_invoice = hd.id
-        LEFT JOIN voucher pgg ON hd.id_voucher = pgg.id
-        LEFT JOIN customer kh ON hd.id_customer = kh.id
-        LEFT JOIN address addr ON addr.id_customer = kh.id AND addr.is_default = TRUE
-        LEFT JOIN product_detail spct ON hdct.id_product_detail = spct.id
-        LEFT JOIN product sp ON spct.id_product = sp.id
-        LEFT JOIN brand brand ON sp.id_brand = brand.id
-        LEFT JOIN color color ON spct.id_color = color.id
-        LEFT JOIN ram ram ON spct.id_ram = ram.id
-        LEFT JOIN hard_drive hard_drive ON spct.id_hard_drive = hard_drive.id
-        WHERE hd.code = :maHoaDon
-        ORDER BY hd.created_date DESC, hdct.created_date
-        """,
+            )
+            FROM imei i
+            WHERE i.id_invoice_detail = hdct.id
+        ) AS danhSachImei,
+
+        (
+            SELECT COUNT(*)
+            FROM imei i
+            WHERE i.id_invoice_detail = hdct.id
+        ) AS soLuongImei
+
+    FROM invoice hd
+    LEFT JOIN invoice_detail hdct ON hdct.id_invoice = hd.id
+    LEFT JOIN product_detail spct ON hdct.id_product_detail = spct.id
+    LEFT JOIN product sp ON spct.id_product = sp.id
+    LEFT JOIN brand brand ON sp.id_brand = brand.id
+    LEFT JOIN color color ON spct.id_color = color.id
+    LEFT JOIN ram ram ON spct.id_ram = ram.id
+    LEFT JOIN hard_drive hard_drive ON spct.id_hard_drive = hard_drive.id
+    LEFT JOIN customer kh ON hd.id_customer = kh.id
+    LEFT JOIN address addr ON addr.id_customer = kh.id AND addr.is_default = TRUE
+
+    WHERE hd.code = :maHoaDon
+      AND (
+            -- CHƯA XÁC NHẬN → HIỂN THỊ HẾT
+            hd.trang_thai_hoa_don = 0
+
+            -- ĐÃ XÁC NHẬN → CHỈ LẤY DÒNG CÓ IMEI
+            OR EXISTS (
+                SELECT 1
+                FROM imei i
+                WHERE i.id_invoice_detail = hdct.id
+            )
+      )
+
+    ORDER BY hd.created_date DESC, hdct.created_date
+    """,
             countQuery = """
         SELECT COUNT(*)
         FROM invoice_detail hdct
         LEFT JOIN invoice hd ON hdct.id_invoice = hd.id
         WHERE hd.code = :maHoaDon
-        """,
-            nativeQuery = true)
-    Page<ADHoaDonChiTietResponseDetail> getAllHoaDonChiTietResponse(@Param("maHoaDon") String maHoaDon, Pageable pageable);
-    @Query(value = """
-    SELECT hdct.id 
-    FROM Invoice hd 
-    LEFT JOIN InvoiceDetail hdct ON hd.id = hdct.invoice.id 
-    WHERE hd.id = :id
-    """)
-    List<String> getAllHoaDonChiTiet(String maHoaDon);
+          AND (
+                hd.trang_thai_hoa_don = 0
+                OR EXISTS (
+                    SELECT 1
+                    FROM imei i
+                    WHERE i.id_invoice_detail = hdct.id
+                )
+          )
+    """,
+            nativeQuery = true
+    )
+    Page<ADHoaDonChiTietResponseDetail> getHoaDonChiTiet(
+            @Param("maHoaDon") String maHoaDon,
+            Pageable pageable
+    );
 
-    List<InvoiceDetail> findByInvoiceId(String id);
+
+    /**
+     * Dùng cho service xác nhận đơn → gán IMEI
+     */
+    List<InvoiceDetail> findByInvoiceId(String invoiceId);
 }

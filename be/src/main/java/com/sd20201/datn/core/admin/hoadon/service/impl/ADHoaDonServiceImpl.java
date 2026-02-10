@@ -126,6 +126,7 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
 
                 case HOAN_THANH:
                     // Kết thúc vòng đời hóa đơn
+                    danhDauIMEIDaBan(hoaDonDaCapNhat);
                     break;
 
                 case DA_HUY:
@@ -163,6 +164,9 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             log.error("Lỗi không xác định khi cập nhật trạng thái: {}", e.getMessage(), e);
             throw new RuntimeException("Lỗi hệ thống: " + e.getMessage(), e);
         }
+    }
+
+    private void doiTrangThaiImel(Invoice hoaDonDaCapNhat) {
     }
 
     /**
@@ -606,7 +610,10 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
     public ResponseObject<?> getAllHoaDonCT(ADHoaDonDetailRequest request) {
         try {
             Pageable pageable = Helper.createPageable(request, "created_date");
-            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getAllHoaDonChiTietResponse(request.getMaHoaDon(), pageable);
+
+
+
+            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getHoaDonChiTiet(request.getMaHoaDon(), pageable);
             return new ResponseObject<>(
                     page,
                     HttpStatus.OK,
