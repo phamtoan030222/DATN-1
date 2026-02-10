@@ -1,5 +1,8 @@
 package com.sd20201.datn.core.admin.banhang.service.impl;
 
+
+import com.sd20201.datn.core.admin.shift.repository.AdShiftHandoverRepository;
+import com.sd20201.datn.entity.ShiftHandover;
 import com.sd20201.datn.core.admin.banhang.model.request.*;
 import com.sd20201.datn.core.admin.banhang.model.request.ChonPhieuGiamGiaRequest;
 import com.sd20201.datn.core.admin.banhang.model.response.*;
@@ -58,6 +61,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     private final InvoiceDetailRepository invoiceDetailRepository;
     public final AdVoucherRepository phieuGiamGiaRepository;
     public final ADHoaDonChiTietRepository adHoaDonChiTietRepository;
+    private final AdShiftHandoverRepository adShiftHandoverRepository;
 
     private final ADBHScreenRepository screenRepository;
     private final ADBHBrandRepository brandRepository;
@@ -69,6 +73,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     private final ADBHGPURepository gpuRepository;
     private final ADBHHardDriveRepository hardDriveRepository;
     private final ADBHColorRepository colorRepository;
+
 
     @Override
     public List<ListHoaDon> getHoaDon() {
@@ -168,6 +173,20 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             Staff nhanVien = adNhanVienRepository.findById(id.getIdNV())
                     .orElseThrow(() -> new BadRequestException("Nhân viên không tồn tại"));
 
+            if (hoaDon.getShiftHandover() == null && nhanVien.getAccount() != null) {
+                try {
+                    String accountId = nhanVien.getAccount().getId();
+                    // Tìm ca đang mở (ACTIVE) của nhân viên này
+                    ShiftHandover openShift = adShiftHandoverRepository.findOpenShiftByAccountId(accountId).orElse(null);
+
+                    if (openShift != null) {
+                        hoaDon.setShiftHandover(openShift);
+                        // System.out.println("DEBUG: Đã gán hóa đơn vào ca: " + openShift.getId());
+                    }
+                } catch (Exception e) {
+                    log.error("Lỗi gán ca làm việc: ", e);
+                }
+            }
             // Xác định phương thức thanh toán
             TypePayment phuongThucThanhToan = determinePaymentMethod(id.getPhuongThucThanhToan());
 

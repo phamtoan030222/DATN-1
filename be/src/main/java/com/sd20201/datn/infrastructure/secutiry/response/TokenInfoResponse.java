@@ -17,6 +17,8 @@ public class TokenInfoResponse {
 
     private String username;
 
+    private String phone;
+
     private String fullName;
 
     private String pictureUrl;

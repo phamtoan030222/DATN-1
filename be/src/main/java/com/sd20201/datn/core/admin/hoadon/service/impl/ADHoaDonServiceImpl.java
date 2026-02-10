@@ -1,5 +1,7 @@
 package com.sd20201.datn.core.admin.hoadon.service.impl;
 
+import com.sd20201.datn.core.admin.shift.repository.AdShiftHandoverRepository;
+import com.sd20201.datn.entity.ShiftHandover;
 import com.sd20201.datn.core.admin.banhang.repository.ADBanHangIMEIRepository;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADChangeStatusRequest;
 import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonDetailRequest;
@@ -49,6 +51,7 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
     private final VoucherDetailRepository voucherDetailRepository;
     private final LichSuThanhToanRepository lichSuThanhToanRepository;
     private final CustomerRepository customerRepository;
+    private final AdShiftHandoverRepository shiftHandoverRepository;
 
     @Override
     @Transactional
@@ -81,6 +84,21 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             } else {
                 // Nếu không gửi → lấy nhân viên đang đăng nhập
                 nhanVien = getCurrentStaff();
+            }
+
+            if (hoaDon.getShiftHandover() == null && nhanVien != null && nhanVien.getAccount() != null) {
+                try {
+                    String accountId = nhanVien.getAccount().getId();
+                    // Tìm ca đang mở (ACTIVE) của nhân viên này
+                    Optional<ShiftHandover> caDangMo = shiftHandoverRepository.findOpenShiftByAccountId(accountId);
+
+                    if (caDangMo.isPresent()) {
+                        hoaDon.setShiftHandover(caDangMo.get());
+                        log.info("Đã tự động gán hóa đơn {} vào ca làm việc {}", hoaDon.getCode(), caDangMo.get().getId());
+                    }
+                } catch (Exception e) {
+                    log.warn("Không thể gán ca làm việc cho hóa đơn: {}", e.getMessage());
+                }
             }
 
             // 4. Cập nhật trạng thái hóa đơn

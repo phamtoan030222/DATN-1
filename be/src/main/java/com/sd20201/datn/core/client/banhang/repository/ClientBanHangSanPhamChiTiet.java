@@ -3,11 +3,14 @@ package com.sd20201.datn.core.client.banhang.repository;
 
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDProductDetailResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientBanHangProductDetailCartResponse;
 import com.sd20201.datn.repository.ProductDetailRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import java.util.List;
 
 public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
 
@@ -65,4 +68,24 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
     """)
     Page<ADPDProductDetailResponse> getProductDetails(Pageable pageable, @Param("request") ADPDProductDetailRequest request);
 
+    @Query(value = """
+    SELECT
+        pd.id as id
+        , pd.price as price
+        , d.percentage as percentage
+        , pd.name as name
+        , pd.urlImage as imageUrl
+        , pd.cpu.name as cpu
+        , pd.ram.name as ram
+        , pd.hardDrive.name as hardDrive
+        , pd.gpu.name as gpu
+        , pd.color.name as color
+        , pd.material.name as material
+    FROM ProductDetail pd
+    LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
+    LEFT JOIN Discount d on pdd.discount.id = d.id
+    WHERE pd.id IN :ids
+        AND (d.startDate <= :time and :time <= d.endDate OR d.id IS NULL)
+    """)
+    List<ClientBanHangProductDetailCartResponse> findProductDetailCartResponseByIdIn(List<String> ids, Long time);
 }

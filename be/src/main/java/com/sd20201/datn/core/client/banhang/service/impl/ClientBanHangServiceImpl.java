@@ -4,34 +4,48 @@ import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDProductDetailRepository;
 import com.sd20201.datn.core.admin.staff.repository.ADStaffRepository;
+import com.sd20201.datn.core.client.banhang.model.request.ClientChonPhieuGiamGiaRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientListKhachHangRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientNhanVienRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientProductItemRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThanhToanRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThemKhachHangRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientThemSanPhamRequest;
+import com.sd20201.datn.core.client.banhang.model.request.ClientVoucherSuggestionRequest;
 import com.sd20201.datn.core.client.banhang.model.response.ClientApplicableVoucherResponse;
 import com.sd20201.datn.core.client.banhang.model.response.ClientBetterVoucherResponse;
 import com.sd20201.datn.core.client.banhang.model.response.ClientChonKhachHangResponse;
+import com.sd20201.datn.core.client.banhang.model.response.ClientListHoaDon;
 import com.sd20201.datn.core.client.banhang.model.response.ClientPhuongThucThanhToanRespones;
 import com.sd20201.datn.core.client.banhang.model.response.ClientVoucherSuggestionResponse;
 import com.sd20201.datn.core.client.banhang.repository.ClientBHVoucherDetailRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartItemRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartRepository;
-import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonChiTietRepository;
-import com.sd20201.datn.core.client.banhang.model.request.ClientChonPhieuGiamGiaRequest;
-import com.sd20201.datn.core.client.banhang.model.request.ClientListKhachHangRequest;
-import com.sd20201.datn.core.client.banhang.model.request.ClientNhanVienRequest;
-import com.sd20201.datn.core.client.banhang.model.request.ClientThanhToanRequest;
-import com.sd20201.datn.core.client.banhang.model.request.ClientThemKhachHangRequest;
-import com.sd20201.datn.core.client.banhang.model.request.ClientThemSanPhamRequest;
-import com.sd20201.datn.core.client.banhang.model.request.ClientVoucherSuggestionRequest;
-import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
-import com.sd20201.datn.core.client.banhang.model.request.ClientProductItemRequest;
-import com.sd20201.datn.core.client.banhang.model.response.ClientCartItemResponse;
-import com.sd20201.datn.core.client.banhang.model.response.ClientListHoaDon;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangIMEIRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangSanPhamChiTiet;
+import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonChiTietRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonRepository;
+import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
 import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
-import com.sd20201.datn.entity.*;
-import com.sd20201.datn.infrastructure.constant.*;
+import com.sd20201.datn.entity.Cart;
+import com.sd20201.datn.entity.CartItem;
+import com.sd20201.datn.entity.Customer;
+import com.sd20201.datn.entity.IMEI;
+import com.sd20201.datn.entity.Invoice;
+import com.sd20201.datn.entity.InvoiceDetail;
+import com.sd20201.datn.entity.LichSuThanhToan;
+import com.sd20201.datn.entity.LichSuTrangThaiHoaDon;
+import com.sd20201.datn.entity.ProductDetail;
+import com.sd20201.datn.entity.Staff;
+import com.sd20201.datn.entity.Voucher;
+import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
+import com.sd20201.datn.infrastructure.constant.ImeiStatus;
+import com.sd20201.datn.infrastructure.constant.TargetType;
+import com.sd20201.datn.infrastructure.constant.TypeInvoice;
+import com.sd20201.datn.infrastructure.constant.TypePayment;
+import com.sd20201.datn.infrastructure.constant.TypeVoucher;
 import com.sd20201.datn.infrastructure.exception.BusinessException;
 import com.sd20201.datn.repository.CustomerRepository;
 import com.sd20201.datn.repository.InvoiceDetailRepository;
@@ -44,7 +58,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -52,7 +65,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -81,6 +98,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientBanHangCartItemRepository cartItemRepository;
 
     private final CustomerRepository customerRepository;
+    private final ClientBanHangSanPhamChiTiet clientBanHangSanPhamChiTiet;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -554,5 +572,15 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         }
 
         return new ResponseObject<>(null, HttpStatus.OK, "Đã giảm số lượng");
+    }
+
+    @Override
+    public ResponseObject<?> getProductDetailCart(List<String> ids) {
+        Long currentTime = System.currentTimeMillis();
+
+        return ResponseObject.successForward(
+                clientBanHangSanPhamChiTiet.findProductDetailCartResponseByIdIn(ids, currentTime),
+                "OKE"
+        );
     }
 }

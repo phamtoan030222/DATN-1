@@ -19,6 +19,7 @@ public interface ADStaffRepository extends StaffRepository {
     @Query(
             value = """
     SELECT s.id AS id,
+           s.code AS code,
            s.name AS fullName,
            s.account.roleConstant AS role,
            s.gender AS gender,

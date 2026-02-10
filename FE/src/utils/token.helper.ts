@@ -7,6 +7,7 @@ export function getUserInformation(token: string): Entity.UserInformation {
     userId: decoded.userId,
     userCode: decoded.userCode,
     fullName: decoded.fullName,
+    phone: decoded.phone,
     rolesNames: decoded.rolesName,
     rolesCodes: decoded.rolesCode,
     email: decoded.email,

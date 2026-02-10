@@ -66,6 +66,8 @@ public class MappingConstants {
 
     public static final String API_CUSTOMER_BAN_HANG = API_CUSTOMER_PREFIX + "/ban-hang";
     public static final String API_CUSTOMER_HOA_DON = API_CUSTOMER_PREFIX + "/hoa-don";
+    public static final String API_CUSTOMER_CART = API_CUSTOMER_PREFIX + "/carts";
+    public static final String API_CUSTOMER_ADDRESS = API_CUSTOMER_PREFIX + "/addresses";
 
     public static final String API_CUSTOMER_PREFIX_DISCOUNT = API_CUSTOMER_PREFIX + "/discounts";
     public static final String API_CUSTOMER_PREFIX_DISCOUNT_DISCOUNT = API_CUSTOMER_PREFIX_DISCOUNT + "/discount";
@@ -79,6 +81,12 @@ public class MappingConstants {
     public static final String API_PREFIX_ORDER_ONLINE_PRODUCT = API_ORDER_ONLINE + "/product";
     public static final String API_PREFIX_ORDER_ONLINE_VOUCHER = API_ORDER_ONLINE + "/voucher";
 
+    public static final String API_ADMIN_PREFIX_SCHEDULES = API_ADMIN_PREFIX + "/schedules"; // /api/v1/admin/schedules
+    public static final String API_ADMIN_PREFIX_SHIFT_HISTORY = API_ADMIN_PREFIX + "/shift-history"; // /api/v1/admin/shift-history
+
+    public static final String API_STAFF_PREFIX_SHIFTS = API_STAFF_PREFIX + "/shifts";
+    // Thêm dòng này để định nghĩa đường dẫn /api/v1/shifts
+    public static final String API_SHIFTS = API_VERSION_PREFIX + "/shifts";
     //AI
     public static final String API_CHAT_AI = API_VERSION_PREFIX + "/chat";
 

@@ -60,4 +60,6 @@ public interface ClientBanHangService {
     // GIẢM SỐ LƯỢNG: Bỏ bớt 1 IMEI ra khỏi giỏ
     @Transactional
     ResponseObject<?> giamSoLuongSanPham(String idHDCT);
+
+    ResponseObject<?> getProductDetailCart(List<String> ids);
 }

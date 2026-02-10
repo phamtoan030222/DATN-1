@@ -5,7 +5,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     path: '/dashboard/sales',
     title: 'Bán hàng tại quầy',
     requiresAuth: true,
-    roles: ['QUAN_LY', "NHAN_VIEN"],
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
     icon: 'icon-park-outline:shopping-cart',
     menuType: 'page',
     componentPath: '/admin/banhang/index.vue',
@@ -222,7 +222,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
   },
   {
     name: 'orders_detail',
-    path: '/orders/detail/:id',  // QUAN TRỌNG: Đây là URL sẽ dùng
+    path: '/orders/detail/:id', // QUAN TRỌNG: Đây là URL sẽ dùng
 
     roles: ['QUAN_LY'],
     title: 'Chi tiết đơn hàng',
@@ -457,6 +457,58 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     componentPath: '/admin/discounts/promotion/pages/Update.vue',
     id: 604,
     pid: 6,
+  },
+
+  {
+    name: 'work_schedule',
+    path: '/work-schedule',
+    title: 'Quản lý lịch làm việc',
+    requiresAuth: true,
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
+    icon: 'icon-park-outline:calendar',
+    menuType: 'dir',
+    componentPath: null,
+    id: 65, // ID nằm giữa 6 (Giảm giá) và 7 (Hỗ trợ)
+    pid: null,
+  },
+  {
+    name: 'shift_manager',
+    path: '/work-schedule/shifts',
+    title: 'Quản lý Ca làm việc',
+    requiresAuth: true,
+    roles: ['QUAN_LY'],
+    icon: 'icon-park-outline:time',
+    menuType: 'page',
+    // Trỏ đến file: src/views/work-schedule/ShiftManager.vue
+    componentPath: '/admin/shiftmanager/ShiftManager.vue',
+    id: 651,
+    pid: 65,
+  },
+  {
+    name: 'schedule_assign',
+    path: '/work-schedule/assign',
+    title: 'Xếp lịch nhân viên',
+    requiresAuth: true,
+    roles: ['QUAN_LY'],
+    icon: 'icon-park-outline:plan',
+    menuType: 'page',
+    // Trỏ đến file: src/views/work-schedule/WorkSchedule.vue
+    componentPath: '/admin/shiftmanager/WorkSchedule.vue',
+    id: 652,
+    pid: 65,
+  },
+  {
+    name: 'shift_handover',
+    path: '/work-schedule/handover',
+    title: 'Giao ca & Kết toán',
+    requiresAuth: true,
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
+    icon: 'icon-park-outline:finance',
+    menuType: 'page',
+    // Trỏ đến file: src/views/work-schedule/Handover.vue
+    componentPath: '/admin/shiftmanager/ShiftHandover.vue',
+    id: 653,
+    pid: 65,
   },
 
   // Hỗ trợ khách hàng
