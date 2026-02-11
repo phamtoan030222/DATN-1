@@ -52,7 +52,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
         try {
-            logger.info("request nhận vào trong doFilter");
+            logger.info(request.getRequestURI());
 
             String jwt = getJwtFromRequest(request);
 
