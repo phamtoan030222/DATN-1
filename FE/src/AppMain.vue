@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { App } from 'vue'
 import { installRouter } from '@/router'
-import { installPinia } from '@/store'
+import { installPinia, useAuthStore } from '@/store'
 import { naiveI18nOptions } from '@/utils'
 import { darkTheme } from 'naive-ui'
 import { useAppStore } from './store'
@@ -38,6 +38,11 @@ const naiveLocale = computed(() => {
     ? naiveI18nOptions[appStore.lang]
     : naiveI18nOptions.enUS
 })
+
+const authStore = useAuthStore();
+const hasRoleStaff = computed(() => {
+  return authStore.userInfoDatn?.rolesCodes.includes('NHAN_VIEN');
+});
 </script>
 
 <template>
@@ -48,7 +53,7 @@ const naiveLocale = computed(() => {
     <naive-provider>
       <router-view />
       <Watermark :show-watermark="appStore.showWatermark" />
-      <ShiftStartModal />
+      <ShiftStartModal v-if="hasRoleStaff" />
     </naive-provider>
   </n-config-provider>
 </template>

@@ -6,6 +6,7 @@ import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.infrastructure.constant.ImeiStatus;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -36,4 +37,17 @@ public interface ClientBanHangIMEIRepository extends JpaRepository<IMEI, String>
             @Param("status") ImeiStatus status,
             Pageable pageable
     );
+
+    @Query("SELECT i.id FROM IMEI i WHERE i.productDetail.id = :productDetailId AND i.imeiStatus = :status ORDER BY i.createdDate ASC")
+    List<String> findIdsAvailableImei(
+            @Param("productDetailId") String productDetailId,
+            @Param("status") ImeiStatus status,
+            Pageable pageable
+    );
+
+    @Modifying
+    @Query(value = """
+    UPDATE IMEI i SET i.imeiStatus = :status, i.invoiceDetail.id = :idInvoiceDetail where i.id in :ids
+    """)
+    int updateImeiStatusIdIn(List<String> ids, ImeiStatus status, String idInvoiceDetail);
 }
