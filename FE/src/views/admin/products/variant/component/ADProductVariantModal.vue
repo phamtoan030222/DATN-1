@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { Ref } from 'vue'
-import { ref, watch } from 'vue'
-import { Icon } from '@iconify/vue'
 import type { ADPDImeiResponse, ADProductDetailDetailResponse, ADPRPropertiesComboboxResponse } from '@/service/api/admin/product/productDetail.api'
-import { changeStatusImei, getImeiProductDetail, getProductDetailById, modifyProductDetail } from '@/service/api/admin/product/productDetail.api'
+import { changeStatusImei, getImeiProductDetail, getProductDetailById, updateProductDetail } from '@/service/api/admin/product/productDetail.api'
+import { Icon } from '@iconify/vue'
 import type { DataTableColumns } from 'naive-ui'
 import { NButton, NSpace, NSwitch } from 'naive-ui'
+import type { Ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const props = defineProps<{
   isOpen: boolean
@@ -82,7 +82,7 @@ function handleClickCancel() {
 const notification = useNotification()
 
 async function handleClickOK() {
-  const res = await modifyProductDetail({
+  const res = await updateProductDetail({
     ...detailProduct.value as ADProductDetailDetailResponse,
     imei: [],
   })
@@ -133,7 +133,7 @@ async function handleChangeStatusImei(idImei: string) {
       style="width: 50%" title="Cập nhật sản phẩm chi tiết" :bordered="false" size="huge" role="dialog"
       aria-modal="true"
     >
-      <template #header-extra>
+    <template #header-extra>
         <NButton @click="handleClickCancel">
           <Icon icon="ic:outline-close" />
         </NButton>
