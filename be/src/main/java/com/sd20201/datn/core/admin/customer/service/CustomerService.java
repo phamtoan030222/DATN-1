@@ -1,9 +1,10 @@
 package com.sd20201.datn.core.admin.customer.service;
 
-import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.core.admin.customer.model.request.CustomerCreateUpdateRequest;
 import com.sd20201.datn.core.admin.customer.model.request.CustomerRequest;
+import com.sd20201.datn.core.common.base.ResponseObject;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Pageable;
 
 public interface CustomerService {
     ResponseObject<?> getAllCustomers(CustomerRequest request);
@@ -17,4 +18,6 @@ public interface CustomerService {
     ResponseObject<?> getCustomerById(String id);
 
     ResponseObject<?> getCustomersWithStats(int page, int size, String keyword, String timeRange, String sortField, String sortDirection);
+
+    ResponseObject<?> getCustomersSortedByLastOrder(Pageable pageable, String keyword);
 }

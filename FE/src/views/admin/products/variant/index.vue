@@ -363,7 +363,7 @@ const updateSerialvariantHandler = async (payload: { idProductDetail: string, im
           <div>
             <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
               placeholder="Chọn sản phẩm" style="width: 500px;" clearable :options="state.data.productsCombobox"
-              @update:value="() => { fetchProductDetails(); fetchProduct(); }" />
+              @update:value="() => { fetchProductDetails(); fetchProduct(); }" filterable/>
           </div>
         </NSpace>
         <span>Quản lý biến thể sản phẩm trong cửa hàng</span>

@@ -10,6 +10,8 @@ import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -60,5 +62,12 @@ public class CustomerController {
         // SỬA LỖI: Bỏ ép kiểu (ResponseObject<?>).
         // Helper.createResponseEntity sẽ tự động đóng gói Page<CustomerResponse> vào ResponseObject.
         return Helper.createResponseEntity((customerService.getCustomersWithStats(page, size, keyword, timeRange, sortField, sortDirection)));
+    }
+
+    @GetMapping("/loc-theo-lshd")
+    public ResponseEntity<?> getLocTheoLshd(
+            @PageableDefault(page = 0, size = 10) Pageable pageable,
+            @RequestParam(name = "keyword", required = false) String keyword) {
+        return Helper.createResponseEntity((ResponseObject<?>) customerService.getCustomersSortedByLastOrder(pageable, keyword));
     }
 }

@@ -1,5 +1,6 @@
 package com.sd20201.datn.entity;
 
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -43,7 +44,12 @@ public class LichSuThanhToan implements Serializable {
     @Column(name = "ghi_chu")
     private String ghiChu;
 
+<<<<<<< HEAD
     @Column(name = "trang_thai_thanh_toan")
     private boolean trangThaiThanhToan;
+=======
+    @Column(name = "trang_thai")
+    private TrangThaiThanhToan trangThaiThanhToan;
+>>>>>>> a64392b1862ffd95f069788b6db3713e32f72eb0
 
 }

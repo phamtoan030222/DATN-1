@@ -11,5 +11,4 @@ public enum ImeiStatus {
     REPAIRING,    // Đang sửa chữa
     LOST,                 // Bị mất
     DEMO               // Máy trưng bày
-    ;
 }

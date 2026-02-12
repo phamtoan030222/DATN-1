@@ -43,4 +43,5 @@ public interface AdVoucherService {
 
 
     ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, Pageable pageable);
+
 }

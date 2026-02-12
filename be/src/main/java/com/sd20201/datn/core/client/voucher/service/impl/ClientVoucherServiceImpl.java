@@ -5,6 +5,9 @@ import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherReques
 import com.sd20201.datn.core.admin.voucher.voucher.repository.AdVoucherRepository;
 import com.sd20201.datn.core.admin.voucher.voucher.service.AdVoucherService;
 import com.sd20201.datn.core.admin.voucher.voucherudetail.repository.AdVoucherDetailRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBHVoucherDetailRepository;
+import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
+import com.sd20201.datn.core.client.voucher.service.ClientVoucherService;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
@@ -36,9 +39,9 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 @Slf4j
-public class ClientVoucherServiceImpl implements AdVoucherService {
+public class ClientVoucherServiceImpl implements ClientVoucherService {
 
-    private final AdVoucherRepository voucherRepository;
+    private final ClientVoucherRepository voucherRepository;
     private final CustomerRepository customerRepository;
     private final AdVoucherDetailRepository voucherDetailRepository;
     private final JavaMailSender mailSender;
@@ -357,6 +360,5 @@ public class ClientVoucherServiceImpl implements AdVoucherService {
                 "Lấy danh sách khách hàng thành công"
         );
     }
-
 
 }

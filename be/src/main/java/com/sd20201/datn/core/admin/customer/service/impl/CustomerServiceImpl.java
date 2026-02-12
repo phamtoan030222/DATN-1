@@ -1,12 +1,13 @@
 package com.sd20201.datn.core.admin.customer.service.impl;
 
-import com.sd20201.datn.core.admin.customer.model.response.CustomerResponse;
-import com.sd20201.datn.core.common.base.PageableObject;
-import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.core.admin.customer.model.request.CustomerCreateUpdateRequest;
 import com.sd20201.datn.core.admin.customer.model.request.CustomerRequest;
+import com.sd20201.datn.core.admin.customer.model.response.CustomerHistoryResponse;
+import com.sd20201.datn.core.admin.customer.model.response.CustomerResponse;
 import com.sd20201.datn.core.admin.customer.repository.AdCustomerRepository;
 import com.sd20201.datn.core.admin.customer.service.CustomerService;
+import com.sd20201.datn.core.common.base.PageableObject;
+import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Account;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
@@ -21,14 +22,13 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.Calendar;
-import java.util.UUID;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -94,7 +94,7 @@ public class CustomerServiceImpl implements CustomerService {
             // Hoặc generate: request.getCustomerName() + code...
 
             // Kiểm tra username đã tồn tại chưa (quan trọng)
-            if(accountRepository.findByUsername(username).isPresent()){
+            if (accountRepository.findByUsername(username).isPresent()) {
                 return new ResponseObject<>(null, HttpStatus.BAD_REQUEST,
                         "Tài khoản/SĐT đã tồn tại trong hệ thống", false, "USERNAME_EXISTS");
             }
@@ -285,7 +285,6 @@ public class CustomerServiceImpl implements CustomerService {
         long startDate = 0L;
 
 
-
         Calendar calendar = Calendar.getInstance();
         // Reset giờ về 00:00:00 để lấy trọn vẹn ngày đầu tháng/năm
         calendar.set(Calendar.HOUR_OF_DAY, 0);
@@ -319,6 +318,21 @@ public class CustomerServiceImpl implements CustomerService {
         Page<CustomerResponse> result = adCustomerRepository.getCustomersWithStats(pageable, keyword, startDate, endDate);
         // 3. Gọi Repository
         return new ResponseObject<>(result, HttpStatus.OK, "Lấy dữ liệu thành công", true, null);
+    }
+
+    @Override
+    public ResponseObject<?> getCustomersSortedByLastOrder(Pageable pageable, String keyword) {
+        // 1. Xử lý keyword (Trim và check null)
+        String searchKeyword = (keyword != null && !keyword.trim().isEmpty()) ? keyword.trim() : null;
+
+        // 2. Gọi Repository
+        Page<CustomerHistoryResponse> pageResult = adCustomerRepository.getCustomersSortedByLastOrder(pageable, searchKeyword);
+
+        // 3. Đóng gói kết quả vào ResponseObject
+        return ResponseObject.successForward(
+                pageResult,
+                "Lấy danh sách khách hàng theo lịch sử mua hàng thành công"
+        );
     }
 
     private String generateCustomerCode(String customerName) {

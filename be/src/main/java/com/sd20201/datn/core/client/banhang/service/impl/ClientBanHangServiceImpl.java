@@ -58,7 +58,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,7 +100,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientBanHangCartItemRepository cartItemRepository;
 
     private final CustomerRepository customerRepository;
-    private final ClientBanHangSanPhamChiTiet clientBanHangSanPhamChiTiet;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -132,28 +133,17 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             invoice.setShippingFee(request.getTienShip());
 //            invoice.setDiscountAmount(request.getGiamGia());
             invoice.setTotalAmountAfterDecrease(request.getTongTien());
-
-            // Set Loại & Trạng thái
-            if ("TAI_QUAY".equals(request.getLoaiHoaDon())) {
-                invoice.setTypeInvoice(TypeInvoice.TAI_QUAY); // Enum 0
-            } else {
-                invoice.setTypeInvoice(TypeInvoice.ONLINE); // Enum 1 (Giao hàng)
-            }
+            invoice.setTypeInvoice(TypeInvoice.ONLINE);
             invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
             invoice.setCreatedDate(System.currentTimeMillis());
 
             // Lưu hóa đơn trước để có ID
             invoice = invoiceRepository.save(invoice);
 
-            // 2. Xử lý danh sách sản phẩm (Từ LocalStorage gửi lên)
-            List<InvoiceDetail> details = new ArrayList<>();
-            List<IMEI> imeisToUpdate = new ArrayList<>();
-
             for (ClientProductItemRequest item : request.getProducts()) {
 
                 // a. Tìm thông tin sản phẩm trong DB
-                ProductDetail productDetail = productDetailRepository.findById(item.getProductDetailId())
-                        .orElseThrow(() -> new BusinessException("Sản phẩm không tồn tại: " + item.getProductDetailId()));
+                ProductDetail productDetail = productDetailRepository.findById(item.getProductDetailId()).orElseThrow(() -> new BusinessException("Sản phẩm không tồn tại: " + item.getProductDetailId()));
 
                 // d. Tạo Hóa đơn chi tiết
                 InvoiceDetail detail = new InvoiceDetail();
@@ -164,12 +154,16 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 // Tính tổng tiền dòng này (để lưu DB cho chắc)
                 detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 
-                detail = invoiceDetailRepository.save(detail);
-                details.add(detail);
-            }
+                detail = invoiceDetailRepository.saveAndFlush(detail);
 
-            // Lưu cập nhật tất cả IMEI 1 lần (Batch update)
-            imeiRepository.saveAll(imeisToUpdate);
+                List<String> imeiIds = imeiRepository.findIdsAvailableImei(
+                        item.getProductDetailId(),
+                        ImeiStatus.AVAILABLE,
+                        PageRequest.of(0, item.getQuantity())
+                );
+
+                imeiRepository.updateImeiStatusIdIn(imeiIds, ImeiStatus.RESERVED, detail.getId());
+            }
 
             // 3. Ghi log lịch sử trạng thái
             LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
@@ -189,11 +183,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
-        return ResponseObject.successForward(
-                PageableObject.of(
-                        productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
-                "OKE"
-        );
+        return ResponseObject.successForward(PageableObject.of(productDetailRepository.getProductDetails(Helper.createPageable(request), request)), "OKE");
     }
 
     @Override
@@ -244,8 +234,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Transactional
     public ResponseObject<?> xoaSanPhamKhoiGioHang(String idHoaDonChiTiet) {
         try {
-            InvoiceDetail detail = invoiceDetailRepository.findById(idHoaDonChiTiet)
-                    .orElseThrow(() -> new BadRequestException("Sản phẩm không tồn tại trong giỏ"));
+            InvoiceDetail detail = invoiceDetailRepository.findById(idHoaDonChiTiet).orElseThrow(() -> new BadRequestException("Sản phẩm không tồn tại trong giỏ"));
 
             List<IMEI> imeis = imeiRepository.findByInvoiceDetail(detail);
 
@@ -304,8 +293,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 });
 
         // 2. Tìm sản phẩm
-        ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId())
-                .orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
+        ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
 
         // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
         CartItem cartItem = cartItemRepository.findByCartAndProductDetail(cart, productDetail)
@@ -342,8 +330,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             throw new BadRequestException("ID hóa đơn không được để trống");
         }
 
-        Invoice hoaDonToUpdate = adTaoHoaDonRepository.findById(id.getIdHD())
-                .orElseThrow(() -> new BadRequestException("Hóa đơn không tồn tại"));
+        Invoice hoaDonToUpdate = adTaoHoaDonRepository.findById(id.getIdHD()).orElseThrow(() -> new BadRequestException("Hóa đơn không tồn tại"));
 
         // 2. Xử lý Voucher (Nếu có)
         if (id.getIdPGG() != null && !id.getIdPGG().trim().isEmpty()) {
@@ -386,8 +373,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             adTaoHoaDonRepository.save(hoaDonToUpdate);
 
             // 7. Ghi lịch sử
-            createStatusHistory(hoaDonToUpdate, EntityTrangThaiHoaDon.CHO_XAC_NHAN,
-                    "Khách đặt đơn Online (" + (id.getLoaiHoaDon().equals("GIAO_HANG") ? "Giao tận nơi" : "Nhận tại cửa hàng") + ")");
+            createStatusHistory(hoaDonToUpdate, EntityTrangThaiHoaDon.CHO_XAC_NHAN, "Khách đặt đơn Online (" + (id.getLoaiHoaDon().equals("GIAO_HANG") ? "Giao tận nơi" : "Nhận tại cửa hàng") + ")");
 
             // 8. Ghi lịch sử thanh toán (Nếu là chuyển khoản)
             if ("1".equals(id.getPhuongThucThanhToan())) {
@@ -494,10 +480,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         for (Voucher v : vouchers) {
             if (tongTien.compareTo(v.getConditions()) >= 0) {
                 BigDecimal giam = tinhGiam(v, tongTien);
-                apDung.add(new ClientApplicableVoucherResponse(
-                        v.getId(), v.getCode(), v.getTypeVoucher(), v.getDiscountValue(),
-                        v.getMaxValue(), v.getConditions(), giam, tongTien.subtract(giam)
-                ));
+                apDung.add(new ClientApplicableVoucherResponse(v.getId(), v.getCode(), v.getTypeVoucher(), v.getDiscountValue(), v.getMaxValue(), v.getConditions(), giam, tongTien.subtract(giam)));
             } else {
                 BigDecimal canMua = v.getConditions().subtract(tongTien);
             }
@@ -512,9 +495,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     }
 
     private BigDecimal tinhGiam(Voucher v, BigDecimal tongTien) {
-        BigDecimal giam = v.getTypeVoucher() == TypeVoucher.PERCENTAGE
-                ? tongTien.multiply(v.getDiscountValue()).divide(BigDecimal.valueOf(100))
-                : v.getDiscountValue();
+        BigDecimal giam = v.getTypeVoucher() == TypeVoucher.PERCENTAGE ? tongTien.multiply(v.getDiscountValue()).divide(BigDecimal.valueOf(100)) : v.getDiscountValue();
         if (v.getMaxValue() != null) giam = giam.min(v.getMaxValue());
         return giam.min(tongTien);
     }
@@ -522,13 +503,9 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     @Transactional
     public ResponseObject<?> tangSoLuongSanPham(String idHDCT) {
-        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
+        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT).orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
 
-        List<IMEI> availableImeis = imeiRepository.findByProductDetailAndImeiStatus(
-                detail.getProductDetail(),
-                ImeiStatus.AVAILABLE
-        );
+        List<IMEI> availableImeis = imeiRepository.findByProductDetailAndImeiStatus(detail.getProductDetail(), ImeiStatus.AVAILABLE);
 
         if (availableImeis.isEmpty()) {
             throw new BusinessException("Sản phẩm đã hết hàng trong kho!");
@@ -550,8 +527,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Transactional
     @Override
     public ResponseObject<?> giamSoLuongSanPham(String idHDCT) {
-        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT)
-                .orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
+        InvoiceDetail detail = invoiceDetailRepository.findById(idHDCT).orElseThrow(() -> new BusinessException("Không tìm thấy dòng sản phẩm"));
 
         if (detail.getQuantity() <= 1) {
             return xoaSanPhamKhoiGioHang(idHDCT);
@@ -579,7 +555,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         Long currentTime = System.currentTimeMillis();
 
         return ResponseObject.successForward(
-                clientBanHangSanPhamChiTiet.findProductDetailCartResponseByIdIn(ids, currentTime),
+                productDetailRepository.findProductDetailCartResponseByIdIn(ids, currentTime),
                 "OKE"
         );
     }

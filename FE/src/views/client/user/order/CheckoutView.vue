@@ -4,7 +4,7 @@ import {
   CashOutline,
   LocationOutline,
   StorefrontOutline,
-  TicketOutline
+  TicketOutline,
 } from '@vicons/ionicons5'
 import {
   NButton,
@@ -24,7 +24,8 @@ import { useRouter } from 'vue-router'
 
 // Import Store & API
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { CartItemResponse, createOrder, GetGioHang, getMaGiamGia, getProductDetailCart } from '@/service/api/client/banhang.api'
+import type { CartItemResponse } from '@/service/api/client/banhang.api'
+import { createOrder, GetGioHang, getMaGiamGia, getProductDetailCart } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
 import { CartStore } from '@/utils/cartStore'
 
@@ -62,16 +63,18 @@ async function loadCart() {
   if (cartId.value) {
     const res = await GetGioHang(cartId.value as string)
     cartItems.value = res.data
-  } else {
+  }
+  else {
     const cartItem = localStorageAction.get(CUSTOMER_CART_ITEM)
-    if (!cartItem) return;
+    if (!cartItem)
+      return
 
     const res = await getProductDetailCart(Object.keys(cartItem))
     cartItems.value = res.data.map(productDetail => ({
       ...productDetail,
-      id: "",
+      id: '',
       productDetailId: productDetail.id,
-      quantity: cartItem[productDetail.id]
+      quantity: cartItem[productDetail.id],
     })) || []
   }
 
@@ -220,7 +223,8 @@ async function handleCheckout() {
                 <div
                   class="flex-1 p-3 border rounded cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'GIAO_HANG' ? 'border-red-500 bg-red-50 text-red-700 font-bold ring-1 ring-red-500' : 'hover:bg-gray-50'"
-                  @click="deliveryType = 'GIAO_HANG'">
+                  @click="deliveryType = 'GIAO_HANG'"
+                >
                   <NIcon>
                     <LocationOutline />
                   </NIcon> Giao tận nơi
@@ -228,7 +232,8 @@ async function handleCheckout() {
                 <div
                   class="flex-1 p-3 border rounded cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-gray-50'"
-                  @click="deliveryType = 'TAI_QUAY'">
+                  @click="deliveryType = 'TAI_QUAY'"
+                >
                   <NIcon>
                     <StorefrontOutline />
                   </NIcon> Nhận tại cửa hàng
@@ -238,10 +243,14 @@ async function handleCheckout() {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <NInput v-model:value="customerInfo.ten" placeholder="Họ và tên người nhận (*)" />
                 <NInput v-model:value="customerInfo.sdt" placeholder="Số điện thoại (*)" />
-                <NInput v-if="deliveryType === 'GIAO_HANG'" v-model:value="customerInfo.diaChi"
-                  placeholder="Địa chỉ chi tiết (Số nhà, đường...)" class="md:col-span-2" />
-                <NInput v-model:value="customerInfo.ghiChu" type="textarea" placeholder="Ghi chú đơn hàng"
-                  class="md:col-span-2" />
+                <NInput
+                  v-if="deliveryType === 'GIAO_HANG'" v-model:value="customerInfo.diaChi"
+                  placeholder="Địa chỉ chi tiết (Số nhà, đường...)" class="md:col-span-2"
+                />
+                <NInput
+                  v-model:value="customerInfo.ghiChu" type="textarea" placeholder="Ghi chú đơn hàng"
+                  class="md:col-span-2"
+                />
               </div>
             </NCard>
 
@@ -279,8 +288,10 @@ async function handleCheckout() {
             </h3>
 
             <div class="space-y-3 mb-4 max-h-[300px] overflow-y-auto pr-1">
-              <div v-for="item in cartItems" :key="item.productDetailId"
-                class="flex justify-between text-sm py-2 border-b border-dashed">
+              <div
+                v-for="item in cartItems" :key="item.productDetailId"
+                class="flex justify-between text-sm py-2 border-b border-dashed"
+              >
                 <div class="flex-1 pr-2">
                   <div class="font-medium line-clamp-2">
                     {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
@@ -305,10 +316,12 @@ async function handleCheckout() {
                   <TicketOutline />
                 </NIcon> Mã ưu đãi
               </div>
-              <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
+              <NSelect
+                v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
                 value-field="voucherId" placeholder="Chọn mã giảm giá" clearable
                 :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
-                @update:value="handleSelectVoucher" />
+                @update:value="handleSelectVoucher"
+              />
             </div>
 
             <div class="space-y-2 text-sm text-gray-600 bg-gray-50 p-3 rounded">
@@ -335,9 +348,11 @@ async function handleCheckout() {
               <span class="font-bold text-2xl text-red-600">{{ formatCurrency(finalTotal) }}</span>
             </div>
 
-            <NButton block type="primary" color="#d70018" size="large"
+            <NButton
+              block type="primary" color="#d70018" size="large"
               class="font-bold h-12 text-lg mt-4 shadow-lg shadow-red-200" :loading="processing"
-              @click="handleCheckout">
+              @click="handleCheckout"
+            >
               ĐẶT HÀNG NGAY
             </NButton>
           </div>
