@@ -1,7 +1,7 @@
 // API Voucher
 import type { DefaultResponse } from '@/typings/api/api.common'
 import request from '@/service/request'
-import { API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
+import { API_ADMIN_CUSTOMERS, API_ADMIN_DISCOUNTS_VOUCHER } from '@/constants/url'
 import axios from 'axios'
 import type { Customer } from '@/service/api/admin/users/customer/customer'
 
@@ -166,4 +166,23 @@ export async function getVoucherCustomers(voucherId: string, onlyUsed = false): 
 export function changeStatusVoucher(id: string) {
   // Method PATCH như backend yêu cầu
   return request.patch(`${API_ADMIN_DISCOUNTS_VOUCHER}/${id}/status`)
+}
+
+// customer
+export interface CustomerHistoryResponse {
+  id: string
+  customerName: string
+  customerPhone: string
+  customerAvatar?: string
+  lastOrderDate: number // Timestamp
+  lastOrderValue: number
+}
+
+/* === THÊM MỚI: Hàm gọi API lọc theo lịch sử === */
+export function getCustomersSortedByLastOrder(params: { page: number, size: number, keyword?: string }) {
+  return request({
+    url: `${API_ADMIN_CUSTOMERS}/loc-theo-lshd`, // Đường dẫn tới Controller bạn vừa viết
+    method: 'GET',
+    params,
+  })
 }
