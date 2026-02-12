@@ -133,7 +133,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL) AND d.status=0
+                  AND ((pdd.id IN :idProductDetailDiscount AND d.status=0) OR d.id IS NULL)
             GROUP BY     p.id,
                          p.code,
                          p.name,
@@ -165,7 +165,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                  AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL) AND d.status=0
+                    AND ((pdd.id IN :idProductDetailDiscount AND d.status=0) OR d.id IS NULL)
             GROUP BY     p.id,
                          p.code,
                          p.name,
@@ -196,30 +196,10 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             , p.product.id as idProduct
             , p.price as price
             , p.ram.id as idRAM
-            , p.urlImage as urlImage
-            , p.product.name as productName
-            , p.cpu.name as cpuName
-            , p.ram.name as ramName
-            , p.hardDrive.name as hardDriveName
-            , p.color.name as colorName
-            , MAX(d.percentage) as percentage
-            , MAX(d.endDate) as endDate
         FROM ProductDetail p
-        LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id
-        LEFT JOIN Discount d ON pdd.discount.id = d.id
-            AND d.startDate <= :currentTime
-            AND d.endDate >= :currentTime
-            AND d.status = 0
-        WHERE p.id = :id AND d.status=0
-        GROUP BY
-            p.id, p.code, p.name, p.description, 
-            p.hardDrive.id, p.material.id, p.color.id, 
-            p.gpu.id, p.cpu.id, p.product.id, p.price, 
-            p.ram.id, p.urlImage, 
-            p.product.name, p.cpu.name, p.ram.name, 
-            p.hardDrive.name, p.color.name
+        WHERE p.id = :id
     """)
-    Optional<ADPDProductDetailDetailResponse> getProductById(@Param("id") String id, @Param("currentTime") Long currentTime);
+    Optional<ADPDProductDetailDetailResponse> getProductById(@Param("id") String id);
 
     Optional<ProductDetail> findByCode(String code);
 
