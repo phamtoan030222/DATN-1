@@ -8,6 +8,7 @@ import { ACCESS_TOKEN_STORAGE_KEY, CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, REFRESH
 interface AuthStatus {
   userInfo: Api.Login.Info | null;
   token: string;
+  userInfoDatn: Entity.UserInformation | null;
 }
 
 export const useAuthStore = defineStore("auth-store", {
@@ -15,6 +16,7 @@ export const useAuthStore = defineStore("auth-store", {
     return {
       userInfo: local.get("userInfo"),
       token: local.get("accessToken") || "",
+      userInfoDatn: localStorageAction.get(USER_INFO_STORAGE_KEY) || null,
     };
   },
   getters: {

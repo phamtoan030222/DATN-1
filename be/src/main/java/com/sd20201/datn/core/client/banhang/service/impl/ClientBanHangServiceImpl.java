@@ -58,7 +58,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,7 +100,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientBanHangCartItemRepository cartItemRepository;
 
     private final CustomerRepository customerRepository;
-    private final ClientBanHangSanPhamChiTiet clientBanHangSanPhamChiTiet;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -139,10 +140,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             // Lưu hóa đơn trước để có ID
             invoice = invoiceRepository.save(invoice);
 
-            // 2. Xử lý danh sách sản phẩm (Từ LocalStorage gửi lên)
-            List<InvoiceDetail> details = new ArrayList<>();
-            List<IMEI> imeisToUpdate = new ArrayList<>();
-
             for (ClientProductItemRequest item : request.getProducts()) {
 
                 // a. Tìm thông tin sản phẩm trong DB
@@ -157,12 +154,16 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 // Tính tổng tiền dòng này (để lưu DB cho chắc)
                 detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 
-                detail = invoiceDetailRepository.save(detail);
-                details.add(detail);
-            }
+                detail = invoiceDetailRepository.saveAndFlush(detail);
 
-            // Lưu cập nhật tất cả IMEI 1 lần (Batch update)
-            imeiRepository.saveAll(imeisToUpdate);
+                List<String> imeiIds = imeiRepository.findIdsAvailableImei(
+                        item.getProductDetailId(),
+                        ImeiStatus.AVAILABLE,
+                        PageRequest.of(0, item.getQuantity())
+                );
+
+                imeiRepository.updateImeiStatusIdIn(imeiIds, ImeiStatus.RESERVED, detail.getId());
+            }
 
             // 3. Ghi log lịch sử trạng thái
             LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
@@ -554,7 +555,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         Long currentTime = System.currentTimeMillis();
 
         return ResponseObject.successForward(
-                clientBanHangSanPhamChiTiet.findProductDetailCartResponseByIdIn(ids, currentTime),
+                productDetailRepository.findProductDetailCartResponseByIdIn(ids, currentTime),
                 "OKE"
         );
     }
