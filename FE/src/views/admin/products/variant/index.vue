@@ -73,8 +73,6 @@ async function fetchProductDetails() {
 
   state.data.productDetails = res.data.data
   state.pagination.totalPages = res.data.totalPages
-
-  getMinMaxPriceProduct()
 }
 
 async function fetchComboboxProperties() {
@@ -118,7 +116,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     key: 'orderNumber',
     width: 50,
     fixed: 'left',
-    render: (data: ADProductDetailResponse, index: number) => {
+    render: (_, index: number) => {
       return h('span', { innerText: index + 1 })
     },
   },
@@ -221,8 +219,8 @@ onMounted(async () => {
 })
 
 async function initSearchPrice() {
-  const res = await getMinMaxPrice()
-  state.search.price = [res.data.priceMin as number, res.data.priceMax as number]
+  await getMinMaxPriceProduct()
+  state.search.price = [stateMinMaxPrice.priceMin as number, stateMinMaxPrice.priceMax as number]
 }
 
 const isOpenModal = ref<boolean>(false)
@@ -242,7 +240,8 @@ function closeModal() {
 }
 
 function handleSuccessModifyModal() {
-  fetchProductDetails()
+  initSearchPrice()
+  // sẽ tự động fetch data do đã có watch giá min max
   closeModal()
 }
 

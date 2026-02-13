@@ -175,6 +175,16 @@ export async function modifyProductDetail(data: ADProductDetailCreateUpdateReque
   return res.data
 }
 
+export async function updateProductDetail(data: ADProductDetailCreateUpdateRequest) {
+  const res = (await request({
+    url: `${API_ADMIN_PRODUCT_DETAIL}`,
+    method: 'PUT',
+    data,
+  })) as AxiosResponse<DefaultResponse<ADProductDetailResponse>>
+
+  return res.data
+}
+
 export async function createProductVariant(
   idProduct: string,
   variant: ADProductDetailCreateUpdateRequest,
