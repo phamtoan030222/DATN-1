@@ -68,8 +68,9 @@ const state = reactive({
 const dateRange = ref<[number, number] | null>(null)
 
 function setTodayWithDayjs() {
-  const startOfDay = dayjs().startOf('day').valueOf()
-  const endOfDay = dayjs().endOf('day').valueOf()
+  const today = dayjs()
+  const startOfDay = today.startOf('day').valueOf()  // 00:00:00
+  const endOfDay = today.endOf('day').valueOf()      // 23:59:59
 
   dateRange.value = [startOfDay, endOfDay]
 }
