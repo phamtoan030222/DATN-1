@@ -35,14 +35,14 @@ const processing = ref(false)
 
 // Data
 const cartItems = ref<CartItemResponse[]>([])
-const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY)
+const userInfo = ref<Entity.UserInformation | null>(null)
 
 // Form Info
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
 const customerInfo = ref({
-  ten: userInfo?.ten || '',
-  sdt: userInfo?.sdt || '',
+  ten: userInfo?.value?.fullName || '',
+  sdt: userInfo?.value?.phone || '',
   diaChi: '',
   ghiChu: '',
 })
@@ -55,6 +55,7 @@ const availableVouchers = ref<any[]>([])
 const discountAmount = ref(0) // Số tiền được giảm
 
 onMounted(() => {
+  userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
   loadCart()
 })
 
@@ -112,7 +113,7 @@ async function loadVouchers() {
     const res: any = await getMaGiamGia({
       invoiceId: '', // Gửi rỗng vì chưa có hóa đơn
       tongTien: subTotal.value,
-      customerId: userInfo?.id || null,
+      customerId: userInfo?.value?.userId || null,
     })
 
     // Xử lý dữ liệu trả về (Tùy backend trả về cấu trúc nào)
