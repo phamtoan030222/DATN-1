@@ -1,7 +1,7 @@
 <template>
   <div class="container mx-auto px-4 py-6 space-y-6">
-    <!-- Header -->
-    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+    <!-- Header - Ẩn khi in -->
+    <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 no-print">
       <div>
         <h1 class="text-2xl lg:text-3xl font-bold text-gray-900">Hóa đơn #{{ invoiceCode }}</h1>
         <div class="flex flex-wrap items-center gap-2 mt-2">
@@ -43,8 +43,175 @@
       </div>
     </div>
 
+    <!-- Nội dung hóa đơn - Ẩn đi, chỉ dùng để tạo PDF -->
+    <div id="invoice-content" class="hidden">
+      <!-- Toàn bộ nội dung hóa đơn được copy từ phần in ấn -->
+      <div class="invoice-paper bg-white text-black p-8 md:p-12">
+        <!-- Header hóa đơn -->
+        <div class="flex justify-between items-start mb-10">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <img src="@/assets/svg-icons/logo.svg" class="w-8 h-8" alt="logo">
+              <span class="text-2xl font-bold tracking-widest text-gray-900">My Laptop</span>
+            </div>
+            <div class="text-xs text-gray-500 space-y-1">
+              <p>123 Đại Cồ Việt, Hai Bà Trưng, Hà Nội</p>
+              <p>Website: mylaptop.vn | Hotline: 1900.8888</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <h2 class="text-xl font-bold uppercase text-gray-800">
+              Hóa Đơn
+            </h2>
+            <p class="text-sm font-bold text-gray-600 mt-1">
+              Mã: {{ hoaDonData?.maHoaDon || invoiceCode }}
+            </p>
+            <p class="text-sm text-gray-500">
+              Ngày: {{ formatDateTime(hoaDonData?.ngayTao) }}
+            </p>
+          </div>
+        </div>
+
+        <NDivider class="border-dashed my-6" />
+
+        <!-- Thông tin khách hàng và đơn hàng -->
+        <div class="grid grid-cols-2 gap-8 mb-8 text-sm">
+          <div>
+            <h3 class="font-bold text-gray-400 uppercase text-[15px] mb-3 tracking-wider">
+              Khách hàng
+            </h3>
+            <p class="font-bold text-gray-900 text-base mb-1">
+              {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}
+            </p>
+            <p class="text-gray-600 mb-1">
+              {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}
+            </p>
+            <p class="text-gray-600 leading-relaxed">
+              {{ formatAddressCustomer(hoaDonData?.diaChi) || formatAddressCustomer(hoaDonData?.diaChi2) || 'Không có địa chỉ' }}
+            </p>
+          </div>
+
+          <div class="text-right">
+            <h3 class="font-bold text-gray-400 uppercase text-[15px] mb-3 tracking-wider">
+              Thông tin đơn hàng
+            </h3>
+            <div class="space-y-1.5 text-gray-600">
+              <p>Nhân viên: <span class="text-gray-900 font-medium">{{ hoaDonData?.tenNhanVien || 'Không xác định' }}</span></p>
+              <p>Vận chuyển: <span class="text-gray-900 font-medium">{{ getShippingMethodText(hoaDonData?.phuongThucVanChuyen) }}</span></p>
+              <p>Thanh toán: <span class="text-gray-900 font-medium">{{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</span></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bảng sản phẩm -->
+        <table class="w-full text-sm mb-6">
+          <thead>
+            <tr class="bg-gray-50 border-y border-gray-200 text-gray-500 text-xs uppercase">
+              <th class="py-3 text-left pl-2 font-semibold">
+                Sản phẩm
+              </th>
+              <th class="py-3 text-center font-semibold w-16">
+                SL
+              </th>
+              <th class="py-3 text-right font-semibold w-28">
+                Đơn giá
+              </th>
+              <th class="py-3 text-right font-semibold w-32 pr-2">
+                Thành tiền
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-for="item in printProducts" :key="item.id + (item.imeiCode || '')">
+              <td class="py-4 pl-2 align-top">
+                <p class="font-bold text-gray-800 text-[15px]">
+                  {{ item.tenSanPham }}
+                </p>
+                <p class="text-[11px] text-gray-500 mt-1 italic">
+                  <span v-if="item.thuongHieu">{{ item.thuongHieu }} | </span>
+                  <span v-if="item.mauSac">{{ item.mauSac }} | </span>
+                  <span v-if="item.imeiCode">Serial: {{ item.imeiCode }}</span>
+                  <span v-else-if="!item.imeiCode && item.danhSachImei && parseIMEIList(item.danhSachImei).length === 0">Không có Serial</span>
+                </p>
+              </td>
+              <td class="py-4 text-center align-top text-gray-600 font-medium">
+                {{ item.soLuongImei || item.soLuong }}
+              </td>
+              <td class="py-4 text-right align-top text-gray-600">
+                {{ formatCurrency(item.giaBanImei || item.giaBan) }}
+              </td>
+              <td class="py-4 text-right align-top font-bold text-gray-900 pr-2">
+                {{ formatCurrency(item.tongTienImei || item.tongTien) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Tổng hợp thanh toán -->
+        <div class="flex justify-end">
+          <div class="w-2/3 md:w-1/2 space-y-2 text-right">
+            <div class="flex justify-between text-sm text-gray-600">
+              <span>Tổng tiền hàng:</span>
+              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+            </div>
+
+            <div v-if="hoaDonData?.phiVanChuyen && hoaDonData.phiVanChuyen > 0" class="flex justify-between text-sm text-gray-600">
+              <span>Phí vận chuyển:</span>
+              <span>+ {{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+            </div>
+
+            <div v-if="hoaDonData?.giaTriVoucher && hoaDonData.giaTriVoucher > 0" class="py-2 my-1 border-y border-dashed border-gray-100">
+              <div class="flex justify-between text-sm text-green-600 mb-1">
+                <span>Ưu đãi ({{ hoaDonData?.tenVoucher || 'Voucher' }}):</span>
+                <span>- {{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
+              </div>
+              <div v-if="hoaDonData?.maVoucher" class="flex justify-between text-xs text-gray-400 italic">
+                <span>Mã áp dụng:</span>
+                <span>{{ hoaDonData.maVoucher }}</span>
+              </div>
+            </div>
+
+            <div class="flex justify-between text-sm text-gray-600">
+              <span>Thuế (VAT 0%):</span>
+              <span>{{ formatCurrency(0) }}</span>
+            </div>
+
+            <NDivider class="my-3 bg-gray-800" />
+
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-gray-800 uppercase text-sm">Tổng thanh toán:</span>
+              <span class="text-2xl font-extrabold text-indigo-700">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
+            </div>
+
+            <div v-if="hoaDonData?.duNo && hoaDonData.duNo > 0" class="flex justify-between text-sm text-orange-600 mt-2">
+              <span>Còn nợ:</span>
+              <span class="font-bold">{{ formatCurrency(hoaDonData.duNo) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Ghi chú -->
+        <div v-if="hoaDonData?.ghiChu" class="mt-6 p-4 bg-gray-50 rounded-lg">
+          <p class="text-sm text-gray-600"><span class="font-bold">Ghi chú:</span> {{ hoaDonData.ghiChu }}</p>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-16 pt-8 text-center border-t border-gray-100">
+          <p class="font-bold text-gray-800">
+            Cảm ơn quý khách đã tin tưởng My Laptop Store!
+          </p>
+          <p class="text-[10px] text-gray-400 mt-1">
+            Sản phẩm được bảo hành chính hãng. Vui lòng giữ lại hóa đơn này để bảo hành.
+          </p>
+          <p class="text-[10px] text-gray-400 mt-1">
+            Hóa đơn được tạo lúc {{ formatTime(hoaDonData?.ngayTao) }}
+          </p>
+        </div>
+      </div>
+    </div>
+
     <!-- Progress Timeline -->
-    <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
+    <NCard class="shadow-sm border-0 rounded-xl no-print" content-class="p-6">
       <template #header>
         <div class="flex items-center justify-between">
           <h3 class="text-lg font-semibold text-gray-900">Tiến trình đơn hàng</h3>
@@ -64,26 +231,38 @@
       </template>
 
       <div class="relative">
-        <!-- Progress bar -->
-        <div class="absolute top-5 left-0 right-0 h-1.5 bg-gray-200 rounded-full z-0"></div>
-        <div class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10" :style="{ width: progressWidth }"></div>
+        <!-- Progress bar (ẩn khi loaiHoaDon = 0) -->
+        <template v-if="hoaDonData?.loaiHoaDon !== '0'">
+          <div class="absolute top-5 left-0 right-0 h-1.5 bg-gray-200 rounded-full z-0"></div>
+          <div
+            class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10"
+            :style="{ width: progressWidth }">
+          </div>
+        </template>
 
         <!-- Steps -->
         <div class="relative flex justify-between z-20">
-          <div v-for="(step, index) in timelineSteps" :key="step.key" class="flex flex-col items-center w-1/5"
-            :class="{ 'cursor-pointer': isStepSelectable(step.key) }" @click="handleStepClick(step.key)">
-
+          <div
+            v-for="(step, index) in filteredSteps"
+            :key="step.key"
+            class="flex flex-col items-center flex-1"
+            :class="{ 'cursor-pointer': isStepSelectable(step.key) }"
+            @click="handleStepClick(step.key)"
+          >
             <!-- Step circle -->
             <div
               class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110"
-              :class="getStepCircleClass(step.key)">
+              :class="getStepCircleClass(step.key)"
+            >
               <n-icon size="18" :class="getStepIconClass(step.key)">
                 <component :is="step.icon" />
               </n-icon>
 
               <!-- Completed check -->
-              <div v-if="isStepCompleted(step.key)"
-                class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
+              <div
+                v-if="isStepCompleted(step.key)"
+                class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow"
+              >
                 <n-icon size="14" color="white">
                   <CheckmarkCircleOutline />
                 </n-icon>
@@ -152,7 +331,7 @@
     </NCard>
 
     <!-- Main Information Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
       <!-- Customer Information -->
       <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
         <template #header>
@@ -206,8 +385,7 @@
             <div>
               <p class="text-sm text-gray-600 mb-1">Địa chỉ giao hàng:</p>
               <p class="text-sm font-medium text-gray-900 bg-gray-50 p-3 rounded">
-                {{ formatAddressCustomer(hoaDonData?.diaChi) || formatAddressCustomer(hoaDonData?.diaChi2) || 'Không có địa chỉ'
-                }}
+                {{ formatAddressCustomer(hoaDonData?.diaChi) || formatAddressCustomer(hoaDonData?.diaChi2) || 'Không có địa chỉ' }}
               </p>
             </div>
           </div>
@@ -393,7 +571,7 @@
     </div>
 
     <!-- Products Table -->
-    <NCard class="shadow-sm border-0 rounded-xl overflow-hidden">
+    <NCard class="shadow-sm border-0 rounded-xl overflow-hidden no-print">
       <template #header>
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2">
@@ -454,7 +632,7 @@
     </NCard>
 
     <!-- Notes & Actions -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
       <!-- System Information -->
       <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
         <template #header>
@@ -502,11 +680,10 @@
           </div>
         </div>
       </NCard>
-
     </div>
 
     <!-- Status Update Modal -->
-    <NModal v-model:show="showStatusModal" preset="dialog" title="Cập nhật trạng thái hóa đơn">
+    <NModal v-model:show="showStatusModal" preset="dialog" title="Cập nhật trạng thái hóa đơn" class="no-print">
       <template #header>
         <div class="flex items-center gap-2">
           <n-icon size="20" color="#3b82f6">
@@ -563,7 +740,7 @@
 
     <!-- Modal chọn serial -->
     <NModal v-model:show="showSerialModal" preset="dialog" title="Chọn Serial Sản Phẩm"
-      style="width: 90%; max-width: 1200px" :mask-closable="false">
+      style="width: 90%; max-width: 1200px" :mask-closable="false" class="no-print">
       <NCard size="small" :bordered="false">
         <template #header>
           <NSpace align="center" justify="space-between" class="serial-modal-header">
@@ -629,7 +806,6 @@
         </template>
       </NCard>
     </NModal>
-
   </div>
 </template>
 
@@ -658,8 +834,10 @@ import {
   NForm,
   NGrid,
   NGi,
+  NDivider,
   type FormInst,
-  type FormRules
+  type FormRules,
+  useDialog
 } from 'naive-ui'
 import { 
   getHoaDonChiTiets, 
@@ -704,6 +882,7 @@ import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
+const dialog = useDialog()
 const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
 
 // Các interface
@@ -719,6 +898,12 @@ interface HoaDonData {
   sdtKH?: string
   email?: string
   diaChi?: string
+  tenKhachHang2?: string
+  sdtKH2?: string
+  email2?: string
+  diaChi2?: string
+  tenNhanVien?: string
+  phuongThucVanChuyen?: string
 }
 
 // Component setup
@@ -890,7 +1075,7 @@ const saveCustomerInfo = () => {
         showCustomerModal.value = false
 
         // Show success message
-        window.$message?.success('Cập nhật thông tin khách hàng thành công')
+        message.success('Cập nhật thông tin khách hàng thành công')
       }, 500)
     }
   })
@@ -1089,6 +1274,39 @@ const displayProducts = computed(() => {
   }
 })
 
+// Dữ liệu cho in ấn
+const printProducts = computed(() => {
+  const result: any[] = []
+  
+  invoiceItems.value.forEach((item) => {
+    const imeiList = parseIMEIList(item.danhSachImei)
+    
+    if (imeiList.length > 0) {
+      // Nếu có serial, hiển thị từng serial
+      imeiList.forEach((imei) => {
+        result.push({
+          ...item,
+          imeiCode: imei.code || imei.imeiCode,
+          soLuongImei: 1,
+          giaBanImei: item.giaBan,
+          tongTienImei: item.giaBan
+        })
+      })
+    } else {
+      // Nếu không có serial, hiển thị sản phẩm gộp
+      result.push({
+        ...item,
+        imeiCode: null,
+        soLuongImei: item.soLuong,
+        giaBanImei: item.giaBan,
+        tongTienImei: item.tongTien
+      })
+    }
+  })
+  
+  return result
+})
+
 // Progress
 const progressWidth = computed(() => {
   const currentStep = currentStatus.value
@@ -1148,6 +1366,14 @@ const availableStatusOptions = computed<SelectOption[]>(() => {
   return options
 })
 
+const filteredSteps = computed(() => {
+  if (hoaDonData.value?.loaiHoaDon === '0') {
+    // chỉ giữ step hoàn thành (đổi key nếu của bạn khác)
+    return timelineSteps.filter(step => step.key === '4')
+  }
+  return timelineSteps
+})
+
 // Timeline steps
 const timelineSteps = [
   { key: '0', title: 'Chờ xác nhận', icon: TimeOutline, color: 'yellow' },
@@ -1179,6 +1405,20 @@ const formatDateTime = (timestamp: number | undefined): string => {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+    })
+  } catch {
+    return "N/A"
+  }
+}
+
+const formatTime = (timestamp: number | undefined): string => {
+  if (!timestamp) return "N/A"
+  try {
+    const date = new Date(timestamp)
+    return date.toLocaleString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
     })
   } catch {
     return "N/A"
@@ -1269,6 +1509,16 @@ const getPaymentMethodText = (method: string | undefined): string => {
     'CREDIT_CARD': 'Thẻ tín dụng',
     'MOMO': 'Ví MoMo',
     'ZALOPAY': 'Ví ZaloPay'
+  }
+  return methodMap[method] || method
+}
+
+const getShippingMethodText = (method: string | undefined): string => {
+  if (!method) return 'Giao hàng tiêu chuẩn'
+  const methodMap: Record<string, string> = {
+    'STANDARD': 'Giao hàng tiêu chuẩn',
+    'EXPRESS': 'Giao hàng nhanh',
+    'ECONOMY': 'Giao hàng tiết kiệm'
   }
   return methodMap[method] || method
 }
@@ -1441,7 +1691,7 @@ const productColumns = computed<DataTableColumns>(() => {
 
         return h('div', { class: 'space-y-1' }, [
           h('div', {
-            class: 'font-mono font-bold text-center text-gray-800 text-sm p-1 bg-gray-50 rounded border'
+            class: 'font-mono font-bold text-center text-gray-800 text-sm p-1 bg-gray-50 rounded'
           }, row.imeiCode),
         
         ])
@@ -1521,7 +1771,7 @@ async function selectProductForSerial(productItem: HoaDonChiTietItem) {
   // Kiểm tra nếu sản phẩm đã có serial đầy đủ
   const existingImeis = parseIMEIList(productItem.danhSachImei)
   if (existingImeis.length >= productItem.soLuong) {
-    window.$dialog?.info({
+    dialog.info({
       title: 'Thông báo',
       content: `Sản phẩm này đã có đủ ${existingImeis.length} serial.`,
       positiveText: 'Đóng',
@@ -1640,13 +1890,164 @@ const handleStepClick = (stepKey: string): void => {
   showStatusModal.value = true
 }
 
+// Hàm xử lý in hóa đơn - Mở cửa sổ mới hiển thị nội dung hóa đơn
 function handlePrint() {
-  if (!hoaDonData.value)
+  if (!hoaDonData.value) return
+  
+  printLoading.value = true
+  
+  // Lấy nội dung hóa đơn từ element ẩn
+  const invoiceContent = document.getElementById('invoice-content')
+  if (!invoiceContent) {
+    message.error('Không tìm thấy nội dung hóa đơn')
+    printLoading.value = false
     return
-  const originalTitle = document.title
-  document.title = `${hoaDonData.value.maHoaDon}`
-  window.print()
-  document.title = originalTitle
+  }
+
+  // Tạo cửa sổ mới
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    message.error('Trình duyệt đã chặn cửa sổ popup. Vui lòng cho phép popup và thử lại.')
+    printLoading.value = false
+    return
+  }
+
+  // Lấy nội dung HTML từ invoiceContent
+  const contentHTML = invoiceContent.innerHTML
+
+  // Tạo CSS cho in ấn
+  const printStyles = `
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: 'Roboto', 'Helvetica', 'Arial', sans-serif;
+        background: white;
+        color: black;
+        padding: 20px;
+        margin: 0;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .invoice-paper {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        color: black;
+        padding: 30px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        border-radius: 8px;
+      }
+      .text-gray-900 { color: #111827; }
+      .text-gray-800 { color: #1f2937; }
+      .text-gray-600 { color: #4b5563; }
+      .text-gray-500 { color: #6b7280; }
+      .text-gray-400 { color: #9ca3af; }
+      .text-indigo-700 { color: #4338ca; }
+      .text-orange-600 { color: #ea580c; }
+      .text-green-600 { color: #16a34a; }
+      .bg-gray-50 { background-color: #f9fafb; }
+      .bg-gray-100 { background-color: #f3f4f6; }
+      .border-gray-100 { border-color: #f3f4f6; }
+      .border-gray-200 { border-color: #e5e7eb; }
+      .border-gray-800 { border-color: #1f2937; }
+      .border-dashed { border-style: dashed; }
+      .rounded-lg { border-radius: 0.5rem; }
+      .font-bold { font-weight: 700; }
+      .font-semibold { font-weight: 600; }
+      .font-medium { font-weight: 500; }
+      .uppercase { text-transform: uppercase; }
+      .tracking-wider { letter-spacing: 0.05em; }
+      .tracking-widest { letter-spacing: 0.1em; }
+      .text-xs { font-size: 0.75rem; }
+      .text-sm { font-size: 0.875rem; }
+      .text-base { font-size: 1rem; }
+      .text-lg { font-size: 1.125rem; }
+      .text-xl { font-size: 1.25rem; }
+      .text-2xl { font-size: 1.5rem; }
+      .italic { font-style: italic; }
+      .text-left { text-align: left; }
+      .text-center { text-align: center; }
+      .text-right { text-align: right; }
+      .mb-1 { margin-bottom: 0.25rem; }
+      .mb-2 { margin-bottom: 0.5rem; }
+      .mb-3 { margin-bottom: 0.75rem; }
+      .mb-4 { margin-bottom: 1rem; }
+      .mb-6 { margin-bottom: 1.5rem; }
+      .mb-8 { margin-bottom: 2rem; }
+      .mb-10 { margin-bottom: 2.5rem; }
+      .mt-1 { margin-top: 0.25rem; }
+      .mt-2 { margin-top: 0.5rem; }
+      .mt-4 { margin-top: 1rem; }
+      .mt-6 { margin-top: 1.5rem; }
+      .mt-16 { margin-top: 4rem; }
+      .my-1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
+      .my-3 { margin-top: 0.75rem; margin-bottom: 0.75rem; }
+      .my-6 { margin-top: 1.5rem; margin-bottom: 1.5rem; }
+      .p-4 { padding: 1rem; }
+      .p-8 { padding: 2rem; }
+      .px-4 { padding-left: 1rem; padding-right: 1rem; }
+      .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+      .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+      .pl-2 { padding-left: 0.5rem; }
+      .pr-2 { padding-right: 0.5rem; }
+      .pt-8 { padding-top: 2rem; }
+      .pb-8 { padding-bottom: 2rem; }
+      .space-y-1 > * + * { margin-top: 0.25rem; }
+      .space-y-1\.5 > * + * { margin-top: 0.375rem; }
+      .space-y-2 > * + * { margin-top: 0.5rem; }
+      .space-y-3 > * + * { margin-top: 0.75rem; }
+      .space-y-4 > * + * { margin-top: 1rem; }
+      .grid { display: grid; }
+      .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gap-8 { gap: 2rem; }
+      .flex { display: flex; }
+      .justify-between { justify-content: space-between; }
+      .justify-end { justify-content: flex-end; }
+      .items-start { align-items: flex-start; }
+      .items-center { align-items: center; }
+      .w-8 { width: 2rem; }
+      .h-8 { height: 2rem; }
+      .w-2\/3 { width: 66.666667%; }
+      .w-full { width: 100%; }
+      .max-w-md { max-width: 28rem; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+      th { background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 0.75rem; text-transform: uppercase; padding: 0.75rem 0.5rem; font-weight: 600; }
+      td { padding: 1rem 0.5rem; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+      .divide-y > * + * { border-top: 1px solid #f3f4f6; }
+      .border-t { border-top: 1px solid #f3f4f6; }
+      .border-b { border-bottom: 1px solid #f3f4f6; }
+      .border-y { border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
+      hr { border: none; border-top: 1px dashed #e5e7eb; margin: 1.5rem 0; }
+    </style>
+  `
+
+  // Viết nội dung vào cửa sổ mới
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>HoaDon_${hoaDonData.value?.maHoaDon || invoiceCode.value}</title>
+      ${printStyles}
+    </head>
+    <body>
+      ${contentHTML}
+      <script>
+        window.onload = function() {
+          // Tự động in khi trang load xong
+          window.print();
+          // Sau khi in, vẫn giữ cửa sổ để người dùng có thể in lại nếu cần
+        }
+      <\/script>
+    </body>
+    </html>
+  `)
+
+  printWindow.document.close()
+  printLoading.value = false
 }
 
 const handleBack = (): void => {
@@ -1714,7 +2115,7 @@ const openCancelModal = (): void => {
     return
   }
 
-  window.$dialog?.error({
+  dialog.error({
     title: 'Xác nhận hủy đơn hàng',
     content: 'Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.',
     positiveText: 'Xác nhận hủy',
@@ -1782,7 +2183,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Print styles */
+/* Print styles - không còn sử dụng trực tiếp */
 @media print {
   .no-print {
     display: none !important;
@@ -1791,6 +2192,9 @@ onMounted(() => {
   body {
     background: white !important;
     color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 12px;
   }
 
   .container {
@@ -1799,13 +2203,45 @@ onMounted(() => {
     margin: 0 !important;
   }
 
-  .shadow-sm,
-  .rounded-xl,
-  .border {
+  #invoice-paper {
     box-shadow: none !important;
-    border-radius: 0 !important;
-    border: 1px solid #ddd !important;
+    padding: 20px !important;
+    max-width: 100%;
   }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .print-table th,
+  .print-table td {
+    padding: 8px 5px;
+    border: 1px solid #ddd;
+  }
+
+  .print-table th {
+    background-color: #f8f9fa;
+    font-weight: bold;
+  }
+
+  /* Page breaks */
+  tr {
+    page-break-inside: avoid;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+}
+
+/* Ẩn nội dung hóa đơn gốc */
+.hidden {
+  display: none;
 }
 
 /* Custom scrollbar */

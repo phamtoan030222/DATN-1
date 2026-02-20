@@ -61,6 +61,7 @@ public class Invoice extends PrimaryEntity implements Serializable {
 
     private Long paymentDate;
 
+
     private String description;
 
 
