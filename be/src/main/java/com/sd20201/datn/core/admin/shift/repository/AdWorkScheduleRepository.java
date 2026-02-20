@@ -26,4 +26,6 @@ public interface AdWorkScheduleRepository extends JpaRepository<WorkSchedule, St
     // 👇👇👇 3. Dùng cho nút XÓA (Delete): Chặn nếu đã từng dùng (bất kể quá khứ hay tương lai)
     // Spring Data JPA tự động hiểu: "Kiểm tra xem có bản ghi nào chứa shiftId này không?"
     boolean existsByShiftId(String shiftId);
+
+    List<WorkSchedule> findByStaffIdAndWorkDate(String staffId, LocalDate workDate);
 }

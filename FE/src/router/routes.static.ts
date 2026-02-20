@@ -498,11 +498,37 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     pid: 65,
   },
   {
+    name: 'shift_history',
+    path: '/work-schedule/history',
+    title: 'Lịch sử hoạt động',
+    requiresAuth: true,
+    roles: ['QUAN_LY'], // Chỉ cho phép Quản lý xem toàn bộ lịch sử cửa hàng
+    icon: 'icon-park-outline:history', // Thêm icon quyển sách lịch sử
+    menuType: 'page',
+    // Trỏ đến file ShiftHistory.vue bạn vừa tạo lúc nãy
+    componentPath: '/admin/shiftmanager/ShiftHistory.vue',
+    id: 655, // ID mới, tránh trùng lặp
+    pid: 65, // Thuộc nhóm "Quản lý lịch làm việc"
+  },
+  {
+    name: 'schedule_view',
+    path: '/work-schedule/view',
+    title: 'Lịch làm việc',
+    requiresAuth: true,
+    roles: ['NHAN_VIEN'],
+    icon: 'icon-park-outline:calendar',
+    menuType: 'page',
+    // QUAN TRỌNG: Đường dẫn này phải khớp với nơi bạn lưu file .vue mới
+    componentPath: '/admin/shiftmanager/StaffScheduleView.vue',
+    id: 654,
+    pid: 65,
+  },
+  {
     name: 'shift_handover',
     path: '/work-schedule/handover',
     title: 'Giao ca & Kết toán',
     requiresAuth: true,
-    roles: ['QUAN_LY', 'NHAN_VIEN'],
+    roles: ['NHAN_VIEN'],
     icon: 'icon-park-outline:finance',
     menuType: 'page',
     // Trỏ đến file: src/views/work-schedule/Handover.vue

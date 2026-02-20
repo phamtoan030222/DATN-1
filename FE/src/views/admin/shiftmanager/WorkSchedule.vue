@@ -4,6 +4,8 @@ import {
   NAvatar,
   NButton,
   NCard,
+  NCheckbox,
+  NCheckboxGroup,
   NDataTable,
   NDatePicker,
   NIcon,
@@ -15,6 +17,7 @@ import {
   NSelect,
   NSpace,
   NSpin,
+  NSwitch,
   NTag,
   NTooltip,
   useMessage,
@@ -35,6 +38,7 @@ const shifts = ref<Shift[]>([])
 const staffList = ref<StaffResponse[]>([])
 const schedules = ref<WorkSchedule[]>([])
 const showModal = ref(false)
+const showBulkModal = ref(false)
 
 // State View
 const viewMode = ref<'matrix' | 'list'>('matrix')
@@ -53,23 +57,27 @@ const pagination = reactive({
   pageSize: 10,
   showSizePicker: true,
   pageSizes: [5, 10, 20, 50],
-  onChange: (page: number) => {
-    pagination.page = page
-  },
-  onUpdatePageSize: (pageSize: number) => {
-    pagination.pageSize = pageSize
-    pagination.page = 1
-  },
+  onChange: (page: number) => { pagination.page = page },
+  onUpdatePageSize: (pageSize: number) => { pagination.pageSize = pageSize; pagination.page = 1 },
   prefix: ({ itemCount }: any) => `Tổng số ${itemCount} lịch`,
 })
 
-// Modal State
+// Modal State (Cơ bản)
 const assignState = reactive({
   shift: null as Shift | null,
   date: '',
   dateLabel: '',
   staffId: null as string | number | null,
   scheduleId: null as number | null,
+})
+
+// Modal State (Nâng cao)
+const bulkAssignState = reactive({
+  staffId: null as string | number | null,
+  shiftIds: [] as string[],
+  dateRange: null as [number, number] | null,
+  daysOfWeek: [1, 2, 3, 4, 5, 6, 7],
+  isOverwrite: false,
 })
 
 // 1. Logic chuẩn bị dữ liệu ngày
@@ -95,20 +103,15 @@ const weekDays = computed(() => {
   return days
 })
 
-// --- LOGIC ĐIỀU HƯỚNG TUẦN ---
 function changeWeek(offset: number) {
   const newDate = new Date(anchorDate.value)
   newDate.setDate(newDate.getDate() + (offset * 7))
   anchorDate.value = newDate.getTime()
 }
 
-function setToday() {
-  anchorDate.value = Date.now()
-}
+function setToday() { anchorDate.value = Date.now() }
 
-watch(anchorDate, () => {
-  loadSchedule()
-})
+watch(anchorDate, () => { loadSchedule() })
 
 function getErrorMessage(e: any) {
   if (e.response && e.response.data) {
@@ -124,7 +127,14 @@ async function loadData() {
   loading.value = true
   try {
     const sRes = await shiftApi.getAll()
-    shifts.value = (sRes.data || []).sort((a: any, b: any) => (a.id || 0) - (b.id || 0))
+    let rawShifts = sRes.data || []
+    rawShifts = rawShifts.filter((s: any) => s.status === 1 || s.status === true || s.status === 'ACTIVE')
+    shifts.value = rawShifts.sort((a: any, b: any) => {
+      const timeA = a.startTime || '00:00:00'
+      const timeB = b.startTime || '00:00:00'
+      return timeA.localeCompare(timeB)
+    })
+
     const stRes = await getAllStaff({ page: 1, size: 1000, status: 'ACTIVE' })
     staffList.value = stRes.data?.data || stRes.data || stRes.items || []
     await loadSchedule()
@@ -146,14 +156,54 @@ async function loadSchedule() {
     const res = await scheduleApi.getWeekly(from, to)
     schedules.value = res.data?.data || res.data || res || []
   }
-  catch (e) {
-    schedules.value = []
-  }
+  catch (e) { schedules.value = [] }
 }
 
 function getAssign(shiftId: any, date: string) {
   return schedules.value.find(s => (s.shift?.id == shiftId) && (s.workDate === date))
 }
+
+function isCellPast(dateString: string, startTime: string) {
+  if (!startTime)
+    return false
+  const formattedTime = startTime.length === 5 ? `${startTime}:00` : startTime
+  const cellDateTime = new Date(`${dateString}T${formattedTime}`)
+  return cellDateTime < new Date()
+}
+
+// --- LOGIC MỚI: Tự động khóa các ca trùng giờ ---
+const shiftOptions = computed(() => {
+  return shifts.value.map((candidate) => {
+    let isDisabled = false
+
+    const isSelected = bulkAssignState.shiftIds.some(id => id == candidate.id)
+
+    if (!isSelected) {
+      const selectedShifts = shifts.value.filter(s => bulkAssignState.shiftIds.some(id => id == s.id))
+
+      for (const selected of selectedShifts) {
+        if (!candidate.startTime || !candidate.endTime || !selected.startTime || !selected.endTime)
+          continue
+
+        const cStart = candidate.startTime.slice(0, 5)
+        const cEnd = candidate.endTime.slice(0, 5)
+        const sStart = selected.startTime.slice(0, 5)
+        const sEnd = selected.endTime.slice(0, 5)
+
+        if (cStart < sEnd && cEnd > sStart) {
+          isDisabled = true
+          break
+        }
+      }
+    }
+
+    return {
+      label: `${candidate.name} (${candidate.startTime?.slice(0, 5)} - ${candidate.endTime?.slice(0, 5)})`,
+      value: candidate.id,
+      disabled: isDisabled,
+    }
+  })
+})
 
 async function handleAssign() {
   if (!assignState.staffId)
@@ -170,6 +220,35 @@ async function handleAssign() {
     showModal.value = false
     loadSchedule()
   }
+  catch (e: any) { message.error(getErrorMessage(e)) }
+}
+
+async function handleBulkAssign() {
+  if (!bulkAssignState.staffId)
+    return message.warning('Vui lòng chọn nhân viên')
+  if (bulkAssignState.shiftIds.length === 0)
+    return message.warning('Vui lòng chọn ít nhất 1 ca')
+  if (!bulkAssignState.dateRange)
+    return message.warning('Vui lòng chọn khoảng thời gian')
+
+  const start = new Date(bulkAssignState.dateRange[0]).toLocaleDateString('sv')
+  const end = new Date(bulkAssignState.dateRange[1]).toLocaleDateString('sv')
+
+  const payload = {
+    staffId: bulkAssignState.staffId,
+    shiftIds: bulkAssignState.shiftIds,
+    startDate: start,
+    endDate: end,
+    daysOfWeek: bulkAssignState.daysOfWeek,
+    overwrite: bulkAssignState.isOverwrite, // Đã sửa tên biến để gửi xuống Java đúng chuẩn
+  }
+
+  try {
+    const res = await scheduleApi.assignBulk(payload)
+    message.success(res.data?.message || 'Hoàn tất xếp lịch nâng cao')
+    showBulkModal.value = false
+    loadSchedule()
+  }
   catch (e: any) {
     message.error(getErrorMessage(e))
   }
@@ -181,9 +260,7 @@ async function removeAssign(id: any) {
     message.success('Đã hủy lịch làm việc')
     loadSchedule()
   }
-  catch (e: any) {
-    message.error(getErrorMessage(e))
-  }
+  catch (e: any) { message.error(getErrorMessage(e)) }
 }
 
 function getAvatar(staffId: any) {
@@ -193,7 +270,6 @@ function getAvatar(staffId: any) {
   return staff?.avatarUrl || staff?.avatar || staff?.image || null
 }
 
-// --- LOGIC: Xử lý nút Sửa từ bảng ---
 function handleEditFromTable(row: WorkSchedule) {
   if (!row.shift || !row.workDate)
     return
@@ -207,9 +283,7 @@ function handleEditFromTable(row: WorkSchedule) {
   showModal.value = true
 }
 
-// --- CẤU HÌNH CỘT BẢNG (ĐÃ SỬA FONT CHỮ GIỐNG BẢNG NHÂN VIÊN) ---
 const tableColumns = [
-  // 1. Ngày làm việc
   {
     title: 'Ngày làm việc',
     key: 'workDate',
@@ -218,47 +292,14 @@ const tableColumns = [
     sorter: (a: any, b: any) => new Date(a.workDate).getTime() - new Date(b.workDate).getTime(),
     render(row: WorkSchedule) {
       return h('div', { class: 'flex items-center gap-2' }, [
-        // Icon nhạt màu
         h(Icon, { icon: 'carbon:calendar', class: 'text-gray-400 text-base' }),
-        // Chữ thường, màu xám đậm (#374151), không in đậm
         h('span', { style: 'font-size: 14px; color: #374151;' }, row.workDate),
       ])
     },
   },
-  // 2. Bắt đầu (Đã bỏ font-mono và in đậm)
-  {
-    title: 'Bắt đầu',
-    key: 'startTime',
-    align: 'center',
-    width: 150,
-    render(row: WorkSchedule) {
-      // Dùng style chữ thường giống hệt cột SĐT bên Staff
-      return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.startTime?.slice(0, 5))
-    },
-  },
-  // 3. Kết thúc (Đã bỏ font-mono và in đậm)
-  {
-    title: 'Kết thúc',
-    key: 'endTime',
-    align: 'center',
-    width: 150,
-    render(row: WorkSchedule) {
-      // Dùng style chữ thường giống hệt cột SĐT bên Staff
-      return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.endTime?.slice(0, 5))
-    },
-  },
-  // 4. Ca làm việc
-  {
-    title: 'Ca làm việc',
-    key: 'shiftName',
-    align: 'center',
-    width: 150,
-    render(row: WorkSchedule) {
-      // Giữ Tag nhưng làm nhạt đi cho tiệp màu
-      return h(NTag, { type: 'default', bordered: true, round: true, size: 'small', class: 'px-3 text-gray-600' }, { default: () => row.shift?.name })
-    },
-  },
-  // 5. Nhân viên (Giữ nguyên style đẹp đã làm ở bước trước)
+  { title: 'Bắt đầu', key: 'startTime', align: 'center', width: 150, render(row: WorkSchedule) { return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.startTime?.slice(0, 5)) } },
+  { title: 'Kết thúc', key: 'endTime', align: 'center', width: 150, render(row: WorkSchedule) { return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.endTime?.slice(0, 5)) } },
+  { title: 'Ca làm việc', key: 'shiftName', align: 'center', width: 150, render(row: WorkSchedule) { return h(NTag, { type: 'default', bordered: true, round: true, size: 'small', class: 'px-3 text-gray-600' }, { default: () => row.shift?.name }) } },
   {
     title: 'Nhân viên',
     key: 'staffName',
@@ -267,44 +308,24 @@ const tableColumns = [
       const avatarUrl = getAvatar(row.staff?.id)
       return h(NSpace, { align: 'center', justify: 'start', size: 10 }, {
         default: () => [
-          h(NAvatar, {
-            size: 'small',
-            round: true,
-            src: avatarUrl,
-            fallbackSrc: 'https://via.placeholder.com/40',
-            style: 'border: 1px solid #e5e7eb;',
-          }),
-          h('div', [
-            h('div', { style: 'font-weight: 500; color: #1f2225;' }, row.staff?.name || row.staffName || '---'),
-            h('div', { style: 'font-size: 12px; color: #888' }, row.staff?.code || `NV-${row.staff?.id}`),
-          ]),
+          h(NAvatar, { size: 'small', round: true, src: avatarUrl, fallbackSrc: 'https://via.placeholder.com/40', style: 'border: 1px solid #e5e7eb;' }),
+          h('div', [h('div', { style: 'font-weight: 500; color: #1f2225;' }, row.staff?.name || row.staffName || '---'), h('div', { style: 'font-size: 12px; color: #888' }, row.staff?.code || `NV-${row.staff?.id}`)]),
         ],
       })
     },
   },
-  // 6. Trạng thái
   {
     title: 'Trạng thái',
     key: 'status',
     align: 'center',
     width: 120,
     render(row: WorkSchedule) {
-      const now = new Date()
-      const workDate = new Date(row.workDate!)
+      const now = new Date(); const workDate = new Date(row.workDate!)
       const isPast = workDate.setHours(0, 0, 0, 0) < now.setHours(0, 0, 0, 0)
-      const type = isPast ? 'info' : 'success'
-      const label = isPast ? 'Đã làm' : 'Dự kiến'
-
-      return h(NTag, {
-        type,
-        bordered: false,
-        round: true,
-        size: 'small',
-        style: isPast ? 'background-color: #e0f2fe; color: #0284c7; font-weight: 600;' : 'background-color: #dcfce7; color: #16a34a; font-weight: 600;',
-      }, { default: () => label })
+      const type = isPast ? 'info' : 'success'; const label = isPast ? 'Đã làm' : 'Dự kiến'
+      return h(NTag, { type, bordered: false, round: true, size: 'small', style: isPast ? 'background-color: #e0f2fe; color: #0284c7; font-weight: 600;' : 'background-color: #dcfce7; color: #16a34a; font-weight: 600;' }, { default: () => label })
     },
   },
-  // 7. Thao tác
   {
     title: 'Thao tác',
     key: 'actions',
@@ -313,37 +334,14 @@ const tableColumns = [
     fixed: 'right',
     render(row: WorkSchedule) {
       return h('div', { class: 'flex items-center justify-center gap-2' }, [
-        h(NTooltip, { trigger: 'hover' }, {
-          trigger: () => h(NButton, {
-            size: 'small',
-            circle: true,
-            secondary: true,
-            type: 'warning',
-            onClick: () => handleEditFromTable(row),
-          }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
-          default: () => 'Sửa lịch',
-        }),
-        h(NPopconfirm, {
-          onPositiveClick: () => removeAssign(row.id),
-          positiveText: 'Xóa',
-          negativeText: 'Hủy',
-        }, {
-          trigger: () => h(NButton, {
-            circle: true,
-            size: 'small',
-            type: 'error',
-            secondary: true,
-          }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:trash-can' }) }) }),
-          default: () => 'Xóa lịch làm việc này?',
-        }),
+        h(NTooltip, { trigger: 'hover' }, { trigger: () => h(NButton, { size: 'small', circle: true, secondary: true, type: 'warning', onClick: () => handleEditFromTable(row) }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }), default: () => 'Sửa lịch' }),
+        h(NPopconfirm, { onPositiveClick: () => removeAssign(row.id), positiveText: 'Xóa', negativeText: 'Hủy' }, { trigger: () => h(NButton, { circle: true, size: 'small', type: 'error', secondary: true }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:trash-can' }) }) }), default: () => 'Xóa lịch làm việc này?' }),
       ])
     },
   },
 ]
 
-// Computed lọc và sắp xếp dữ liệu
 const filteredSchedules = computed(() => {
-  // 1. Lọc
   const result = schedules.value.filter((item) => {
     const matchName = !filterParams.staffName || (item.staff?.name || '').toLowerCase().includes(filterParams.staffName.toLowerCase())
     const matchShift = !filterParams.shiftName || (item.shift?.name || '').toLowerCase().includes(filterParams.shiftName.toLowerCase())
@@ -355,25 +353,23 @@ const filteredSchedules = computed(() => {
     return matchName && matchShift && matchDate
   })
 
-  // 2. Sắp xếp: Ngày -> Giờ -> Tên
   return result.sort((a, b) => {
-    const dateA = new Date(a.workDate!).getTime()
-    const dateB = new Date(b.workDate!).getTime()
+    const dateA = new Date(a.workDate!).getTime(); const dateB = new Date(b.workDate!).getTime()
     if (dateA !== dateB)
       return dateA - dateB
-
-    const timeA = a.shift?.startTime || '00:00'
-    const timeB = b.shift?.startTime || '00:00'
+    const timeA = a.shift?.startTime || '00:00'; const timeB = b.shift?.startTime || '00:00'
     if (timeA !== timeB)
       return timeA.localeCompare(timeB)
-
-    const nameA = a.staff?.name || ''
-    const nameB = b.staff?.name || ''
+    const nameA = a.staff?.name || ''; const nameB = b.staff?.name || ''
     return nameA.localeCompare(nameB)
   })
 })
 
 function openAssignModal(shift: Shift, day: any) {
+  if (isCellPast(day.date, shift.startTime)) {
+    message.warning('Không thể xếp lịch vào thời gian đã qua!')
+    return
+  }
   assignState.shift = shift
   assignState.date = day.date
   assignState.dateLabel = day.label
@@ -383,10 +379,19 @@ function openAssignModal(shift: Shift, day: any) {
 }
 
 function clearFilters() {
-  filterParams.staffName = ''
-  filterParams.shiftName = ''
-  filterParams.dateRange = null
-  pagination.page = 1
+  filterParams.staffName = ''; filterParams.shiftName = ''; filterParams.dateRange = null; pagination.page = 1
+}
+
+function openBulkModal() {
+  // 1. Reset lại toàn bộ dữ liệu về mặc định
+  bulkAssignState.staffId = null
+  bulkAssignState.shiftIds = []
+  bulkAssignState.dateRange = null
+  bulkAssignState.daysOfWeek = [1, 2, 3, 4, 5, 6, 7]
+  bulkAssignState.isOverwrite = false
+
+  // 2. Mở modal lên
+  showBulkModal.value = true
 }
 
 onMounted(loadData)
@@ -411,7 +416,7 @@ onMounted(loadData)
         </div>
       </div>
 
-      <div class="flex gap-2">
+      <div class="flex gap-3">
         <NRadioGroup v-model:value="viewMode" size="medium">
           <NRadioButton value="matrix">
             <div class="flex items-center gap-1">
@@ -443,28 +448,17 @@ onMounted(loadData)
                 <Icon icon="carbon:chevron-left" />
               </template>
             </NButton>
-
-            <NDatePicker
-              v-model:value="anchorDate"
-              type="date"
-              size="small"
-              class="w-[130px] text-center"
-              :clearable="false"
-              :actions="null"
-            />
-
+            <NDatePicker v-model:value="anchorDate" type="date" size="small" class="w-[130px] text-center" :clearable="false" :actions="null" />
             <NButton quaternary circle size="small" @click="changeWeek(1)">
               <template #icon>
                 <Icon icon="carbon:chevron-right" />
               </template>
             </NButton>
           </div>
-
           <NButton size="small" strong secondary type="success" @click="setToday">
             Hôm nay
           </NButton>
         </div>
-
         <div class="text-sm font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-md border border-emerald-100">
           Tuần từ: {{ weekDays[0]?.date }} đến {{ weekDays[6]?.date }}
         </div>
@@ -477,29 +471,16 @@ onMounted(loadData)
               <Icon icon="carbon:search" class="text-gray-400" />
             </template>
           </NInput>
-
           <NInput v-model:value="filterParams.shiftName" placeholder="Tìm tên ca làm việc..." clearable>
             <template #prefix>
               <Icon icon="carbon:time" class="text-gray-400" />
             </template>
           </NInput>
-
-          <NDatePicker
-            v-model:value="filterParams.dateRange"
-            type="daterange"
-            clearable
-            :actions="null"
-            close-on-select
-            start-placeholder="Ngày bắt đầu"
-            end-placeholder="Ngày kết thúc"
-            class="w-full"
-          />
-
+          <NDatePicker v-model:value="filterParams.dateRange" type="daterange" clearable :actions="null" close-on-select start-placeholder="Ngày bắt đầu" end-placeholder="Ngày kết thúc" class="w-full" />
           <NButton dashed block @click="clearFilters">
             <template #icon>
               <Icon icon="carbon:filter-remove" />
-            </template>
-            Xóa bộ lọc
+            </template>Xóa bộ lọc
           </NButton>
         </div>
       </div>
@@ -511,11 +492,7 @@ onMounted(loadData)
           <div class="p-4 font-bold text-gray-600 text-center uppercase text-xs tracking-wider border-r-2 border-gray-200 bg-gray-100 sticky left-0 z-10">
             Ca / Ngày
           </div>
-          <div
-            v-for="day in weekDays" :key="day.date"
-            class="p-3 text-center border-r-2 border-gray-200 last:border-r-0 relative"
-            :class="{ 'bg-emerald-50/50': day.isToday }"
-          >
+          <div v-for="day in weekDays" :key="day.date" class="p-3 text-center border-r-2 border-gray-200 last:border-r-0 relative" :class="{ 'bg-emerald-50/50': day.isToday }">
             <div class="text-sm font-bold" :class="day.isToday ? 'text-emerald-700' : 'text-gray-700'">
               {{ day.label }}
             </div>
@@ -543,28 +520,25 @@ onMounted(loadData)
 
             <div
               v-for="day in weekDays" :key="day.date"
-              class="border-r-2 border-gray-200 last:border-r-0 min-h-[120px] p-2 relative cursor-pointer hover:bg-emerald-50/40 transition-all flex flex-col justify-center items-center group/cell"
+              class="border-r-2 border-gray-200 last:border-r-0 min-h-[120px] p-2 relative transition-all flex flex-col justify-center items-center group/cell"
+              :class="[
+                isCellPast(day.date, shift.startTime)
+                  ? 'bg-[repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6_10px,#ffffff_10px,#ffffff_20px)] cursor-not-allowed opacity-60'
+                  : 'cursor-pointer hover:bg-emerald-50/40',
+              ]"
               @click="openAssignModal(shift, day)"
             >
               <div v-if="getAssign(shift.id!, day.date)" class="w-full h-full animate-fade-in relative group/item">
                 <div class="bg-white border-l-4 border-l-emerald-500 border-y border-r border-gray-200 shadow-sm rounded-lg p-3 h-full flex flex-col items-center justify-center gap-2 relative hover:shadow-md transition-all">
-                  <NAvatar
-                    round :size="38"
-                    :src="getAvatar(getAssign(shift.id!, day.date)?.staff?.id)"
-                    class="border-2 border-white shadow-sm flex-shrink-0"
-                    object-fit="cover"
-                    :style="{ backgroundColor: '#ecfdf5', color: '#059669', fontWeight: 'bold' }"
-                  >
+                  <NAvatar round :size="38" :src="getAvatar(getAssign(shift.id!, day.date)?.staff?.id)" class="border-2 border-white shadow-sm flex-shrink-0" object-fit="cover" :style="{ backgroundColor: '#ecfdf5', color: '#059669', fontWeight: 'bold' }">
                     <template v-if="!getAvatar(getAssign(shift.id!, day.date)?.staff?.id)">
                       {{ getAssign(shift.id!, day.date)?.staff?.name?.charAt(0).toUpperCase() }}
                     </template>
                   </NAvatar>
+                  <span class="text-[11px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{{ getAssign(shift.id!, day.date)?.staff?.name }}</span>
+                  <span class="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 rounded border border-emerald-100 uppercase tracking-tighter">{{ getAssign(shift.id!, day.date)?.staff?.code }}</span>
 
-                  <span class="text-[11px] font-bold text-gray-700 text-center leading-tight line-clamp-2">
-                    {{ getAssign(shift.id!, day.date)?.staff?.name }}
-                  </span>
-
-                  <div class="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover/item:opacity-100 transition-all duration-200 z-20" @click.stop>
+                  <div v-if="!isCellPast(day.date, shift.startTime)" class="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover/item:opacity-100 transition-all duration-200 z-20" @click.stop>
                     <div class="w-7 h-7 bg-white rounded-full shadow-md border border-gray-200 flex items-center justify-center cursor-pointer hover:bg-emerald-500 hover:text-white text-emerald-600 transition-all transform hover:scale-110" @click="openAssignModal(shift, day)">
                       <Icon icon="carbon:edit" class="text-sm" />
                     </div>
@@ -580,7 +554,7 @@ onMounted(loadData)
                 </div>
               </div>
 
-              <div v-else class="w-full h-full flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity">
+              <div v-else-if="!isCellPast(day.date, shift.startTime)" class="w-full h-full flex items-center justify-center opacity-0 group-hover/cell:opacity-100 transition-opacity">
                 <div class="w-9 h-9 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center border border-emerald-100 shadow-sm hover:scale-110 transition-transform">
                   <Icon icon="carbon:add" class="text-lg" />
                 </div>
@@ -591,16 +565,25 @@ onMounted(loadData)
       </div>
 
       <div v-else class="p-4">
-        <NDataTable
-          :columns="tableColumns"
-          :data="filteredSchedules"
-          :loading="loading"
-          :pagination="pagination"
-          :bordered="false"
-          :single-line="false"
-          class="shadow-sm rounded-lg"
-        />
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="text-lg font-bold text-gray-700 m-0">
+            Danh sách lịch làm việc
+          </h3>
 
+          <NTooltip trigger="hover">
+            <template #trigger>
+              <button class="group flex items-center justify-center rounded-full bg-emerald-600 text-white h-9 px-3 transition-all duration-300 hover:pr-4 shadow-sm hover:bg-emerald-700" @click="openBulkModal">
+                <NIcon size="20">
+                  <Icon icon="carbon:add" />
+                </NIcon>
+                <span class="max-w-0 overflow-hidden opacity-0 group-hover:max-w-[120px] group-hover:opacity-100 group-hover:ml-2 transition-all duration-300 whitespace-nowrap text-sm font-medium">Thêm hàng loạt</span>
+              </button>
+            </template>
+            Mở form xếp lịch nâng cao
+          </NTooltip>
+        </div>
+
+        <NDataTable :columns="tableColumns" :data="filteredSchedules" :loading="loading" :pagination="pagination" :bordered="false" :single-line="false" class="shadow-sm rounded-lg border border-gray-100" />
         <div v-if="filteredSchedules.length === 0 && !loading" class="text-center p-8 text-gray-400">
           Không tìm thấy dữ liệu phù hợp
         </div>
@@ -621,31 +604,73 @@ onMounted(loadData)
             </NTag>
           </div>
         </div>
-
         <div class="flex flex-col gap-2">
           <span class="text-sm font-medium text-gray-700 ml-1">Chọn nhân viên trực ca:</span>
-          <NSelect
-            v-model:value="assignState.staffId"
-            :options="staffList.map(s => ({
-              label: `${s.code} - ${s.fullName}`,
-              value: s.id,
-            }))"
-            filterable
-            placeholder="Tìm kiếm theo tên hoặc mã nhân viên..."
-            size="large"
-          />
+          <NSelect v-model:value="assignState.staffId" :options="staffList.map(s => ({ label: `${s.code} - ${s.fullName}`, value: s.id }))" filterable placeholder="Tìm kiếm theo tên hoặc mã nhân viên..." size="large" />
         </div>
-
         <NPopconfirm placement="top" positive-text="Xác nhận" negative-text="Quay lại" @positive-click="handleAssign">
           <template #trigger>
             <NButton type="primary" block size="large" class="mt-2 h-11 font-bold !bg-emerald-600 hover:!bg-emerald-700" :disabled="!assignState.staffId">
               <template #icon>
                 <NIcon><Icon icon="carbon:save" /></NIcon>
-              </template>
-              Lưu lịch làm việc
+              </template>Lưu lịch làm việc
             </NButton>
           </template>
           <span>Lưu thay đổi lịch trực cho ngày này?</span>
+        </NPopconfirm>
+      </div>
+    </NModal>
+
+    <NModal v-model:show="showBulkModal" preset="card" class="w-[700px] max-w-[95vw] rounded-2xl shadow-xl" title="Xếp lịch nâng cao (Lặp lại)">
+      <div class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <span class="text-sm font-medium text-gray-700 ml-1">1. Chọn nhân viên: <span class="text-red-500">*</span></span>
+          <NSelect v-model:value="bulkAssignState.staffId" :options="staffList.map(s => ({ label: `${s.code} - ${s.fullName}`, value: s.id }))" filterable placeholder="Tìm kiếm nhân viên..." size="large" />
+        </div>
+
+        <div class="flex flex-col gap-2 mt-2">
+          <span class="text-sm font-medium text-gray-700 ml-1">2. Chọn các Ca làm việc: <span class="text-red-500">*</span></span>
+          <NSelect v-model:value="bulkAssignState.shiftIds" multiple :options="shiftOptions" placeholder="Chọn ca (các ca trùng giờ sẽ tự động bị mờ)" size="large" />
+        </div>
+
+        <div class="flex flex-col gap-2 mt-2">
+          <span class="text-sm font-medium text-gray-700 ml-1">3. Khoảng thời gian áp dụng: <span class="text-red-500">*</span></span>
+          <NDatePicker v-model:value="bulkAssignState.dateRange" type="daterange" clearable size="large" />
+        </div>
+
+        <div class="flex items-center gap-3 mt-2 p-3 bg-amber-50 rounded-lg border border-amber-200">
+          <NSwitch v-model:value="bulkAssignState.isOverwrite" />
+          <div class="flex flex-col">
+            <span class="text-sm font-bold text-amber-800">Ghi đè lịch đã xếp</span>
+            <span class="text-xs text-amber-700">Tự động thay thế nhân viên cũ nếu ca đó đã có người nhận.</span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-2 mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <span class="text-sm font-medium text-gray-700 mb-2">4. Lặp lại vào các ngày:</span>
+          <NCheckboxGroup v-model:value="bulkAssignState.daysOfWeek" class="w-full">
+            <div class="grid grid-cols-7 gap-1 text-center w-full">
+              <NCheckbox :value="1" label="Thứ 2" />
+              <NCheckbox :value="2" label="Thứ 3" />
+              <NCheckbox :value="3" label="Thứ 4" />
+              <NCheckbox :value="4" label="Thứ 5" />
+              <NCheckbox :value="5" label="Thứ 6" />
+              <NCheckbox :value="6" label="Thứ 7" />
+              <NCheckbox :value="7" label="CN" />
+            </div>
+          </NCheckboxGroup>
+        </div>
+
+        <NPopconfirm placement="top" positive-text="Xác nhận" negative-text="Quay lại" @positive-click="handleBulkAssign">
+          <template #trigger>
+            <NButton type="primary" block size="large" class="mt-4 h-11 font-bold !bg-emerald-600 hover:!bg-emerald-700">
+              <template #icon>
+                <NIcon><Icon icon="carbon:save" /></NIcon>
+              </template>
+              Tiến hành xếp lịch
+            </NButton>
+          </template>
+          <span>Hệ thống sẽ tự động tạo lịch dựa trên các điều kiện. Tiếp tục?</span>
         </NPopconfirm>
       </div>
     </NModal>

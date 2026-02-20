@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.shift.service;
 
+import com.sd20201.datn.core.admin.shift.model.request.BulkCreateScheduleRequest;
 import com.sd20201.datn.core.admin.shift.model.request.CreateScheduleRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
 
@@ -10,4 +11,6 @@ public interface WorkScheduleService {
     ResponseObject<?> getSchedules(LocalDate fromDate, LocalDate toDate);
 
     void deleteSchedule(String id);
+
+    ResponseObject<?> createBulkSchedule(BulkCreateScheduleRequest req);
 }

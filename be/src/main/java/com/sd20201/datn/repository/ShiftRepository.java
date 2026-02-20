@@ -20,4 +20,7 @@ public interface ShiftRepository extends JpaRepository<Shift, String> {
 
     // 2. Check khi Cập nhật: Có ai trùng Start VÀ End (trừ chính mình ra) không?
     boolean existsByStartTimeAndEndTimeAndIdNot(String startTime, String endTime, String id);
+
+    // Trong interface ShiftRepository
+    Shift findByName(String name);
 }

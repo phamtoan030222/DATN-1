@@ -8,6 +8,7 @@ import com.sd20201.datn.utils.Helper;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -17,6 +18,7 @@ public class ADStaffController {
     private final ADStaffService adStaffService;
 
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('QUAN_LY', 'NHAN_VIEN')")
     public ResponseEntity<?> getAllStaff(@ModelAttribute ADStaffRequest request) {
         return Helper.createResponseEntity(adStaffService.getAllStaff(request));
     }

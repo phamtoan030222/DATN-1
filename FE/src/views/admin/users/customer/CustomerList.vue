@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import { h, inject, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   NAvatar,
@@ -42,6 +42,8 @@ const router = useRouter()
 const customers = ref<Customer[]>([])
 const customerAddresses = ref<Record<string, Address[]>>({})
 const loading = ref(false)
+
+const isViewOnly = inject<Ref<boolean>>('globalViewOnlyMode', ref(false))
 
 // --- BỘ TỪ ĐIỂN ĐỊA LÝ ĐA NĂNG ---
 // Map này sẽ lưu 2 key cho 1 giá trị. Ví dụ:
@@ -371,7 +373,7 @@ const columns = [
     width: 120,
     align: 'center',
     render: (row: Customer) => h(NPopconfirm, { onPositiveClick: () => handleStatusChange(row), positiveText: 'Đồng ý', negativeText: 'Hủy' }, {
-      trigger: () => h(NSwitch, { value: row.customerStatus === 1, size: 'small', loading: loading.value }),
+      trigger: () => h(NSwitch, { value: row.customerStatus === 1, size: 'small', loading: loading.value, disabled: isViewOnly.value }),
       default: () => `Bạn có chắc muốn ${row.customerStatus === 1 ? 'ngưng hoạt động' : 'kích hoạt'}?`,
     }),
   },
@@ -382,7 +384,7 @@ const columns = [
     align: 'center',
     fixed: 'right',
     render: (row: Customer) => h(NTooltip, { trigger: 'hover' }, {
-      trigger: () => h(NButton, { size: 'small', secondary: true, type: 'warning', circle: true, class: 'hover:scale-125 transition-all', onClick: () => navigateToEdit(row) }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
+      trigger: () => h(NButton, { size: 'small', secondary: true, type: 'warning', circle: true, class: 'hover:scale-125 transition-all', disabled: isViewOnly.value, onClick: () => navigateToEdit(row) }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
       default: () => 'Sửa thông tin',
     }),
   },
@@ -454,7 +456,7 @@ const columns = [
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton type="primary" secondary class="rounded-full px-3 group" @click="navigateToAdd">
+            <NButton type="primary" secondary class="rounded-full px-3 group" :disabled="isViewOnly" @click="navigateToAdd">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:add" />
@@ -463,7 +465,7 @@ const columns = [
               <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Thêm mới</span>
             </NButton>
             <NDropdown trigger="hover" :options="exportOptions" @select="handleSelectExport">
-              <NButton type="success" secondary class="rounded-full px-3 group">
+              <NButton type="success" secondary class="rounded-full px-3 group" :disabled="isViewOnly">
                 <template #icon>
                   <NIcon size="24">
                     <Icon icon="file-icons:microsoft-excel" />
@@ -472,7 +474,7 @@ const columns = [
                 <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất Excel</span>
               </NButton>
             </NDropdown>
-            <NButton type="info" secondary class="rounded-full px-3 group" @click="handlePrint">
+            <NButton type="info" secondary class="rounded-full px-3 group" :disabled="isViewOnly" @click="handlePrint">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:printer" />
@@ -480,7 +482,7 @@ const columns = [
               </template>
               <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">In danh sách</span>
             </NButton>
-            <NButton type="info" secondary class="rounded-full px-3 group" @click="fetchCustomers">
+            <NButton type="info" secondary class="rounded-full px-3 group" :disabled="isViewOnly" @click="fetchCustomers">
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="carbon:rotate" />
