@@ -1,4 +1,3 @@
-
 <script setup lang="ts">
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import type {
@@ -374,8 +373,6 @@ const maxProductPrice = computed(() => {
   const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
   return prices.length > 0 ? Math.max(...prices) : 0
 })
-
-
 
 // Tính số lượng serial khả dụng
 const availableSerialsCount = computed(() => {
@@ -820,7 +817,7 @@ async function checkFromDistrictAndWard() {
     const districtExists = response.data?.some((d: any) => d.DistrictID === FROM_DISTRICT_ID) || false
     if (!districtExists) {
       console.error(`FROM_DISTRICT_ID ${FROM_DISTRICT_ID} không hợp lệ!`)
-//      toast.error('Mã quận/huyện nguồn không hợp lệ.')
+      //      toast.error('Mã quận/huyện nguồn không hợp lệ.')
       return false
     }
     const wardResponse = await getGHNWards(FROM_DISTRICT_ID, GHN_API_TOKEN)
@@ -2883,91 +2880,97 @@ onMounted(async () => {
 // code tâm thêm
 // Tự động tìm voucher giảm nhiều tiền nhất
 const bestSuggestion = computed(() => {
-  const suggestions = state.autoVoucherResult?.voucherTotHon || [];
-  if (suggestions.length === 0) return null;
+  const suggestions = state.autoVoucherResult?.voucherTotHon || []
+  if (suggestions.length === 0)
+    return null
 
   // Sắp xếp giảm dần theo số tiền được giảm thêm  và lấy cái đầu tiên
-  return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0];
-});
-
-
+  return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0]
+})
 </script>
-
 
 <template>
   <div class="main-layout">
     <div class="left-column">
       <NCard class="card" size="small">
-  <template #header>
-    <NText type="primary" strong>
-      Hóa đơn chờ
-    </NText>
-  </template>
+        <template #header>
+          <NText type="primary" strong>
+            Hóa đơn chờ
+          </NText>
+        </template>
 
-  <template #header-extra>
-    <NButton type="primary" size="small" class="btn-create-new-invoice" @click="createInvoice">
-      <template #icon>
-        <NIcon>
-          <AddCircleOutline />
-        </NIcon>
-      </template>
-      Tạo hóa đơn mới
-    </NButton>
-  </template>
+        <template #header-extra>
+          <NButton type="primary" size="small" class="btn-create-new-invoice" @click="createInvoice">
+            <template #icon>
+              <NIcon>
+                <AddCircleOutline />
+              </NIcon>
+            </template>
+            Tạo hóa đơn mới
+          </NButton>
+        </template>
 
-  <div class="pending-invoices-container">
-    <NScrollbar x-scrollable>
-      <div class="pending-invoices-wrapper">
-        <NSpace :wrap="false">
-          <div
-            v-for="tab in tabs" :key="tab.id"
-            class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
-            @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
-          >
-            <div class="invoice-header">
-              <NText strong>
-                {{ tab.code }}
-              </NText>
-              
-              <NPopconfirm
-                v-if="tab.soLuong > 0"
-                :show-icon="false"
-                positive-text="Xác nhận hủy"
-                negative-text="Hủy bỏ"
-                @positive-click="() => huy(tab.idHD)"
-              >
-                <template #trigger>
-                  <NButton text type="error" size="tiny" @click.stop>
-                    <NIcon><TrashOutline /></NIcon>
-                  </NButton>
-                </template>
-                <div class="popconfirm-content">
-                  <NText strong style="display: block; margin-bottom: 8px;">Xác nhận hủy</NText>
-                  <NText depth="3">Hành động này không thể hoàn tác.</NText>
+        <div class="pending-invoices-container">
+          <NScrollbar x-scrollable>
+            <div class="pending-invoices-wrapper">
+              <NSpace :wrap="false">
+                <div
+                  v-for="tab in tabs" :key="tab.id"
+                  class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
+                  @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
+                >
+                  <div class="invoice-header">
+                    <NText strong>
+                      {{ tab.code }}
+                    </NText>
+
+                    <NPopconfirm
+                      v-if="tab.soLuong > 0"
+                      :show-icon="false"
+                      positive-text="Xác nhận hủy"
+                      negative-text="Hủy bỏ"
+                      @positive-click="() => huy(tab.idHD)"
+                    >
+                      <template #trigger>
+                        <NButton text type="error" size="tiny" @click.stop>
+                          <NIcon><TrashOutline /></NIcon>
+                        </NButton>
+                      </template>
+                      <div class="popconfirm-content">
+                        <NText strong style="display: block; margin-bottom: 8px;">
+                          Xác nhận hủy
+                        </NText>
+                        <NText depth="3">
+                          Hành động này không thể hoàn tác.
+                        </NText>
+                      </div>
+                    </NPopconfirm>
+
+                    <NButton
+                      v-else
+                      text
+                      type="error"
+                      size="tiny"
+                      @click.stop="huy(tab.idHD)"
+                    >
+                      <NIcon><TrashOutline /></NIcon>
+                    </NButton>
+                  </div>
+
+                  <NSpace vertical :size="4">
+                    <NTag type="warning" size="small" round>
+                      Chờ xử lý
+                    </NTag>
+                    <NText depth="3">
+                      {{ tab.soLuong || 0 }} sản phẩm
+                    </NText>
+                  </NSpace>
                 </div>
-              </NPopconfirm>
-
-              <NButton 
-                v-else 
-                text 
-                type="error" 
-                size="tiny" 
-                @click.stop="huy(tab.idHD)"
-              >
-                <NIcon><TrashOutline /></NIcon>
-              </NButton>
+              </NSpace>
             </div>
-
-            <NSpace vertical :size="4">
-              <NTag type="warning" size="small" round>Chờ xử lý</NTag>
-              <NText depth="3">{{ tab.soLuong || 0 }} sản phẩm</NText>
-            </NSpace>
-          </div>
-        </NSpace>
-      </div>
-    </NScrollbar>
-  </div>
-</NCard>
+          </NScrollbar>
+        </div>
+      </NCard>
 
       <NCard class="card" size="small">
         <template #header>
@@ -3104,7 +3107,7 @@ const bestSuggestion = computed(() => {
 
       <NCard
         v-if="idHDS && state.autoVoucherResult?.voucherApDung?.length > 0"
-         class="card" size="small"
+        class="card" size="small"
         :segmented="{ content: true }"
       >
         <template #header>
@@ -3221,7 +3224,7 @@ const bestSuggestion = computed(() => {
 
       <!-- CARD GỢI Ý MUA THÊM (THÊM MỚI) -->
       <NCard
-        v-if="idHDS && state.autoVoucherResult?.voucherTotHon?.length > 0" 
+        v-if="idHDS && state.autoVoucherResult?.voucherTotHon?.length > 0"
         class="card" size="small"
         :segmented="{ content: true }"
       >
@@ -3339,7 +3342,7 @@ const bestSuggestion = computed(() => {
 
         <NSpace vertical :size="16">
           <!-- Phần chọn voucher -->
-          <div v-if="idHDS" >
+          <div v-if="idHDS">
             <NText depth="3">
               Mã giảm giá
             </NText>
@@ -3354,13 +3357,12 @@ const bestSuggestion = computed(() => {
               </NButton>
             </NSpace>
 
-            <!--Tâm thêm-->
-            <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
-                  </div>
-              </div>
+            <!-- Tâm thêm -->
+            <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2" />
+          </div>
 
-              <!--Code của toàn-->
-            <!-- <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
+          <!-- Code của toàn -->
+          <!-- <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
               <NAlert type="warning" size="small" :show-icon="true">
                 <template #icon>
                   <NIcon>

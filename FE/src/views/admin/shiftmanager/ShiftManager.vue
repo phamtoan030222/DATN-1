@@ -35,15 +35,15 @@ const showModal = ref(false)
 const submitting = ref(false)
 const formRef = ref<any>(null)
 
-// Bộ lọc
+// Bộ lọc: Mặc định chọn 0 (Chỉ hiện ca Đang hoạt động)
 const filter = reactive({
   keyword: '',
-  status: null as number | null,
+  status: 0 as number | null,
   startTime: null as string | null,
   endTime: null as string | null,
 })
 
-// Form Data
+// Form Data (Thêm hasHistory)
 const form = reactive({
   id: null as number | null,
   code: '',
@@ -51,6 +51,7 @@ const form = reactive({
   startTime: '08:00',
   endTime: '12:00',
   status: 0,
+  hasHistory: false, // <-- Khai báo biến
 })
 
 const rules = {
@@ -71,12 +72,10 @@ const rules = {
       trigger: ['blur', 'change'],
     },
     {
-      // Custom Validator: Kiểm tra Logic thời gian
       validator: (rule: any, value: string) => {
         if (!value || !form.startTime)
           return true
 
-        // So sánh chuỗi giờ "HH:mm"
         if (value <= form.startTime) {
           return new Error('Giờ kết thúc phải lớn hơn giờ bắt đầu')
         }
@@ -92,7 +91,7 @@ async function loadData() {
   loading.value = true
   try {
     const res = await shiftApi.getAll()
-    shifts.value = res.data || [] // Chỉ gán dữ liệu, KHÔNG sort ở đây
+    shifts.value = res.data || []
   }
   catch (e) {
     message.error('Lỗi tải dữ liệu')
@@ -103,9 +102,7 @@ async function loadData() {
 }
 
 // Logic Lọc & Sắp xếp (Computed)
-// Sửa lại đoạn computed này trong code của bạn
 const filteredShifts = computed(() => {
-  // Bước A: Lọc dữ liệu (Giữ nguyên)
   const result = shifts.value.filter((item) => {
     const currentStatus = (item.status === 0 || item.status === 'ACTIVE') ? 0 : 1
     const term = filter.keyword?.toLowerCase().trim() || ''
@@ -122,21 +119,16 @@ const filteredShifts = computed(() => {
     return (matchName || matchCode) && matchStatus && matchTime
   })
 
-  // Bước B: Sắp xếp an toàn (FIX LỖI NaN)
   return result.sort((a, b) => {
-    // 1. Chuẩn hóa Status về số (0: Active, 1: Inactive)
     const getScore = (s: any) => (s === 0 || s === 'ACTIVE') ? 0 : 1
-
     const scoreA = getScore(a.status)
     const scoreB = getScore(b.status)
 
-    // So sánh trạng thái
     if (scoreA !== scoreB) {
       return scoreA - scoreB
     }
 
-    // 2. Nếu cùng trạng thái -> Xếp theo Giờ Bắt Đầu
-    const timeA = a.startTime || '99:99' // Nếu null thì đẩy xuống cuối
+    const timeA = a.startTime || '99:99'
     const timeB = b.startTime || '99:99'
 
     return timeA.localeCompare(timeB)
@@ -145,7 +137,7 @@ const filteredShifts = computed(() => {
 
 function resetFilters() {
   filter.keyword = ''
-  filter.status = null
+  filter.status = 0
   filter.startTime = null
   filter.endTime = null
 }
@@ -155,7 +147,8 @@ function openModal(row?: Shift) {
     Object.assign(form, row)
   }
   else {
-    Object.assign(form, { id: null, code: '', name: '', startTime: '08:00', endTime: '12:00', status: 0 })
+    // Reset form và cờ lịch sử khi Thêm mới
+    Object.assign(form, { id: null, code: '', name: '', startTime: '08:00', endTime: '12:00', status: 0, hasHistory: false })
   }
   showModal.value = true
 }
@@ -194,25 +187,17 @@ async function executeSave() {
 
 // --- LOGIC ĐỔI TRẠNG THÁI ---
 async function handleStatusChange(row: Shift) {
-  // 1. Lưu lại trạng thái cũ
   const originalStatus = row.status
-
-  // 2. Tính toán trạng thái mới
   const isCurrentActive = row.status === 0 || row.status === 'ACTIVE'
   const nextStatus = isCurrentActive ? 1 : 0
   const actionText = !isCurrentActive ? 'Kích hoạt' : 'Ngưng hoạt động'
 
   try {
-    // 3. Optimistic Update
     row.status = nextStatus
-
-    // 4. Gọi API
     await shiftApi.create(row)
-
     message.success(`Đã ${actionText} thành công!`)
   }
   catch (e: any) {
-    // 5. NẾU LỖI -> QUAY XE
     row.status = originalStatus
     message.error(getErrorMessage(e))
   }
@@ -234,17 +219,6 @@ function handleSave() {
   })
 }
 
-async function handleDelete(id: number) {
-  try {
-    await shiftApi.delete(id)
-    message.success('Đã xóa ca làm việc')
-    loadData()
-  }
-  catch (e) {
-    message.error(getErrorMessage(e))
-  }
-}
-
 function formatTimeDisplay(time: string) {
   if (!time)
     return '--:--'
@@ -261,27 +235,40 @@ const columns = [
     key: 'info',
     align: 'center',
     width: 250,
-    render: (row: Shift) => h('div', { class: 'w-full flex items-center justify-center gap-3' }, [
-      h('div', { class: 'w-10 h-10 rounded-full bg-green-50 flex items-center justify-center text-green-600 shadow-sm flex-shrink-0' }, h(NIcon, { size: 20 }, { default: () => h(Icon, { icon: 'carbon:time' }) })),
-      h('div', { class: 'flex flex-col text-left' }, [
-        h('span', { class: 'font-bold text-gray-800 text-[14px]' }, row.name),
-        h('span', { class: 'text-xs text-gray-500 font-mono mt-0.5' }, row.code),
-      ]),
-    ]),
+    render: (row: Shift) => {
+      const isActive = row.status === 0 || row.status === 'ACTIVE'
+      const iconBgColor = isActive ? 'bg-green-50' : 'bg-gray-100'
+      const iconTextColor = isActive ? 'text-green-600' : 'text-gray-400'
+      const textColor = isActive ? 'text-gray-800' : 'text-gray-400 line-through'
+
+      return h('div', { class: 'w-full flex items-center justify-center gap-3' }, [
+        h('div', { class: `w-10 h-10 rounded-full ${iconBgColor} flex items-center justify-center ${iconTextColor} shadow-sm flex-shrink-0` }, h(NIcon, { size: 20 }, { default: () => h(Icon, { icon: 'carbon:time' }) })),
+        h('div', { class: 'flex flex-col text-left' }, [
+          h('span', { class: `font-bold text-[14px] ${textColor}` }, row.name),
+          h('span', { class: 'text-xs text-gray-500 font-mono mt-0.5' }, row.code),
+        ]),
+      ])
+    },
   },
   {
     title: 'Giờ bắt đầu',
     key: 'startTime',
     align: 'center',
     width: 150,
-    render: (row: Shift) => h(NTag, { type: 'success', bordered: false, class: 'font-mono px-3 text-sm rounded-lg' }, { default: () => formatTimeDisplay(row.startTime) }),
+    render: (row: Shift) => {
+      const isActive = row.status === 0 || row.status === 'ACTIVE'
+      return h(NTag, { type: isActive ? 'success' : 'default', bordered: false, class: 'font-mono px-3 text-sm rounded-lg' }, { default: () => formatTimeDisplay(row.startTime) })
+    },
   },
   {
     title: 'Giờ kết thúc',
     key: 'endTime',
     align: 'center',
     width: 150,
-    render: (row: Shift) => h(NTag, { type: 'error', bordered: false, class: 'font-mono px-3 text-sm rounded-lg' }, { default: () => formatTimeDisplay(row.endTime) }),
+    render: (row: Shift) => {
+      const isActive = row.status === 0 || row.status === 'ACTIVE'
+      return h(NTag, { type: isActive ? 'error' : 'default', bordered: false, class: 'font-mono px-3 text-sm rounded-lg' }, { default: () => formatTimeDisplay(row.endTime) })
+    },
   },
   {
     title: 'Trạng thái',
@@ -318,10 +305,6 @@ const columns = [
         h(NTooltip, { trigger: 'hover' }, {
           trigger: () => h(NButton, { size: 'small', circle: true, secondary: true, type: 'warning', class: 'bg-orange-50 text-orange-600 border-orange-200 hover:bg-orange-100', onClick: () => openModal(row) }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }),
           default: () => 'Sửa thông tin',
-        }),
-        h(NPopconfirm, { onPositiveClick: () => handleDelete(row.id!), positiveText: 'Xóa', negativeText: 'Hủy' }, {
-          trigger: () => h(NButton, { size: 'small', circle: true, secondary: true, type: 'error', class: 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:trash-can' }) }) }),
-          default: () => 'Bạn chắc chắn muốn xóa?',
         }),
       ] })
     },
@@ -440,13 +423,22 @@ const columns = [
           <NInput v-model:value="form.name" placeholder="Ví dụ: Ca Sáng, Ca Chiều..." class="w-full" />
         </NFormItem>
         <NFormItem label="Thời gian" path="startTime">
-          <div class="grid grid-cols-2 gap-4 w-full items-center">
-            <div class="relative">
-              <NTimePicker v-model:formatted-value="form.startTime" value-format="HH:mm" format="HH:mm" placeholder="Bắt đầu" class="w-full" />
+          <div class="flex flex-col w-full">
+            <div class="grid grid-cols-2 gap-4 w-full items-center">
+              <div class="relative">
+                <NTimePicker v-model:formatted-value="form.startTime" value-format="HH:mm" format="HH:mm" placeholder="Bắt đầu" class="w-full" :disabled="form.hasHistory" />
+              </div>
+              <div class="relative flex items-center gap-2">
+                <span class="text-gray-400 shrink-0"><Icon icon="carbon:arrow-right" /></span>
+                <NTimePicker v-model:formatted-value="form.endTime" value-format="HH:mm" format="HH:mm" placeholder="Kết thúc" class="w-full" :disabled="form.hasHistory" />
+              </div>
             </div>
-            <div class="relative flex items-center gap-2">
-              <span class="text-gray-400 shrink-0"><Icon icon="carbon:arrow-right" /></span>
-              <NTimePicker v-model:formatted-value="form.endTime" value-format="HH:mm" format="HH:mm" placeholder="Kết thúc" class="w-full" />
+
+            <div v-if="form.hasHistory" class="text-amber-600 text-[13px] mt-2 flex items-start gap-1">
+              <NIcon class="mt-[2px]">
+                <Icon icon="carbon:warning-alt" />
+              </NIcon>
+              <span>Ca này đã có lịch sử làm việc. Bạn chỉ có thể đổi tên ca.</span>
             </div>
           </div>
         </NFormItem>

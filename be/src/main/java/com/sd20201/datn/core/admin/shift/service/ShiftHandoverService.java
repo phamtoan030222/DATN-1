@@ -12,6 +12,7 @@ public interface ShiftHandoverService {
     ResponseObject<ShiftHandoverResponse> startShift(StartShiftRequest req);
     ResponseObject<ShiftHandoverResponse> endShift(EndShiftRequest req);
     // Bổ sung vào ShiftHandoverService
-    ResponseObject<Page<ShiftHandoverResponse>> getShiftHistory(PageableRequest request);
+    ResponseObject<Page<ShiftHandoverResponse>> getShiftHistory(PageableRequest request, String keyword);
+    ResponseObject<ShiftHandoverResponse> getLastClosedShift();
 
 }

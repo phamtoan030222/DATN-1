@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NModal, NTag, useMessage } from 'naive-ui'
+import { NAlert, NButton, NModal, NTag, NTooltip, useMessage } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { handoverApi } from '@/service/api/admin/shift/handover'
 import { scheduleApi } from '@/service/api/admin/shift/schedule'
@@ -13,13 +13,14 @@ defineExpose({ openModal })
 const showModal = ref(false)
 const loading = ref(false)
 const checking = ref(true)
+const viewMode = ref(false) // Trạng thái "Chế độ xem"
 
-// initialCash: Giá trị số để tính toán
+// Tiền nong
 const initialCash = ref<number>(0)
-// displayCash: Giá trị chuỗi hiển thị trên input (có dấu phẩy)
 const displayCash = ref<string>('')
+const lastClosedCash = ref<number>(0) // Tiền kết ca của ca trước
 
-const note = ref('')
+const note = ref('') // Để trắng mặc định theo yêu cầu
 const staffName = ref('Nhân viên')
 const currentTime = ref(new Date().toLocaleString('vi-VN'))
 
@@ -35,10 +36,21 @@ const router = useRouter()
 const route = useRoute()
 const message = useMessage()
 
-// --- 1. LOGIC NHẬP TIỀN AN TOÀN (V-MODEL 2 CHIỀU) ---
+// --- Computed: Kiểm tra lệch tiền ---
+const isCashMismatch = computed(() => {
+  return initialCash.value !== lastClosedCash.value
+})
+
+const canStartShift = computed(() => {
+  // Logic: Nếu lệch tiền mà KHÔNG có ghi chú -> Disable nút
+  if (isCashMismatch.value && !note.value.trim())
+    return false
+  return true
+})
+
+// --- 1. LOGIC NHẬP TIỀN ---
 function handleInputMoney(e: any) {
   let rawValue = e.target.value
-  // Xóa ký tự không phải số
   rawValue = rawValue.replace(/\D/g, '')
 
   if (rawValue === '') {
@@ -46,11 +58,14 @@ function handleInputMoney(e: any) {
     displayCash.value = ''
     return
   }
-
   const numValue = Number(rawValue)
   initialCash.value = numValue
-  // Cập nhật hiển thị có dấu phẩy
   displayCash.value = numValue.toLocaleString('en-US')
+}
+
+// Hàm format tiền tệ hiển thị
+function formatCurrency(val: number) {
+  return `${val.toLocaleString('vi-VN')} ₫`
 }
 
 // --- 2. LẤY USER DATA ---
@@ -67,11 +82,8 @@ function getUserData() {
 
 // --- 3. CHECK QUYỀN & TRẠNG THÁI CA ---
 async function checkShiftStatus() {
-  // 👇 FIX QUAN TRỌNG: Nếu đang ở trang login thì không check gì cả
   if (route.path.includes('/login')) {
-    showModal.value = false
-    checking.value = false
-    return
+    showModal.value = false; checking.value = false; return
   }
 
   checking.value = true
@@ -83,23 +95,20 @@ async function checkShiftStatus() {
   const isClientPage = route.path.startsWith('/home') || route.path === '/' || route.path.startsWith('/product')
   if (isClientPage && !props.forceShow) { checking.value = false; return }
 
-  // CHECK ADMIN (Bỏ qua nếu là Admin)
   const roles = currentUser.rolesCodes || currentUser.roles || []
   const isAdmin = Array.isArray(roles) && roles.some((r: string) => {
     const roleUpper = r.toUpperCase()
     return roleUpper.includes('ADMIN') || roleUpper.includes('QUAN_LY') || roleUpper.includes('ROOT') || roleUpper.includes('OWNER')
   })
-
   if (isAdmin && !props.forceShow) { checking.value = false; return }
 
   const hasSessionTicket = sessionStorage.getItem('SHIFT_ACTIVE_TICKET') === 'true'
   if (hasSessionTicket && !props.forceShow) {
-    showModal.value = false
-    checking.value = false
-    return
+    showModal.value = false; checking.value = false; return
   }
 
   try {
+    // Check ca hiện tại
     const res = await handoverApi.getCurrentShift(userId)
 
     if (res && res.data && res.data.id) {
@@ -107,18 +116,35 @@ async function checkShiftStatus() {
       showModal.value = false
     }
     else {
+      // Nếu chưa có ca -> Chuẩn bị mở modal
       staffName.value = currentUser.fullName || currentUser.username || 'Đồng nghiệp'
-      showModal.value = true
-      initialCash.value = 0
-      displayCash.value = ''
-      identifyShift(userId)
+      await fetchLastClosedShift()
+      identifyShift(userId) // Tìm lịch
+
+      // Nếu không ở chế độ xem thì mới hiện Modal
+      if (!viewMode.value) {
+        showModal.value = true
+      }
+    }
+  }
+  catch (e) { console.error('Lỗi check ca:', e) }
+  finally { checking.value = false }
+}
+
+// --- [MỚI] Lấy tiền ca đóng gần nhất ---
+async function fetchLastClosedShift() {
+  try {
+    const res = await handoverApi.getLastClosedShift()
+    if (res && res.data) {
+      // Sửa dòng gán tiền trong fetchLastClosedShift
+      lastClosedCash.value = (res.data?.data?.realCashAmount) ?? (res.data?.realCashAmount) ?? 0
+      initialCash.value = lastClosedCash.value
+      displayCash.value = lastClosedCash.value.toLocaleString('en-US')
     }
   }
   catch (e) {
-    console.error('Lỗi check ca:', e)
-  }
-  finally {
-    checking.value = false
+    console.error('Không lấy được tiền ca trước', e)
+    lastClosedCash.value = 0
   }
 }
 
@@ -158,17 +184,37 @@ async function identifyShift(uId: any) {
         end: strictMatch.shift.endTime?.slice(0, 5),
         scheduleId: strictMatch.id,
       }
-      const startMin = toMinutes(strictMatch.shift.startTime)
-      note.value = currentMinutes < startMin
-        ? `Vào sớm trước ca (Lịch: ${strictMatch.shift.startTime?.slice(0, 5)})`
-        : `Vào ca theo lịch: ${strictMatch.shift.name}`
+      // Để trắng note theo yêu cầu, không gán mặc định "Vào ca theo lịch..." nữa
     }
-    else { detectedShift.value = null; note.value = '' }
+    else {
+      detectedShift.value = null
+      note.value = ''
+    }
   }
   catch (e) { console.error(e) }
 }
 
-// --- 5. MỞ CA ---
+// --- 5. XỬ LÝ NÚT BẤM (Vào Ca hoặc Chế độ xem) ---
+async function handleMainAction() {
+  if (!detectedShift.value) {
+    enableViewMode()
+    return
+  }
+  await handleStartShift()
+}
+
+function enableViewMode() {
+  showModal.value = false
+  viewMode.value = true
+  message.info('Đã chuyển sang chế độ xem. Bạn có thể mở lại bảng vào ca bất cứ lúc nào.')
+}
+
+function openModalFromFloatingButton() {
+  viewMode.value = false
+  showModal.value = true
+}
+
+// --- 6. MỞ CA (START SHIFT) ---
 async function handleStartShift() {
   const currentUser = getUserData()
   const userId = currentUser?.id || currentUser?.userId
@@ -176,6 +222,11 @@ async function handleStartShift() {
 
   if (initialCash.value < 0)
     return message.warning('Tiền đầu ca không hợp lệ')
+
+  if (isCashMismatch.value && !note.value.trim()) {
+    message.error(`Tiền thực tế khác tiền ca trước. Vui lòng nhập lý do vào ô Ghi chú!`)
+    return
+  }
 
   loading.value = true
   try {
@@ -193,10 +244,15 @@ async function handleStartShift() {
       finalShiftName = `${timeStr} (Tự do) - ${userName} (${dateStr})`
     }
 
+    let finalNote = note.value
+    if (isCashMismatch.value) {
+      finalNote = `[LỆCH TIỀN ĐẦU CA] Hệ thống: ${formatCurrency(lastClosedCash.value)} - Thực tế: ${formatCurrency(initialCash.value)}. Lý do: ${note.value}`
+    }
+
     const payload = {
       accountId: userId,
       initialCash: initialCash.value,
-      note: note.value,
+      note: finalNote,
       name: finalShiftName,
       startTime: formatDateForServer(now),
       endTime: null,
@@ -204,29 +260,20 @@ async function handleStartShift() {
     }
 
     await handoverApi.startShift(payload)
-
     message.success(`Mở ca thành công!`)
     sessionStorage.setItem('SHIFT_ACTIVE_TICKET', 'true')
     showModal.value = false
-
+    viewMode.value = false
     setTimeout(() => { window.location.reload() }, 1000)
   }
-  catch (e) {
-    message.error('Có lỗi khi mở ca!')
-  }
+  catch (e) { message.error('Có lỗi khi mở ca!') }
   finally { loading.value = false }
 }
 
-// --- 6. HÀM ĐĂNG XUẤT (ĐÃ SỬA LỖI TREO MODAL) ---
 function handleLogout() {
-  // 1. Đóng modal ngay lập tức
   showModal.value = false
-
-  // 2. Xóa dữ liệu
   localStorage.clear()
   sessionStorage.clear()
-
-  // 3. Dùng window.location để reload trang hoàn toàn -> Xóa sạch state cũ
   window.location.href = '/login'
 }
 
@@ -253,111 +300,135 @@ onMounted(() => { setTimeout(() => { checkShiftStatus() }, 500) })
 </script>
 
 <template>
+  <div v-if="viewMode" class="fixed inset-0 z-[90] bg-white/5 backdrop-blur-[1px] cursor-not-allowed flex items-end justify-end p-8">
+    <button
+      class="group flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-2xl transition-all w-[60px] h-[60px] hover:w-auto hover:pr-6 pointer-events-auto cursor-pointer"
+      @click="openModalFromFloatingButton"
+    >
+      <div class="flex items-center justify-center shrink-0 w-[60px] h-[60px]">
+        <Icon icon="carbon:view-filled" class="w-8 h-8 animate-pulse" />
+      </div>
+      <span class="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-500 ease-in-out whitespace-nowrap font-bold text-sm opacity-0 group-hover:opacity-100">
+        Mở bảng vào ca
+      </span>
+    </button>
+  </div>
+
   <NModal v-model:show="showModal" :mask-closable="false" :close-on-esc="false" transform-origin="center">
-    <div class="bg-white rounded-2xl shadow-2xl w-[480px] overflow-hidden font-sans relative">
-      <div class="bg-emerald-600 p-6 text-center text-white relative overflow-hidden">
-        <Icon icon="carbon:time" class="absolute -left-6 -bottom-6 text-emerald-500 opacity-30 w-36 h-36" />
-        <div class="relative z-10">
-          <h2 class="text-2xl font-bold m-0 uppercase tracking-wide flex justify-center items-center gap-2">
-            Mở Ca Làm Việc
-          </h2>
-          <p class="opacity-90 text-sm mt-1 font-medium">
-            Hệ thống quản lý bán hàng MyLaptop
-          </p>
+    <div class="bg-white rounded-xl shadow-2xl w-[450px] overflow-hidden font-sans border border-gray-100">
+      <div class="bg-emerald-600 px-6 py-4 flex items-center justify-between relative overflow-hidden text-white">
+        <div class="flex items-center gap-3 z-10">
+          <Icon icon="carbon:time" class="w-8 h-8 opacity-90" />
+          <div>
+            <h2 class="text-lg font-bold uppercase tracking-wide leading-none">
+              Mở Ca Làm Việc
+            </h2>
+            <p class="text-[10px] opacity-75 mt-1 font-medium tracking-tight">
+              Hệ thống MyLaptop • {{ currentTime }}
+            </p>
+          </div>
         </div>
+        <Icon icon="carbon:time" class="absolute -right-4 -bottom-4 text-white/10 w-24 h-24" />
       </div>
 
-      <div class="p-8 space-y-6">
-        <div v-if="detectedShift" class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center shadow-sm">
-          <p class="text-emerald-800 text-[10px] uppercase font-bold tracking-widest mb-1">
-            LỊCH LÀM VIỆC CỦA BẠN
-          </p>
-          <h3 class="text-2xl font-bold text-emerald-700 leading-tight mb-2">
-            {{ detectedShift.name }}
-          </h3>
-          <div class="flex justify-center items-center gap-2">
-            <NTag type="success" class="font-bold font-mono text-sm" round :bordered="false">
-              <template #icon>
-                <Icon icon="carbon:time" />
-              </template>
-              {{ detectedShift.start }} - {{ detectedShift.end }}
-            </NTag>
-          </div>
-          <p v-if="note" class="text-xs text-emerald-600 font-semibold mt-2">
-            ℹ️ {{ note }}
-          </p>
-        </div>
-
-        <div v-else class="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3 shadow-sm">
-          <div class="bg-orange-100 p-2 rounded-full">
-            <Icon icon="carbon:warning-alt" class="text-orange-600 text-xl block" />
-          </div>
+      <div class="p-6 space-y-4">
+        <div v-if="detectedShift" class="bg-emerald-50 border border-emerald-100 rounded-lg p-3 flex items-center justify-between">
           <div>
-            <p class="text-orange-900 font-bold text-sm">
-              Không tìm thấy lịch phân công
+            <p class="text-[10px] text-emerald-600 font-bold uppercase mb-0.5 tracking-wider">
+              Lịch của bạn
             </p>
-            <p class="text-orange-800 text-xs mt-1 leading-relaxed">
-              Bạn đang mở ca tự do. Hệ thống sẽ ghi nhận thời gian bắt đầu từ lúc này.
-            </p>
+            <h4 class="text-emerald-800 font-bold text-base leading-tight">
+              {{ detectedShift.name }}
+            </h4>
           </div>
+          <NTag type="success" size="small" round class="font-bold border-emerald-200">
+            {{ detectedShift.start }} - {{ detectedShift.end }}
+          </NTag>
         </div>
 
-        <div class="text-center border-b border-gray-100 pb-4">
-          <h3 class="text-lg font-bold text-gray-800 flex justify-center items-center gap-2">
-            <Icon icon="carbon:user-avatar-filled" class="text-gray-400" /> {{ staffName }}
-          </h3>
-          <p class="text-xs text-gray-400 font-mono mt-1">
-            {{ currentTime }}
+        <div v-else class="bg-orange-50 border border-orange-100 rounded-lg p-3 flex items-center gap-3">
+          <Icon icon="carbon:warning" class="text-orange-500 w-5 h-5 shrink-0" />
+          <p class="text-[11px] text-orange-800 font-medium leading-tight">
+            Chưa đến giờ làm việc. Bạn có thể tra cứu thông tin ở <b>Chế độ xem</b> bên dưới.
           </p>
         </div>
 
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2 uppercase tracking-wide">
-            Tiền mặt đầu ca <span class="text-red-500">*</span>
-          </label>
+        <div class="flex items-center justify-between px-1 text-xs">
+          <div class="flex items-center gap-1.5 text-gray-600 font-bold">
+            <Icon icon="carbon:user-avatar" class="text-gray-400" /> {{ staffName }}
+          </div>
+          <span class="text-gray-400 font-mono">{{ currentTime.split(' ')[0] }}</span>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex justify-between items-end">
+            <label class="text-[11px] font-bold text-gray-500 uppercase tracking-tighter">Tiền mặt đầu ca <span class="text-red-500">*</span></label>
+            <span class="text-[10px] text-gray-400">Ca trước kết: <b class="text-gray-700">{{ lastClosedCash.toLocaleString() }}₫</b></span>
+          </div>
           <div class="relative group">
-            <div class="absolute left-0 top-0 bottom-0 w-12 flex items-center justify-center text-gray-500 font-bold bg-gray-50 border-r border-gray-200 rounded-l transition-colors group-focus-within:bg-emerald-50 group-focus-within:text-emerald-600 group-focus-within:border-emerald-200">
+            <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold border-r pr-2 border-gray-100 group-focus-within:text-emerald-500 group-focus-within:border-emerald-200">
               ₫
             </div>
             <input
               v-model="displayCash"
               type="text"
-              class="w-full pl-14 pr-4 py-3 text-xl font-bold text-gray-800 border border-gray-300 rounded transition-all outline-none focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/20 placeholder-gray-300"
+              class="w-full pl-10 pr-4 py-2 text-xl font-bold text-gray-800 border border-gray-200 rounded-lg focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all"
+              :class="{ '!border-red-400 !bg-red-50/50': isCashMismatch }"
               placeholder="0"
-              autofocus
               @input="handleInputMoney"
             >
           </div>
+          <p v-if="isCashMismatch" class="text-[10px] text-orange-600 font-medium italic">
+            ⚠️ Số tiền không khớp ca trước. Vui lòng nhập lý do bên dưới.
+          </p>
         </div>
 
-        <div>
-          <label class="block text-gray-700 text-sm font-bold mb-2">Ghi chú (Tùy chọn)</label>
-          <input v-model="note" class="w-full px-4 py-2 border border-gray-300 rounded text-sm transition-all outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200" placeholder="Ví dụ: Mang theo tiền lẻ...">
+        <div class="space-y-1.5">
+          <label class="text-[11px] font-bold text-gray-500 uppercase tracking-tighter">Ghi chú <span v-if="isCashMismatch" class="text-red-500 font-normal lowercase">(bắt buộc nhập lý do)</span></label>
+          <textarea
+            v-model="note"
+            rows="2"
+            class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all resize-none"
+            :class="{ '!border-red-300': isCashMismatch && !note.trim() }"
+            placeholder="Nhập ghi chú tại đây..."
+          />
         </div>
 
-        <div class="grid grid-cols-12 gap-3 pt-2">
-          <div class="col-span-4">
-            <NButton secondary type="error" size="large" block class="h-12 font-bold" @click="handleLogout">
-              Đăng xuất
-            </NButton>
-          </div>
-          <div class="col-span-8">
-            <NButton
-              type="primary"
-              size="large"
-              block
-              :loading="loading"
-              class="h-12 font-bold text-white !bg-emerald-600 hover:!bg-emerald-700 shadow-lg shadow-emerald-200"
-              @click="handleStartShift"
-            >
-              <template #icon>
-                <Icon icon="carbon:checkmark-filled" />
-              </template>
-              {{ detectedShift ? 'XÁC NHẬN VÀO CA' : 'XÁC NHẬN VÀO CA' }}
-            </NButton>
-          </div>
+        <div class="flex gap-2 pt-1">
+          <NButton secondary type="error" class="flex-1 font-bold h-10 rounded-lg" @click="handleLogout">
+            Đăng xuất
+          </NButton>
+          <NTooltip trigger="hover" :disabled="canStartShift">
+            <template #trigger>
+              <NButton
+                type="primary"
+                class="flex-[2] font-bold h-10 rounded-lg shadow-sm"
+                :class="detectedShift ? '!bg-emerald-600 hover:!bg-emerald-700' : '!bg-blue-600 hover:!bg-blue-700'"
+                :loading="loading"
+                :disabled="detectedShift ? !canStartShift : false"
+                @click="handleMainAction"
+              >
+                <template #icon>
+                  <Icon :icon="detectedShift ? 'carbon:checkmark-filled' : 'carbon:view-filled'" />
+                </template>
+                {{ detectedShift ? 'XÁC NHẬN VÀO CA' : 'CHẾ ĐỘ XEM' }}
+              </NButton>
+            </template>
+            Vui lòng nhập lý do lệch tiền trước khi vào ca!
+          </NTooltip>
         </div>
       </div>
     </div>
   </NModal>
 </template>
+
+<style>
+/* CSS ép Sidebar nổi lên trên lớp phủ overlay (z-100 > z-90) */
+.n-layout-sider, aside, .sidebar-container, header {
+  z-index: 100 !important;
+  position: relative;
+}
+.n-layout-sider * {
+  pointer-events: auto !important;
+}
+</style>

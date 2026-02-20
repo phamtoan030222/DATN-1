@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.shift.controller;
 
+import com.sd20201.datn.core.admin.shift.model.request.BulkCreateScheduleRequest;
 import com.sd20201.datn.core.admin.shift.model.request.CreateScheduleRequest;
 import com.sd20201.datn.core.admin.shift.service.WorkScheduleService;
 import com.sd20201.datn.core.common.base.ResponseObject;
@@ -8,6 +9,7 @@ import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -21,6 +23,7 @@ public class WorkScheduleController {
 
     // API hiển thị lịch lên Calendar
     @GetMapping
+    @PreAuthorize("hasAnyAuthority('QUAN_LY', 'NHAN_VIEN')")
     public ResponseEntity<?> getSchedules(
             @RequestParam LocalDate fromDate,
             @RequestParam LocalDate toDate) {
@@ -40,5 +43,10 @@ public class WorkScheduleController {
     public ResponseEntity<?> deleteSchedule(@PathVariable String id) {
         scheduleService.deleteSchedule(id);
         return Helper.createResponseEntity(new ResponseObject<>(null, HttpStatus.OK, "Đã hủy lịch thành công"));
+    }
+
+    @PostMapping("/bulk")
+    public ResponseEntity<?> createBulkSchedule(@RequestBody BulkCreateScheduleRequest req) {
+        return Helper.createResponseEntity(scheduleService.createBulkSchedule(req));
     }
 }

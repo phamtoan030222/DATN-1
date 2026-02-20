@@ -23,4 +23,9 @@ export const scheduleApi = {
   delete: (id: number) => {
     return request.delete(`/api/v1/admin/schedules/${id}`)
   },
+
+  // Xếp lịch nâng cao (Đã thêm đúng tiền tố /api/v1)
+  assignBulk: (data: any) => {
+    return request.post('/api/v1/admin/schedules/bulk', data)
+  },
 }

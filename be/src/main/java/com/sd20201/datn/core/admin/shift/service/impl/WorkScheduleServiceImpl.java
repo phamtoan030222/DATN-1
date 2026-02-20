@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.shift.service.impl;
 
+import com.sd20201.datn.core.admin.shift.model.request.BulkCreateScheduleRequest;
 import com.sd20201.datn.core.admin.shift.model.request.CreateScheduleRequest;
 import com.sd20201.datn.core.admin.shift.repository.AdWorkScheduleRepository;
 import com.sd20201.datn.core.admin.shift.service.WorkScheduleService;
@@ -16,8 +17,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 
 @Service
@@ -73,5 +77,90 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
     public ResponseObject<?> getSchedules(LocalDate fromDate, LocalDate toDate) {
         List<WorkSchedule> list = scheduleRepo.findByWorkDateBetween(fromDate, toDate);
         return new ResponseObject<>(list, HttpStatus.OK, "Lấy dữ liệu thành công");
+    }
+
+    @Override
+    @Transactional
+    public ResponseObject<?> createBulkSchedule(BulkCreateScheduleRequest req) {
+        Staff staff = staffRepo.findById(req.getStaffId().trim())
+                .orElseThrow(() -> new RuntimeException("Nhân viên không tồn tại"));
+
+        List<Shift> selectedShifts = shiftTemplateRepo.findAllById(req.getShiftIds());
+        if (selectedShifts.isEmpty()) throw new RuntimeException("Chưa chọn ca làm việc nào");
+
+        LocalDateTime now = LocalDateTime.now();
+        int successCount = 0;
+        int errorCount = 0;
+
+        // Lặp qua từng ngày trong khoảng thời gian đã chọn
+        for (LocalDate date = req.getStartDate(); !date.isAfter(req.getEndDate()); date = date.plusDays(1)) {
+
+            // 1. Kiểm tra Ngày lặp lại (2-4-6 hoặc 3-5-7)
+            if (req.getDaysOfWeek() != null && !req.getDaysOfWeek().contains(date.getDayOfWeek().getValue())) {
+                continue;
+            }
+
+            // Lấy danh sách lịch hiện có của NV này trong ngày để check giao cắt thời gian
+            List<WorkSchedule> staffDailySchedules = scheduleRepo.findByStaffIdAndWorkDate(staff.getId(), date);
+
+            for (Shift shift : selectedShifts) {
+                // Chuẩn hóa giờ "08:00" thành "08:00:00" để parse
+                LocalTime startTime = LocalTime.parse(shift.getStartTime().length() > 5 ? shift.getStartTime() : shift.getStartTime() + ":00");
+                LocalTime endTime = LocalTime.parse(shift.getEndTime().length() > 5 ? shift.getEndTime() : shift.getEndTime() + ":00");
+                LocalDateTime shiftStartDateTime = LocalDateTime.of(date, startTime);
+
+                // CHỐT CHẶN 1: Bỏ qua nếu thời gian bắt đầu ca đã ở trong quá khứ
+                if (shiftStartDateTime.isBefore(now)) {
+                    errorCount++; continue;
+                }
+
+                // CHỐT CHẶN 2: Bỏ qua nếu ca này ngày này đã có NHÂN VIÊN KHÁC làm (Quy tắc 1 NV/1 Ca)
+                WorkSchedule existingSchedule = scheduleRepo.findByShiftIdAndWorkDate(shift.getId(), date);
+                if (existingSchedule != null && !existingSchedule.getStaff().getId().equals(staff.getId())) {
+                    // 👇 KIỂM TRA QUYỀN GHI ĐÈ Ở ĐÂY
+                    if (req.getOverwrite() == null || !req.getOverwrite()) {
+                        errorCount++; continue;
+                    }
+                    // Nếu có quyền ghi đè (isOverwrite = true) -> Cho phép code chạy tiếp xuống dưới để cập nhật nhân viên mới
+                }
+
+                // CHỐT CHẶN 3: Kiểm tra TRÙNG GIỜ với các ca khác của CÙNG 1 nhân viên
+                boolean isOverlap = false;
+                for (WorkSchedule ws : staffDailySchedules) {
+                    if (ws.getShift().getId().equals(shift.getId())) continue; // Cùng 1 ca thì bỏ qua
+
+                    LocalTime wsStart = LocalTime.parse(ws.getShift().getStartTime().length() > 5 ? ws.getShift().getStartTime() : ws.getShift().getStartTime() + ":00");
+                    LocalTime wsEnd = LocalTime.parse(ws.getShift().getEndTime().length() > 5 ? ws.getShift().getEndTime() : ws.getShift().getEndTime() + ":00");
+
+                    // Logic giao cắt: Bắt đầu ca 1 < Kết thúc ca 2 VÀ Kết thúc ca 1 > Bắt đầu ca 2
+                    if (startTime.isBefore(wsEnd) && endTime.isAfter(wsStart)) {
+                        isOverlap = true; break;
+                    }
+                }
+
+                if (isOverlap) {
+                    errorCount++; continue;
+                }
+
+                // Nếu vượt qua mọi chốt chặn -> Lưu hoặc Cập nhật
+                if (existingSchedule == null) {
+                    existingSchedule = new WorkSchedule();
+                    existingSchedule.setShift(shift);
+                    existingSchedule.setWorkDate(date);
+                }
+                existingSchedule.setStaff(staff);
+                scheduleRepo.save(existingSchedule);
+
+                // Thêm vào list tạm để các vòng lặp shift sau trong cùng 1 ngày có thể check overlap
+                staffDailySchedules.add(existingSchedule);
+                successCount++;
+            }
+        }
+
+        String msg = "Đã xếp thành công " + successCount + " ca làm việc.";
+        if (errorCount > 0) {
+            msg += " Đã bỏ qua " + errorCount + " ca vi phạm quy tắc (quá khứ, trùng giờ, hoặc đã có người làm).";
+        }
+        return new ResponseObject<>(null, HttpStatus.OK, msg);
     }
 }

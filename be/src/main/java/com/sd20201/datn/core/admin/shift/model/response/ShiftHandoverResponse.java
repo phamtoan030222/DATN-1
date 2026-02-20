@@ -16,6 +16,7 @@ public class ShiftHandoverResponse {
     private String id;
     private String staffName;
     private String staffCode;
+    private String name;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING, pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime startTime;
@@ -33,6 +34,7 @@ public class ShiftHandoverResponse {
 
     public ShiftHandoverResponse(ShiftHandover entity) {
         this.id = entity.getId();
+        this.name = entity.getName();
 
         // 👇 ĐOẠN CODE SỬA LỖI ĐỎ CỦA BẠN 👇
         if (entity.getAccount() != null) {
@@ -53,6 +55,7 @@ public class ShiftHandoverResponse {
         this.startTime = entity.getStartTime();
         this.endTime = entity.getEndTime();
         this.totalBills = entity.getTotalBills();
+
 
 
         // Xử lý null an toàn

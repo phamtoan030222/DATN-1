@@ -39,6 +39,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     @Setter(onMethod = @__({@Autowired}))
@@ -149,6 +150,12 @@ public class SecurityConfig {
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/discounts/voucher/**").permitAll()
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/discounts/discount/**").permitAll()
 
+                        .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_STAFF)).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
+
+                        // 4. Cấu hình cho LỊCH LÀM VIỆC (Schedules) và CA LÀM VIỆC (Shifts)
+                        // Bạn cần đảm bảo các constant này đã cho phép NHAN_VIEN
+                        .requestMatchers(Helper.appendWildcard("/api/v1/admin/schedules")).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
+                        .requestMatchers(Helper.appendWildcard("/api/v1/admin/shifts")).hasAnyAuthority(RoleConstant.QUAN_LY.name(), RoleConstant.NHAN_VIEN.name())
 
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_PRODUCTS)).hasAnyAuthority(RoleConstant.QUAN_LY.name())
                         .requestMatchers(Helper.appendWildcard(MappingConstants.API_ADMIN_PREFIX_DISCOUNT)).hasAnyAuthority(RoleConstant.QUAN_LY.name())

@@ -4,6 +4,7 @@ import com.sd20201.datn.entity.base.PrimaryEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient; // <--- Thêm import này
 import lombok.*;
 
 @Getter
@@ -23,5 +24,7 @@ public class Shift extends PrimaryEntity {
 
     private String description;
 
-
+    // 👇 Cờ báo hiệu cho Frontend biết ca này đã có lịch sử chưa
+    @Transient
+    private boolean hasHistory;
 }

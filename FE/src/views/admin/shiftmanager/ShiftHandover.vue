@@ -4,10 +4,8 @@ import { useRouter } from 'vue-router'
 import {
   NButton,
   NInput,
-  NInputNumber,
   NResult,
   NSpin,
-  NTag,
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
@@ -24,7 +22,6 @@ const noShift = ref(false)
 // --- DATA ---
 const shiftId = ref('')
 const staffName = ref('')
-const staffCode = ref('')
 const startTime = ref('')
 
 const initialCash = ref(0)
@@ -34,6 +31,7 @@ const totalExpense = ref(0)
 const totalInvoiceCount = ref(0)
 
 const actualCash = ref<number | null>(null)
+const displayActualCash = ref('')
 const note = ref('')
 
 // --- COMPUTED ---
@@ -56,6 +54,19 @@ function formatVND(val: number) {
   if (val === null || val === undefined)
     return '0 ₫'
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
+}
+
+// --- LOGIC XỬ LÝ NHẬP TIỀN ---
+function handleInputMoney(value: string) {
+  const rawValue = value.replace(/\D/g, '')
+  if (!rawValue) {
+    actualCash.value = null
+    displayActualCash.value = ''
+    return
+  }
+  const numValue = Number(rawValue)
+  actualCash.value = numValue
+  displayActualCash.value = numValue.toLocaleString('vi-VN')
 }
 
 // --- LOGIC LOAD DATA ---
@@ -83,9 +94,7 @@ async function fetchCurrentShift(count = 0) {
     if (realData && realData.id) {
       shiftId.value = realData.id
       staffName.value = realData.staffName || (realData.staff ? realData.staff.fullName : '') || 'Nhân viên'
-      staffCode.value = realData.staffCode || (realData.staff ? realData.staff.userCode : '') || 'NV'
 
-      // Format time
       try {
         if (realData.startTime) {
           const d = new Date(realData.startTime)
@@ -125,8 +134,19 @@ async function handleLogout() {
 }
 
 async function submit() {
+  // 1. Kiểm tra nhập tiền
   if (actualCash.value === null)
     return message.warning('⚠️ Vui lòng nhập tiền mặt thực tế!')
+
+  // 2. LOGIC CHẶN: Lệch tiền mà không có Note -> Báo lỗi & Chặn
+  if (diff.value !== 0) {
+    if (!note.value || note.value.trim() === '') {
+      const type = diff.value > 0 ? 'dư' : 'thiếu'
+      const amount = formatVND(Math.abs(diff.value))
+      return message.error(`Tiền thực tế đang ${type} ${amount}. Vui lòng nhập lý do kết ca!`, { duration: 5000 })
+    }
+  }
+
   await executeEndShift()
 }
 
@@ -140,26 +160,13 @@ async function executeEndShift() {
       realCash: actualCash.value,
       note: note.value,
     })
-    message.success('✅ Đóng ca thành công!')
+    message.success('Đóng ca thành công!')
     setTimeout(handleLogout, 1500)
   }
   catch (e: any) {
     message.error(e.response?.data?.message || 'Lỗi khi đóng ca')
     submitting.value = false
   }
-}
-
-// --- FORMAT UTILS ---
-function parseCurrency(input: string) {
-  if (!input)
-    return null
-  const nums = input.replace(/,/g, '').trim()
-  return nums ? Number(nums) : null
-}
-function formatCurrency(value: number | null) {
-  if (value === null || value === undefined)
-    return ''
-  return value.toLocaleString('en-US')
 }
 
 onMounted(() => fetchCurrentShift())
@@ -209,9 +216,6 @@ onMounted(() => fetchCurrentShift())
             <div class="text-sm font-bold text-gray-700 leading-none">
               {{ staffName }}
             </div>
-          </div>
-          <div class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-bold">
-            {{ staffCode.substring(0, 2) }}
           </div>
         </div>
       </div>
@@ -274,20 +278,19 @@ onMounted(() => fetchCurrentShift())
               <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">
                 Nhập tiền thực tế <span class="text-red-500">*</span>
               </label>
-              <NInputNumber
-                v-model:value="actualCash"
+
+              <NInput
+                :value="displayActualCash"
                 class="text-2xl font-bold text-right custom-input"
                 placeholder="0"
-                :show-button="false"
-                :parse="parseCurrency"
-                :format="formatCurrency"
                 size="large"
                 autofocus
+                @update:value="handleInputMoney"
               >
                 <template #prefix>
                   <span class="text-gray-400 mr-2">₫</span>
                 </template>
-              </NInputNumber>
+              </NInput>
             </div>
 
             <div
@@ -310,7 +313,14 @@ onMounted(() => fetchCurrentShift())
 
             <div>
               <label class="block text-xs font-bold text-gray-500 mb-2 uppercase">Ghi chú</label>
-              <NInput v-model:value="note" type="textarea" placeholder="..." :rows="2" class="bg-gray-50" />
+              <NInput
+                v-model:value="note"
+                type="textarea"
+                :placeholder="diff !== 0 ? 'Nhập lý do chênh lệch tiền...' : '...'"
+                :rows="2"
+                class="bg-gray-50"
+                :status="diff !== 0 && !note ? 'error' : undefined"
+              />
             </div>
 
             <div class="mt-auto">
@@ -337,7 +347,6 @@ onMounted(() => fetchCurrentShift())
 </template>
 
 <style scoped>
-/* Tùy chỉnh input để đồng bộ với style phẳng */
 :deep(.n-input.custom-input) {
   background-color: #f9fafb;
   border-radius: 0.5rem;
@@ -345,10 +354,11 @@ onMounted(() => fetchCurrentShift())
 }
 :deep(.n-input.custom-input:hover),
 :deep(.n-input.custom-input:focus-within) {
-   border-color: #10b981; /* Emerald 500 */
+   border-color: #10b981;
    background-color: #fff;
 }
-:deep(.n-input.custom-input .n-input__input-el) {
+:deep(.n-input.custom-input input) {
+  text-align: right;
   color: #374151;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
