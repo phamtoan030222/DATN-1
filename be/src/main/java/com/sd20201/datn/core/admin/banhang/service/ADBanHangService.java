@@ -12,6 +12,8 @@ import java.util.List;
 public interface ADBanHangService {
     List<ListHoaDon> getHoaDon();
 
+    ResponseObject<?> themMoiKhachHang(ADThemMoiKhachHangRequest request);
+
     ResponseObject<?> getProductDetails(ADPDProductDetailRequest request);
 
     ResponseObject<?> createHoaDon(ADNhanVienRequest adNhanVienRequest);

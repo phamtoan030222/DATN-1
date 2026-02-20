@@ -180,7 +180,7 @@
 
             <div class="flex justify-between items-center">
               <span class="font-bold text-gray-800 uppercase text-sm">Tổng thanh toán:</span>
-              <span class="text-2xl font-extrabold text-indigo-700">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
+              <span class="text-2xl font-extrabold text-indigo-700">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
 
             <div v-if="hoaDonData?.duNo && hoaDonData.duNo > 0" class="flex justify-between text-sm text-orange-600 mt-2">
@@ -308,7 +308,7 @@
             <div>
               <p class="text-sm text-gray-500">Tổng tiền</p>
               <p class="font-semibold text-red-600">
-                {{ formatCurrency(hoaDonData?.tongTien) }}
+                {{ formatCurrency(hoaDonData?.tongTienSauGiam) }}
               </p>
             </div>
           </div>
@@ -493,7 +493,7 @@
 
             <div class="flex justify-between items-center pt-4">
               <span class="text-lg font-bold text-gray-900">TỔNG CỘNG:</span>
-              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
           </div>
 
@@ -543,7 +543,7 @@
           <div class="space-y-3 pt-4 border-t border-gray-100">
             <div class="flex justify-between items-center">
               <span class="text-gray-600">Tổng tiền thanh toán:</span>
-              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
+              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
 
             <div v-if="hoaDonData?.duNo && hoaDonData.duNo > 0" class="flex justify-between items-center">
@@ -624,7 +624,7 @@
 
             <div class="flex justify-between items-center pt-3 border-t border-gray-200">
               <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
-              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
           </div>
         </div>
@@ -1514,6 +1514,11 @@ const getPaymentMethodText = (method: string | undefined): string => {
 }
 
 const getShippingMethodText = (method: string | undefined): string => {
+
+  if (hoaDonData.value?.loaiHoaDon === '0'){
+    return 'Nhận tại quầy'
+  }
+
   if (!method) return 'Giao hàng tiêu chuẩn'
   const methodMap: Record<string, string> = {
     'STANDARD': 'Giao hàng tiêu chuẩn',

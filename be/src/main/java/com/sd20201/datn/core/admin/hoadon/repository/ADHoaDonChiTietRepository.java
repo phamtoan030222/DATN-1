@@ -30,6 +30,11 @@ public interface ADHoaDonChiTietRepository extends InvoiceDetailRepository {
         hdct.quantity AS soLuong,
         hdct.price AS giaBan,
         (hdct.price * hdct.quantity) AS tongTien,
+        hd.total_amount_after_decrease AS tongTienSauGiam,
+        v.code AS maVoucher,
+        v.name AS tenVoucher,
+        (hd.total_amount - hd.total_amount_after_decrease) AS giaTriVoucher, 
+        s.name AS tenNhanVien,
 
         sp.name AS tenSanPham,
         spct.id AS productDetailId,
@@ -115,6 +120,7 @@ public interface ADHoaDonChiTietRepository extends InvoiceDetailRepository {
             FROM imei i
             WHERE i.id_invoice_detail = hdct.id
         ) AS soLuongImei
+    
 
     FROM invoice hd
     LEFT JOIN invoice_detail hdct ON hdct.id_invoice = hd.id
@@ -126,6 +132,8 @@ public interface ADHoaDonChiTietRepository extends InvoiceDetailRepository {
     LEFT JOIN hard_drive hard_drive ON spct.id_hard_drive = hard_drive.id
     LEFT JOIN customer kh ON hd.id_customer = kh.id
     LEFT JOIN address addr ON addr.id_customer = kh.id AND addr.is_default = TRUE
+    LEFT JOIN voucher v ON hd.id_voucher = v.id
+    LEFT JOIN staff s ON hd.id_staff = s.id
 
     WHERE hd.code = :maHoaDon
       AND (

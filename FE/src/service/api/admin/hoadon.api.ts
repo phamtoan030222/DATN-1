@@ -90,6 +90,7 @@ export interface HoaDonChiTietItem {
   tongTienSauGiam: number
   giaTriVoucher: number
   phuongThucThanhToan: string | null
+  tenNhanVien: string | null
   
   // Thông tin sản phẩm (có thể null nếu hóa đơn không có sản phẩm)
   maHoaDonChiTiet: string | null

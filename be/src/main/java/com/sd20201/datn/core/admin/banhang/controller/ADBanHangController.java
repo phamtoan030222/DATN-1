@@ -1,12 +1,6 @@
 package com.sd20201.datn.core.admin.banhang.controller;
 
-import com.sd20201.datn.core.admin.banhang.model.request.ADHuyRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADNhanVienRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADThanhToanRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADThemKhachHangRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ADThemSanPhamRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.ListKhachHangRequest;
-import com.sd20201.datn.core.admin.banhang.model.request.VoucherSuggestionRequest;
+import com.sd20201.datn.core.admin.banhang.model.request.*;
 import com.sd20201.datn.core.admin.banhang.model.response.ADChonKhachHangResponse;
 import com.sd20201.datn.core.admin.banhang.model.response.ADGioHangResponse;
 import com.sd20201.datn.core.admin.banhang.model.response.ADPhuongThucThanhToanRespones;
@@ -22,13 +16,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -98,6 +86,9 @@ public class ADBanHangController {
     public void getListKhachHang(ADThemKhachHangRequest id) {
         adBanHangService.themKhachHang(id);
     }
+
+    @PostMapping("/them-moi-khach-hang")
+    public ResponseEntity<?> themMoiKhachHang(@ModelAttribute ADThemMoiKhachHangRequest request) {return Helper.createResponseEntity(adBanHangService.themMoiKhachHang(request));}
 
     @PostMapping("/goi-y")
     public ResponseEntity<VoucherSuggestionResponse> goiY(

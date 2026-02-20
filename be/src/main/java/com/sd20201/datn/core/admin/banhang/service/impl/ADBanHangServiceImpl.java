@@ -80,6 +80,32 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         return adTaoHoaDonRepository.getAll();
     }
 
+    @Override
+    public ResponseObject<?> themMoiKhachHang(ADThemMoiKhachHangRequest request) {
+
+        List<Customer> existing = khachHangRepository.findByExactPhone(request.getSdt());
+
+        if (!existing.isEmpty()) {
+            return new ResponseObject<>(
+                    null,
+                    HttpStatus.CONFLICT,
+                    "Khách hàng đã tồn tại trong hệ thống"
+            );
+        }
+
+        Customer them = new Customer();
+        them.setName(request.getTen());
+        them.setPhone(request.getSdt());
+
+        khachHangRepository.save(them);
+
+        return new ResponseObject<>(
+                them.getId(),
+                HttpStatus.CREATED,
+                "Thêm mới khách hàng thành công"
+        );
+    }
+
 
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {

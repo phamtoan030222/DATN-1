@@ -2829,7 +2829,9 @@ async function addCustomer() {
     formData.append('sdt', newCustomer.sdt)
 
     const response = await themMoiKhachHang(formData)
-    const newCustomerId = response.data.id
+    const newCustomerId = response.data
+
+    console.log("New Khách hàng: " + newCustomerId);
 
     const selectFormData = new FormData()
     selectFormData.append('idHD', idHDS.value)
@@ -3466,6 +3468,7 @@ const bestSuggestion = computed(() => {
               >
                 Chuyển khoản
               </NButton>
+              
             </NSpace>
           </NSpace>
 

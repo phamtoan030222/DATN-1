@@ -11,6 +11,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface AdCustomerRepository extends com.sd20201.datn.repository.CustomerRepository {
+
     @Query(value = """
             SELECT c.id AS id,
                    c.name AS customerName,

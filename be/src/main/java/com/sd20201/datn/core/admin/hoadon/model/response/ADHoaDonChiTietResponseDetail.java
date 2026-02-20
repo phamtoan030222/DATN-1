@@ -69,5 +69,6 @@ public interface ADHoaDonChiTietResponseDetail {
     Integer getSoLuongImei();
 
     String getProductDetailId();
+    String getTenNhanVien();
 
 }
