@@ -76,6 +76,9 @@ dependencies {
 
     //chat nhan vien = websocket
     implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    implementation 'com.itextpdf:kernel:7.2.5'
+    implementation 'com.itextpdf:layout:7.2.5'
+
 }
 
 

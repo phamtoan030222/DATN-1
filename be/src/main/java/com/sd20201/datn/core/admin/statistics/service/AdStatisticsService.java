@@ -8,7 +8,9 @@ import java.io.IOException;
 public interface AdStatisticsService {
     AdDashboardOverviewResponse getDashboardOverview();
 
-    // [CẬP NHẬT] Thêm tham số start, end
+    List<AdDashboardOverviewResponse.TopItemDTO> getTopSellingProductsByDateRange(Long start, Long end) ;
+
+        // [CẬP NHẬT] Thêm tham số start, end
     AdRevenueChartResponse getRevenueChart(String type, Long start, Long end);
 
     // [CẬP NHẬT] Thêm tham số start, end
