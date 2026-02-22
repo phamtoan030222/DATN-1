@@ -72,6 +72,7 @@ public interface ClientBHVoucherDetailRepository extends JpaRepository<VoucherDe
             @Param("now") Long now
     );
 
+    // check thoi gian hien tai
     @Query("""
         SELECT vd.voucher FROM VoucherDetail vd
         WHERE vd.customer.id = :customerId

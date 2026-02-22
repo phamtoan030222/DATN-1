@@ -224,7 +224,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     name: 'orders_detail',
     path: '/orders/detail/:id', // QUAN TRỌNG: Đây là URL sẽ dùng
 
-    roles: ['QUAN_LY'],
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
     title: 'Chi tiết đơn hàng',
     requiresAuth: true,
     hide: true,
