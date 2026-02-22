@@ -3,6 +3,8 @@ package com.sd20201.datn.core.admin.statistics.repository;
 import com.sd20201.datn.core.admin.statistics.model.response.AdChartResponse;
 import com.sd20201.datn.core.admin.statistics.model.response.AdProductResponse;
 import com.sd20201.datn.entity.Invoice;
+import com.sd20201.datn.infrastructure.constant.EntityStatus;
+import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -104,6 +106,24 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
 
 
     @Query(value = """
+        SELECT p.name, 
+               CAST(SUM(id.quantity) AS SIGNED) as count, 
+               MAX(pd.price) as price, 
+               pd.url_image as image 
+        FROM invoice_detail id
+        JOIN product_detail pd ON id.id_product_detail = pd.id
+        JOIN product p ON pd.id_product = p.id
+        JOIN invoice i ON id.id_invoice = i.id
+        WHERE i.status = 0 
+        AND i.trang_thai_hoa_don = 4
+        AND i.created_date BETWEEN :start AND :end
+        GROUP BY p.name, pd.id 
+        ORDER BY count DESC 
+        LIMIT 5
+        """, nativeQuery = true)
+    List<Object[]> getTopSellingProductsByDateRange(@Param("start") Long start, @Param("end") Long end);
+
+    @Query(value = """
         SELECT p.id AS id, p.name AS name, b.name AS brandName, 
                CAST(COUNT(pd.id) AS signed) AS quantity, MAX(p.created_date) AS createdDate
         FROM product p
@@ -115,4 +135,7 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
         ORDER BY quantity ASC
         """, nativeQuery = true)
     Page<AdProductResponse> getLowStockProducts(@Param("limit") Integer limit, Pageable pageable);
+
+
+
 }

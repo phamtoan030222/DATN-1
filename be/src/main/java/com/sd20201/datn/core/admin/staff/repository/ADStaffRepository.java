@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -67,4 +68,8 @@ public interface ADStaffRepository extends StaffRepository {
 
     // 3. Tìm theo CCCD
     Optional<Staff> findByCitizenIdentifyCard(String citizenIdentifyCard);
+
+    // của tâm thêm
+    @Query("SELECT s.email FROM Staff s WHERE s.account.roleConstant = :role AND s.status = :status")
+    List<String> findEmailsByRoleAndStatus(@Param("role") RoleConstant role, @Param("status") EntityStatus status);
 }

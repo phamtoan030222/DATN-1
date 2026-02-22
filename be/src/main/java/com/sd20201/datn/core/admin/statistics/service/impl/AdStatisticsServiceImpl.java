@@ -420,6 +420,18 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
     }
 
     @Override
+    public List<AdDashboardOverviewResponse.TopItemDTO> getTopSellingProductsByDateRange(Long start, Long end) {
+        List<Object[]> rawList = statisticsRepo.getTopSellingProductsByDateRange(start, end);
+
+        return rawList.stream().map(row -> AdDashboardOverviewResponse.TopItemDTO.builder()
+                .name((String) row[0])
+                .count(row[1] != null ? ((Number) row[1]).longValue() : 0L)
+                .price(row[2] != null ? ((Number) row[2]).doubleValue() : 0.0)
+                .image((String) row[3])
+                .build()).collect(Collectors.toList());
+    }
+
+    @Override
     public List<AdChartResponse> getTopProductsChart(String type) {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime start = type.equals("month") ? now.withDayOfMonth(1).toLocalDate().atStartOfDay() : now.minusDays(7).toLocalDate().atStartOfDay();
