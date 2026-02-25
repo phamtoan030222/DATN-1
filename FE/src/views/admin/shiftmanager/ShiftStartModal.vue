@@ -82,53 +82,93 @@ function getUserData() {
 
 // --- 3. CHECK QUYỀN & TRẠNG THÁI CA ---
 async function checkShiftStatus() {
+  // 1. Chặn ở trang Đăng nhập
   if (route.path.includes('/login')) {
-    showModal.value = false; checking.value = false; return
+    showModal.value = false
+    checking.value = false
+    return
   }
 
   checking.value = true
   const currentUser = getUserData()
   const userId = currentUser?.id || currentUser?.userId
 
-  if (!userId) { checking.value = false; return }
+  if (!userId) {
+    checking.value = false
+    return
+  }
 
-  const isClientPage = route.path.startsWith('/home') || route.path === '/' || route.path.startsWith('/product')
-  if (isClientPage && !props.forceShow) { checking.value = false; return }
-
+  // ---------------------------------------------------------
+  // BƯỚC 1: LỌC QUYỀN (ROLE) - CHỈ CHO PHÉP NHÂN VIÊN
+  // ---------------------------------------------------------
   const roles = currentUser.rolesCodes || currentUser.roles || []
-  const isAdmin = Array.isArray(roles) && roles.some((r: string) => {
-    const roleUpper = r.toUpperCase()
-    return roleUpper.includes('ADMIN') || roleUpper.includes('QUAN_LY') || roleUpper.includes('ROOT') || roleUpper.includes('OWNER')
+  const isStaff = Array.isArray(roles) && roles.some((r: string) => {
+    return r.toUpperCase().includes('NHAN_VIEN')
   })
-  if (isAdmin && !props.forceShow) { checking.value = false; return }
 
+  // Nếu là Admin, Quản lý, hoặc Khách hàng vãng lai -> Ẩn Modal ngay lập tức
+  if (!isStaff && !props.forceShow) {
+    showModal.value = false
+    checking.value = false
+    return
+  }
+
+  // ---------------------------------------------------------
+  // BƯỚC 2: LỌC ĐƯỜNG DẪN (ROUTE) - BẢO VỆ GIAO DIỆN KHÁCH HÀNG
+  // ---------------------------------------------------------
+  // Danh sách các trang Public / Frontend dành cho khách mua hàng
+  const isClientPage
+    = route.path === '/'
+      || route.path.startsWith('/home')
+      || route.path.startsWith('/product')
+      || route.path.startsWith('/cart')
+      || route.path.startsWith('/checkout')
+
+  // Nếu Nhân viên đang lướt ra ngoài trang của Khách hàng -> Tạm thời ẩn Modal
+  if (isClientPage && !props.forceShow) {
+    showModal.value = false
+    checking.value = false
+    return
+  }
+
+  // ---------------------------------------------------------
+  // BƯỚC 3: KIỂM TRA TRẠNG THÁI CA LÀM VIỆC
+  // ---------------------------------------------------------
+  // Check vé thông hành ở Session (Tránh gọi API liên tục khi chuyển trang)
   const hasSessionTicket = sessionStorage.getItem('SHIFT_ACTIVE_TICKET') === 'true'
   if (hasSessionTicket && !props.forceShow) {
-    showModal.value = false; checking.value = false; return
+    showModal.value = false
+    checking.value = false
+    return
   }
 
   try {
-    // Check ca hiện tại
+    // Nếu chưa có vé, gọi API xuống DB để kiểm tra chắc chắn
     const res = await handoverApi.getCurrentShift(userId)
 
+    // TH1: Backend báo "Đang trong ca làm việc"
     if (res && res.data && res.data.id) {
-      sessionStorage.setItem('SHIFT_ACTIVE_TICKET', 'true')
+      sessionStorage.setItem('SHIFT_ACTIVE_TICKET', 'true') // Cấp lại vé thông hành
       showModal.value = false
     }
+    // TH2: Backend báo "Chưa có ca làm việc nào"
     else {
-      // Nếu chưa có ca -> Chuẩn bị mở modal
-      staffName.value = currentUser.fullName || currentUser.username || 'Đồng nghiệp'
-      await fetchLastClosedShift()
-      identifyShift(userId) // Tìm lịch
+      staffName.value = currentUser.fullName || currentUser.username || 'Nhân viên'
+      await fetchLastClosedShift() // Lấy số dư ca trước
+      identifyShift(userId) // Tra cứu lịch làm việc hôm nay
 
-      // Nếu không ở chế độ xem thì mới hiện Modal
+      // Bung bảng Mở ca yêu cầu nhập tiền
       if (!viewMode.value) {
         showModal.value = true
       }
     }
   }
-  catch (e) { console.error('Lỗi check ca:', e) }
-  finally { checking.value = false }
+  catch (e) {
+    console.error('Lỗi kiểm tra ca làm việc:', e)
+  }
+  finally {
+    checking.value = false
+  }
 }
 
 // --- Lấy tiền ca đóng gần nhất (ĐÃ FIX FORMAT) ---
