@@ -34,15 +34,10 @@ await initializationPromise
 const appStore = useAppStore()
 
 const naiveLocale = computed(() => {
-  return naiveI18nOptions[appStore.lang]
-    ? naiveI18nOptions[appStore.lang]
+  return (naiveI18nOptions as any)[appStore.lang]
+    ? (naiveI18nOptions as any)[appStore.lang]
     : naiveI18nOptions.enUS
 })
-
-const authStore = useAuthStore();
-const hasRoleStaff = computed(() => {
-  return authStore.userInfoDatn?.rolesCodes.includes('NHAN_VIEN');
-});
 </script>
 
 <template>
@@ -53,7 +48,7 @@ const hasRoleStaff = computed(() => {
     <naive-provider>
       <router-view />
       <Watermark :show-watermark="appStore.showWatermark" />
-      <ShiftStartModal v-if="hasRoleStaff" />
+      <ShiftStartModal />
     </naive-provider>
   </n-config-provider>
 </template>
