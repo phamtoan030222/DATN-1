@@ -130,7 +130,7 @@ async function fetchCurrentShift(count = 0) {
 async function handleLogout() {
   localStorage.clear()
   sessionStorage.clear()
-  window.location.href = '/login'
+  window.location.href = '/login-admin'
 }
 
 async function submit() {
