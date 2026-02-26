@@ -555,7 +555,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     path: '/support/chat',
     title: 'Chat thường',
     requiresAuth: true,
-    roles: ['QUAN_LY'],
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
     icon: 'icon-park-outline:communication',
     menuType: 'page',
     componentPath: '/admin/support/Chat.vue',

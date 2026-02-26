@@ -136,7 +136,23 @@ export const getGrowthStats = async () => {
     return []
   }
 }
-
+export const getTopProductsFilter = async (type: string = 'month', rangeDate?: number[] | null) => {
+  try {
+    const params: any = { type };
+    if (rangeDate && rangeDate.length === 2) {
+      params.start = rangeDate[0];
+      params.end = rangeDate[1];
+    }
+    const res = await request.get<DefaultResponse<TopProductOverview[]>>(
+      `${API_ADMIN_STATISTICS}/top-products-filter`,
+      { params }
+    )
+    return res.data.data || []
+  } catch (error) {
+    console.error("Lỗi API lấy top sản phẩm:", error)
+    return []
+  }
+}
 // --- 3. EXPORT ---
 export const statisticsApi = {
   getOverview,
@@ -147,5 +163,6 @@ export const statisticsApi = {
   getOrderStatusChartData: getOrderStatusChart, 
   getTopProductsChart,
   exportRevenueExcel,
-  getGrowthStats
+  getGrowthStats,
+  getTopProductsFilter
 }

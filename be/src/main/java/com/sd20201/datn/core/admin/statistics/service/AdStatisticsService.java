@@ -24,4 +24,6 @@ public interface AdStatisticsService {
 
     byte[] exportRevenueToExcel() throws IOException;
 
+    List<AdDashboardOverviewResponse.TopItemDTO> getTopProductsByFilter(String type, Long startCustom, Long endCustom);
+
 }

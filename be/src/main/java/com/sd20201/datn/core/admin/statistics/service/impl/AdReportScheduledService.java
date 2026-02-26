@@ -39,8 +39,25 @@ public class AdReportScheduledService {
 
     @Scheduled(cron = "0 0 22 * * *")
     public void runAutoReporting() {
-        // Có thể thêm logic kiểm tra thứ/ngày tháng tại đây như code cũ
-        executeReporting("Ngay", "ngay");
+        LocalDateTime now = LocalDateTime.now();
+
+        // 1. Báo cáo ngày (Luôn chạy)
+        executeReporting("Ngay", "ngày");
+
+        // 2. Báo cáo tuần (Chạy vào Chủ Nhật)
+        if (now.getDayOfWeek().getValue() == 7) {
+            executeReporting("Tuan", "tuần");
+        }
+
+        // 3. Báo cáo tháng (Chạy vào ngày cuối cùng của tháng)
+        if (now.toLocalDate().equals(now.toLocalDate().withDayOfMonth(now.toLocalDate().lengthOfMonth()))) {
+            executeReporting("Thang", "tháng");
+        }
+
+        // 4. Báo cáo năm (Chạy vào 31/12)
+        if (now.getMonthValue() == 12 && now.getDayOfMonth() == 31) {
+            executeReporting("Nam", "năm");
+        }
     }
 
     public void executeReporting(String title, String keyword) {
