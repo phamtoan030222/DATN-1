@@ -4,6 +4,7 @@ public interface AdProductResponse {
     String getId();
     String getName();
     String getBrandName();
+    String getUrlImage();
     Integer getQuantity();
     Long getCreatedDate();
 }

@@ -34,7 +34,6 @@ public class AdStatisticsController {
     }
 
     // 2. API Biểu đồ Doanh thu
-    // [CẬP NHẬT] Thêm start và end để hỗ trợ lọc tùy chỉnh
     @GetMapping("/chart/revenue")
     public ResponseObject<AdRevenueChartResponse> getRevenueChart(
             @RequestParam(defaultValue = "week") String type,
@@ -48,7 +47,6 @@ public class AdStatisticsController {
     }
 
     // 3. API Biểu đồ Trạng thái đơn hàng
-    // [CẬP NHẬT] Thêm start và end
     @GetMapping("/chart/order-status")
     public ResponseObject<List<AdChartResponse>> getOrderStatusChart(
             @RequestParam(defaultValue = "week") String type,
@@ -97,9 +95,13 @@ public class AdStatisticsController {
 
     // 7. API Xuất Excel
     @GetMapping("/export/revenue")
-    public ResponseEntity<byte[]> exportRevenue() {
+    public ResponseEntity<byte[]> exportRevenue(
+            @RequestParam(defaultValue = "month") String type,
+            @RequestParam(required = false) Long start,
+            @RequestParam(required = false) Long end) {
         try {
-            byte[] excelContent = adStatisticsService.exportRevenueToExcel();
+            // Truyền tham số type, start, end vào service
+            byte[] excelContent = adStatisticsService.exportRevenueToExcel(type, start, end);
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=BaoCaoDoanhThu.xlsx")
                     .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
@@ -109,6 +111,7 @@ public class AdStatisticsController {
         }
     }
 
+    //8. API Sản Phẩm Bán Chạy Bộ Lọc Filter
     @GetMapping("/top-products-filter")
     public ResponseObject<List<AdDashboardOverviewResponse.TopItemDTO>> getTopProductsFilter(
             @RequestParam(defaultValue = "month") String type,

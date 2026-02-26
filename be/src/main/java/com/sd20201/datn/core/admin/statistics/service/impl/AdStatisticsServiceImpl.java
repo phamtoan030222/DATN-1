@@ -265,6 +265,157 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
         return list;
     }
 
+    @Override
+    public byte[] exportRevenueToExcel(String type, Long startCustom, Long endCustom) throws IOException {
+        LocalDateTime now = LocalDateTime.now();
+        long startMs, endMs = toMs(now);
+        String periodName = "";
+
+        // 1. Xác định thời gian theo bộ lọc
+        if ("custom".equals(type) && startCustom != null && endCustom != null) {
+            startMs = startCustom; endMs = endCustom; periodName = "Tùy chỉnh";
+        } else {
+            if ("today".equals(type)) {
+                startMs = toMs(now.toLocalDate().atStartOfDay()); periodName = "Hôm nay";
+            } else if ("week".equals(type)) {
+                startMs = toMs(now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay()); periodName = "Tuần này";
+            } else if ("year".equals(type)) {
+                startMs = toMs(now.withDayOfYear(1).toLocalDate().atStartOfDay()); periodName = "Năm nay";
+            } else {
+                startMs = toMs(now.withDayOfMonth(1).toLocalDate().atStartOfDay()); periodName = "Tháng này";
+            }
+        }
+
+        // 2. Lấy dữ liệu theo kỳ
+        Map<String, Object> overviewData = statisticsRepo.getStatsByPeriod(startMs, endMs);
+        List<Object[]> topProducts = statisticsRepo.getTopSellingProductsByDateRange(startMs, endMs);
+        Page<AdProductResponse> lowStockPage = statisticsRepo.getLowStockProducts(10, PageRequest.of(0, 10));
+
+        // [MỚI] Lấy dữ liệu chia nhỏ theo thời gian (24h, 7 ngày, 31 ngày, 12 tháng)
+        AdRevenueChartResponse chartData = getRevenueChart(type, startCustom, endCustom);
+        List<String> timeLabels = chartData.getTimeLabels();
+        List<Long> revenues = chartData.getCurrentData();
+
+        // 3. Ghi ra file Excel
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Bao Cao Thong Ke");
+
+            // Style cho Header
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont(); headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setBorderBottom(BorderStyle.THIN); headerStyle.setBorderTop(BorderStyle.THIN);
+            headerStyle.setBorderRight(BorderStyle.THIN); headerStyle.setBorderLeft(BorderStyle.THIN);
+
+            // Style cho Tiền tệ
+            CellStyle currencyStyle = workbook.createCellStyle();
+            currencyStyle.setDataFormat(workbook.createDataFormat().getFormat("#,##0 ₫"));
+
+            int rowIdx = 0;
+
+            // ================= BẢNG 1: TỔNG QUAN =================
+            Row titleRow1 = sheet.createRow(rowIdx++);
+            titleRow1.createCell(0).setCellValue("1. TỔNG QUAN VẬN HÀNH (" + periodName.toUpperCase() + ")");
+            titleRow1.getCell(0).setCellStyle(headerStyle);
+
+            Row header1 = sheet.createRow(rowIdx++);
+            String[] cols1 = {"Thời gian", "Tổng đơn hàng", "Sản phẩm bán", "Hoàn thành", "Hủy", "Đang xử lý", "Doanh thu", "DT Dự kiến"};
+            for(int i=0; i<cols1.length; i++) {
+                Cell c = header1.createCell(i); c.setCellValue(cols1[i]); c.setCellStyle(headerStyle);
+            }
+
+            Row dataRow1 = sheet.createRow(rowIdx++);
+            dataRow1.createCell(0).setCellValue(periodName);
+            dataRow1.createCell(1).setCellValue(toInt(overviewData.get("totalOrders")));
+            dataRow1.createCell(2).setCellValue(toInt(overviewData.get("soldProducts")));
+            dataRow1.createCell(3).setCellValue(toInt(overviewData.get("completed")));
+            dataRow1.createCell(4).setCellValue(toInt(overviewData.get("cancelled")));
+            dataRow1.createCell(5).setCellValue(toInt(overviewData.get("processing")));
+            Cell cRev = dataRow1.createCell(6); cRev.setCellValue(toLong(overviewData.get("revenue"))); cRev.setCellStyle(currencyStyle);
+            Cell cExp = dataRow1.createCell(7); cExp.setCellValue(toLong(overviewData.get("expectedRevenue"))); cExp.setCellStyle(currencyStyle);
+
+            rowIdx += 2; // Cách ra 2 dòng
+
+            // ================= BẢNG 2: CHI TIẾT DOANH THU THEO THỜI GIAN =================
+            Row titleRowChart = sheet.createRow(rowIdx++);
+            titleRowChart.createCell(0).setCellValue("2. CHI TIẾT DOANH THU");
+            titleRowChart.getCell(0).setCellStyle(headerStyle);
+
+            Row headerChart = sheet.createRow(rowIdx++);
+            Cell hc1 = headerChart.createCell(0); hc1.setCellValue("Thời gian"); hc1.setCellStyle(headerStyle);
+            Cell hc2 = headerChart.createCell(1); hc2.setCellValue("Doanh thu"); hc2.setCellStyle(headerStyle);
+
+            // Đổ dữ liệu từ mốc thời gian (24h/7ngày/...)
+            for (int i = 0; i < timeLabels.size(); i++) {
+                Row r = sheet.createRow(rowIdx++);
+                r.createCell(0).setCellValue(timeLabels.get(i));
+                Cell valCell = r.createCell(1);
+                valCell.setCellValue(revenues.get(i));
+                valCell.setCellStyle(currencyStyle);
+            }
+
+            rowIdx += 2;
+
+            // ================= BẢNG 3: TOP SẢN PHẨM =================
+            Row titleRow2 = sheet.createRow(rowIdx++);
+            titleRow2.createCell(0).setCellValue("3. TOP 5 SẢN PHẨM BÁN CHẠY NHẤT");
+            titleRow2.getCell(0).setCellStyle(headerStyle);
+
+            Row header2 = sheet.createRow(rowIdx++);
+            String[] cols2 = {"#", "Tên sản phẩm", "Số lượng bán", "Giá hiện tại"};
+            for(int i=0; i<cols2.length; i++) {
+                Cell c = header2.createCell(i); c.setCellValue(cols2[i]); c.setCellStyle(headerStyle);
+            }
+
+            if (topProducts.isEmpty()) {
+                sheet.createRow(rowIdx++).createCell(1).setCellValue("Không có dữ liệu bán hàng kỳ này");
+            } else {
+                int r2 = 1;
+                for(Object[] p : topProducts) {
+                    Row row = sheet.createRow(rowIdx++);
+                    row.createCell(0).setCellValue(r2++);
+                    row.createCell(1).setCellValue((String)p[0]); // Tên
+                    row.createCell(2).setCellValue(p[1] != null ? ((Number)p[1]).doubleValue() : 0); // Số lượng
+                    Cell cPrice = row.createCell(3); cPrice.setCellValue(p[2] != null ? ((Number)p[2]).doubleValue() : 0); cPrice.setCellStyle(currencyStyle);
+                }
+            }
+
+            rowIdx += 2;
+
+            // ================= BẢNG 4: SẮP HẾT HÀNG =================
+            Row titleRow3 = sheet.createRow(rowIdx++);
+            titleRow3.createCell(0).setCellValue("4. CẢNH BÁO SẢN PHẨM SẮP HẾT (TỒN KHO <= 10)");
+            titleRow3.getCell(0).setCellStyle(headerStyle);
+
+            Row header3 = sheet.createRow(rowIdx++);
+            String[] cols3 = {"#", "Tên sản phẩm", "Thương hiệu", "Tồn kho"};
+            for(int i=0; i<cols3.length; i++) {
+                Cell c = header3.createCell(i); c.setCellValue(cols3[i]); c.setCellStyle(headerStyle);
+            }
+
+            List<AdProductResponse> lowStockList = lowStockPage.getContent();
+            if (lowStockList.isEmpty()) {
+                sheet.createRow(rowIdx++).createCell(1).setCellValue("Không có sản phẩm nào sắp hết hàng");
+            } else {
+                int r3 = 1;
+                for(AdProductResponse p : lowStockList) {
+                    Row row = sheet.createRow(rowIdx++);
+                    row.createCell(0).setCellValue(r3++);
+                    row.createCell(1).setCellValue(p.getName());
+                    row.createCell(2).setCellValue(p.getBrandName() != null ? p.getBrandName() : "N/A");
+                    row.createCell(3).setCellValue(p.getQuantity());
+                }
+            }
+
+            // Tự động căn chỉnh độ rộng cột cho đẹp
+            for(int i=0; i<8; i++) sheet.autoSizeColumn(i);
+
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
     private AdGrowthStatResponse createGrowthItem(String label, LocalDateTime start, LocalDateTime end, LocalDateTime prevStart, LocalDateTime prevEnd, String type) {
         Map<String, Object> current = statisticsRepo.getStatsByPeriod(toMs(start), toMs(end));
         Map<String, Object> previous = statisticsRepo.getStatsByPeriod(toMs(prevStart), toMs(prevEnd));
@@ -312,93 +463,6 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 .isIncrease(isIncrease) // Kết hợp với @JsonProperty ở DTO để gửi đúng
                 .type(type)
                 .build();
-    }
-
-    // =========================================================================
-    // 4. XUẤT EXCEL
-    // =========================================================================
-    @Override
-    public byte[] exportRevenueToExcel() throws IOException {
-        LocalDateTime now = LocalDateTime.now();
-
-        AdDashboardOverviewResponse.StatisticCard today = getStatsForPeriod(now.toLocalDate().atStartOfDay(), now, now.minusDays(1), now.minusDays(1));
-        AdDashboardOverviewResponse.StatisticCard week = getStatsForPeriod(now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay(), now, now.minusWeeks(1), now.minusWeeks(1));
-        AdDashboardOverviewResponse.StatisticCard month = getStatsForPeriod(now.withDayOfMonth(1).toLocalDate().atStartOfDay(), now, now.minusMonths(1), now.minusMonths(1));
-        AdDashboardOverviewResponse.StatisticCard year = getStatsForPeriod(now.withDayOfYear(1).toLocalDate().atStartOfDay(), now, now.minusYears(1), now.minusYears(1));
-
-        List<Object[]> rawTopProducts = statisticsRepo.getTopSellingProductsWithDetail();
-
-        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = workbook.createSheet("Báo Cáo Doanh Thu");
-
-            CellStyle headerStyle = workbook.createCellStyle();
-            Font headerFont = workbook.createFont();
-            headerFont.setBold(true);
-            headerStyle.setFont(headerFont);
-            headerStyle.setFillForegroundColor(IndexedColors.GREY_25_PERCENT.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            headerStyle.setBorderBottom(BorderStyle.THIN);
-            headerStyle.setBorderTop(BorderStyle.THIN);
-            headerStyle.setBorderRight(BorderStyle.THIN);
-            headerStyle.setBorderLeft(BorderStyle.THIN);
-
-            CellStyle currencyStyle = workbook.createCellStyle();
-            DataFormat format = workbook.createDataFormat();
-            currencyStyle.setDataFormat(format.getFormat("#,##0 ₫"));
-
-            int rowIdx = 0;
-            Row titleRow = sheet.createRow(rowIdx++);
-            titleRow.createCell(0).setCellValue("BÁO CÁO DOANH THU");
-            titleRow.getCell(0).setCellStyle(headerStyle);
-            rowIdx++;
-
-            Row header1 = sheet.createRow(rowIdx++);
-            String[] cols1 = {"Thời gian", "Doanh thu", "Đơn hàng", "SP Bán", "Hoàn thành", "Hủy"};
-            for(int i=0; i<cols1.length; i++) {
-                Cell c = header1.createCell(i); c.setCellValue(cols1[i]); c.setCellStyle(headerStyle);
-            }
-
-            Object[][] data = {
-                    {"Hôm nay", today.getRevenue(), today.getTotalOrders(), today.getSoldProducts(), today.getCompleted(), today.getCancelled()},
-                    {"Tuần này", week.getRevenue(), week.getTotalOrders(), week.getSoldProducts(), week.getCompleted(), week.getCancelled()},
-                    {"Tháng này", month.getRevenue(), month.getTotalOrders(), month.getSoldProducts(), month.getCompleted(), month.getCancelled()},
-                    {"Năm nay", year.getRevenue(), year.getTotalOrders(), year.getSoldProducts(), year.getCompleted(), year.getCancelled()}
-            };
-
-            for(Object[] r : data) {
-                Row row = sheet.createRow(rowIdx++);
-                row.createCell(0).setCellValue((String)r[0]);
-                Cell c1 = row.createCell(1); c1.setCellValue(((Number)r[1]).doubleValue()); c1.setCellStyle(currencyStyle);
-                row.createCell(2).setCellValue(((Number)r[2]).doubleValue());
-                row.createCell(3).setCellValue(((Number)r[3]).doubleValue());
-                row.createCell(4).setCellValue(((Number)r[4]).doubleValue());
-                row.createCell(5).setCellValue(((Number)r[5]).doubleValue());
-            }
-
-            rowIdx += 2;
-            Row titleRow2 = sheet.createRow(rowIdx++);
-            titleRow2.createCell(0).setCellValue("TOP SẢN PHẨM BÁN CHẠY");
-            titleRow2.getCell(0).setCellStyle(headerStyle);
-
-            Row header2 = sheet.createRow(rowIdx++);
-            String[] cols2 = {"Tên sản phẩm", "Số lượng bán", "Giá hiện tại"};
-            for(int i=0; i<cols2.length; i++) {
-                Cell c = header2.createCell(i); c.setCellValue(cols2[i]); c.setCellStyle(headerStyle);
-            }
-
-            for(Object[] p : rawTopProducts) {
-                Row row = sheet.createRow(rowIdx++);
-                row.createCell(0).setCellValue((String)p[0]);
-                row.createCell(1).setCellValue(((Number)p[1]).doubleValue());
-                Cell cPrice = row.createCell(2);
-                cPrice.setCellValue(p[2] != null ? ((Number)p[2]).doubleValue() : 0);
-                cPrice.setCellStyle(currencyStyle);
-            }
-
-            for(int i=0; i<6; i++) sheet.autoSizeColumn(i);
-            workbook.write(out);
-            return out.toByteArray();
-        }
     }
 
     @Override

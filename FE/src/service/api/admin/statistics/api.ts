@@ -97,15 +97,22 @@ export const getOrderStatusChart = async (type: string = 'week', rangeDate?: num
   }
 }
 
-export const exportRevenueExcel = async () => {
+export const exportRevenueExcel = async (type:string , rangeDate?: number[] | null) => {
   try {
-    const res = await request.get(`${API_ADMIN_STATISTICS}/export/revenue`, {
-      responseType: 'blob', 
-    });
+    const params : any = { type };
+    if(rangeDate && rangeDate.length === 2){
+      params.start = rangeDate[0];
+      params.end = rangeDate[1];
+    }
+    const res = await request.get<Blob>(`${API_ADMIN_STATISTICS}/export/revenue`, 
+      { params ,
+        responseType: 'blob'
+      });
     return res.data;
-  } catch (error) {
-    console.error("Lỗi xuất Excel:", error);
-    throw error;
+  }
+  catch(error){
+    console.error("Lỗi xuất Excel:", error)
+    return null;
   }
 };
 
@@ -153,16 +160,30 @@ export const getTopProductsFilter = async (type: string = 'month', rangeDate?: n
     return []
   }
 }
+//lấy danh sách sặp hết hàng
+export const getLowStockProducts = async (limit: number = 10) => {
+  try {
+    const res = await request.get<DefaultResponse<any>>(
+      `${API_ADMIN_STATISTICS}/low-stock-product`,
+      { params: { quantity: limit, page: 0, size: limit } } 
+    )
+    return res.data?.data?.content || []
+  } catch (error) {
+    console.error("Lỗi API lấy sản phẩm sắp hết:", error)
+    return []
+  }
+}
+
 // --- 3. EXPORT ---
 export const statisticsApi = {
   getOverview,
   getRevenueChart,
-  // Alias giúp code cũ không bị lỗi
   getRevenueChartData: getRevenueChart, 
   getOrderStatusChart,
   getOrderStatusChartData: getOrderStatusChart, 
   getTopProductsChart,
   exportRevenueExcel,
   getGrowthStats,
-  getTopProductsFilter
+  getTopProductsFilter,
+  getLowStockProducts
 }

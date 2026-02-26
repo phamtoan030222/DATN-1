@@ -12,11 +12,13 @@ import com.itextpdf.layout.properties.UnitValue;
 import com.sd20201.datn.core.admin.staff.repository.ADStaffRepository;
 import com.sd20201.datn.core.admin.statistics.model.response.AdDashboardOverviewResponse;
 import com.sd20201.datn.core.admin.statistics.model.response.AdGrowthStatResponse;
+import com.sd20201.datn.core.admin.statistics.model.response.AdProductResponse;
 import com.sd20201.datn.core.admin.statistics.service.AdStatisticsService;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -89,7 +91,9 @@ public class AdReportScheduledService {
             // Gọi hàm mới để lấy Top 5 chính xác trong khoảng thời gian này
             List<AdDashboardOverviewResponse.TopItemDTO> topProducts = adStatisticsService.getTopSellingProductsByDateRange(startMs, endMs);
 
-            byte[] pdfContent = createProfessionalPdfNoAccent(title, keyword, overview, growthStats, topProducts);
+            Page<AdProductResponse> lowStockPage = adStatisticsService.getLowStockProducts(10, org.springframework.data.domain.PageRequest.of(0, 10));
+
+            byte[] pdfContent = createProfessionalPdfNoAccent(title, keyword, overview, growthStats, topProducts , lowStockPage );
 
             for (String email : managerEmails) {
                 sendMail(email, title, pdfContent);
@@ -104,7 +108,8 @@ public class AdReportScheduledService {
             String keyword,
             AdDashboardOverviewResponse overview,
             List<AdGrowthStatResponse> growthStats,
-            List<AdDashboardOverviewResponse.TopItemDTO> topProducts // Nhận list mới làm tham số
+            List<AdDashboardOverviewResponse.TopItemDTO> topProducts ,
+            Page<AdProductResponse> lowStockPage
     ) throws Exception {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -165,7 +170,9 @@ public class AdReportScheduledService {
 
         int rank = 1;
         if (topProducts == null || topProducts.isEmpty()) {
-            topTable.addCell("-"); topTable.addCell("Khong co du lieu ban hang"); topTable.addCell("0");
+            topTable.addCell("-");
+            topTable.addCell("Khong co du lieu ban hang");
+            topTable.addCell("0");
         } else {
             for (AdDashboardOverviewResponse.TopItemDTO item : topProducts) {
                 topTable.addCell(String.valueOf(rank++));
@@ -175,6 +182,39 @@ public class AdReportScheduledService {
             }
         }
         doc.add(topTable);
+
+        // 4. CẢNH BÁO SẢN PHẨM SẮP HẾT HÀNG (Tồn kho <= 10)
+        doc.add(new Paragraph("\n4. CANH BAO SAN PHAM SAP HET HANG (Ton kho <= 10):")
+                .setBold()
+                .setFontColor(ColorConstants.RED));
+
+        Table lowStockTable = new Table(UnitValue.createPercentArray(new float[]{10, 50, 25, 15})).useAllAvailableWidth();
+        lowStockTable.addHeaderCell("#");
+        lowStockTable.addHeaderCell("Ten san pham");
+        lowStockTable.addHeaderCell("Thuong hieu");
+        lowStockTable.addHeaderCell("Ton kho");
+
+        List<AdProductResponse> lowStockList = lowStockPage.getContent();
+
+        if (lowStockList == null || lowStockList.isEmpty()) {
+            lowStockTable.addCell("-");
+            lowStockTable.addCell("Hien tai kho khong co san pham nao sap het.");
+            lowStockTable.addCell("-");
+            lowStockTable.addCell("-");
+        } else {
+            int r = 1;
+            for (AdProductResponse prod : lowStockList) {
+                lowStockTable.addCell(String.valueOf(r++));
+                lowStockTable.addCell(prod.getName() != null ? prod.getName() : "N/A");
+                lowStockTable.addCell(prod.getBrandName() != null ? prod.getBrandName() : "N/A");
+
+                // Bôi đỏ số lượng tồn kho
+                Cell qtyCell = new Cell().add(new Paragraph(String.valueOf(prod.getQuantity())));
+                qtyCell.setFontColor(ColorConstants.RED).setBold();
+                lowStockTable.addCell(qtyCell);
+            }
+        }
+        doc.add(lowStockTable);
 
         doc.close();
         return baos.toByteArray();

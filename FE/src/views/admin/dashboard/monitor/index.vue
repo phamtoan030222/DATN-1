@@ -77,7 +77,7 @@ const fetchGrowthData = async () => {
 const handleExportExcel = async () => {
   try {
     message.loading("Đang tạo báo cáo Excel...");
-    const blobData = await statisticsApi.exportRevenueExcel();
+    const blobData = await statisticsApi.exportRevenueExcel(filterType.value, rangeDate.value);
     if (!blobData) {
       message.error("Không có dữ liệu để xuất!");
       return;
@@ -85,7 +85,7 @@ const handleExportExcel = async () => {
     const url = window.URL.createObjectURL(new Blob([blobData]));
     const link = document.createElement('a');
     link.href = url;
-    const fileName = `BaoCaoDoanhThu_${new Date().getTime()}.xlsx`;
+    const fileName = `BaoCao_${filterType.value}_${new Date().getTime()}.xlsx`;
     link.setAttribute('download', fileName);
     document.body.appendChild(link);
     link.click();
@@ -99,23 +99,37 @@ const handleExportExcel = async () => {
 };
 
 // --- LOGIC TOP SẢN PHẨM LỌC THEO THỜI GIAN ---
-const topProductsData = ref<TopProductOverview[]>([]); // Đã có interface import ở trên
+const topProductsData = ref<TopProductOverview[]>([]); 
 
 const fetchTopProducts = async () => {
   const res = await statisticsApi.getTopProductsFilter(filterType.value, rangeDate.value);
   topProductsData.value = res || [];
 };
 
+watch(() => [filterType.value, rangeDate.value], () => {
+  fetchTopProducts();
+}, { deep: true });
+
+interface LowStockProduct {
+  id: string;
+  name: string;
+  brandName: string;
+  quantity: number;
+  urlImage: string;
+}
+
+const LowStockData = ref<LowStockProduct[]>([]);
+const fetchLowStockProducts = async () =>{
+  const res = await statisticsApi.getLowStockProducts(3);
+  LowStockData.value = res || [];
+}
+
 onMounted(() => {
   fetchOverviewData();
   fetchGrowthData(); 
   fetchTopProducts();
+  fetchLowStockProducts();
 });
-
-// Lắng nghe thay đổi bộ lọc
-watch(() => [filterType.value, rangeDate.value], () => {
-  fetchTopProducts();
-}, { deep: true });
 
 </script>
 
@@ -236,37 +250,74 @@ watch(() => [filterType.value, rangeDate.value], () => {
 
     <n-grid :x-gap="16" :cols="12">
       <n-gi span="6">
-        <n-card :title="topProductTitle" :bordered="false" class="shadow-sm h-full">
-          <n-table :single-line="false" size="small">
-            <thead>
-              <tr>
-                <th style="width: 40px">#</th>
-                <th style="width: 60px">Ảnh</th>
-                <th>Tên Sản Phẩm</th>
-                <th>Giá</th>
-                <th>Bán</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(item, index) in topProductsData" :key="index">
-                <td>{{ index + 1 }}</td>
-                <td>
-                  <n-avatar round size="small" :src="item.image" fallback-src="https://via.placeholder.com/40" style="border: none;" />
-                </td>
-                <td class="n-ellipsis">{{ item.name }}</td>
-                <td class="text-red font-bold">{{ formatMoney(item.price) }}</td>
-                <td><n-tag type="success" size="small" round>{{ item.count }}</n-tag></td>
-              </tr>
-              <tr v-if="topProductsData.length === 0">
-                <td colspan="5" style="text-align: center; color: #999; padding: 20px;">
-                  Chưa có dữ liệu bán hàng trong thời gian này
-                </td>
-              </tr>
-            </tbody>
-          </n-table>
-        </n-card>
-      </n-gi>
+        <n-space vertical :size="16">
+          
+          <n-card :title="topProductTitle" :bordered="false" class="shadow-sm">
+            <n-table :single-line="false" size="small">
+              <thead>
+                <tr>
+                  <th style="width: 40px">#</th>
+                  <th style="width: 60px">Ảnh</th>
+                  <th>Tên Sản Phẩm</th>
+                  <th>Giá</th>
+                  <th>Bán</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in topProductsData" :key="index">
+                  <td>{{ index + 1 }}</td>
+                  <td>
+                    <n-avatar round size="small" :src="item.image" fallback-src="https://via.placeholder.com/40" style="border: none;" />
+                  </td>
+                  <td class="n-ellipsis">{{ item.name }}</td>
+                  <td class="text-red font-bold">{{ formatMoney(item.price) }}</td>
+                  <td><n-tag type="success" size="small" round>{{ item.count }}</n-tag></td>
+                </tr>
+                <tr v-if="topProductsData.length === 0">
+                  <td colspan="5" style="text-align: center; color: #999; padding: 20px;">
+                    Chưa có dữ liệu bán hàng trong thời gian này
+                  </td>
+                </tr>
+              </tbody>
+            </n-table>
+          </n-card>
 
+          <n-card title="Cảnh báo sắp hết hàng" :bordered="false" class="shadow-sm">
+             <n-table :single-line="false" size="small">
+              <thead>
+                <tr>
+                  <th style="width: 40px">#</th>
+                  <th style="width: 60px">Ảnh</th>
+                  <th>Tên Sản Phẩm</th>
+                  <th>Thương hiệu</th>
+                  <th>Tồn kho</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="(item, index) in LowStockData" :key="item.id">
+                  <td>{{ index + 1 }}</td>
+                  <td>
+                    <n-avatar round size="small" :src="item.urlImage" fallback-src="https://via.placeholder.com/40" style="border: none;" />
+                  </td>
+                  <td class="n-ellipsis">{{ item.name }}</td>
+                  <td>{{ item.brandName || 'N/A' }}</td>
+                  <td>
+                    <n-tag type="error" size="small" round style="font-weight: bold;">
+                      {{ item.quantity }}
+                    </n-tag>
+                  </td>
+                </tr>
+                <tr v-if="LowStockData.length === 0">
+                  <td colspan="4" style="text-align: center; color: #18a058; padding: 20px;">
+                    Kho hàng đang ổn định, không có sản phẩm sắp hết.
+                  </td>
+                </tr>
+              </tbody>
+            </n-table>
+          </n-card>
+
+        </n-space>
+      </n-gi>
       <n-gi span="6">
         <n-card 
           title="Tốc độ tăng trưởng" 

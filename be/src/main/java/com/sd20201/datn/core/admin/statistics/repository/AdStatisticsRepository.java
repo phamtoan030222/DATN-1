@@ -124,18 +124,21 @@ public interface AdStatisticsRepository extends JpaRepository<Invoice, String> {
     List<Object[]> getTopSellingProductsByDateRange(@Param("start") Long start, @Param("end") Long end);
 
     @Query(value = """
-        SELECT p.id AS id, p.name AS name, b.name AS brandName, 
-               CAST(COUNT(pd.id) AS signed) AS quantity, MAX(p.created_date) AS createdDate
+        SELECT p.id AS id, 
+               p.name AS name, 
+               b.name AS brandName, 
+               ip.url AS urlImage,
+               CAST(COUNT(pd.id) AS signed) AS quantity, 
+               MAX(p.created_date) AS createdDate
         FROM product p
         LEFT JOIN product_detail pd ON p.id = pd.id_product AND pd.status = 0 
         LEFT JOIN brand b ON p.id_brand = b.id
+        LEFT JOIN image_product ip ON p.id = ip.id_product AND (ip.`index` = 1 OR ip.id IS NULL)
         WHERE p.status = 0 
-        GROUP BY p.id, p.name, b.name
+        GROUP BY p.id, p.name, b.name, ip.url
         HAVING COUNT(pd.id) <= :limit 
         ORDER BY quantity ASC
         """, nativeQuery = true)
     Page<AdProductResponse> getLowStockProducts(@Param("limit") Integer limit, Pageable pageable);
-
-
 
 }
