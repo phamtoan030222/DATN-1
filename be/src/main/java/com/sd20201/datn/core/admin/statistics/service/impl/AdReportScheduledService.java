@@ -1,6 +1,9 @@
 package com.sd20201.datn.core.admin.statistics.service.impl;
 
+import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.kernel.colors.ColorConstants;
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
@@ -19,6 +22,7 @@ import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.RoleConstant;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -85,21 +89,19 @@ public class AdReportScheduledService {
                 prevEndMs = toMs(now.minusMonths(1).withDayOfMonth(now.minusMonths(1).toLocalDate().lengthOfMonth()).toLocalDate().atTime(23, 59, 59));
                 chartType = "month";
             } else if (title.equalsIgnoreCase("Quy")) {
-                // 1. Xác định Quý hiện tại (Ví dụ: đang tháng 2 -> Quý 1: T1, T2, T3)
+                // Logic Quý: Lấy chính xác 3 tháng
                 int currentQuarter = (now.getMonthValue() - 1) / 3 + 1;
                 int startMonth = (currentQuarter - 1) * 3 + 1;
 
                 LocalDateTime quarterStart = now.withMonth(startMonth).withDayOfMonth(1).toLocalDate().atStartOfDay();
-
                 LocalDateTime quarterEnd = quarterStart.plusMonths(2).withDayOfMonth(quarterStart.plusMonths(2).toLocalDate().lengthOfMonth()).toLocalDate().atTime(23, 59, 59);
 
                 startMs = toMs(quarterStart);
                 endMs = toMs(quarterEnd);
 
-                // 2. SO SÁNH VỚI CÙNG KỲ NĂM TRƯỚC (Year-over-Year)
+                // So sánh với CÙNG KỲ NĂM TRƯỚC (YoY)
                 prevStartMs = toMs(quarterStart.minusYears(1));
                 prevEndMs = toMs(quarterEnd.minusYears(1));
-
                 chartType = "year";
             } else { // Năm
                 startMs = toMs(now.withDayOfYear(1).toLocalDate().atStartOfDay());
@@ -117,7 +119,7 @@ public class AdReportScheduledService {
             AdRevenueChartResponse chartData = adStatisticsService.getRevenueChart(chartType, startMs, endMs);
 
             // 3. TẠO PDF VÀ GỬI MAIL
-            byte[] pdfContent = createProfessionalPdfNoAccent(title, currentStats, prevStats, topProducts, lowStockPage, chartData);
+            byte[] pdfContent = createProfessionalPdf(title, currentStats, prevStats, topProducts, lowStockPage, chartData, now);
 
             for (String email : managerEmails) {
                 sendHtmlMail(email, title, pdfContent);
@@ -127,13 +129,14 @@ public class AdReportScheduledService {
         }
     }
 
-    private byte[] createProfessionalPdfNoAccent(
+    private byte[] createProfessionalPdf(
             String title,
             Map<String, Object> currentStats,
             Map<String, Object> prevStats,
             List<AdDashboardOverviewResponse.TopItemDTO> topProducts,
             Page<AdProductResponse> lowStockPage,
-            AdRevenueChartResponse chartData
+            AdRevenueChartResponse chartData,
+            LocalDateTime now
     ) throws Exception {
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -141,51 +144,65 @@ public class AdReportScheduledService {
         PdfDocument pdf = new PdfDocument(writer);
         Document doc = new Document(pdf);
 
-        doc.add(new Paragraph("BAO CAO THONG KE DOANH THU DINH KY")
+        // ================= CẤU HÌNH FONT TIẾNG VIỆT =================
+        // Lưu ý: Đảm bảo bạn đã có file arial.ttf trong thư mục src/main/resources/fonts/
+        ClassPathResource fontResource = new ClassPathResource("fonts/arial.ttf");
+        byte[] fontBytes = fontResource.getInputStream().readAllBytes();
+        PdfFont vietnameseFont = PdfFontFactory.createFont(fontBytes, PdfEncodings.IDENTITY_H);
+        doc.setFont(vietnameseFont);
+        // ============================================================
+
+        String vnTitle = switch (title.toLowerCase()) {
+            case "ngay" -> "Ngày"; case "tuan" -> "Tuần"; case "thang" -> "Tháng"; case "quy" -> "Quý"; case "nam" -> "Năm"; default -> title;
+        };
+
+        doc.add(new Paragraph("BÁO CÁO THỐNG KÊ DOANH THU ĐỊNH KỲ")
                 .setBold().setFontSize(18).setTextAlignment(TextAlignment.CENTER).setFontColor(ColorConstants.BLUE));
-        doc.add(new Paragraph("Loai bao cao: " + title.toUpperCase()).setTextAlignment(TextAlignment.CENTER));
-        doc.add(new Paragraph("Thoi gian xuat: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")))
+        doc.add(new Paragraph("Loại báo cáo: " + vnTitle.toUpperCase()).setTextAlignment(TextAlignment.CENTER));
+        doc.add(new Paragraph("Thời gian xuất: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")))
                 .setFontSize(10).setTextAlignment(TextAlignment.RIGHT));
 
-        // ================= 1. SO SÁNH TĂNG TRƯỞNG =================
-        String compareText = (title.equalsIgnoreCase("Quy") || title.equalsIgnoreCase("Nam")) ? "CUNG KY NAM TRUOC" : "KY TRUOC";
-        doc.add(new Paragraph("\n1. CHI SO TANG TRUONG SO VOI " + compareText + ":").setBold());
-        Table growthTable = new Table(UnitValue.createPercentArray(new float[]{40, 30, 15, 15})).useAllAvailableWidth();
-        growthTable.addHeaderCell(new Cell().add(new Paragraph("Chi so")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
-        growthTable.addHeaderCell(new Cell().add(new Paragraph("Gia tri")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        // ================= 1. SO SÁNH TĂNG TRƯỞNG (5 CỘT) =================
+        String compareText = (title.equalsIgnoreCase("Quy") || title.equalsIgnoreCase("Nam")) ? "CÙNG KỲ NĂM TRƯỚC" : "KỲ TRƯỚC";
+        doc.add(new Paragraph("\n1. CHỈ SỐ TĂNG TRƯỞNG SO VỚI " + compareText + ":").setBold());
+
+        Table growthTable = new Table(UnitValue.createPercentArray(new float[]{24, 23, 23, 15, 15})).useAllAvailableWidth();
+        growthTable.addHeaderCell(new Cell().add(new Paragraph("Chỉ số")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        growthTable.addHeaderCell(new Cell().add(new Paragraph("Kỳ này")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        growthTable.addHeaderCell(new Cell().add(new Paragraph(compareText)).setBackgroundColor(ColorConstants.LIGHT_GRAY));
         growthTable.addHeaderCell(new Cell().add(new Paragraph("%")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
-        growthTable.addHeaderCell(new Cell().add(new Paragraph("Trend")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        growthTable.addHeaderCell(new Cell().add(new Paragraph("Xu hướng")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
         long curRev = toLong(currentStats.get("revenue"));
         long prevRev = toLong(prevStats.get("revenue"));
-        addGrowthRow(growthTable, "Doanh thu", String.format("%,d VND", curRev), calculateGrowth(curRev, prevRev));
+        addGrowthRow(growthTable, "Doanh thu", String.format("%,d VND", curRev), String.format("%,d VND", prevRev), calculateGrowth(curRev, prevRev));
 
         long curOrders = toLong(currentStats.get("totalOrders"));
         long prevOrders = toLong(prevStats.get("totalOrders"));
-        addGrowthRow(growthTable, "Don hang", String.valueOf(curOrders), calculateGrowth(curOrders, prevOrders));
+        addGrowthRow(growthTable, "Đơn hàng", String.valueOf(curOrders), String.valueOf(prevOrders), calculateGrowth(curOrders, prevOrders));
 
         long curProd = toLong(currentStats.get("soldProducts"));
         long prevProd = toLong(prevStats.get("soldProducts"));
-        addGrowthRow(growthTable, "San pham da ban", String.valueOf(curProd), calculateGrowth(curProd, prevProd));
+        addGrowthRow(growthTable, "Sản phẩm đã bán", String.valueOf(curProd), String.valueOf(prevProd), calculateGrowth(curProd, prevProd));
 
         doc.add(growthTable);
 
         // ================= 2. CHI TIẾT VẬN HÀNH =================
-        doc.add(new Paragraph("\n2. CHI TIET VAN HANH KY NAY:").setBold());
+        doc.add(new Paragraph("\n2. CHI TIẾT VẬN HÀNH KỲ NÀY:").setBold());
         Table detailTable = new Table(UnitValue.createPercentArray(new float[]{50, 50})).useAllAvailableWidth();
-        detailTable.addCell("Tong don hang:"); detailTable.addCell(String.valueOf(curOrders));
-        detailTable.addCell("Don hoan thanh:"); detailTable.addCell(String.valueOf(toLong(currentStats.get("completed"))));
-        detailTable.addCell("Don da huy:"); detailTable.addCell(String.valueOf(toLong(currentStats.get("cancelled"))));
-        detailTable.addCell("Don dang xu ly:"); detailTable.addCell(String.valueOf(toLong(currentStats.get("processing"))));
-        detailTable.addCell("San pham da ban:"); detailTable.addCell(String.valueOf(curProd));
-        detailTable.addCell("Doanh thu thuc te:"); detailTable.addCell(String.format("%,d VND", curRev));
-        detailTable.addCell("Doanh thu du kien:"); detailTable.addCell(String.format("%,d VND", toLong(currentStats.get("expectedRevenue"))));
+        detailTable.addCell("Tổng đơn hàng:"); detailTable.addCell(String.valueOf(curOrders));
+        detailTable.addCell("Đơn hoàn thành:"); detailTable.addCell(String.valueOf(toLong(currentStats.get("completed"))));
+        detailTable.addCell("Đơn đã hủy:"); detailTable.addCell(String.valueOf(toLong(currentStats.get("cancelled"))));
+        detailTable.addCell("Đơn đang xử lý:"); detailTable.addCell(String.valueOf(toLong(currentStats.get("processing"))));
+        detailTable.addCell("Sản phẩm đã bán:"); detailTable.addCell(String.valueOf(curProd));
+        detailTable.addCell("Doanh thu thực tế:"); detailTable.addCell(String.format("%,d VND", curRev));
+        detailTable.addCell("Doanh thu dự kiến:"); detailTable.addCell(String.format("%,d VND", toLong(currentStats.get("expectedRevenue"))));
         doc.add(detailTable);
 
         // ================= 3. CHI TIẾT DOANH THU THEO THỜI GIAN =================
-        doc.add(new Paragraph("\n3. CHI TIET DOANH THU THEO THOI GIAN (" + title.toUpperCase() + "):").setBold());
+        doc.add(new Paragraph("\n3. CHI TIẾT DOANH THU THEO THỜI GIAN (" + vnTitle.toUpperCase() + "):").setBold());
         Table timeTable = new Table(UnitValue.createPercentArray(new float[]{50, 50})).useAllAvailableWidth();
-        timeTable.addHeaderCell(new Cell().add(new Paragraph("Thoi gian")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        timeTable.addHeaderCell(new Cell().add(new Paragraph("Thời gian")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
         timeTable.addHeaderCell(new Cell().add(new Paragraph("Doanh thu")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
         if (chartData != null && chartData.getTimeLabels() != null) {
@@ -197,24 +214,24 @@ public class AdReportScheduledService {
                     try {
                         int monthNum = Integer.parseInt(label.replaceAll("[^0-9]", ""));
                         int quarterOfLabel = (monthNum - 1) / 3 + 1;
-                        int currentQuarter = (LocalDateTime.now().getMonthValue() - 1) / 3 + 1;
-                        if (quarterOfLabel != currentQuarter) continue; // Bỏ qua nếu không cùng Quý
+                        int currentQuarter = (now.getMonthValue() - 1) / 3 + 1;
+                        if (quarterOfLabel != currentQuarter) continue;
                     } catch (Exception e) {}
                 }
 
-                timeTable.addCell(label.replace("Thứ", "Thu").replace("CN", "Chu Nhat"));
+                timeTable.addCell(label);
                 timeTable.addCell(String.format("%,d VND", chartData.getCurrentData().get(i)));
             }
         }
         doc.add(timeTable);
 
         // ================= 4. TOP 5 SẢN PHẨM =================
-        doc.add(new Paragraph("\n4. TOP 5 SAN PHAM BAN CHAY TRONG " + title.toUpperCase() + ":").setBold());
+        doc.add(new Paragraph("\n4. TOP 5 SẢN PHẨM BÁN CHẠY TRONG " + vnTitle.toUpperCase() + ":").setBold());
         Table topTable = new Table(UnitValue.createPercentArray(new float[]{10, 60, 30})).useAllAvailableWidth();
-        topTable.addHeaderCell("#"); topTable.addHeaderCell("Ten san pham"); topTable.addHeaderCell("So luong");
+        topTable.addHeaderCell("#"); topTable.addHeaderCell("Tên sản phẩm"); topTable.addHeaderCell("Số lượng bán");
 
         if (topProducts == null || topProducts.isEmpty()) {
-            topTable.addCell("-"); topTable.addCell("Khong co du lieu ban hang"); topTable.addCell("0");
+            topTable.addCell("-"); topTable.addCell("Không có dữ liệu bán hàng"); topTable.addCell("0");
         } else {
             int rank = 1;
             for (AdDashboardOverviewResponse.TopItemDTO item : topProducts) {
@@ -227,15 +244,15 @@ public class AdReportScheduledService {
         doc.add(topTable);
 
         // ================= 5. CẢNH BÁO SẮP HẾT HÀNG =================
-        doc.add(new Paragraph("\n5. CANH BAO SAN PHAM SAP HET HANG (Ton kho <= 10):")
+        doc.add(new Paragraph("\n5. CẢNH BÁO SẢN PHẨM SẮP HẾT HÀNG (Tồn kho <= 10):")
                 .setBold().setFontColor(ColorConstants.RED));
         Table lowStockTable = new Table(UnitValue.createPercentArray(new float[]{10, 50, 25, 15})).useAllAvailableWidth();
-        lowStockTable.addHeaderCell("#"); lowStockTable.addHeaderCell("Ten san pham");
-        lowStockTable.addHeaderCell("Thuong hieu"); lowStockTable.addHeaderCell("Ton kho");
+        lowStockTable.addHeaderCell("#"); lowStockTable.addHeaderCell("Tên sản phẩm");
+        lowStockTable.addHeaderCell("Thương hiệu"); lowStockTable.addHeaderCell("Tồn kho");
 
         List<AdProductResponse> lowStockList = lowStockPage.getContent();
         if (lowStockList.isEmpty()) {
-            lowStockTable.addCell("-"); lowStockTable.addCell("Kho khong co san pham sap het."); lowStockTable.addCell("-"); lowStockTable.addCell("-");
+            lowStockTable.addCell("-"); lowStockTable.addCell("Kho hàng ổn định, không có sản phẩm sắp hết."); lowStockTable.addCell("-"); lowStockTable.addCell("-");
         } else {
             int r = 1;
             for (AdProductResponse prod : lowStockList) {
@@ -254,11 +271,12 @@ public class AdReportScheduledService {
     }
 
     // Các hàm Helper hỗ trợ tính toán
-    private void addGrowthRow(Table table, String label, String value, double percent) {
+    private void addGrowthRow(Table table, String label, String currentVal, String prevVal, double percent) {
         table.addCell(label);
-        table.addCell(value);
+        table.addCell(currentVal);
+        table.addCell(prevVal);
         table.addCell(String.format("%.1f%%", Math.abs(percent)));
-        Cell trend = new Cell().add(new Paragraph(percent >= 0 ? "TANG" : "GIAM"));
+        Cell trend = new Cell().add(new Paragraph(percent >= 0 ? "TĂNG" : "GIẢM"));
         trend.setFontColor(percent >= 0 ? ColorConstants.GREEN : ColorConstants.RED);
         table.addCell(trend);
     }
@@ -288,12 +306,12 @@ public class AdReportScheduledService {
         };
 
         helper.setTo(to);
-        helper.setSubject("[My LapTop] Báo cáo thống kê doanh thu - " + vnTitle);
+        helper.setSubject("[Build My Pc] Báo cáo thống kê doanh thu - " + vnTitle);
 
         String htmlMsg = "<div style='font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #34C759; border-radius: 8px; overflow: hidden;'>"
                 + "<div style='background-color: #34C759; color: #ffffff; padding: 20px; text-align: center;'>"
                 + "<h2 style='margin: 0;'>BÁO CÁO VẬN HÀNH ĐỊNH KỲ</h2>"
-                + "<p style='margin: 5px 0 0; font-size: 14px;'>Hệ thống quản lý cửa hàng My LapTop</p>"
+                + "<p style='margin: 5px 0 0; font-size: 14px;'>Hệ thống quản lý cửa hàng Build My Pc</p>"
                 + "</div>"
                 + "<div style='padding: 20px;'>"
                 + "<p><strong>Kính gửi Quản lý,</strong></p>"
