@@ -2,6 +2,7 @@ package com.sd20201.datn.core.admin.statistics.controller;
 
 import com.sd20201.datn.core.admin.statistics.model.response.*;
 import com.sd20201.datn.core.admin.statistics.service.AdStatisticsService;
+import com.sd20201.datn.core.admin.statistics.service.impl.AdReportScheduledService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import lombok.RequiredArgsConstructor;
@@ -11,6 +12,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +25,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 @RequiredArgsConstructor
 public class AdStatisticsController {
     private final AdStatisticsService adStatisticsService;
+
+    private final AdReportScheduledService adReportScheduledService;
 
     // 1. API Tổng quan
     @GetMapping("/overview")
@@ -122,6 +127,21 @@ public class AdStatisticsController {
                 HttpStatus.OK,
                 "Lấy danh sách top sản phẩm theo bộ lọc thành công"
         );
+    }
+
+    // 9. API Gửi Báo Cáo
+    @GetMapping("/send-email-report")
+    public ResponseEntity<?> sendEmailReportManual(@RequestParam String type) {
+        String title = switch (type.toLowerCase()) {
+            case "today" -> "Ngay";
+            case "week" -> "Tuan";
+            case "month" -> "Thang";
+            case "year" -> "Nam";
+            default -> "Thang";
+        };
+        adReportScheduledService.executeReporting(title);
+
+        return ResponseEntity.ok(Map.of("message", "Gửi báo cáo thành công!"));
     }
 
 }

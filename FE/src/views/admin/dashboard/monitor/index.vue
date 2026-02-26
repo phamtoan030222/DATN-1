@@ -1,141 +1,169 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue"; // Thêm watch vào đây
-import { statisticsApi } from "@/service/api/admin/statistics/api";
-import type { TopProductOverview } from "@/service/api/admin/statistics/api"; // Thêm dòng này để fix lỗi TS
-import { Icon } from '@iconify/vue';
-import { useMessage, NAvatar, NTag, NText, NNumberAnimation } from 'naive-ui';
+import { computed, onMounted, ref, watch } from 'vue' // Thêm watch vào đây
+import { statisticsApi } from '@/service/api/admin/statistics/api'
+import type { TopProductOverview } from '@/service/api/admin/statistics/api' // Thêm dòng này để fix lỗi TS
+import { Icon } from '@iconify/vue'
+import { NAvatar, NNumberAnimation, NTag, NText, useMessage } from 'naive-ui'
 
 // Import Component Biểu đồ
-import Chart from "./components/chart.vue";
-import Chart3 from "./components/chart3.vue";
+import Chart from './components/chart.vue'
+import Chart3 from './components/chart3.vue'
 
 // --- KHAI BÁO DỮ LIỆU ---
 interface GrowthItem {
-  label: string;
-  value: string;
-  percent: number;
-  isIncrease: boolean;
-  type: string;
+  label: string
+  value: string
+  percent: number
+  isIncrease: boolean
+  type: string
 }
 
-const message = useMessage();
-const overviewData = ref<any>({});
-const growthData = ref<GrowthItem[]>([]); 
-const loadingGrowth = ref(false);
+const message = useMessage()
+const overviewData = ref<any>({})
+const growthData = ref<GrowthItem[]>([])
+const loadingGrowth = ref(false)
 
-const filterType = ref("month"); 
-const rangeDate = ref<[number, number] | null>(null);
+const filterType = ref('month')
+const rangeDate = ref<[number, number] | null>(null)
 
 // Map hiển thị tiêu đề
 const periodMap: any = {
   today: { label: 'Hôm nay' },
   week: { label: 'Tuần này' },
   month: { label: 'Tháng này' },
-  year: { label: 'Năm nay' }
-};
+  year: { label: 'Năm nay' },
+}
 
 // Tạo tiêu đề động cho bảng Top sản phẩm
 const topProductTitle = computed(() => {
   if (filterType.value === 'custom') {
-    return 'Top sản phẩm bán chạy (Tùy chỉnh)';
+    return 'Top sản phẩm bán chạy (Tùy chỉnh)'
   }
   if (filterType.value === 'today') {
-    return 'Top sản phẩm bán chạy hôm nay';
+    return 'Top sản phẩm bán chạy hôm nay'
   }
   // Lấy label từ periodMap và chuyển thành chữ thường (ví dụ: "tuần này", "tháng này")
-  const periodLabel = periodMap[filterType.value]?.label?.toLowerCase() || '';
-  return `Top sản phẩm bán chạy ${periodLabel}`;
-});
+  const periodLabel = periodMap[filterType.value]?.label?.toLowerCase() || ''
+  return `Top sản phẩm bán chạy ${periodLabel}`
+})
 
-const formatMoney = (val: number) => {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
-};
-
-const currentFilterStats = computed(() => {
-  if (filterType.value === 'custom') return overviewData.value['month'] || {}; 
-  return overviewData.value[filterType.value] || {};
-});
-
-// --- API CALLS ---
-const fetchOverviewData = async () => {
-  const res = await statisticsApi.getOverview();
-  if (res) overviewData.value = res;
-};
-
-const fetchGrowthData = async () => {
-  loadingGrowth.value = true;
-  try {
-    const res = await statisticsApi.getGrowthStats();
-    growthData.value = res || [];
-  } catch (error) {
-    console.error(error);
-  } finally {
-    loadingGrowth.value = false;
-  }
-};
-
-const handleExportExcel = async () => {
-  try {
-    message.loading("Đang tạo báo cáo Excel...");
-    const blobData = await statisticsApi.exportRevenueExcel(filterType.value, rangeDate.value);
-    if (!blobData) {
-      message.error("Không có dữ liệu để xuất!");
-      return;
-    }
-    const url = window.URL.createObjectURL(new Blob([blobData]));
-    const link = document.createElement('a');
-    link.href = url;
-    const fileName = `BaoCao_${filterType.value}_${new Date().getTime()}.xlsx`;
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-    message.success("Xuất báo cáo thành công!");
-  } catch (error) {
-    console.error(error);
-    message.error("Có lỗi xảy ra khi xuất file.");
-  }
-};
-
-// --- LOGIC TOP SẢN PHẨM LỌC THEO THỜI GIAN ---
-const topProductsData = ref<TopProductOverview[]>([]); 
-
-const fetchTopProducts = async () => {
-  const res = await statisticsApi.getTopProductsFilter(filterType.value, rangeDate.value);
-  topProductsData.value = res || [];
-};
-
-watch(() => [filterType.value, rangeDate.value], () => {
-  fetchTopProducts();
-}, { deep: true });
-
-interface LowStockProduct {
-  id: string;
-  name: string;
-  brandName: string;
-  quantity: number;
-  urlImage: string;
+function formatMoney(val: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0)
 }
 
-const LowStockData = ref<LowStockProduct[]>([]);
-const fetchLowStockProducts = async () =>{
-  const res = await statisticsApi.getLowStockProducts(3);
-  LowStockData.value = res || [];
+const currentFilterStats = computed(() => {
+  if (filterType.value === 'custom')
+    return overviewData.value.month || {}
+  return overviewData.value[filterType.value] || {}
+})
+
+// --- API CALLS ---
+async function fetchOverviewData() {
+  const res = await statisticsApi.getOverview()
+  if (res)
+    overviewData.value = res
+}
+
+async function fetchGrowthData() {
+  loadingGrowth.value = true
+  try {
+    const res = await statisticsApi.getGrowthStats()
+    growthData.value = res || []
+  }
+  catch (error) {
+    console.error(error)
+  }
+  finally {
+    loadingGrowth.value = false
+  }
+}
+
+async function handleExportExcel() {
+  try {
+    message.loading('Đang tạo báo cáo Excel...')
+    const blobData = await statisticsApi.exportRevenueExcel(filterType.value, rangeDate.value)
+    if (!blobData) {
+      message.error('Không có dữ liệu để xuất!')
+      return
+    }
+    const url = window.URL.createObjectURL(new Blob([blobData]))
+    const link = document.createElement('a')
+    link.href = url
+    const fileName = `BaoCao_${filterType.value}_${new Date().getTime()}.xlsx`
+    link.setAttribute('download', fileName)
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+    message.success('Xuất báo cáo thành công!')
+  }
+  catch (error) {
+    console.error(error)
+    message.error('Có lỗi xảy ra khi xuất file.')
+  }
+}
+
+// --- LOGIC TOP SẢN PHẨM LỌC THEO THỜI GIAN ---
+const topProductsData = ref<TopProductOverview[]>([])
+
+async function fetchTopProducts() {
+  const res = await statisticsApi.getTopProductsFilter(filterType.value, rangeDate.value)
+  topProductsData.value = res || []
+}
+
+watch(() => [filterType.value, rangeDate.value], () => {
+  fetchTopProducts()
+}, { deep: true })
+
+interface LowStockProduct {
+  id: string
+  name: string
+  brandName: string
+  quantity: number
+  urlImage: string
+}
+
+const LowStockData = ref<LowStockProduct[]>([])
+async function fetchLowStockProducts() {
+  const res = await statisticsApi.getLowStockProducts(3)
+  LowStockData.value = res || []
+}
+
+// Thêm biến loading cho nút gửi mail
+const loadingEmail = ref(false)
+
+// Hàm xử lý khi bấm nút "Gửi báo cáo (Email)"
+async function handleSendEmail() {
+  if (filterType.value === 'custom') {
+    message.warning('Báo cáo Email chưa hỗ trợ mốc thời gian tùy chỉnh. Vui lòng chọn Hôm nay/Tuần/Tháng/Năm.');
+    return;
+  }
+
+  try {
+    loadingEmail.value = true;
+    message.loading("Đang tạo PDF và gửi qua Email...");
+    
+    await statisticsApi.sendReportEmailManual(filterType.value);
+    
+    message.success("Đã gửi báo cáo thành công đến các Quản lý!");
+  } catch (error) {
+    console.error(error);
+    message.error("Có lỗi xảy ra khi gửi mail.");
+  } finally {
+    loadingEmail.value = false;
+  }
 }
 
 onMounted(() => {
-  fetchOverviewData();
-  fetchGrowthData(); 
-  fetchTopProducts();
-  fetchLowStockProducts();
-});
-
+  fetchOverviewData()
+  fetchGrowthData()
+  fetchTopProducts()
+  fetchLowStockProducts()
+})
 </script>
 
 <template>
   <n-space vertical :size="20" style="padding: 16px; background-color: #f9f9f9; min-height: 100vh;">
-    
     <n-card :bordered="false" class="shadow-sm">
       <n-space vertical :size="8">
         <n-space align="center">
@@ -151,14 +179,18 @@ onMounted(() => {
     <n-grid :x-gap="12" :cols="4" item-responsive responsive="screen">
       <n-gi v-for="(info, key) in periodMap" :key="key">
         <n-card :bordered="false" class="period-card shadow-sm">
-          <div class="period-header">{{ info.label }}</div>
-          <div class="period-revenue text-green">{{ formatMoney(overviewData[key]?.revenue) }}</div>
+          <div class="period-header">
+            {{ info.label }}
+          </div>
+          <div class="period-revenue text-green">
+            {{ formatMoney(overviewData[key]?.revenue) }}
+          </div>
           <div class="period-sub">
             Sản phẩm đã bán: {{ overviewData[key]?.soldProducts || 0 }} | Đơn hàng: {{ overviewData[key]?.totalOrders || 0 }}
           </div>
           <div class="period-sub" style="margin-top: 4px;">
-            Hoàn thành: <span class="text-green">{{ overviewData[key]?.completed || 0 }}</span> | 
-            Hủy: <span class="text-red">{{ overviewData[key]?.cancelled || 0 }}</span> | 
+            Hoàn thành: <span class="text-green">{{ overviewData[key]?.completed || 0 }}</span> |
+            Hủy: <span class="text-red">{{ overviewData[key]?.cancelled || 0 }}</span> |
             Xử lý: <span class="text-orange">{{ overviewData[key]?.processing || 0 }}</span>
           </div>
         </n-card>
@@ -169,69 +201,115 @@ onMounted(() => {
       <n-space vertical :size="16">
         <div class="filter-header-row">
           <div class="title-section">
-            <div class="main-title">Bộ Lọc Tìm Kiếm</div>
-            <p class="sub-title">Chọn khoảng thời gian để xem số liệu</p>
+            <div class="main-title">
+              Bộ Lọc Tìm Kiếm
+            </div>
+            <p class="sub-title">
+              Chọn khoảng thời gian để xem số liệu
+            </p>
           </div>
           <n-space align="center">
             <n-radio-group v-model:value="filterType" name="filterGroup">
-              <n-radio-button value="today">Hôm nay</n-radio-button>
-              <n-radio-button value="week">Tuần này</n-radio-button>
-              <n-radio-button value="month">Tháng này</n-radio-button>
-              <n-radio-button value="year">Năm nay</n-radio-button>
-              <n-radio-button value="custom">Tùy chỉnh</n-radio-button>
+              <n-radio-button value="today">
+                Hôm nay
+              </n-radio-button>
+              <n-radio-button value="week">
+                Tuần này
+              </n-radio-button>
+              <n-radio-button value="month">
+                Tháng này
+              </n-radio-button>
+              <n-radio-button value="year">
+                Năm nay
+              </n-radio-button>
+              <n-radio-button value="custom">
+                Tùy chỉnh
+              </n-radio-button>
             </n-radio-group>
-            <n-date-picker 
-              v-if="filterType === 'custom'" 
-              v-model:value="rangeDate" 
-              type="daterange" 
+            <n-date-picker
+              v-if="filterType === 'custom'"
+              v-model:value="rangeDate"
+              type="daterange"
               size="small"
-              clearable 
+              clearable
             />
-            <n-button type="success" @click="handleExportExcel">Xuất báo cáo</n-button>
+            <n-button 
+               type="success" 
+               @click="handleSendEmail" 
+               :loading="loadingEmail"              
+            >
+               Gửi báo cáo
+            </n-button>
+            <n-button type="success" @click="handleExportExcel">
+              Xuất báo cáo
+            </n-button>
           </n-space>
         </div>
         <n-divider style="margin: 5px 0" />
         <n-grid :cols="10" :x-gap="12" :y-gap="12" class="filter-stats-row">
-    
-            <n-gi :span="2">
-              <div class="mini-label">Tổng số đơn hàng ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-              <div class="mini-value text-black">{{ currentFilterStats.totalOrders || 0 }}</div>
-            </n-gi>
+          <n-gi :span="2">
+            <div class="mini-label">
+              Tổng số đơn hàng ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})
+            </div>
+            <div class="mini-value text-black">
+              {{ currentFilterStats.totalOrders || 0 }}
+            </div>
+          </n-gi>
 
-            <n-gi :span="2">
-              <div class="mini-label">Số lượng sản phẩm ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-              <div class="mini-value text-black">{{ currentFilterStats.soldProducts }}</div>
-            </n-gi>
+          <n-gi :span="2">
+            <div class="mini-label">
+              Số lượng sản phẩm ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})
+            </div>
+            <div class="mini-value text-black">
+              {{ currentFilterStats.soldProducts }}
+            </div>
+          </n-gi>
 
-            <n-gi :span="2">
-              <div class="mini-label">Hoàn thành ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-              <div class="mini-value text-blue">{{ currentFilterStats.completed }}</div>
-            </n-gi>
+          <n-gi :span="2">
+            <div class="mini-label">
+              Hoàn thành ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})
+            </div>
+            <div class="mini-value text-blue">
+              {{ currentFilterStats.completed }}
+            </div>
+          </n-gi>
 
-            <n-gi :span="2">
-              <div class="mini-label">Đang xử lý ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-              <div class="mini-value text-yellow">{{ currentFilterStats.processing }}</div>
-            </n-gi>
+          <n-gi :span="2">
+            <div class="mini-label">
+              Đang xử lý ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})
+            </div>
+            <div class="mini-value text-yellow">
+              {{ currentFilterStats.processing }}
+            </div>
+          </n-gi>
 
-            <n-gi :span="2">
-              <div class="mini-label">Huỷ ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-              <div class="mini-value text-red">{{ currentFilterStats.cancelled }}</div>
-            </n-gi>
+          <n-gi :span="2">
+            <div class="mini-label">
+              Huỷ ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})
+            </div>
+            <div class="mini-value text-red">
+              {{ currentFilterStats.cancelled }}
+            </div>
+          </n-gi>
 
-            <n-gi :span="3" :offset="2">
-              <div class="mini-label">DT Dự kiến (Tạm tính)</div>
-              <div class="mini-value "  style="color: #8a2be2">
-                {{ formatMoney(currentFilterStats.expectedRevenue) }}
-              </div>
-            </n-gi>
+          <n-gi :span="3" :offset="2">
+            <div class="mini-label">
+              DT Dự kiến (Tạm tính)
+            </div>
+            <div class="mini-value " style="color: #8a2be2">
+              {{ formatMoney(currentFilterStats.expectedRevenue) }}
+            </div>
+          </n-gi>
 
-            <n-gi :span="3">
-              <div class="mini-label">Doanh thu (thực tế) ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})</div>
-              <div class="mini-value text-green">{{ formatMoney(currentFilterStats.revenue) }}</div>
-            </n-gi>
-
-  </n-grid>
-        
+          <n-gi :span="3">
+            <div class="mini-label">
+              Doanh thu (thực tế) ({{ periodMap[filterType]?.label || 'Tùy chỉnh' }})
+            </div>
+            <div class="mini-value text-green">
+              {{ formatMoney(currentFilterStats.revenue) }}
+            </div>
+          </n-gi>
+        </n-grid>
       </n-space>
     </n-card>
 
@@ -251,13 +329,16 @@ onMounted(() => {
     <n-grid :x-gap="16" :cols="12">
       <n-gi span="6">
         <n-space vertical :size="16">
-          
           <n-card :title="topProductTitle" :bordered="false" class="shadow-sm">
             <n-table :single-line="false" size="small">
               <thead>
                 <tr>
-                  <th style="width: 40px">#</th>
-                  <th style="width: 60px">Ảnh</th>
+                  <th style="width: 40px">
+                    #
+                  </th>
+                  <th style="width: 60px">
+                    Ảnh
+                  </th>
                   <th>Tên Sản Phẩm</th>
                   <th>Giá</th>
                   <th>Bán</th>
@@ -267,11 +348,19 @@ onMounted(() => {
                 <tr v-for="(item, index) in topProductsData" :key="index">
                   <td>{{ index + 1 }}</td>
                   <td>
-                    <n-avatar round size="small" :src="item.image" fallback-src="https://via.placeholder.com/40" style="border: none;" />
+                    <NAvatar round size="small" :src="item.image" fallback-src="https://via.placeholder.com/40" style="border: none;" />
                   </td>
-                  <td class="n-ellipsis">{{ item.name }}</td>
-                  <td class="text-red font-bold">{{ formatMoney(item.price) }}</td>
-                  <td><n-tag type="success" size="small" round>{{ item.count }}</n-tag></td>
+                  <td class="n-ellipsis">
+                    {{ item.name }}
+                  </td>
+                  <td class="text-red font-bold">
+                    {{ formatMoney(item.price) }}
+                  </td>
+                  <td>
+                    <NTag type="success" size="small" round>
+                      {{ item.count }}
+                    </NTag>
+                  </td>
                 </tr>
                 <tr v-if="topProductsData.length === 0">
                   <td colspan="5" style="text-align: center; color: #999; padding: 20px;">
@@ -282,12 +371,16 @@ onMounted(() => {
             </n-table>
           </n-card>
 
-          <n-card title="Cảnh báo sắp hết hàng" :bordered="false" class="shadow-sm">
-             <n-table :single-line="false" size="small">
+          <n-card title="Sản Phẩm sắp hết hàng" :bordered="false" class="shadow-sm">
+            <n-table :single-line="false" size="small">
               <thead>
                 <tr>
-                  <th style="width: 40px">#</th>
-                  <th style="width: 60px">Ảnh</th>
+                  <th style="width: 40px">
+                    #
+                  </th>
+                  <th style="width: 60px">
+                    Ảnh
+                  </th>
                   <th>Tên Sản Phẩm</th>
                   <th>Thương hiệu</th>
                   <th>Tồn kho</th>
@@ -297,14 +390,16 @@ onMounted(() => {
                 <tr v-for="(item, index) in LowStockData" :key="item.id">
                   <td>{{ index + 1 }}</td>
                   <td>
-                    <n-avatar round size="small" :src="item.urlImage" fallback-src="https://via.placeholder.com/40" style="border: none;" />
+                    <NAvatar round size="small" :src="item.urlImage" fallback-src="https://via.placeholder.com/40" style="border: none;" />
                   </td>
-                  <td class="n-ellipsis">{{ item.name }}</td>
+                  <td class="n-ellipsis">
+                    {{ item.name }}
+                  </td>
                   <td>{{ item.brandName || 'N/A' }}</td>
                   <td>
-                    <n-tag type="error" size="small" round style="font-weight: bold;">
+                    <NTag type="error" size="small" round style="font-weight: bold;">
                       {{ item.quantity }}
-                    </n-tag>
+                    </NTag>
                   </td>
                 </tr>
                 <tr v-if="LowStockData.length === 0">
@@ -315,46 +410,47 @@ onMounted(() => {
               </tbody>
             </n-table>
           </n-card>
-
         </n-space>
       </n-gi>
       <n-gi span="6">
-        <n-card 
-          title="Tốc độ tăng trưởng" 
-          :bordered="false" 
+        <n-card
+          title="Tốc độ tăng trưởng"
+          :bordered="false"
           class="shadow-sm h-full"
           size="small"
         >
           <template #header-extra>
-             <n-button quaternary circle size="tiny" @click="fetchGrowthData" :loading="loadingGrowth">
-                <template #icon><Icon icon="carbon:renew" /></template>
-             </n-button>
+            <n-button quaternary circle size="tiny" :loading="loadingGrowth" @click="fetchGrowthData">
+              <template #icon>
+                <Icon icon="carbon:renew" />
+              </template>
+            </n-button>
           </template>
 
           <div class="growth-list">
-             <div v-for="(item, index) in growthData" :key="index" class="growth-item">
-                <div class="g-left">
-                   <div class="icon-box" :class="item.type">
-                      <Icon v-if="item.type === 'revenue'" icon="carbon:chart-line-data" />
-                      <Icon v-else-if="item.type === 'order'" icon="carbon:shopping-cart" />
-                      <Icon v-else icon="carbon:box" />
-                   </div>
-                   <span class="g-label">{{ item.label }}</span>
+            <div v-for="(item, index) in growthData" :key="index" class="growth-item">
+              <div class="g-left">
+                <div class="icon-box" :class="item.type">
+                  <Icon v-if="item.type === 'revenue'" icon="carbon:chart-line-data" />
+                  <Icon v-else-if="item.type === 'order'" icon="carbon:shopping-cart" />
+                  <Icon v-else icon="carbon:box" />
                 </div>
+                <span class="g-label">{{ item.label }}</span>
+              </div>
 
-                <div class="g-right">
-                   <span class="g-value">{{ item.value }}</span>
-                   <div class="g-badge" :class="item.isIncrease ? 'bg-inc' : 'bg-dec'">
-                      <Icon v-if="item.isIncrease" icon="carbon:arrow-up" />
-                      <Icon v-else icon="carbon:arrow-down" />
-                      {{ item.percent.toFixed(1) }}%
-                   </div>
+              <div class="g-right">
+                <span class="g-value">{{ item.value }}</span>
+                <div class="g-badge" :class="item.isIncrease ? 'bg-inc' : 'bg-dec'">
+                  <Icon v-if="item.isIncrease" icon="carbon:arrow-up" />
+                  <Icon v-else icon="carbon:arrow-down" />
+                  {{ item.percent.toFixed(1) }}%
                 </div>
-             </div>
+              </div>
+            </div>
           </div>
         </n-card>
       </n-gi>
-      </n-grid>
+    </n-grid>
   </n-space>
 </template>
 
