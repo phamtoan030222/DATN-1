@@ -10,10 +10,8 @@ public interface AdStatisticsService {
 
     List<AdDashboardOverviewResponse.TopItemDTO> getTopSellingProductsByDateRange(Long start, Long end) ;
 
-        // [CẬP NHẬT] Thêm tham số start, end
     AdRevenueChartResponse getRevenueChart(String type, Long start, Long end);
 
-    // [CẬP NHẬT] Thêm tham số start, end
     List<AdChartResponse> getOrderStatusChart(String type, Long start, Long end);
 
     List<AdChartResponse> getTopProductsChart(String type);
@@ -22,7 +20,7 @@ public interface AdStatisticsService {
 
     List<AdGrowthStatResponse> getGrowthStatistics();
 
-    byte[] exportRevenueToExcel() throws IOException;
+    byte[] exportRevenueToExcel(String type, Long start, Long end) throws IOException;
 
     List<AdDashboardOverviewResponse.TopItemDTO> getTopProductsByFilter(String type, Long startCustom, Long endCustom);
 
