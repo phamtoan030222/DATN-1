@@ -401,6 +401,29 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
         }
     }
 
+    @Override
+    public List<AdDashboardOverviewResponse.TopItemDTO> getTopProductsByFilter(String type, Long startCustom, Long endCustom) {
+        LocalDateTime now = LocalDateTime.now();
+        long startMs, endMs = toMs(now);
+
+        if ("custom".equals(type) && startCustom != null && endCustom != null) {
+            startMs = startCustom;
+            endMs = endCustom;
+        } else {
+            if ("today".equals(type)) {
+                startMs = toMs(now.toLocalDate().atStartOfDay());
+            } else if ("week".equals(type)) {
+                startMs = toMs(now.with(DayOfWeek.MONDAY).toLocalDate().atStartOfDay());
+            } else if ("year".equals(type)) {
+                startMs = toMs(now.withDayOfYear(1).toLocalDate().atStartOfDay());
+            } else { // mặc định là month
+                startMs = toMs(now.withDayOfMonth(1).toLocalDate().atStartOfDay());
+            }
+        }
+        // Gọi hàm Query đã tạo ở bước trước
+        return getTopSellingProductsByDateRange(startMs, endMs);
+    }
+
     // =========================================================================
     // 5. CÁC API KHÁC (PASSTHROUGH) & UTILS
     // =========================================================================

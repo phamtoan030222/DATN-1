@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, h } from "vue";
+import { ref, onMounted, computed, watch } from "vue"; // Thêm watch vào đây
 import { statisticsApi } from "@/service/api/admin/statistics/api";
+import type { TopProductOverview } from "@/service/api/admin/statistics/api"; // Thêm dòng này để fix lỗi TS
 import { Icon } from '@iconify/vue';
 import { useMessage, NAvatar, NTag, NText, NNumberAnimation } from 'naive-ui';
 
-// Import Component Biểu đồ (Giữ nguyên của bạn)
+// Import Component Biểu đồ
 import Chart from "./components/chart.vue";
 import Chart3 from "./components/chart3.vue";
 
-// --- KHAI BÁO DỮ LIỆU TĂNG TRƯỞNG ---
+// --- KHAI BÁO DỮ LIỆU ---
 interface GrowthItem {
   label: string;
   value: string;
@@ -19,10 +20,10 @@ interface GrowthItem {
 
 const message = useMessage();
 const overviewData = ref<any>({});
-const growthData = ref<GrowthItem[]>([]); // Biến chứa dữ liệu tăng trưởng
+const growthData = ref<GrowthItem[]>([]); 
 const loadingGrowth = ref(false);
 
-const filterType = ref("month"); // Mặc định tháng
+const filterType = ref("month"); 
 const rangeDate = ref<[number, number] | null>(null);
 
 // Map hiển thị tiêu đề
@@ -33,11 +34,23 @@ const periodMap: any = {
   year: { label: 'Năm nay' }
 };
 
+// Tạo tiêu đề động cho bảng Top sản phẩm
+const topProductTitle = computed(() => {
+  if (filterType.value === 'custom') {
+    return 'Top sản phẩm bán chạy (Tùy chỉnh)';
+  }
+  if (filterType.value === 'today') {
+    return 'Top sản phẩm bán chạy hôm nay';
+  }
+  // Lấy label từ periodMap và chuyển thành chữ thường (ví dụ: "tuần này", "tháng này")
+  const periodLabel = periodMap[filterType.value]?.label?.toLowerCase() || '';
+  return `Top sản phẩm bán chạy ${periodLabel}`;
+});
+
 const formatMoney = (val: number) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val || 0);
 };
 
-// Tính toán số liệu hiển thị trong bộ lọc
 const currentFilterStats = computed(() => {
   if (filterType.value === 'custom') return overviewData.value['month'] || {}; 
   return overviewData.value[filterType.value] || {};
@@ -49,7 +62,6 @@ const fetchOverviewData = async () => {
   if (res) overviewData.value = res;
 };
 
-// Hàm gọi API Tăng trưởng (MỚI)
 const fetchGrowthData = async () => {
   loadingGrowth.value = true;
   try {
@@ -86,10 +98,25 @@ const handleExportExcel = async () => {
   }
 };
 
+// --- LOGIC TOP SẢN PHẨM LỌC THEO THỜI GIAN ---
+const topProductsData = ref<TopProductOverview[]>([]); // Đã có interface import ở trên
+
+const fetchTopProducts = async () => {
+  const res = await statisticsApi.getTopProductsFilter(filterType.value, rangeDate.value);
+  topProductsData.value = res || [];
+};
+
 onMounted(() => {
   fetchOverviewData();
-  fetchGrowthData(); // Gọi hàm này khi vào trang
+  fetchGrowthData(); 
+  fetchTopProducts();
 });
+
+// Lắng nghe thay đổi bộ lọc
+watch(() => [filterType.value, rangeDate.value], () => {
+  fetchTopProducts();
+}, { deep: true });
+
 </script>
 
 <template>
@@ -209,7 +236,7 @@ onMounted(() => {
 
     <n-grid :x-gap="16" :cols="12">
       <n-gi span="6">
-        <n-card title="Top sản phẩm bán chạy" :bordered="false" class="shadow-sm h-full">
+        <n-card :title="topProductTitle" :bordered="false" class="shadow-sm h-full">
           <n-table :single-line="false" size="small">
             <thead>
               <tr>
@@ -221,7 +248,7 @@ onMounted(() => {
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(item, index) in overviewData.topSellingProducts" :key="index">
+              <tr v-for="(item, index) in topProductsData" :key="index">
                 <td>{{ index + 1 }}</td>
                 <td>
                   <n-avatar round size="small" :src="item.image" fallback-src="https://via.placeholder.com/40" style="border: none;" />
@@ -229,6 +256,11 @@ onMounted(() => {
                 <td class="n-ellipsis">{{ item.name }}</td>
                 <td class="text-red font-bold">{{ formatMoney(item.price) }}</td>
                 <td><n-tag type="success" size="small" round>{{ item.count }}</n-tag></td>
+              </tr>
+              <tr v-if="topProductsData.length === 0">
+                <td colspan="5" style="text-align: center; color: #999; padding: 20px;">
+                  Chưa có dữ liệu bán hàng trong thời gian này
+                </td>
               </tr>
             </tbody>
           </n-table>

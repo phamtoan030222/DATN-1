@@ -109,4 +109,16 @@ public class AdStatisticsController {
         }
     }
 
+    @GetMapping("/top-products-filter")
+    public ResponseObject<List<AdDashboardOverviewResponse.TopItemDTO>> getTopProductsFilter(
+            @RequestParam(defaultValue = "month") String type,
+            @RequestParam(required = false) Long start,
+            @RequestParam(required = false) Long end) {
+        return new ResponseObject<>(
+                adStatisticsService.getTopProductsByFilter(type, start, end),
+                HttpStatus.OK,
+                "Lấy danh sách top sản phẩm theo bộ lọc thành công"
+        );
+    }
+
 }
