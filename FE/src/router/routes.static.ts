@@ -1,17 +1,6 @@
 export const staticRoutes: AppRoute.RowRoute[] = [
   // Bàn làm việc
-  {
-    name: 'dashboard_sales',
-    path: '/dashboard/sales',
-    title: 'Bán hàng tại quầy',
-    requiresAuth: true,
-    roles: ['QUAN_LY', 'NHAN_VIEN'],
-    icon: 'icon-park-outline:shopping-cart',
-    menuType: 'page',
-    componentPath: '/admin/banhang/index.vue',
-    id: 1,
-    pid: null,
-  },
+
 
   {
     name: 'monitor_stats',
@@ -23,6 +12,19 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     menuType: 'page',
     componentPath: '/admin/dashboard/monitor/index.vue',
     id: 2,
+    pid: null,
+  },
+
+    {
+    name: 'dashboard_sales',
+    path: '/dashboard/sales',
+    title: 'Bán hàng tại quầy',
+    requiresAuth: true,
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
+    icon: 'icon-park-outline:shopping-cart',
+    menuType: 'page',
+    componentPath: '/admin/banhang/index.vue',
+    id: 1,
     pid: null,
   },
 

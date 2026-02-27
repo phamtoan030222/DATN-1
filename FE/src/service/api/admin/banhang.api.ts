@@ -475,3 +475,23 @@
 
     return res.data
   }
+
+  // Tạo tạm hàm giả để test (chỉ dùng khi backend chưa có API)
+export const xoaKhachHang = async (idHD: string): Promise<any> => {
+  try {
+    // Giả lập API call
+    console.log('Đang xóa khách hàng khỏi hóa đơn:', idHD)
+    
+    // Trả về thành công giả
+    return {
+      success: true,
+      message: 'Xóa khách hàng thành công',
+      data: {
+        idHD: idHD
+      }
+    }
+  } catch (error) {
+    console.error('Lỗi khi xóa khách hàng:', error)
+    throw error
+  }
+}

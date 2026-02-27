@@ -47,7 +47,7 @@
     <div id="invoice-content" class="hidden">
       <!-- Toàn bộ nội dung hóa đơn được copy từ phần in ấn -->
       <div class="invoice-paper bg-white text-black p-8 md:p-12">
-        <!-- Header hóa đơn -->
+        <!-- Header hóa đơn với QR code -->
         <div class="flex justify-between items-start mb-10">
           <div>
             <div class="flex items-center gap-2 mb-2">
@@ -59,16 +59,24 @@
               <p>Website: mylaptop.vn | Hotline: 1900.8888</p>
             </div>
           </div>
-          <div class="text-right">
-            <h2 class="text-xl font-bold uppercase text-gray-800">
-              Hóa Đơn
-            </h2>
-            <p class="text-sm font-bold text-gray-600 mt-1">
-              Mã: {{ hoaDonData?.maHoaDon || invoiceCode }}
-            </p>
-            <p class="text-sm text-gray-500">
-              Ngày: {{ formatDateTime(hoaDonData?.ngayTao) }}
-            </p>
+          
+          <!-- QR Code và thông tin hóa đơn -->
+          <div class="text-right flex items-start gap-4">
+            <div class="qr-code-container" v-if="qrCodeDataUrl">
+              <img :src="qrCodeDataUrl" alt="QR Code" class="w-24 h-24 border p-1 rounded">
+              <p class="text-[8px] text-gray-400 mt-1">Quét mã để xem chi tiết</p>
+            </div>
+            <div>
+              <h2 class="text-xl font-bold uppercase text-gray-800">
+                Hóa Đơn
+              </h2>
+              <p class="text-sm font-bold text-gray-600 mt-1">
+                Mã: {{ hoaDonData?.maHoaDon || invoiceCode }}
+              </p>
+              <p class="text-sm text-gray-500">
+                Ngày: {{ formatDateTime(hoaDonData?.ngayTao) }}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -195,17 +203,25 @@
           <p class="text-sm text-gray-600"><span class="font-bold">Ghi chú:</span> {{ hoaDonData.ghiChu }}</p>
         </div>
 
-        <!-- Footer -->
+        <!-- Footer với QR Code nhỏ -->
         <div class="mt-16 pt-8 text-center border-t border-gray-100">
-          <p class="font-bold text-gray-800">
-            Cảm ơn quý khách đã tin tưởng My Laptop Store!
-          </p>
-          <p class="text-[10px] text-gray-400 mt-1">
-            Sản phẩm được bảo hành chính hãng. Vui lòng giữ lại hóa đơn này để bảo hành.
-          </p>
-          <p class="text-[10px] text-gray-400 mt-1">
-            Hóa đơn được tạo lúc {{ formatTime(hoaDonData?.ngayTao) }}
-          </p>
+          <div class="flex justify-between items-start">
+            <div class="text-left">
+              <p class="font-bold text-gray-800">
+                Cảm ơn quý khách đã tin tưởng My Laptop Store!
+              </p>
+              <p class="text-[10px] text-gray-400 mt-1">
+                Sản phẩm được bảo hành chính hãng. Vui lòng giữ lại hóa đơn này để bảo hành.
+              </p>
+              <p class="text-[10px] text-gray-400 mt-1">
+                Hóa đơn được tạo lúc {{ formatTime(hoaDonData?.ngayTao) }}
+              </p>
+            </div>
+            <div class="qr-code-small" v-if="qrCodeDataUrl">
+              <img :src="qrCodeDataUrl" alt="QR Code" class="w-16 h-16 border p-1 rounded">
+              <p class="text-[8px] text-gray-400 mt-1">Quét mã để kiểm tra</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -851,6 +867,7 @@ import {
 } from '@/service/api/admin/banhang.api'
 import type { HoaDonChiTietItem } from '@/service/api/admin/hoadon.api'
 import { ADPDImeiResponse } from '@/service/api/admin/product/productDetail.api'
+import QRCode from 'qrcode'
 
 // Icons
 import {
@@ -922,6 +939,7 @@ const selectedSerials = ref<ADPDImeiResponse[]>([])
 const showCustomerModal = ref(false)
 const isSavingCustomer = ref(false)
 const customerFormRef = ref<FormInst | null>(null)
+const qrCodeDataUrl = ref<string>('')
 
 // Form data
 const customerForm = reactive<CustomerForm>({
@@ -1306,6 +1324,84 @@ const printProducts = computed(() => {
   
   return result
 })
+
+// Hàm tạo QR Code
+const generateQRCode = async () => {
+  if (!hoaDonData.value) return ''
+  
+  try {
+    // Tạo dữ liệu cho QR code
+    const qrData = {
+      maHoaDon: hoaDonData.value.maHoaDon,
+      ngayTao: formatDateTime(hoaDonData.value.ngayTao),
+      tongTien: formatCurrency(hoaDonData.value.tongTienSauGiam),
+      tenKhachHang: hoaDonData.value.tenKhachHang2 || hoaDonData.value.tenKhachHang || 'Khách lẻ',
+      sdt: hoaDonData.value.sdtKH2 || hoaDonData.value.sdtKH || '',
+      trangThai: getStatusText(hoaDonData.value.trangThaiHoaDon),
+      loaiHoaDon: getInvoiceTypeText(hoaDonData.value.loaiHoaDon),
+      soLuongSP: totalQuantity.value,
+      // Thêm URL để kiểm tra hóa đơn
+      url: `${window.location.origin}/admin/hoa-don/${hoaDonData.value.maHoaDon}`,
+      // Thêm thông tin sản phẩm
+      sanPham: invoiceItems.value.map(item => ({
+        ten: item.tenSanPham,
+        soLuong: item.soLuong,
+        gia: formatCurrency(item.giaBan),
+        tong: formatCurrency(item.tongTien)
+      }))
+    }
+    
+    // Tạo QR code dạng JSON string
+    const qrString = JSON.stringify(qrData, null, 2)
+    
+    // Tạo data URL cho QR code
+    const canvas = document.createElement('canvas')
+    await QRCode.toCanvas(canvas, qrString, {
+      width: 300,
+      margin: 2,
+      errorCorrectionLevel: 'H', // Độ chính xác cao nhất
+      color: {
+        dark: '#000000',
+        light: '#ffffff'
+      }
+    })
+    
+    qrCodeDataUrl.value = canvas.toDataURL('image/png')
+    return qrCodeDataUrl.value
+  } catch (error) {
+    console.error('Error generating QR code:', error)
+    return ''
+  }
+}
+
+// Tạo QR code với định dạng đơn giản hơn
+const generateSimpleQRCode = async () => {
+  if (!hoaDonData.value) return ''
+  
+  try {
+    // Tạo thông tin đơn giản cho QR code
+    const invoiceInfo = `
+MÃ HĐ: ${hoaDonData.value.maHoaDon}
+NGÀY: ${formatDateTime(hoaDonData.value.ngayTao)}
+KH: ${hoaDonData.value.tenKhachHang2 || hoaDonData.value.tenKhachHang || 'Khách lẻ'}
+SĐT: ${hoaDonData.value.sdtKH2 || hoaDonData.value.sdtKH || 'N/A'}
+TỔNG: ${formatCurrency(hoaDonData.value.tongTienSauGiam)}
+URL: ${window.location.origin}/admin/hoa-don/${hoaDonData.value.maHoaDon}
+    `.trim()
+    
+    const canvas = document.createElement('canvas')
+    await QRCode.toCanvas(canvas, invoiceInfo, {
+      width: 250,
+      margin: 2,
+      errorCorrectionLevel: 'H'
+    })
+    
+    return canvas.toDataURL('image/png')
+  } catch (error) {
+    console.error('Error generating simple QR code:', error)
+    return ''
+  }
+}
 
 // Progress
 const progressWidth = computed(() => {
@@ -1896,10 +1992,13 @@ const handleStepClick = (stepKey: string): void => {
 }
 
 // Hàm xử lý in hóa đơn - Mở cửa sổ mới hiển thị nội dung hóa đơn
-function handlePrint() {
+async function handlePrint() {
   if (!hoaDonData.value) return
   
   printLoading.value = true
+  
+  // Tạo QR code trước khi in
+  await generateQRCode()
   
   // Lấy nội dung hóa đơn từ element ẩn
   const invoiceContent = document.getElementById('invoice-content')
@@ -1945,6 +2044,32 @@ function handlePrint() {
         padding: 30px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.1);
         border-radius: 8px;
+      }
+      .qr-code-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .qr-code-container img {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.5rem;
+        padding: 0.25rem;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+      .qr-code-small {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .qr-code-small img {
+        border: 1px solid #e5e7eb;
+        border-radius: 0.25rem;
+        padding: 0.15rem;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
       }
       .text-gray-900 { color: #111827; }
       .text-gray-800 { color: #1f2937; }
@@ -1992,6 +2117,7 @@ function handlePrint() {
       .my-1 { margin-top: 0.25rem; margin-bottom: 0.25rem; }
       .my-3 { margin-top: 0.75rem; margin-bottom: 0.75rem; }
       .my-6 { margin-top: 1.5rem; margin-bottom: 1.5rem; }
+      .p-1 { padding: 0.25rem; }
       .p-4 { padding: 1rem; }
       .p-8 { padding: 2rem; }
       .px-4 { padding-left: 1rem; padding-right: 1rem; }
@@ -2008,6 +2134,7 @@ function handlePrint() {
       .space-y-4 > * + * { margin-top: 1rem; }
       .grid { display: grid; }
       .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .gap-4 { gap: 1rem; }
       .gap-8 { gap: 2rem; }
       .flex { display: flex; }
       .justify-between { justify-content: space-between; }
@@ -2016,6 +2143,10 @@ function handlePrint() {
       .items-center { align-items: center; }
       .w-8 { width: 2rem; }
       .h-8 { height: 2rem; }
+      .w-16 { width: 4rem; }
+      .h-16 { height: 4rem; }
+      .w-24 { width: 6rem; }
+      .h-24 { height: 6rem; }
       .w-2\/3 { width: 66.666667%; }
       .w-full { width: 100%; }
       .max-w-md { max-width: 28rem; }
@@ -2027,6 +2158,11 @@ function handlePrint() {
       .border-b { border-bottom: 1px solid #f3f4f6; }
       .border-y { border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; }
       hr { border: none; border-top: 1px dashed #e5e7eb; margin: 1.5rem 0; }
+      
+      @media print {
+        body { padding: 0; }
+        .invoice-paper { box-shadow: none; }
+      }
     </style>
   `
 
@@ -2174,17 +2310,26 @@ const fetchInvoiceDetails = async (): Promise<void> => {
 }
 
 // Lifecycle
-onMounted(() => {
+onMounted(async () => {
   console.log("Invoice detail page loaded")
   console.log("Invoice ID from URL:", invoiceCode.value)
 
   if (invoiceCode.value) {
-    fetchInvoiceDetails()
+    await fetchInvoiceDetails()
+    // Tạo QR code sau khi có dữ liệu
+    await generateQRCode()
   } else {
     message.error('Không tìm thấy mã hóa đơn')
     router.push('/admin/hoa-don')
   }
 })
+
+// Watch để cập nhật QR code khi dữ liệu thay đổi
+watch(() => hoaDonData.value, async () => {
+  if (hoaDonData.value) {
+    await generateQRCode()
+  }
+}, { deep: true })
 </script>
 
 <style scoped>
@@ -2276,5 +2421,37 @@ onMounted(() => {
 
 :deep(.product-row) {
   border-left: 4px solid #d1d5db !important;
+}
+
+/* QR Code styles */
+.qr-code-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-code-container img {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+  transition: transform 0.2s;
+}
+
+.qr-code-container img:hover {
+  transform: scale(1.1);
+}
+
+.qr-code-small {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.qr-code-small img {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.25rem;
+  padding: 0.15rem;
 }
 </style>
