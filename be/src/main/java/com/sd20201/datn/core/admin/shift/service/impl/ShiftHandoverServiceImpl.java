@@ -179,22 +179,28 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
 
     @Override
     public ResponseObject<ShiftHandoverResponse> getLastClosedShift() {
-        // 1. Tạo Pageable để lấy 1 bản ghi mới nhất
         Pageable pageable = PageRequest.of(0, 1);
-
-        // 2. Gọi Repo vừa sửa
         List<ShiftHandover> list = shiftRepo.findLastClosedShift(pageable);
 
-        // 3. Xử lý kết quả
+        // Trường hợp cửa hàng mới tinh, chưa có ca nào
         if (list.isEmpty()) {
-            // Trường hợp cửa hàng mới tinh, chưa có ca nào -> Trả về 0 đồng
             ShiftHandover emptyShift = new ShiftHandover();
             emptyShift.setRealCashAmount(BigDecimal.ZERO);
             return new ResponseObject<>(new ShiftHandoverResponse(emptyShift), HttpStatus.OK, "Chưa có ca trước");
         }
 
-        // 4. Trả về ca gần nhất tìm thấy
-        return new ResponseObject<>(new ShiftHandoverResponse(list.get(0)), HttpStatus.OK, "Lấy ca trước thành công");
+        ShiftHandover lastShift = list.get(0);
+
+        // FIX: Kiểm tra xem ca trước đó có kết thúc trong "HÔM NAY" không
+        if (lastShift.getEndTime() != null && lastShift.getEndTime().toLocalDate().isEqual(LocalDate.now())) {
+            // Nếu cùng ngày -> Lấy số tiền thực tế ca trước để gán cho ca này
+            return new ResponseObject<>(new ShiftHandoverResponse(lastShift), HttpStatus.OK, "Lấy ca trước cùng ngày thành công");
+        } else {
+            // Nếu là ca của ngày hôm qua hoặc cũ hơn -> Trả về 0 đồng (ca đầu ngày)
+            ShiftHandover emptyShift = new ShiftHandover();
+            emptyShift.setRealCashAmount(BigDecimal.ZERO);
+            return new ResponseObject<>(new ShiftHandoverResponse(emptyShift), HttpStatus.OK, "Ca đầu tiên trong ngày, tiền ca trước = 0");
+        }
     }
 
     @Override

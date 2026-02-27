@@ -278,36 +278,55 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     @Transactional
     public ResponseObject<?> createThemSanPham(ClientThemSanPhamRequest request) {
+        if (request.getQuantity() == 0) {
+            Optional<Cart> cartOptional = Optional.ofNullable(request.getCartId())
+                    .flatMap(cartRepository::findById);
+            if (cartOptional.isEmpty()) return ResponseObject.errorForward("Cart not found", HttpStatus.NOT_FOUND);
 
-        // 1. Tìm hóa đơn. Nếu không thấy -> Tự tạo mới luôn!
-        Cart cart = Optional.ofNullable(request.getCartId())
-                .flatMap(cartRepository::findById)
-                .orElseGet(() -> {
-                    Cart newCart = new Cart();
+            Cart cart = cartOptional.get();
+            ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
 
-                    newCart.setCustomer(
-                            userContextHelper.getCurrentUserId().flatMap(customerRepository::findById)
-                                    .orElse(null));
-                    cartRepository.save(newCart);
-                    return newCart;
-                });
+            // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
+            Optional<CartItem> cartItemOptional = cartItemRepository.findByCartAndProductDetail(cart, productDetail);
+            if (cartItemOptional.isEmpty()) return ResponseObject.errorForward("Cart not found", HttpStatus.NOT_FOUND);
 
-        // 2. Tìm sản phẩm
-        ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
+            CartItem cartItem = cartItemOptional.get();
+            cartItemRepository.delete(cartItem);
 
-        // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
-        CartItem cartItem = cartItemRepository.findByCartAndProductDetail(cart, productDetail)
-                .orElseGet(() -> {
-                    CartItem newCartItem = new CartItem();
-                    newCartItem.setCart(cart);
-                    newCartItem.setProductDetail(productDetail);
+            return new ResponseObject<>(null, HttpStatus.OK, "Thêm sản phẩm thành công");
+        } else {
+            // 1. Tìm hóa đơn. Nếu không thấy -> Tự tạo mới luôn!
+            Cart cart = Optional.ofNullable(request.getCartId())
+                    .flatMap(cartRepository::findById)
+                    .orElseGet(() -> {
+                        Cart newCart = new Cart();
 
-                    return newCartItem;
-                });
-        cartItem.setQuantity(request.getQuantity());
-        cartItemRepository.save(cartItem);
+                        newCart.setCustomer(
+                                userContextHelper.getCurrentUserId().flatMap(customerRepository::findById)
+                                        .orElse(null));
+                        cartRepository.save(newCart);
+                        return newCart;
+                    });
 
-        return new ResponseObject<>(cartItem.getId(), HttpStatus.OK, "Thêm sản phẩm thành công");
+            // 2. Tìm sản phẩm
+            ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
+
+            // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
+            CartItem cartItem = cartItemRepository.findByCartAndProductDetail(cart, productDetail)
+                    .orElseGet(() -> {
+                        CartItem newCartItem = new CartItem();
+                        newCartItem.setCart(cart);
+                        newCartItem.setProductDetail(productDetail);
+
+                        return newCartItem;
+                    });
+            Boolean isValidQuantity = productDetailRepository.isValidQuantity(productDetail, request.getQuantity());
+            if (!isValidQuantity) return ResponseObject.errorForward("Quantity is not valid", HttpStatus.CONFLICT);
+            cartItem.setQuantity(request.getQuantity());
+            cartItemRepository.save(cartItem);
+
+            return new ResponseObject<>(cartItem.getId(), HttpStatus.OK, "Thêm sản phẩm thành công");
+        }
     }
 
     @Override
@@ -471,7 +490,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         Long now = System.currentTimeMillis();
         List<Voucher> vouchers = new ArrayList<>(adbhvoucher.findVoucherHopLe(TargetType.ALL_CUSTOMERS, now));
         if (req.getCustomerId() != null && !req.getCustomerId().isEmpty()) {
-            vouchers.addAll(adbhvoucher.findVoucherRiengCuaKH(req.getCustomerId()));
+            vouchers.addAll(adbhvoucher.findVoucherRiengCuaKH(req.getCustomerId(), now));
         }
 
         List<ClientApplicableVoucherResponse> apDung = new ArrayList<>();
