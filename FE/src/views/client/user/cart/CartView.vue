@@ -61,46 +61,80 @@ async function fetchCart() {
 }
 
 // Xử lý Xóa (Client-side)
-function handleRemove(productDetailId: string) {
-  CartStore.removeFromCart(productDetailId)
-  fetchCart() // Reload lại list
-  message.success('Đã xóa sản phẩm')
+async function handleRemove(productDetailId: string) {
+  try {
+    if (cartId.value) {
+      await themSanPham({
+        cartId: cartId.value as string,
+        productDetailId: productDetailId,
+        quantity: 0
+      })
+
+      fetchCart()
+    } else {
+      const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
+      delete cart[productDetailId]
+      localStorageAction.set(CUSTOMER_CART_ITEM, cart)
+    }
+    message.success('Đã xóa sản phẩm')
+  } catch (e: any) {
+    message.error('Xóa sản phẩm thất bại')
+  }
 }
 
-const updateQuantitLocalStorage = (idProductDetail: string,quantity: number) => {
-    const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
-    cart[idProductDetail] = quantity
-    localStorageAction.set(CUSTOMER_CART_ITEM, cart)
+const updateQuantitLocalStorage = (idProductDetail: string, quantity: number) => {
+  const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
+  cart[idProductDetail] = quantity
+  localStorageAction.set(CUSTOMER_CART_ITEM, cart)
 }
 
 // Xử lý Tăng số lượng (Client-side)
 async function handleIncrease(cartItem: CartItemResponse) {
-  if (cartId.value) {
-    await themSanPham({
-      cartId: cartId.value as string,
-      productDetailId: cartItem.productDetailId,
-      quantity: cartItem.quantity + 1
-    })
-  } else {
-    updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity + 1)
+  try {
+    if (cartId.value) {
+      await themSanPham({
+        cartId: cartId.value as string,
+        productDetailId: cartItem.productDetailId,
+        quantity: cartItem.quantity + 1
+      })
+    } else {
+      updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity + 1)
+    }
+
+    fetchCart()
+  } catch (e: any) {
+    switch (e.status) {
+      case 409:
+        message.error('Đã vượt quá số lượng sản phẩm')
+        break
+      default:
+        message.error('Cập nhật số lượng thất bại')
+    }
   }
-
-  fetchCart()
 }
-
 // Xử lý Giảm số lượng (Client-side)
 async function handleDecrease(cartItem: CartItemResponse) {
-  if (cartItem.quantity === 1) return
-  if (cartId.value) {
-    await themSanPham({
-      cartId: cartId.value as string,
-      productDetailId: cartItem.productDetailId,
-      quantity: cartItem.quantity - 1
-    })
-  } else {
-    updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity - 1)
+  try {
+    if (cartItem.quantity === 1) return
+    if (cartId.value) {
+      await themSanPham({
+        cartId: cartId.value as string,
+        productDetailId: cartItem.productDetailId,
+        quantity: cartItem.quantity - 1
+      })
+    } else {
+      updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity - 1)
+    }
+    fetchCart()
+  } catch (e: any) {
+    switch (e.status) {
+      case 409:
+        message.error('Đã vượt quá số lượng sản phẩm')
+        break
+      default:
+        message.error('Cập nhật số lượng thất bại')
+    }
   }
-  fetchCart()
 }
 
 // Tính tổng tiền
