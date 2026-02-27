@@ -1,6 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
+import { CartItemResponse, GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
+import { localStorageAction } from '@/utils'
+import {
+  AddOutline,
+  ArrowForward,
+  BagCheckOutline,
+  RemoveOutline,
+  TrashOutline,
+} from '@vicons/ionicons5'
 import {
   NButton,
   NEmpty,
@@ -10,17 +18,8 @@ import {
   NTag,
   useMessage,
 } from 'naive-ui'
-import {
-  AddOutline,
-  ArrowForward,
-  BagCheckOutline,
-  RemoveOutline,
-  TrashOutline,
-} from '@vicons/ionicons5'
-import { CartStore } from '@/utils/cartStore'
-import { localStorageAction } from '@/utils'
-import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
-import { CartItemResponse, GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const message = useMessage()
@@ -140,7 +139,7 @@ async function handleDecrease(cartItem: CartItemResponse) {
 // Tính tổng tiền
 const subTotal = computed(() => {
   return cartItems.value.reduce((total, item) => {
-    return total + (item.price * item.quantity)
+    return total + ((item.percentage ? item.price * (1 - item.percentage / 100) : item.price) * item.quantity)
   }, 0)
 })
 

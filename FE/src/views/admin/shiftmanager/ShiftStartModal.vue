@@ -5,6 +5,9 @@ import { NAlert, NButton, NModal, NTag, NTooltip, useMessage } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { handoverApi } from '@/service/api/admin/shift/handover'
 import { scheduleApi } from '@/service/api/admin/shift/schedule'
+import { localStorageAction } from '@/utils'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { useAuthStore } from '@/store'
 
 const props = defineProps<{ forceShow?: boolean }>()
 defineExpose({ openModal })
@@ -35,6 +38,7 @@ const detectedShift = ref<{
 const router = useRouter()
 const route = useRoute()
 const message = useMessage()
+const { userInfoDatn } = useAuthStore()
 
 // --- Computed: Kiểm tra lệch tiền ---
 const isCashMismatch = computed(() => {
@@ -71,11 +75,10 @@ function formatCurrency(val: number) {
 // --- 2. LẤY USER DATA ---
 function getUserData() {
   try {
-    const raw = localStorage.getItem('userInfo') || localStorage.getItem('USER_INFO') || localStorage.getItem('q_u_i')
-    if (!raw)
+    const userData =  localStorageAction.get(USER_INFO_STORAGE_KEY)
+    if (!userData)
       return null
-    const parsed = JSON.parse(raw)
-    return parsed.value?.userInfo || parsed.userInfo || parsed
+    return userData
   }
   catch (e) { return null }
 }
@@ -91,7 +94,7 @@ async function checkShiftStatus() {
 
   checking.value = true
   const currentUser = getUserData()
-  const userId = currentUser?.id || currentUser?.userId
+  const userId = currentUser?.userId
 
   if (!userId) {
     checking.value = false

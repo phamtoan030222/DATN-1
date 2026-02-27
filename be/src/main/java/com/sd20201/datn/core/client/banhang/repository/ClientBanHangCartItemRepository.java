@@ -33,9 +33,30 @@ public interface ClientBanHangCartItemRepository extends CartItemRepository {
     LEFT JOIN Discount d on pdd.discount.id = d.id
     WHERE
         ci.cart.id = :idCart
-        AND (d.startDate <= :time and :time <= d.endDate OR d.id IS NULL)
+        AND (pdd.id IN :idsProductDetailDiscount OR pdd.id IS NULL)
     """)
-    List<ClientCartItemResponse> getCartItemsById(String idCart, Long time);
+    List<ClientCartItemResponse> getCartItemsContainDiscountById(String idCart, List<String> idsProductDetailDiscount);
+
+    @Query("""
+    SELECT
+        ci.id as id
+        , ci.quantity as quantity
+        , pd.price as price
+        , pd.name as name
+        , pd.urlImage as imageUrl
+        , pd.cpu.name as cpu
+        , pd.ram.name as ram
+        , pd.hardDrive.name as hardDrive
+        , pd.gpu.name as gpu
+        , pd.color.name as color
+        , pd.material.name as material
+        , pd.id as productDetailId
+    FROM CartItem ci
+    LEFT JOIN ProductDetail pd on ci.productDetail.id = pd.id
+    WHERE
+        ci.cart.id = :idCart
+    """)
+    List<ClientCartItemResponse> getCartItemsById(String idCart);
 
     Optional<CartItem> findByCartAndProductDetail(Cart cart, ProductDetail productDetail);
 
