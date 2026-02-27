@@ -13,6 +13,7 @@ public class AdDashboardOverviewResponse {
     private StatisticCard today;
     private StatisticCard week;
     private StatisticCard month;
+    private StatisticCard quarter;
     private StatisticCard year;
     private List<TopItemDTO> topSellingProducts;
 

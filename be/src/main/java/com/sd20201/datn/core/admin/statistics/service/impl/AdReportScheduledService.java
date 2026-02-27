@@ -55,7 +55,6 @@ public class AdReportScheduledService {
 
         if (now.toLocalDate().equals(now.toLocalDate().withDayOfMonth(now.toLocalDate().lengthOfMonth()))) {
             executeReporting("Thang");
-            // Cuối tháng 3, 6, 9, 12 thì chạy thêm báo cáo Quý
             if (now.getMonthValue() % 3 == 0) executeReporting("Quy");
         }
 
@@ -72,7 +71,7 @@ public class AdReportScheduledService {
             long prevStartMs, prevEndMs;
             String chartType = "month";
 
-            // 1. TÍNH TOÁN KỲ HIỆN TẠI VÀ KỲ TRƯỚC (ĐỂ SO SÁNH)
+            // 1. TÍNH TOÁN KỲ HIỆN TẠI VÀ KỲ TRƯỚC
             if (title.equalsIgnoreCase("Ngay")) {
                 startMs = toMs(now.toLocalDate().atStartOfDay());
                 prevStartMs = toMs(now.minusDays(1).toLocalDate().atStartOfDay());
@@ -89,20 +88,15 @@ public class AdReportScheduledService {
                 prevEndMs = toMs(now.minusMonths(1).withDayOfMonth(now.minusMonths(1).toLocalDate().lengthOfMonth()).toLocalDate().atTime(23, 59, 59));
                 chartType = "month";
             } else if (title.equalsIgnoreCase("Quy")) {
-                // Logic Quý: Lấy chính xác 3 tháng
                 int currentQuarter = (now.getMonthValue() - 1) / 3 + 1;
                 int startMonth = (currentQuarter - 1) * 3 + 1;
-
                 LocalDateTime quarterStart = now.withMonth(startMonth).withDayOfMonth(1).toLocalDate().atStartOfDay();
                 LocalDateTime quarterEnd = quarterStart.plusMonths(2).withDayOfMonth(quarterStart.plusMonths(2).toLocalDate().lengthOfMonth()).toLocalDate().atTime(23, 59, 59);
-
                 startMs = toMs(quarterStart);
                 endMs = toMs(quarterEnd);
-
-                // So sánh với CÙNG KỲ NĂM TRƯỚC (YoY)
                 prevStartMs = toMs(quarterStart.minusYears(1));
                 prevEndMs = toMs(quarterEnd.minusYears(1));
-                chartType = "year";
+                chartType = "quarter"; // Sửa lại để match với logic DTO
             } else { // Năm
                 startMs = toMs(now.withDayOfYear(1).toLocalDate().atStartOfDay());
                 prevStartMs = toMs(now.minusYears(1).withDayOfYear(1).toLocalDate().atStartOfDay());
@@ -114,12 +108,15 @@ public class AdReportScheduledService {
             Map<String, Object> currentStats = statisticsRepo.getStatsByPeriod(startMs, endMs);
             Map<String, Object> prevStats = statisticsRepo.getStatsByPeriod(prevStartMs, prevEndMs);
 
+            // [CẬP NHẬT]: Lấy Top SP cho CẢ 2 KỲ (Kỳ này & Kỳ trước)
             List<AdDashboardOverviewResponse.TopItemDTO> topProducts = adStatisticsService.getTopSellingProductsByDateRange(startMs, endMs);
+            List<AdDashboardOverviewResponse.TopItemDTO> prevTopProducts = adStatisticsService.getTopSellingProductsByDateRange(prevStartMs, prevEndMs);
+
             Page<AdProductResponse> lowStockPage = adStatisticsService.getLowStockProducts(10, org.springframework.data.domain.PageRequest.of(0, 10));
             AdRevenueChartResponse chartData = adStatisticsService.getRevenueChart(chartType, startMs, endMs);
 
             // 3. TẠO PDF VÀ GỬI MAIL
-            byte[] pdfContent = createProfessionalPdf(title, currentStats, prevStats, topProducts, lowStockPage, chartData, now);
+            byte[] pdfContent = createProfessionalPdf(title, currentStats, prevStats, topProducts, prevTopProducts, lowStockPage, chartData, now);
 
             for (String email : managerEmails) {
                 sendHtmlMail(email, title, pdfContent);
@@ -134,6 +131,7 @@ public class AdReportScheduledService {
             Map<String, Object> currentStats,
             Map<String, Object> prevStats,
             List<AdDashboardOverviewResponse.TopItemDTO> topProducts,
+            List<AdDashboardOverviewResponse.TopItemDTO> prevTopProducts,
             Page<AdProductResponse> lowStockPage,
             AdRevenueChartResponse chartData,
             LocalDateTime now
@@ -144,13 +142,10 @@ public class AdReportScheduledService {
         PdfDocument pdf = new PdfDocument(writer);
         Document doc = new Document(pdf);
 
-        // ================= CẤU HÌNH FONT TIẾNG VIỆT =================
-        // Lưu ý: Đảm bảo bạn đã có file arial.ttf trong thư mục src/main/resources/fonts/
         ClassPathResource fontResource = new ClassPathResource("fonts/arial.ttf");
         byte[] fontBytes = fontResource.getInputStream().readAllBytes();
         PdfFont vietnameseFont = PdfFontFactory.createFont(fontBytes, PdfEncodings.IDENTITY_H);
         doc.setFont(vietnameseFont);
-        // ============================================================
 
         String vnTitle = switch (title.toLowerCase()) {
             case "ngay" -> "Ngày"; case "tuan" -> "Tuần"; case "thang" -> "Tháng"; case "quy" -> "Quý"; case "nam" -> "Năm"; default -> title;
@@ -162,10 +157,10 @@ public class AdReportScheduledService {
         doc.add(new Paragraph("Thời gian xuất: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss")))
                 .setFontSize(10).setTextAlignment(TextAlignment.RIGHT));
 
-        // ================= 1. SO SÁNH TĂNG TRƯỞNG (5 CỘT) =================
         String compareText = (title.equalsIgnoreCase("Quy") || title.equalsIgnoreCase("Nam")) ? "CÙNG KỲ NĂM TRƯỚC" : "KỲ TRƯỚC";
-        doc.add(new Paragraph("\n1. CHỈ SỐ TĂNG TRƯỞNG SO VỚI " + compareText + ":").setBold());
 
+        // ================= 1. SO SÁNH TĂNG TRƯỞNG (5 CỘT) =================
+        doc.add(new Paragraph("\n1. CHỈ SỐ TĂNG TRƯỞNG SO VỚI " + compareText + ":").setBold());
         Table growthTable = new Table(UnitValue.createPercentArray(new float[]{24, 23, 23, 15, 15})).useAllAvailableWidth();
         growthTable.addHeaderCell(new Cell().add(new Paragraph("Chỉ số")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
         growthTable.addHeaderCell(new Cell().add(new Paragraph("Kỳ này")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
@@ -199,17 +194,17 @@ public class AdReportScheduledService {
         detailTable.addCell("Doanh thu dự kiến:"); detailTable.addCell(String.format("%,d VND", toLong(currentStats.get("expectedRevenue"))));
         doc.add(detailTable);
 
-        // ================= 3. CHI TIẾT DOANH THU THEO THỜI GIAN =================
+        // ================= 3. CHI TIẾT DOANH THU THEO THỜI GIAN (3 CỘT) =================
         doc.add(new Paragraph("\n3. CHI TIẾT DOANH THU THEO THỜI GIAN (" + vnTitle.toUpperCase() + "):").setBold());
-        Table timeTable = new Table(UnitValue.createPercentArray(new float[]{50, 50})).useAllAvailableWidth();
+        Table timeTable = new Table(UnitValue.createPercentArray(new float[]{40, 30, 30})).useAllAvailableWidth();
         timeTable.addHeaderCell(new Cell().add(new Paragraph("Thời gian")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
-        timeTable.addHeaderCell(new Cell().add(new Paragraph("Doanh thu")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        timeTable.addHeaderCell(new Cell().add(new Paragraph("Kỳ này")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        timeTable.addHeaderCell(new Cell().add(new Paragraph(compareText)).setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
         if (chartData != null && chartData.getTimeLabels() != null) {
             for (int i = 0; i < chartData.getTimeLabels().size(); i++) {
                 String label = chartData.getTimeLabels().get(i);
 
-                // NẾU LÀ QUÝ: Lọc để chỉ in ra 3 tháng thuộc Quý đó
                 if (title.equalsIgnoreCase("Quy")) {
                     try {
                         int monthNum = Integer.parseInt(label.replaceAll("[^0-9]", ""));
@@ -221,25 +216,55 @@ public class AdReportScheduledService {
 
                 timeTable.addCell(label);
                 timeTable.addCell(String.format("%,d VND", chartData.getCurrentData().get(i)));
+
+                // Cột 3: Doanh thu kỳ trước (Nếu có)
+                long prevVal = (chartData.getPreviousData() != null && chartData.getPreviousData().size() > i)
+                        ? chartData.getPreviousData().get(i) : 0L;
+                timeTable.addCell(String.format("%,d VND", prevVal));
             }
         }
         doc.add(timeTable);
 
-        // ================= 4. TOP 5 SẢN PHẨM =================
-        doc.add(new Paragraph("\n4. TOP 5 SẢN PHẨM BÁN CHẠY TRONG " + vnTitle.toUpperCase() + ":").setBold());
-        Table topTable = new Table(UnitValue.createPercentArray(new float[]{10, 60, 30})).useAllAvailableWidth();
-        topTable.addHeaderCell("#"); topTable.addHeaderCell("Tên sản phẩm"); topTable.addHeaderCell("Số lượng bán");
+        // ================= 4. TOP 5 SẢN PHẨM (SO SÁNH SONG SONG) =================
+        doc.add(new Paragraph("\n4. TOP SẢN PHẨM BÁN CHẠY NHẤT:").setBold());
+        Table topTable = new Table(UnitValue.createPercentArray(new float[]{5, 37, 10, 38, 10})).useAllAvailableWidth();
+        topTable.addHeaderCell(new Cell().add(new Paragraph("#")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        topTable.addHeaderCell(new Cell().add(new Paragraph("Sản phẩm (Kỳ này)")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        topTable.addHeaderCell(new Cell().add(new Paragraph("Đã bán")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        topTable.addHeaderCell(new Cell().add(new Paragraph("Sản phẩm (" + compareText + ")")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
+        topTable.addHeaderCell(new Cell().add(new Paragraph("Đã bán")).setBackgroundColor(ColorConstants.LIGHT_GRAY));
 
-        if (topProducts == null || topProducts.isEmpty()) {
-            topTable.addCell("-"); topTable.addCell("Không có dữ liệu bán hàng"); topTable.addCell("0");
-        } else {
-            int rank = 1;
-            for (AdDashboardOverviewResponse.TopItemDTO item : topProducts) {
-                topTable.addCell(String.valueOf(rank++));
-                topTable.addCell(item.getName());
-                topTable.addCell(String.valueOf(item.getCount()));
-                if (rank > 5) break;
+        boolean hasAnyData = false;
+        for (int i = 0; i < 5; i++) {
+            boolean hasCur = topProducts != null && topProducts.size() > i;
+            boolean hasPrev = prevTopProducts != null && prevTopProducts.size() > i;
+
+            if (!hasCur && !hasPrev) break; // Nếu cả 2 bên đều hết SP thì dừng
+            hasAnyData = true;
+
+            topTable.addCell(String.valueOf(i + 1));
+
+            // Nửa bên trái: Kỳ này
+            if (hasCur) {
+                topTable.addCell(topProducts.get(i).getName());
+                topTable.addCell(String.valueOf(topProducts.get(i).getCount()));
+            } else {
+                topTable.addCell("-"); topTable.addCell("-");
             }
+
+            // Nửa bên phải: Kỳ trước
+            if (hasPrev) {
+                topTable.addCell(prevTopProducts.get(i).getName());
+                topTable.addCell(String.valueOf(prevTopProducts.get(i).getCount()));
+            } else {
+                topTable.addCell("-"); topTable.addCell("-");
+            }
+        }
+
+        if (!hasAnyData) {
+            topTable.addCell("-");
+            topTable.addCell("Không có dữ liệu bán hàng"); topTable.addCell("0");
+            topTable.addCell("Không có dữ liệu bán hàng"); topTable.addCell("0");
         }
         doc.add(topTable);
 
@@ -270,7 +295,6 @@ public class AdReportScheduledService {
         return baos.toByteArray();
     }
 
-    // Các hàm Helper hỗ trợ tính toán
     private void addGrowthRow(Table table, String label, String currentVal, String prevVal, double percent) {
         table.addCell(label);
         table.addCell(currentVal);

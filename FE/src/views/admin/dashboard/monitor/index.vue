@@ -31,6 +31,7 @@ const periodMap: any = {
   today: { label: 'Hôm nay' },
   week: { label: 'Tuần này' },
   month: { label: 'Tháng này' },
+  quarter: { label: 'Quý này' },
   year: { label: 'Năm nay' },
 }
 
@@ -176,7 +177,7 @@ onMounted(() => {
       </n-space>
     </n-card>
 
-    <n-grid :x-gap="12" :cols="4" item-responsive responsive="screen">
+    <n-grid :x-gap="12" :cols="5" item-responsive responsive="screen">
       <n-gi v-for="(info, key) in periodMap" :key="key">
         <n-card :bordered="false" class="period-card shadow-sm">
           <div class="period-header">
@@ -219,6 +220,9 @@ onMounted(() => {
               <n-radio-button value="month">
                 Tháng này
               </n-radio-button>
+                <n-radio-button value="quarter">
+                Quý này
+              </n-radio-button>
               <n-radio-button value="year">
                 Năm nay
               </n-radio-button>
@@ -241,7 +245,7 @@ onMounted(() => {
                Gửi báo cáo
             </n-button>
             <n-button type="success" @click="handleExportExcel">
-              Xuất báo cáo
+              Xuất Excel
             </n-button>
           </n-space>
         </div>

@@ -136,6 +136,7 @@ public class AdStatisticsController {
             case "today" -> "Ngay";
             case "week" -> "Tuan";
             case "month" -> "Thang";
+            case "quarter" -> "Quy";
             case "year" -> "Nam";
             default -> "Thang";
         };
