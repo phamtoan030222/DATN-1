@@ -106,9 +106,8 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
                 .build();
     }
 
-    // =========================================================================
+
     // 2. BIỂU ĐỒ DOANH THU (LINE CHART)
-    // =========================================================================
     @Override
     public AdRevenueChartResponse getRevenueChart(String type, Long startCustom, Long endCustom) {
         LocalDateTime now = LocalDateTime.now();

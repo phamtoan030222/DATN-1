@@ -96,7 +96,7 @@ public class AdReportScheduledService {
                 endMs = toMs(quarterEnd);
                 prevStartMs = toMs(quarterStart.minusYears(1));
                 prevEndMs = toMs(quarterEnd.minusYears(1));
-                chartType = "quarter"; // Sửa lại để match với logic DTO
+                chartType = "quarter";
             } else { // Năm
                 startMs = toMs(now.withDayOfYear(1).toLocalDate().atStartOfDay());
                 prevStartMs = toMs(now.minusYears(1).withDayOfYear(1).toLocalDate().atStartOfDay());
@@ -108,7 +108,7 @@ public class AdReportScheduledService {
             Map<String, Object> currentStats = statisticsRepo.getStatsByPeriod(startMs, endMs);
             Map<String, Object> prevStats = statisticsRepo.getStatsByPeriod(prevStartMs, prevEndMs);
 
-            // [CẬP NHẬT]: Lấy Top SP cho CẢ 2 KỲ (Kỳ này & Kỳ trước)
+            // Lấy Top SP cho CẢ 2 KỲ (Kỳ này & Kỳ trước)
             List<AdDashboardOverviewResponse.TopItemDTO> topProducts = adStatisticsService.getTopSellingProductsByDateRange(startMs, endMs);
             List<AdDashboardOverviewResponse.TopItemDTO> prevTopProducts = adStatisticsService.getTopSellingProductsByDateRange(prevStartMs, prevEndMs);
 
