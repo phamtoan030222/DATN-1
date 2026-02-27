@@ -25,6 +25,7 @@ export interface DashboardOverviewResponse {
   today: StatisticCard
   week: StatisticCard
   month: StatisticCard
+  quarter: StatisticCard
   year: StatisticCard
   topSellingProducts: TopProductOverview[]
 }
