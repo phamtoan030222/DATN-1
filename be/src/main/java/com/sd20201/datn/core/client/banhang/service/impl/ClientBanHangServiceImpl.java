@@ -471,7 +471,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         Long now = System.currentTimeMillis();
         List<Voucher> vouchers = new ArrayList<>(adbhvoucher.findVoucherHopLe(TargetType.ALL_CUSTOMERS, now));
         if (req.getCustomerId() != null && !req.getCustomerId().isEmpty()) {
-            vouchers.addAll(adbhvoucher.findVoucherRiengCuaKH(req.getCustomerId()));
+            vouchers.addAll(adbhvoucher.findVoucherRiengCuaKH(req.getCustomerId(), now));
         }
 
         List<ClientApplicableVoucherResponse> apDung = new ArrayList<>();

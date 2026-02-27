@@ -74,11 +74,15 @@ public interface ClientBHVoucherDetailRepository extends JpaRepository<VoucherDe
 
     // check thoi gian hien tai
     @Query("""
-        SELECT vd.voucher FROM VoucherDetail vd
+        SELECT v FROM VoucherDetail vd
+        LEFT JOIN Voucher v on vd.voucher.id = v.id
         WHERE vd.customer.id = :customerId
-          AND (vd.usageStatus IS NULL OR vd.usageStatus = false)
+        AND (vd.usageStatus IS NULL OR vd.usageStatus = false)
+        AND vd.status = 0
+        AND (v.status = 0 AND v.startDate <= :now AND v.endDate >= :now)
     """)
     List<Voucher> findVoucherRiengCuaKH(
-            @Param("customerId") String customerId
+            @Param("customerId") String customerId,
+            @Param("now") Long now
     );
 }

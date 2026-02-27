@@ -138,9 +138,9 @@ export type tongTienResponse = ResponseList & {
 }
 
 export interface ADThemSanPhamRequest {
-  cartId: string;
-  productDetailId: string;
-  quantity: number;
+  cartId: string
+  productDetailId: string
+  quantity: number
 }
 
 export type PhieuGiamGiaResponse = ResponseList & {
@@ -188,36 +188,35 @@ export type SanPhamResponse = ResponseList & {
   status: string
 }
 
-
-export type CartItemResponse = {
-  id: string;
-  quantity: number;
-  price: number;
-  percentage: number;
-  imageUrl: string;
-  cpu: string;
-  ram: string;
-  hardDrive: string;
-  gpu: string;
-  color: string;
-  material: string;
-  productDetailId: string;
-  name: string;
+export interface CartItemResponse {
+  id: string
+  quantity: number
+  price: number
+  percentage: number
+  imageUrl: string
+  cpu: string
+  ram: string
+  hardDrive: string
+  gpu: string
+  color: string
+  material: string
+  productDetailId: string
+  name: string
 }
 
-export type ProductDetailCartItemResponse = {
-  id: string;
-  price: number;
-  percentage: number;
-  imageUrl: string;
-  cpu: string;
-  ram: string;
-  hardDrive: string;
-  gpu: string;
-  color: string;
-  material: string;
-  productDetailId: string;
-  name: string;
+export interface ProductDetailCartItemResponse {
+  id: string
+  price: number
+  percentage: number
+  imageUrl: string
+  cpu: string
+  ram: string
+  hardDrive: string
+  gpu: string
+  color: string
+  material: string
+  productDetailId: string
+  name: string
 }
 
 export async function GetHoaDons(params: ParamsGetHoaDon) {
@@ -464,11 +463,11 @@ export function createOrder(data: any) {
   })
 }
 
-export const getProductDetailCart = async (idProductDetail: Array<string>) => {
-    const res = (await request({
+export async function getProductDetailCart(idProductDetail: Array<string>) {
+  const res = (await request({
     url: `${API_ORDER_ONLINE}/product-detail`,
     method: 'POST',
-    data: idProductDetail
+    data: idProductDetail,
   })) as AxiosResponse<DefaultResponse<Array<ProductDetailCartItemResponse>>>
 
   return res.data
