@@ -20,12 +20,14 @@ import {
   useMessage,
 } from 'naive-ui'
 import { computed, onMounted, ref, watch } from 'vue'
+import axios from 'axios'
 import { useRouter } from 'vue-router'
 
 // Import Store & API
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import type { CartItemResponse } from '@/service/api/client/banhang.api'
 import { createOrder, GetGioHang, getMaGiamGia, getProductDetailCart } from '@/service/api/client/banhang.api'
+import { getDefaultCustomerAddress } from '@/service/api/client/customer/address.api'
 import { localStorageAction } from '@/utils'
 import { CartStore } from '@/utils/cartStore'
 
@@ -35,29 +37,179 @@ const processing = ref(false)
 
 // Data
 const cartItems = ref<CartItemResponse[]>([])
-const userInfo = ref<Entity.UserInformation | null>(null)
+const userInfo = ref<any>(null) // Dùng any tạm nếu chưa import interface UserInformation
 
 // Form Info
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
+
 const customerInfo = ref({
-  ten: userInfo?.value?.fullName || '',
-  sdt: userInfo?.value?.phone || '',
+  ten: '',
+  sdt: '',
   diaChi: '',
   ghiChu: '',
 })
 
+const STORE_ADDRESS = 'Siêu thị My Laptop - 123 Nguyễn Văn Linh, Hải Châu, Đà Nẵng'
+
+function hydrateCustomerInfoFromProfile() {
+  const u = userInfo.value
+  if (!u)
+    return
+
+  if (!customerInfo.value.ten)
+    customerInfo.value.ten = u.fullName || ''
+  if (!customerInfo.value.sdt)
+    customerInfo.value.sdt = u.phone || ''
+}
+
 const cartId = ref<string | null>()
+
+// --- ĐỊA CHỈ (Combobox) ---
+interface Option {
+  label: string
+  value: number
+  codename: string
+}
+
+const provinceOptions = ref<Option[]>([])
+const wardOptions = ref<Option[]>([])
+
+const selectedProvinceCode = ref<number | null>(null)
+const selectedWardCode = ref<number | null>(null)
+const addressDetail = ref('')
+
+const selectedProvinceName = computed(() => provinceOptions.value.find(o => o.value === selectedProvinceCode.value)?.label || '')
+const selectedWardName = computed(() => wardOptions.value.find(o => o.value === selectedWardCode.value)?.label || '')
+
+const fullShippingAddress = computed(() => {
+  const parts = [
+    addressDetail.value?.trim(),
+    selectedWardName.value,
+    selectedProvinceName.value,
+  ].filter(Boolean)
+  return parts.join(', ')
+})
+
+// Load Tỉnh/Thành từ API
+async function loadProvinces() {
+  try {
+    const res = await axios.get('https://provinces.open-api.vn/api/v2/p/')
+    provinceOptions.value = (res.data || []).map((p: any) => ({
+      label: p.name,
+      value: p.code,
+      codename: p.codename,
+    }))
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// Load Phường/Xã từ API
+async function loadWardsByProvince(provinceCode: number) {
+  try {
+    const res = await axios.get(`https://provinces.open-api.vn/api/v2/p/${provinceCode}?depth=2`)
+    const wards = res.data?.wards || []
+
+    wardOptions.value = wards.map((w: any) => ({
+      label: w.name,
+      value: w.code,
+      codename: w.codename,
+    }))
+  }
+  catch (error) {
+    console.error(error)
+  }
+}
+
+// Xử lý sự kiện người dùng tự chọn đổi Tỉnh/Thành
+async function handleProvinceChange(code: number | null) {
+  selectedWardCode.value = null // Reset Xã
+  wardOptions.value = [] // Clear list Xã cũ
+  if (code) {
+    await loadWardsByProvince(code)
+  }
+}
+
+// Auto-fill từ Database
+async function tryFillDefaultAddressFromDB() {
+  const customerId = userInfo.value?.userId
+  if (!customerId)
+    return
+
+  try {
+    const res: any = await getDefaultCustomerAddress(customerId)
+    const adr = res?.data || res?.result || res
+    if (!adr)
+      return
+
+    // Tùy thuộc cấu trúc Entity trả về từ BE, map đúng field name
+    // Dựa vào query SQL của bạn: có thể là provinceCity hoặc province, addressDetail hoặc detail
+    const dbProvince = adr.provinceCity || adr.province
+    const dbWard = adr.wardCommune
+    const dbDetail = adr.addressDetail || adr.detail
+
+    if (dbProvince) {
+      const matchedProvince = provinceOptions.value.find(p => p.codename === dbProvince)
+      if (matchedProvince) {
+        selectedProvinceCode.value = matchedProvince.value
+        await loadWardsByProvince(matchedProvince.value)
+
+        if (dbWard) {
+          const matchedWard = wardOptions.value.find(w => w.codename === dbWard)
+          if (matchedWard) {
+            selectedWardCode.value = matchedWard.value
+          }
+        }
+      }
+    }
+
+    if (dbDetail && !addressDetail.value) {
+      addressDetail.value = dbDetail
+    }
+
+    if (deliveryType.value === 'GIAO_HANG') {
+      customerInfo.value.diaChi = fullShippingAddress.value
+    }
+  }
+  catch (e) {
+    console.warn('Không lấy được địa chỉ mặc định:', e)
+  }
+}
+
+// Đồng bộ diaChi trong payload
+watch(fullShippingAddress, (val) => {
+  if (deliveryType.value === 'GIAO_HANG') {
+    customerInfo.value.diaChi = val
+  }
+})
 
 // Voucher
 const selectedVoucher = ref<string | null>(null)
 const availableVouchers = ref<any[]>([])
-const discountAmount = ref(0) // Số tiền được giảm
+const discountAmount = ref(0)
 
-onMounted(() => {
+onMounted(async () => {
   userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
+  hydrateCustomerInfoFromProfile()
+  await loadProvinces()
+  await tryFillDefaultAddressFromDB()
   loadCart()
 })
+
+watch(userInfo, () => {
+  hydrateCustomerInfoFromProfile()
+})
+
+watch(deliveryType, (type) => {
+  if (type === 'TAI_QUAY') {
+    customerInfo.value.diaChi = STORE_ADDRESS
+  }
+  else {
+    customerInfo.value.diaChi = fullShippingAddress.value
+  }
+}, { immediate: true })
 
 async function loadCart() {
   cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
@@ -88,14 +240,12 @@ async function loadCart() {
   }
 }
 
-// Tính tổng tiền hàng
 const subTotal = computed(() => {
   return cartItems.value.reduce((total, item) => total + (item.price * item.quantity), 0)
 })
 
 const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 30000 : 0)
 
-// Tổng thanh toán cuối cùng
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -103,25 +253,20 @@ const finalTotal = computed(() => {
 
 const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 
-// --- [MỚI] LOGIC LOAD VOUCHER (CLIENT-SIDE) ---
 async function loadVouchers() {
   if (subTotal.value <= 0)
     return
 
   try {
-    // Gọi API gợi ý voucher (Không cần invoiceId vì chưa tạo hóa đơn)
     const res: any = await getMaGiamGia({
-      invoiceId: '', // Gửi rỗng vì chưa có hóa đơn
+      invoiceId: '',
       tongTien: subTotal.value,
       customerId: userInfo?.value?.userId || null,
     })
 
-    // Xử lý dữ liệu trả về (Tùy backend trả về cấu trúc nào)
     const data = res.data || res
     if (data && data.voucherApDung) {
       availableVouchers.value = data.voucherApDung
-
-      // Tự động chọn voucher tốt nhất
       if (availableVouchers.value.length > 0 && !selectedVoucher.value) {
         handleSelectVoucher(availableVouchers.value[0].voucherId)
       }
@@ -132,7 +277,6 @@ async function loadVouchers() {
   }
 }
 
-// Khi chọn voucher
 function handleSelectVoucher(voucherId: string | null) {
   selectedVoucher.value = voucherId
   if (!voucherId) {
@@ -147,18 +291,17 @@ function handleSelectVoucher(voucherId: string | null) {
   }
 }
 
-// Watch tổng tiền thay đổi -> Load lại voucher (để cập nhật mức giảm)
 watch(subTotal, () => {
   loadVouchers()
 })
 
-// --- XỬ LÝ ĐẶT HÀNG ---
 async function handleCheckout() {
   if (!customerInfo.value.ten || !customerInfo.value.sdt) {
     return message.warning('Vui lòng nhập Họ tên và Số điện thoại')
   }
-  if (deliveryType.value === 'GIAO_HANG' && !customerInfo.value.diaChi) {
-    return message.warning('Vui lòng nhập địa chỉ giao hàng')
+  if (deliveryType.value === 'GIAO_HANG') {
+    if (!selectedProvinceCode.value || !selectedWardCode.value || !addressDetail.value.trim())
+      return message.warning('Vui lòng chọn đủ Tỉnh/Thành - Phường/Xã và nhập Số nhà, tên đường')
   }
 
   processing.value = true
@@ -182,7 +325,7 @@ async function handleCheckout() {
 
       phuongThucThanhToan: paymentMethod.value,
       loaiHoaDon: deliveryType.value,
-      idPGG: selectedVoucher.value || null, // Gửi ID Voucher lên server
+      idPGG: selectedVoucher.value || null,
 
       products: productPayload,
     }
@@ -212,7 +355,7 @@ async function handleCheckout() {
 <template>
   <div class="py-8 font-sans">
     <div class="container mx-auto px-4 max-w-6xl">
-      <h1 class="text-2xl font-bold mb-6 text-gray-800 border-l-4 border-red-600 pl-3">
+      <h1 class="text-2xl font-bold mb-6 text-gray-800 border-l-4 border-green-600 pl-3">
         Thanh toán đơn hàng
       </h1>
 
@@ -223,7 +366,7 @@ async function handleCheckout() {
               <div class="flex gap-4 mb-4">
                 <div
                   class="flex-1 p-3 border rounded cursor-pointer flex items-center justify-center gap-2 transition-all"
-                  :class="deliveryType === 'GIAO_HANG' ? 'border-red-500 bg-red-50 text-red-700 font-bold ring-1 ring-red-500' : 'hover:bg-gray-50'"
+                  :class="deliveryType === 'GIAO_HANG' ? 'border-green-600 bg-green-50 text-green-700 font-bold ring-1 ring-green-600' : 'hover:bg-gray-50'"
                   @click="deliveryType = 'GIAO_HANG'"
                 >
                   <NIcon>
@@ -244,10 +387,37 @@ async function handleCheckout() {
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <NInput v-model:value="customerInfo.ten" placeholder="Họ và tên người nhận (*)" />
                 <NInput v-model:value="customerInfo.sdt" placeholder="Số điện thoại (*)" />
-                <NInput
-                  v-if="deliveryType === 'GIAO_HANG'" v-model:value="customerInfo.diaChi"
-                  placeholder="Địa chỉ chi tiết (Số nhà, đường...)" class="md:col-span-2"
-                />
+
+                <!-- ĐỊA CHỈ -->
+                <template v-if="deliveryType === 'GIAO_HANG'">
+                  <NSelect
+                    v-model:value="selectedProvinceCode" :options="provinceOptions" filterable
+                    placeholder="Chọn Tỉnh/Thành phố (*)"
+                  />
+                  <NSelect
+                    v-model:value="selectedWardCode" :options="wardOptions" filterable
+                    placeholder="Chọn Phường/Xã (*)" :disabled="!selectedProvinceCode"
+                  />
+                  <NInput v-model:value="addressDetail" placeholder="Số nhà, tên đường... (*)" />
+
+                  <!-- field diaChi vẫn được giữ để submit payload, nhưng lấy từ fullShippingAddress -->
+                  <NInput
+                    v-model:value="customerInfo.diaChi" placeholder="Địa chỉ đầy đủ" readonly
+                    class="md:col-span-2"
+                  />
+                </template>
+
+                <template v-else>
+                  <div class="md:col-span-2">
+                    <div class="text-sm text-gray-600 mb-2">
+                      Địa chỉ cửa hàng nhận tại quầy
+                    </div>
+                    <div class="p-3 rounded border bg-gray-50 text-gray-800">
+                      {{ STORE_ADDRESS }}
+                    </div>
+                  </div>
+                </template>
+
                 <NInput
                   v-model:value="customerInfo.ghiChu" type="textarea" placeholder="Ghi chú đơn hàng"
                   class="md:col-span-2"
@@ -346,12 +516,12 @@ async function handleCheckout() {
                   (Đã bao gồm VAT)
                 </div>
               </div>
-              <span class="font-bold text-2xl text-red-600">{{ formatCurrency(finalTotal) }}</span>
+              <span class="font-bold text-2xl text-green-600">{{ formatCurrency(finalTotal) }}</span>
             </div>
 
             <NButton
-              block type="primary" color="#d70018" size="large"
-              class="font-bold h-12 text-lg mt-4 shadow-lg shadow-red-200" :loading="processing"
+              block type="primary" color="#049d14" size="large"
+              class="font-bold h-12 text-lg mt-4 shadow-lg shadow-green-200" :loading="processing"
               @click="handleCheckout"
             >
               ĐẶT HÀNG NGAY
