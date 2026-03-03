@@ -53,12 +53,22 @@ public class ShiftReportService {
                 }
             }
 
-            // --- 2. TÀI CHÍNH ---
+            // --- 2. TÀI CHÍNH (ĐÃ FIX LOGIC) ---
             double initial = getSafeDouble(handover.getInitialCash());
-            double totalSales = getSafeDouble(handover.getTotalCashAmount());
+
+            // Lấy tổng tiền mặt lý thuyết (Đã có sẵn từ BE, không được cộng thêm initial nữa)
+            double expectedCash = getSafeDouble(handover.getTotalCashAmount());
+
+            // Tính ngược lại Doanh thu tiền mặt bán được
+            double cashRevenue = Math.max(0, expectedCash - initial);
+
+            // Lấy Doanh thu chuyển khoản
+            double transferRevenue = getSafeDouble(handover.getTotalTransferAmount());
+
             double realCash = getSafeDouble(handover.getRealCashAmount());
-            double expected = initial + totalSales;
-            double diff = realCash - expected;
+
+            // Chênh lệch = Thực tế đếm - Lý thuyết hệ thống
+            double diff = realCash - expectedCash;
 
             Locale localeVN = new Locale("vi", "VN");
             NumberFormat currencyVN = NumberFormat.getCurrencyInstance(localeVN);
@@ -85,7 +95,7 @@ public class ShiftReportService {
                 if (parts.length >= 2) endNote = parts[1].trim();
             }
 
-            // --- 5. HTML (ĐÃ THÊM MÃ ĐỊNH DANH DUY NHẤT ĐỂ TRÁNH DẤU 3 CHẤM) ---
+            // --- 5. HTML ---
             String htmlContent = String.format("""
                 <html>
                 <body style="font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; background-color: #f4f4f5; padding: 20px; margin: 0;">
@@ -118,15 +128,16 @@ public class ShiftReportService {
                             </div>
                             <div style="border: 2px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                                    <h3 style="margin: 0; font-size: 16px; color: #111827;">💵 Tổng kết tiền mặt</h3>
+                                    <h3 style="margin: 0; font-size: 16px; color: #111827;">💵 Tổng kết tài chính</h3>
                                     <span style="background: #eff6ff; color: #2563eb; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;">%d đơn hàng</span>
                                 </div>
                                 <table style="width: 100%%; font-size: 15px;">
                                     <tr><td style="padding: 6px 0;">Tiền đầu ca:</td><td style="text-align: right; font-family: monospace;">%s</td></tr>
-                                    <tr><td style="padding: 6px 0;">Doanh thu:</td><td style="text-align: right; font-family: monospace; color: #059669;">+%s</td></tr>
-                                    <tr style="border-top: 1px solid #e5e7eb;"><td style="padding-top: 12px; font-weight: 700;">Lý thuyết:</td><td style="padding-top: 12px; text-align: right; font-weight: 700; font-family: monospace;">%s</td></tr>
-                                    <tr><td style="font-weight: 700;">Thực tế thu:</td><td style="text-align: right; font-weight: 700; font-family: monospace; color: #000;">%s</td></tr>
-                                    <tr><td style="padding-top: 6px; font-size: 14px; font-style: italic;">Chênh lệch:</td><td style="padding-top: 6px; text-align: right; font-weight: 700; color: %s;">%s</td></tr>
+                                    <tr><td style="padding: 6px 0;">Doanh thu Tiền mặt:</td><td style="text-align: right; font-family: monospace; color: #059669;">+%s</td></tr>
+                                    <tr><td style="padding: 6px 0;">Doanh thu CK / Thẻ:</td><td style="text-align: right; font-family: monospace; color: #2563eb;">+%s</td></tr>
+                                    <tr style="border-top: 1px solid #e5e7eb;"><td style="padding-top: 12px; font-weight: 700;">Lý thuyết tại két:</td><td style="padding-top: 12px; text-align: right; font-weight: 700; font-family: monospace;">%s</td></tr>
+                                    <tr><td style="font-weight: 700;">Thực tế thu (Tiền mặt):</td><td style="text-align: right; font-weight: 700; font-family: monospace; color: #000;">%s</td></tr>
+                                    <tr><td style="padding-top: 6px; font-size: 14px; font-style: italic;">Chênh lệch két:</td><td style="padding-top: 6px; text-align: right; font-weight: 700; color: %s;">%s</td></tr>
                                 </table>
                             </div>
                             <div style="background-color: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; overflow: hidden;">
@@ -160,13 +171,14 @@ public class ShiftReportService {
                     formatTime(handover.getEndTime()),
                     handover.getTotalBills() != null ? handover.getTotalBills() : 0,
                     currencyVN.format(initial),
-                    currencyVN.format(totalSales),
-                    currencyVN.format(expected),
+                    currencyVN.format(cashRevenue),
+                    currencyVN.format(transferRevenue), // 👈 ĐÃ BỔ SUNG DÒNG NÀY
+                    currencyVN.format(expectedCash),
                     currencyVN.format(realCash),
                     colorDiff, diffString,
                     startNote,
                     endNote,
-                    handover.getId() // 👈 CHÈN ID DUY NHẤT VÀO CUỐI ĐỂ GMAIL KHÔNG GỘP NỘI DUNG
+                    handover.getId()
             );
 
             helper.setText(htmlContent, true);

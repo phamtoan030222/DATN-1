@@ -31,6 +31,9 @@ public class ShiftHandover extends PrimaryEntity {
     @Column(precision = 15, scale = 2)
     private BigDecimal realCashAmount;
 
+    @Column(precision = 15, scale = 2)
+    private BigDecimal totalTransferAmount; // Tiền chuyển khoản hệ thống
+
     @Lob
     @Column(name = "note", length = 10000000)
     private String note;

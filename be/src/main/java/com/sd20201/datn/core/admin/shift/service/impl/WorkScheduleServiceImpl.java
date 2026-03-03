@@ -24,6 +24,13 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
 
+import com.sd20201.datn.utils.ExcelHelper;
+import com.sd20201.datn.core.admin.shift.model.request.ExcelScheduleRequest;
+import org.springframework.web.multipart.MultipartFile;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Optional;
+
 @Service
 public class WorkScheduleServiceImpl implements WorkScheduleService {
     @Autowired
@@ -162,5 +169,97 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
             msg += " Đã bỏ qua " + errorCount + " ca vi phạm quy tắc (quá khứ, trùng giờ, hoặc đã có người làm).";
         }
         return new ResponseObject<>(null, HttpStatus.OK, msg);
+    }
+
+    @Override
+    @Transactional // Rất quan trọng: Nếu 1 dòng lỗi, sẽ rollback không lưu bất kỳ dòng nào
+    public ResponseObject<?> importExcelSchedule(MultipartFile file) {
+        // 1. Kiểm tra định dạng file
+        if (!ExcelHelper.hasExcelFormat(file)) {
+            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "Vui lòng upload file Excel (.xlsx)");
+        }
+
+        try {
+            // 2. Đọc file lấy danh sách dữ liệu (Dùng ExcelHelper)
+            List<ExcelScheduleRequest> requests = ExcelHelper.excelToScheduleRequests(file.getInputStream());
+            List<WorkSchedule> schedulesToSave = new ArrayList<>();
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+            if (requests.isEmpty()) {
+                return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "File Excel trống hoặc không có dữ liệu hợp lệ.");
+            }
+
+            int rowNum = 2; // Bắt đầu tính từ dòng 2 (Dòng 1 là Header)
+            int successCount = 0;
+
+            // 3. Lặp qua từng dòng để Validate và Map sang Entity
+            for (ExcelScheduleRequest req : requests) {
+
+                // --- VALIDATE NHÂN VIÊN ---
+                // Sửa lại theo tên hàm thực tế trong StaffRepository của bạn (tìm theo Mã NV hoặc Username)
+                // Giả sử bạn đang tìm theo Code (Ví dụ: NV001)
+                Optional<Staff> optStaff = staffRepo.findByCode(req.getStaffCode().trim());
+                // Nếu staffRepo chưa có findByCode, bạn phải tự tạo trong Repository nhé.
+                if (optStaff.isEmpty()) {
+                    throw new RuntimeException("Lỗi dòng " + rowNum + ": Không tìm thấy nhân viên có mã '" + req.getStaffCode() + "'");
+                }
+                Staff staff = optStaff.get();
+
+                // --- VALIDATE CA LÀM VIỆC ---
+                Shift shift = shiftTemplateRepo.findByName(req.getShiftName().trim());
+                if (shift == null) {
+                    throw new RuntimeException("Lỗi dòng " + rowNum + ": Không tồn tại ca làm việc tên '" + req.getShiftName() + "'");
+                }
+
+                // --- VALIDATE NGÀY LÀM VIỆC ---
+                LocalDate workDate;
+                try {
+                    workDate = LocalDate.parse(req.getWorkDate().trim(), dateFormatter);
+                } catch (Exception e) {
+                    throw new RuntimeException("Lỗi dòng " + rowNum + ": Ngày làm việc sai định dạng dd/MM/yyyy (" + req.getWorkDate() + ")");
+                }
+
+                // --- KIỂM TRA TRÙNG LẶP ---
+                // Kiểm tra xem ca này, ngày này đã có ai làm chưa?
+                WorkSchedule existingSchedule = scheduleRepo.findByShiftIdAndWorkDate(shift.getId(), workDate);
+
+                if (existingSchedule != null) {
+                    // Tùy logic dự án:
+                    // Cách 1: Báo lỗi không cho import
+                    // throw new RuntimeException("Lỗi dòng " + rowNum + ": Ca '" + shift.getName() + "' ngày " + workDate + " đã được phân công cho người khác.");
+
+                    // Cách 2: Ghi đè người mới (Sử dụng cách này cho giống logic createSchedule cũ của bạn)
+                    existingSchedule.setStaff(staff);
+                    schedulesToSave.add(existingSchedule);
+                } else {
+                    // Tạo mới
+                    WorkSchedule newSchedule = new WorkSchedule();
+                    newSchedule.setShift(shift);
+                    newSchedule.setWorkDate(workDate);
+                    newSchedule.setStaff(staff);
+                    // Giả sử bạn có EntityStatus, nếu có hãy set: newSchedule.setStatus(EntityStatus.ACTIVE);
+
+                    schedulesToSave.add(newSchedule);
+                }
+
+                rowNum++;
+                successCount++;
+            }
+
+            // 4. Lưu tất cả vào Database
+            if (!schedulesToSave.isEmpty()) {
+                scheduleRepo.saveAll(schedulesToSave);
+            }
+
+            return new ResponseObject<>(null, HttpStatus.OK, "Đã import thành công " + successCount + " dòng dữ liệu xếp lịch!");
+
+        } catch (RuntimeException e) {
+            // Bắt lỗi Validation (sai mã NV, sai ca...) và gửi về FE
+            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, e.getMessage());
+        } catch (Exception e) {
+            // Bắt lỗi hệ thống
+            e.printStackTrace();
+            return new ResponseObject<>(null, HttpStatus.INTERNAL_SERVER_ERROR, "Đã xảy ra lỗi hệ thống khi đọc file Excel.");
+        }
     }
 }

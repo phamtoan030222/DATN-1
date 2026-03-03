@@ -11,4 +11,6 @@ public interface StaffRepository extends JpaRepository<Staff, String> {
     Optional<Object> findByAccountUsername(String username);
 
     Optional<Staff> findByName(String username);
+
+    Optional<Staff> findByAccountId(String accountId);
 }
