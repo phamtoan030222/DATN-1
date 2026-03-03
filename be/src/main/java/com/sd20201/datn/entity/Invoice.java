@@ -61,9 +61,7 @@ public class Invoice extends PrimaryEntity implements Serializable {
 
     private Long paymentDate;
 
-
     private String description;
-
 
     @Column(name = "trang_thai_hoa_don")
     private EntityTrangThaiHoaDon entityTrangThaiHoaDon;
