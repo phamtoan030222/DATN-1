@@ -73,6 +73,7 @@ const userOptions = computed(() => {
   // Kiểm tra xem có user info hay không
   if (userInfo.value) {
     return [
+      { label: 'Đơn mua', key: 'orders' },
       { label: 'Đăng xuất', key: 'logout' },
     ]
   }

@@ -22,6 +22,7 @@ import com.sd20201.datn.core.client.banhang.repository.ClientBHVoucherDetailRepo
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartItemRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangIMEIRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangProductDetailDiscountRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangSanPhamChiTiet;
 import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonChiTietRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonRepository;
@@ -100,6 +101,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientBanHangCartItemRepository cartItemRepository;
 
     private final CustomerRepository customerRepository;
+
+    private final ClientBanHangProductDetailDiscountRepository productDetailDiscountRepository;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -224,8 +227,17 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     public ResponseObject<?> getListGioHang(String id) {
         Long currentTime = System.currentTimeMillis();
+        List<String> idCurrentDiscounts = productDetailDiscountRepository.getIdByDate(currentTime);
+
+        if (!idCurrentDiscounts.isEmpty()) {
+            return ResponseObject.successForward(
+                    cartItemRepository.getCartItemsContainDiscountById(id, idCurrentDiscounts),
+                    "OKE"
+            );
+        }
+
         return ResponseObject.successForward(
-                cartItemRepository.getCartItemsById(id, currentTime),
+                cartItemRepository.getCartItemsById(id),
                 "OKE"
         );
     }
@@ -278,36 +290,55 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     @Transactional
     public ResponseObject<?> createThemSanPham(ClientThemSanPhamRequest request) {
+        if (request.getQuantity() == 0) {
+            Optional<Cart> cartOptional = Optional.ofNullable(request.getCartId())
+                    .flatMap(cartRepository::findById);
+            if (cartOptional.isEmpty()) return ResponseObject.errorForward("Cart not found", HttpStatus.NOT_FOUND);
 
-        // 1. Tìm hóa đơn. Nếu không thấy -> Tự tạo mới luôn!
-        Cart cart = Optional.ofNullable(request.getCartId())
-                .flatMap(cartRepository::findById)
-                .orElseGet(() -> {
-                    Cart newCart = new Cart();
+            Cart cart = cartOptional.get();
+            ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
 
-                    newCart.setCustomer(
-                            userContextHelper.getCurrentUserId().flatMap(customerRepository::findById)
-                                    .orElse(null));
-                    cartRepository.save(newCart);
-                    return newCart;
-                });
+            // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
+            Optional<CartItem> cartItemOptional = cartItemRepository.findByCartAndProductDetail(cart, productDetail);
+            if (cartItemOptional.isEmpty()) return ResponseObject.errorForward("Cart not found", HttpStatus.NOT_FOUND);
 
-        // 2. Tìm sản phẩm
-        ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
+            CartItem cartItem = cartItemOptional.get();
+            cartItemRepository.delete(cartItem);
 
-        // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
-        CartItem cartItem = cartItemRepository.findByCartAndProductDetail(cart, productDetail)
-                .orElseGet(() -> {
-                    CartItem newCartItem = new CartItem();
-                    newCartItem.setCart(cart);
-                    newCartItem.setProductDetail(productDetail);
+            return new ResponseObject<>(null, HttpStatus.OK, "Thêm sản phẩm thành công");
+        } else {
+            // 1. Tìm hóa đơn. Nếu không thấy -> Tự tạo mới luôn!
+            Cart cart = Optional.ofNullable(request.getCartId())
+                    .flatMap(cartRepository::findById)
+                    .orElseGet(() -> {
+                        Cart newCart = new Cart();
 
-                    return newCartItem;
-                });
-        cartItem.setQuantity(request.getQuantity());
-        cartItemRepository.save(cartItem);
+                        newCart.setCustomer(
+                                userContextHelper.getCurrentUserId().flatMap(customerRepository::findById)
+                                        .orElse(null));
+                        cartRepository.save(newCart);
+                        return newCart;
+                    });
 
-        return new ResponseObject<>(cartItem.getId(), HttpStatus.OK, "Thêm sản phẩm thành công");
+            // 2. Tìm sản phẩm
+            ProductDetail productDetail = productDetailRepository.findById(request.getProductDetailId()).orElseThrow(() -> new BusinessException("Không tìm thấy sản phẩm"));
+
+            // 4. Xử lý InvoiceDetail (Giữ nguyên logic của bạn)
+            CartItem cartItem = cartItemRepository.findByCartAndProductDetail(cart, productDetail)
+                    .orElseGet(() -> {
+                        CartItem newCartItem = new CartItem();
+                        newCartItem.setCart(cart);
+                        newCartItem.setProductDetail(productDetail);
+
+                        return newCartItem;
+                    });
+            Boolean isValidQuantity = productDetailRepository.isValidQuantity(productDetail, request.getQuantity());
+            if (!isValidQuantity) return ResponseObject.errorForward("Quantity is not valid", HttpStatus.CONFLICT);
+            cartItem.setQuantity(request.getQuantity());
+            cartItemRepository.save(cartItem);
+
+            return new ResponseObject<>(cartItem.getId(), HttpStatus.OK, "Thêm sản phẩm thành công");
+        }
     }
 
     @Override

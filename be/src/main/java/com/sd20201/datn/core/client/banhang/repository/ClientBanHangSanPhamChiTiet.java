@@ -4,6 +4,9 @@ package com.sd20201.datn.core.client.banhang.repository;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDProductDetailResponse;
 import com.sd20201.datn.core.client.banhang.model.response.ClientBanHangProductDetailCartResponse;
+import com.sd20201.datn.entity.Cart;
+import com.sd20201.datn.entity.CartItem;
+import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.repository.ProductDetailRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -11,6 +14,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
 
@@ -88,4 +92,13 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
         AND (d.startDate <= :time and :time <= d.endDate OR d.id IS NULL)
     """)
     List<ClientBanHangProductDetailCartResponse> findProductDetailCartResponseByIdIn(List<String> ids, Long time);
+
+    @Query(value = """
+    SELECT :quantity < count(i.id)
+    FROM ProductDetail pd
+    LEFT JOIN IMEI i on pd.id = i.productDetail.id
+    WHERE pd = :productDetail
+    AND i.status = 0 AND i.imeiStatus = 0
+    """)
+    Boolean isValidQuantity(ProductDetail productDetail, Integer quantity);
 }
