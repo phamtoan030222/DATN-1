@@ -3711,6 +3711,7 @@ async function printSerialBarcode(serialCode: string) {
     </NCard>
   </NModal>
 
+  <!-- Modal chọn serial -->
   <NModal
     v-model:show="showSerialModal" preset="dialog" title="Chọn Serial Sản Phẩm"
     style="width: 90%; max-width: 1200px" :mask-closable="false"
@@ -3847,6 +3848,7 @@ async function printSerialBarcode(serialCode: string) {
     </NSpace>
   </NModal>
 
+  <!-- ✅ THAY ĐỔI 7: Modal quét barcode - đổi title và giao diện phù hợp barcode -->
   <NModal
     v-model:show="isBarcodeModalVisible"
     preset="dialog"
@@ -3855,10 +3857,12 @@ async function printSerialBarcode(serialCode: string) {
     @update:show="(val) => { if (!val) closeQrModal() }"
   >
     <NCard size="small" :bordered="false">
+      <!-- Hướng dẫn scan barcode -->
       <NAlert type="info" size="small" show-icon style="margin-bottom: 12px;">
         Đặt barcode vào khung hình chữ nhật để quét. Hỗ trợ Code128, Code39, EAN, UPC.
       </NAlert>
 
+      <!-- Vùng quét - hình chữ nhật nằm ngang phù hợp barcode 1D -->
       <div id="reader" style="width: 100%; max-width: 440px; margin: 0 auto;" />
 
       <NAlert v-if="!hasCamera" type="error" title="Lỗi camera" class="mt-2">
@@ -3961,6 +3965,7 @@ async function printSerialBarcode(serialCode: string) {
   margin-bottom: 16px;
 }
 
+/* Style cho barcode scanner region - hình chữ nhật ngang */
 :deep(#reader) {
   border-radius: 8px;
   overflow: hidden;
@@ -3996,6 +4001,7 @@ async function printSerialBarcode(serialCode: string) {
     min-width: 180px;
   }
 }
+
 :deep(.n-checkbox) {
   margin-right: 0;
 }
