@@ -193,7 +193,8 @@ async function fetchSerialsByProduct(productId: string) {
       selectedSerials.value = []
     }
 
-    selectedSerialIds.value = [] // Reset selected serials
+    selectedSerialIds.value = [] 
+    serialSearchQuery.value = ''
     showSerialModal.value = true
   }
   catch (error) {
@@ -205,6 +206,16 @@ async function fetchSerialsByProduct(productId: string) {
     loadingSerials.value = false
   }
 }
+
+const serialSearchQuery = ref('')
+
+const filteredSerials = computed(() => {
+  if (!serialSearchQuery.value.trim()) return selectedSerials.value
+  const keyword = serialSearchQuery.value.trim().toLowerCase()
+  return selectedSerials.value.filter(s =>
+    s.code?.toLowerCase().includes(keyword)
+  )
+})
 
 // Hàm chọn sản phẩm để xem serial
 async function selectProductForSerial(product: ADProductDetailResponse) {
@@ -347,6 +358,42 @@ const stateSP = reactive({
 })
 
 const priceRange = ref<[number, number]>([0, 0])
+
+const filteredProducts = computed(() => {
+
+    const colorLabel = ColorOptions.value.find(o => o.value === localColor.value)?.label
+  const cpuLabel = CpuOptions.value.find(o => o.value === localCPU.value)?.label
+  const gpuLabel = GpuOptions.value.find(o => o.value === localGPU.value)?.label
+  const ramLabel = RamOptions.value.find(o => o.value === localRAM.value)?.label
+  const hardDriveLabel = HardDriveOptions.value.find(o => o.value === localHardDrive.value)?.label
+  const materialLabel = MaterialOptions.value.find(o => o.value === localSelectedMaterial.value)?.label
+
+
+  return stateSP.products.filter((p) => {
+    const effectivePrice = p.percentage > 0
+      ? p.price * (1 - p.percentage / 100)
+      : p.price
+
+    const keyword = localSearchQuery.value.trim().toLowerCase()
+    const matchSearch = !keyword
+      || p.name?.toLowerCase().includes(keyword)
+      || p.code?.toLowerCase().includes(keyword)
+
+    const matchColor = !colorLabel || p.color === colorLabel
+    const matchCPU = !cpuLabel || p.cpu === cpuLabel
+    const matchGPU = !gpuLabel || p.gpu === gpuLabel
+    const matchRAM = !ramLabel || p.ram === ramLabel
+    const matchHardDrive = !hardDriveLabel || p.hardDrive === hardDriveLabel
+    const matchMaterial = !materialLabel || p.material === materialLabel
+
+    // Lọc khoảng giá
+    const matchPrice = effectivePrice >= priceRange.value[0] && effectivePrice <= priceRange.value[1]
+
+
+
+    return matchSearch && matchColor && matchCPU && matchGPU && matchRAM && matchHardDrive && matchMaterial && matchPrice
+  })
+})
 
 // State cho min max price
 const stateMinMaxPrice = reactive({
@@ -750,65 +797,52 @@ async function fetchWards(districtId: number) {
     wards.value = []
   }
 }
-
 async function fetchColor() {
-  try {
-    const { data } = await getColors()
-    ColorOptions.value = data.map((c: any) => ({ label: c.ten || c.label, value: c.id }))
-  }
-  catch (e) {
-    console.error('Error fetching colors:', e)
-  }
+  const { data } = await getColors()
+  ColorOptions.value = data.map((c: any) => ({ 
+    label: c.ten || c.Label || c.label, 
+    value: c.ten || c.Label || c.label  
+  }))
 }
 
 async function fetchCPU() {
-  try {
-    const { data } = await getCPUs()
-    CpuOptions.value = data.map((c: any) => ({ label: c.ten || c.label, value: c.id }))
-  }
-  catch (e) {
-    console.error('Error fetching CPU:', e)
-  }
+  const { data } = await getCPUs()
+  CpuOptions.value = data.map((c: any) => ({ 
+    label: c.ten || c.Label || c.label, 
+    value: c.ten || c.Label || c.label 
+  }))
 }
 
 async function fetchGPU() {
-  try {
-    const { data } = await getGPUs()
-    GpuOptions.value = data.map((g: any) => ({ label: g.ten || g.label, value: g.id }))
-  }
-  catch (e) {
-    console.error('Error fetching GPU:', e)
-  }
+  const { data } = await getGPUs()
+  GpuOptions.value = data.map((g: any) => ({ 
+    label: g.ten || g.Label || g.label, 
+    value: g.ten || g.Label || g.label 
+  }))
 }
 
 async function fetchRAM() {
-  try {
-    const { data } = await getRAMs()
-    RamOptions.value = data.map((r: any) => ({ label: r.ten || r.label, value: r.id }))
-  }
-  catch (e) {
-    console.error('Error fetching RAM:', e)
-  }
+  const { data } = await getRAMs()
+  RamOptions.value = data.map((r: any) => ({ 
+    label: r.ten || r.Label || r.label, 
+    value: r.ten || r.Label || r.label 
+  }))
 }
 
 async function fetchHardDrive() {
-  try {
-    const { data } = await getHardDrives()
-    HardDriveOptions.value = data.map((h: any) => ({ label: h.ten || h.label, value: h.id }))
-  }
-  catch (e) {
-    console.error('Error fetching Hard Drive:', e)
-  }
+  const { data } = await getHardDrives()
+  HardDriveOptions.value = data.map((h: any) => ({ 
+    label: h.ten || h.Label || h.label, 
+    value: h.ten || h.Label || h.label 
+  }))
 }
 
 async function fetchMaterial() {
-  try {
-    const { data } = await getMaterials()
-    MaterialOptions.value = data.map((m: any) => ({ label: m.ten || m.label, value: m.id }))
-  }
-  catch (e) {
-    console.error('Error fetching Material:', e)
-  }
+  const { data } = await getMaterials()
+  MaterialOptions.value = data.map((m: any) => ({ 
+    label: m.ten || m.Label || m.label, 
+    value: m.ten || m.Label || m.label 
+  }))
 }
 
 async function checkFromDistrictAndWard() {
@@ -817,7 +851,6 @@ async function checkFromDistrictAndWard() {
     const districtExists = response.data?.some((d: any) => d.DistrictID === FROM_DISTRICT_ID) || false
     if (!districtExists) {
       console.error(`FROM_DISTRICT_ID ${FROM_DISTRICT_ID} không hợp lệ!`)
-      //      toast.error('Mã quận/huyện nguồn không hợp lệ.')
       return false
     }
     const wardResponse = await getGHNWards(FROM_DISTRICT_ID, GHN_API_TOKEN)
@@ -2617,21 +2650,15 @@ async function deleteProduc(idSPS: any, idHDCT: string) {
 async function fetchProducts() {
   try {
     const params: ADProductDetailRequest = {
-      page: stateSP.paginationParams.page,
-      size: stateSP.paginationParams.size,
-      q: localSearchQuery.value || undefined,
-      idColor: localColor.value || undefined,
-      idCPU: localCPU.value || undefined,
-      idGPU: localGPU.value || undefined,
-      idRAM: localRAM.value || undefined,
-      idHardDrive: localHardDrive.value || undefined,
-      idMaterial: localSelectedMaterial.value || undefined,
+      page: 1,
+      size: 9999, 
     }
     const response = await getProductDetails(params)
     stateSP.products = response.data?.data || []
     state.products = response.data?.data || []
     stateSP.totalItems = response.data?.totalElements || 0
     state.totalItems = response.data?.totalElements || 0
+    calculateMinMaxPrice(stateSP.products) 
   }
   catch (error) {
     console.error('Failed to fetch products:', error)
@@ -3757,15 +3784,27 @@ const bestSuggestion = computed(() => {
           </NGrid>
         </NSpace>
       </template>
-      <NDataTable
-        :columns="columns" :data="stateSP.products" :max-height="400" size="small" :pagination="{
+      <!-- <NDataTable
+        :columns="columns" :data="filteredProducts" :max-height="400" size="small" :pagination="{
           page: stateSP.paginationParams.page,
           pageSize: stateSP.paginationParams.size,
           pageCount: Math.ceil(stateSP.totalItems / stateSP.paginationParams.size),
           showSizePicker: true,
           pageSizes: [10, 20, 30, 40, 50],
         }" @update:page="handlePageChange" @update:page-size="handlePageSizeChange"
-      />
+      /> -->
+
+        <NDataTable
+          :columns="columns"
+          :data="filteredProducts"
+          :max-height="400"
+          size="small"
+          :pagination="{
+            pageSize: 10,
+            showSizePicker: true,
+            pageSizes: [10, 20, 50],
+          }"
+         />  
     </NCard>
   </NModal>
 
@@ -3794,6 +3833,17 @@ const bestSuggestion = computed(() => {
             </NText>
           </div>
         </NSpace>
+        <NInput
+            v-model:value="serialSearchQuery"
+            placeholder="Tìm theo số serial/IMEI..."
+            clearable
+            style="margin-top: 12px"
+            @clear="serialSearchQuery = ''"
+          >
+            <template #prefix>
+              <NIcon><SearchOutline /></NIcon>
+            </template>
+        </NInput>
       </template>
 
       <!-- Thêm loading state -->
@@ -3807,7 +3857,7 @@ const bestSuggestion = computed(() => {
 
       <!-- Data table khi có dữ liệu -->
       <NDataTable
-        v-else :columns="serialColumns" :data="selectedSerials" :max-height="400" size="small"
+        v-else :columns="serialColumns" :data="filteredSerials" :max-height="400" size="small"
         :pagination="{ pageSize: 10 }" :loading="loadingSerials" :bordered="false"
       />
 
