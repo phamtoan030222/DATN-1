@@ -70,7 +70,6 @@ public class MappingConstants {
     public static final String API_CUSTOMER_ADDRESS = API_CUSTOMER_PREFIX + "/addresses";
 
     public static final String API_CUSTOMER_PREFIX_DISCOUNT = API_CUSTOMER_PREFIX + "/discounts";
-    public static final String API_CUSTOMER_PREFIX_DISCOUNT_DISCOUNT = API_CUSTOMER_PREFIX_DISCOUNT + "/discount";
     public static final String API_CUSTOMER_PREFIX_DISCOUNT_DETAIL = API_CUSTOMER_PREFIX_DISCOUNT + "/detail";
     public static final String API_CUSTOMER_PREFIX_DISCOUNT_VOUCHER = API_CUSTOMER_PREFIX_DISCOUNT + "/voucher";
 
@@ -80,6 +79,8 @@ public class MappingConstants {
     public static final String API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL = API_ORDER_ONLINE + "/product-detail";
     public static final String API_PREFIX_ORDER_ONLINE_PRODUCT = API_ORDER_ONLINE + "/product";
     public static final String API_PREFIX_ORDER_ONLINE_VOUCHER = API_ORDER_ONLINE + "/voucher";
+    public static final String API_PREFIX_ORDER_ONLINE_DISCOUNT = API_ORDER_ONLINE + "/discount";
+    public static final String API_PREFIX_ORDER_ONLINE_DISCOUNT_DETAIL = API_ORDER_ONLINE + "/discount-detail";
 
     public static final String API_ADMIN_PREFIX_SCHEDULES = API_ADMIN_PREFIX + "/schedules"; // /api/v1/admin/schedules
     public static final String API_ADMIN_PREFIX_SHIFT_HISTORY = API_ADMIN_PREFIX + "/shift-history"; // /api/v1/admin/shift-history
