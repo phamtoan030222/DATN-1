@@ -1,10 +1,12 @@
 package com.sd20201.datn.repository;
 
 import com.sd20201.datn.entity.Shift;
+import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.time.LocalTime;
+import java.util.List;
 
 @Repository
 public interface ShiftRepository extends JpaRepository<Shift, String> {
@@ -23,4 +25,7 @@ public interface ShiftRepository extends JpaRepository<Shift, String> {
 
     // Trong interface ShiftRepository
     Shift findByName(String name);
+
+    // 👇 THÊM DÒNG NÀY ĐỂ LẤY CA LÀM VIỆC ĐANG HOẠT ĐỘNG 👇
+    List<Shift> findByStatus(EntityStatus status);
 }

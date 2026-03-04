@@ -145,6 +145,34 @@ function buildCustomerPayload(): Customer {
   }
 }
 
+// Hàm hỗ trợ fetch Phường/Xã độc lập, không làm reset data
+async function fetchWardsIfNeeded(codename: string) {
+  if (!codename)
+    return
+  const index = addressData.value.findIndex(x => x.codename === codename)
+  if (index === -1)
+    return
+
+  const province = addressData.value[index]
+
+  // Nếu Tỉnh này đã có danh sách Xã rồi thì không gọi API nữa
+  if (province.wards && province.wards.length > 0)
+    return
+
+  try {
+    const res = await fetch(`https://provinces.open-api.vn/api/v2/p/${province.code}?depth=2`)
+    if (res.ok) {
+      const data = await res.json()
+      // Gán wards vào và trigger reactivity cho Vue
+      addressData.value[index] = { ...province, wards: data.wards || [] }
+      addressData.value = [...addressData.value]
+    }
+  }
+  catch (error) {
+    console.error('Lỗi tải danh sách xã cho tỉnh:', codename, error)
+  }
+}
+
 // --- UPLOAD LOGIC ---
 async function handleUploadChange({ file }: { file: UploadFileInfo }) {
   const rawFile = file?.file as File | undefined
@@ -208,36 +236,15 @@ async function loadAddressData() {
 }
 
 // 2. Logic khi chọn Tỉnh -> Tải luôn Wards (API v2 bỏ qua District)
+// Sửa lại hàm onProvinceChange
 async function onProvinceChange(a: ExtendedAddress, codename: any) {
   a.wardCommune = null // Reset xã
   a.district = null // Reset huyện (dù không dùng)
 
-  if (!codename)
-    return
-
-  const index = addressData.value.findIndex(x => x.codename === codename)
-  if (index === -1)
-    return
-  const province = addressData.value[index]
-
-  // Nếu chưa có wards thì gọi API tải về
-  if (!province.wards || province.wards.length === 0) {
-    try {
-      addressDataLoading.value = true
-      // API v2: depth=2 lấy luôn wards của tỉnh
-      const res = await fetch(`https://provinces.open-api.vn/api/v2/p/${province.code}?depth=2`)
-      const data = await res.json()
-
-      // Cập nhật lại dữ liệu
-      addressData.value[index] = { ...province, wards: data.wards || [] }
-      addressData.value = [...addressData.value] // Trigger reactivity
-    }
-    catch (e) {
-      message.error('Lỗi tải danh sách Phường/Xã')
-    }
-    finally {
-      addressDataLoading.value = false
-    }
+  if (codename) {
+    addressDataLoading.value = true
+    await fetchWardsIfNeeded(codename)
+    addressDataLoading.value = false
   }
 }
 
@@ -402,12 +409,15 @@ async function loadCustomer() {
   catch (e) { message.error('Lỗi tải dữ liệu'); goBack() }
 }
 
+// Thay thế toàn bộ hàm loadAddresses bằng code này:
 async function loadAddresses() {
   if (!isEditMode.value)
     return
   try {
     const response = await getAddressesByCustomer(customerId.value!)
     let data = response.data.data || []
+
+    // Xử lý mặc định (giữ nguyên logic cũ của bạn)
     const defaultItems = data.filter((a: any) => a.isDefault)
     if (defaultItems.length > 1) {
       let foundFirst = false
@@ -419,9 +429,22 @@ async function loadAddresses() {
         return addr
       })
     }
+
+    // --- LOGIC MỚI FIX BUG ---
+    // Gọi API tải danh sách Phường/Xã cho các Tỉnh đã lưu TRƯỚC KHI render
+    // Dùng Promise.all để fetch song song cho nhanh nếu khách có nhiều địa chỉ ở nhiều tỉnh khác nhau
+    const fetchPromises = data
+      .filter((addr: any) => addr.provinceCity)
+      .map((addr: any) => fetchWardsIfNeeded(addr.provinceCity))
+
+    await Promise.all(fetchPromises)
+
+    // Sau khi danh sách xã đã có sẵn trong bộ nhớ, mới gán data cho UI render
     addresses.value = data
   }
-  catch (error) { addresses.value = [] }
+  catch (error) {
+    addresses.value = []
+  }
 }
 
 onMounted(async () => {
