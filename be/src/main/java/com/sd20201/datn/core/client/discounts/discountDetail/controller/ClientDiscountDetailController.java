@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping(MappingConstants.API_CUSTOMER_PREFIX_DISCOUNT_DETAIL)
+@RequestMapping(MappingConstants.API_PREFIX_ORDER_ONLINE_DISCOUNT_DETAIL)
 @RequiredArgsConstructor
 public class ClientDiscountDetailController {
     private final ClientDiscountDetailService adDiscountDetailService;

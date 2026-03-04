@@ -185,6 +185,8 @@ watch(fullShippingAddress, (val) => {
   }
 })
 
+watch(selectedProvinceCode, handleProvinceChange)
+
 // Voucher
 const selectedVoucher = ref<string | null>(null)
 const availableVouchers = ref<any[]>([])

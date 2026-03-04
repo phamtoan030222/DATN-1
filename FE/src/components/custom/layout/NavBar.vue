@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { CUSTOMER_CART_ID, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import { localStorageAction } from '@/utils'
 import {
   Call,
@@ -32,10 +32,11 @@ const authStore = useAuthStore()
 // --- LOGIC GIỎ HÀNG MỚI (CLIENT-SIDE) ---
 // 1. Tạo biến hứng số lượng
 const cartCount = ref(0)
-const notification = useNotification();
+const notification = useNotification()
 // 2. Hàm cập nhật số lượng từ LocalStorage (Không gọi API)
-function updateCartBadge() {
-  cartCount.value = CartStore.getTotalQuantity()
+async function updateCartBadge() {
+  // guest: đếm từ localStorage; login: lấy từ server
+  cartCount.value = await CartStore.getTotalQuantity()
 }
 
 // 3. Lắng nghe sự kiện khi Component được load
@@ -43,7 +44,7 @@ onMounted(() => {
   // Cập nhật ngay lần đầu
   updateCartBadge()
 
-  // Đăng ký lắng nghe sự kiện 'cart-updated' từ CartStore bắn ra
+  // Đăng ký lắng nghe sự kiện 'cart-updated'
   window.addEventListener('cart-updated', updateCartBadge)
 })
 
@@ -73,7 +74,6 @@ const userOptions = computed(() => {
   // Kiểm tra xem có user info hay không
   if (userInfo.value) {
     return [
-      { label: 'Đơn mua', key: 'orders' },
       { label: 'Đăng xuất', key: 'logout' },
     ]
   }
@@ -122,7 +122,7 @@ function handlerAccountDropdown(key: string) {
     authStore.logout()
     userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
     router.push({ name: 'Home' })
-    notification.success({content: 'Bạn đã đăng xuất', duration: 3000})
+    notification.success({ content: 'Bạn đã đăng xuất', duration: 3000 })
   }
 }
 
@@ -133,15 +133,6 @@ function handleCartClick() {
 
 <template>
   <header class="main-header-wrapper">
-    <div class="top-banner">
-      <div class="banner-overlay">
-        <h2 class="banner-title">
-          i'm sorry, please forgive me, thank you, i love you
-        </h2>
-      </div>
-      <img src="/src/assets/images/banner7.jpg" class="banner-img">
-    </div>
-
     <div class="header-inner container">
       <button class="mobile-toggle d-lg-none" @click="showDrawer = true">
         <NIcon size="32" color="#049d14">
@@ -191,7 +182,7 @@ function handleCartClick() {
         </NDropdown>
 
         <div class="action-btn cart-btn" @click="handleCartClick">
-          <NBadge :value="cartCount" :max="99" color="#d03050">
+          <NBadge :value="cartCount" :max="99" :show-zero="false" color="#d03050">
             <NIcon size="28" color="#333">
               <Cart />
             </NIcon>

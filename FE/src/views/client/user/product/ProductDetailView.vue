@@ -26,7 +26,6 @@ import {
 import { computed, h, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-// [QUAN TRỌNG] Bỏ các API cũ liên quan đến hóa đơn (themSanPham, getCreateHoaDon...)
 import {
   getColors,
   getCPUs,
@@ -39,14 +38,11 @@ import {
 } from '@/service/api/client/product/productDetail.api'
 
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
-import { themSanPham } from '@/service/api/client/banhang.api'
+import { CartStore } from '@/utils/cartStore'
 import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
 import { getVouchers } from '@/service/api/client/discount/api.voucher'
 import { localStorageAction } from '@/utils'
-
-// [QUAN TRỌNG] Import Store mới và Type
-// import { CartStore } from '@/utils/cartStore'
-// import type { CartItem } from '@/utils/cartStore'
+import { themSanPham } from '@/service/api/client/banhang.api'
 
 // --- CONFIG ---
 const route = useRoute()
@@ -56,7 +52,7 @@ const notification = useNotification()
 
 // --- STATE ---
 const loading = ref(false)
-const loadingCart = ref(false) // Loading giả lập khi thêm vào local
+const loadingCart = ref(false)
 
 // Product Data
 const product = ref<any>(null)
@@ -78,7 +74,7 @@ const selectedRam = ref<string | null>(null)
 const selectedHardDrive = ref<string | null>(null)
 const selectedColor = ref<string | null>(null)
 
-// Stock Check (Vẫn giữ để hiển thị Hết hàng nếu kho = 0)
+// Stock Check
 const isOutOfStock = ref(false)
 
 // Voucher & Timer
@@ -87,10 +83,11 @@ const rawVoucherList = ref<ADVoucherResponse[]>([])
 const selectedVoucher = ref<ADVoucherResponse | null>(null)
 const timeLeft = ref('')
 let timerInterval: any = null
+const isFlashSaleEnded = ref(false)
 const cartId = ref<string | null>(null)
 
 // ==========================================
-// 1. LOGIC GIỎ HÀNG MỚI (CLIENT-SIDE)
+// 1. LOGIC GIỎ HÀNG
 // ==========================================
 
 async function addToCartAction(isBuyNow: boolean) {
@@ -142,7 +139,7 @@ const handleAddToCart = () => addToCartAction(false)
 const handleBuyNow = () => addToCartAction(true)
 
 // ==========================================
-// 2. DATA FETCHING (Giữ nguyên logic hiển thị)
+// 2. DATA FETCHING & FILTERING
 // ==========================================
 
 async function fetchData(id: string) {
@@ -160,23 +157,30 @@ async function fetchData(id: string) {
       selectedHardDrive.value = product.value.idHardDrive || null
       selectedColor.value = product.value.idColor || null
 
+      // Gọi đồng thời cả API lấy từ điển global và API lấy các biến thể của sản phẩm này
       await Promise.all([
         loadGlobalOptions(),
         loadAllVariants(product.value.productName || product.value.name),
       ])
 
-      // Check endDate giảm giá
+      // LOGIC MỚI: Chỉ giữ lại các tuỳ chọn thực sự TỒN TẠI trong dòng sản phẩm này
+      if (allVariants.value.length > 0) {
+        gpuOptions.value = gpuOptions.value.filter(opt => allVariants.value.some((v: any) => v.idGPU === opt.value))
+        cpuOptions.value = cpuOptions.value.filter(opt => allVariants.value.some((v: any) => v.idCPU === opt.value))
+        ramOptions.value = ramOptions.value.filter(opt => allVariants.value.some((v: any) => v.idRAM === opt.value))
+        hardDriveOptions.value = hardDriveOptions.value.filter(opt => allVariants.value.some((v: any) => v.idHardDrive === opt.value))
+        colorOptions.value = colorOptions.value.filter(opt => allVariants.value.some((v: any) => v.idColor === opt.value))
+      }
+
       if (!product.value.endDate && allVariants.value.length > 0) {
         const currentVariant = allVariants.value.find((v: any) => v.id === product.value.id)
         if (currentVariant && currentVariant.endDate) {
           product.value.endDate = currentVariant.endDate
         }
       }
+
       startCountdown()
-
-      // Check tồn kho
       await checkStock(product.value.id)
-
       fetchAvailableVouchers()
     }
   }
@@ -188,14 +192,12 @@ async function fetchData(id: string) {
   }
 }
 
-// Logic check kho đơn giản hóa (Chỉ cần biết có IMEI nào ACTIVE không)
 async function checkStock(productDetailId: string) {
   isOutOfStock.value = false
   try {
     const res = await getImeiProductDetail(productDetailId)
     const arr = Array.isArray(res?.data) ? res.data : (res?.data as any)?.data || []
 
-    // Đếm số lượng IMEI khả dụng (Status = 0 hoặc ACTIVE)
     const count = (arr || []).filter((i: any) => {
       const s = i.status ?? i.imeiStatus
       return s === undefined || s === null || String(s) === '0' || String(s).toUpperCase() === 'ACTIVE'
@@ -211,14 +213,25 @@ async function checkStock(productDetailId: string) {
   }
 }
 
-// ... (Giữ nguyên các hàm loadGlobalOptions, loadAllVariants, handleOptionClick...)
-
 async function loadGlobalOptions() {
-  const mapOpt = (arr: any) =>
-    (arr?.data ?? arr ?? []).map((x: any) => ({
+  const mapOpt = (res: any) => {
+    let arr: any[] = []
+    if (res?.data) {
+      if (Array.isArray(res.data))
+        arr = res.data
+      else if (res.data.data && Array.isArray(res.data.data))
+        arr = res.data.data
+      else if (res.data.content && Array.isArray(res.data.content))
+        arr = res.data.content
+    }
+    else if (Array.isArray(res)) {
+      arr = res
+    }
+    return arr.map((x: any) => ({
       label: x.label || x.name || x.code,
       value: x.value || x.id,
     }))
+  }
 
   try {
     const [gpus, cpus, rams, hds, colors] = await Promise.all([
@@ -242,7 +255,17 @@ async function loadGlobalOptions() {
 async function loadAllVariants(productName: string) {
   try {
     const res = await getProductDetails({ page: 1, size: 100, keyword: productName })
-    const list = res?.data?.content || res?.data?.data || []
+    let list: any[] = []
+    if (res?.data) {
+      const svResponse = res.data
+      if (svResponse.data && !Array.isArray(svResponse.data) && (svResponse.data as any).data)
+        list = (svResponse.data as any).data
+      else if (Array.isArray(svResponse.data))
+        list = svResponse.data
+      else if (Array.isArray(svResponse))
+        list = svResponse
+    }
+
     allVariants.value = list.filter(
       (x: any) => (x.productName || x.product || x.name) === productName,
     )
@@ -262,6 +285,7 @@ function isOptionDisabled(type: string, value: string) {
     idHardDrive: selectedHardDrive.value,
     idColor: selectedColor.value,
   }
+
   if (type === 'GPU')
     delete criteria.idGPU
   if (type === 'CPU')
@@ -306,9 +330,9 @@ async function handleOptionClick() {
       && (selectedColor.value ? v.idColor === selectedColor.value : true),
   )
 
+  // Nếu tìm thấy một sản phẩm khớp hoàn toàn với cấu hình đã chọn, chuyển hướng sang ID đó
   if (exactMatch && exactMatch.id !== product.value.id) {
     await router.replace({ params: { id: exactMatch.id } })
-    await fetchData(exactMatch.id)
   }
 }
 
@@ -322,7 +346,7 @@ function handleResetFilter() {
 }
 
 // ==========================================
-// 4. PRICE & VOUCHER & TIMER (Giữ nguyên logic tính giá)
+// 4. PRICE & VOUCHER & TIMER
 // ==========================================
 
 async function fetchAvailableVouchers() {
@@ -341,7 +365,12 @@ async function fetchAvailableVouchers() {
   catch (e) { console.error(e) }
 }
 
-const currentPercent = computed(() => Number(product.value?.percentage) || 0)
+const currentPercent = computed(() => {
+  if (isFlashSaleEnded.value)
+    return 0
+  return Number(product.value?.percentage) || 0
+})
+
 const listPrice = computed(() => Number(product.value?.price) || 0)
 const sellingPrice = computed(() => {
   const percent = currentPercent.value
@@ -380,13 +409,17 @@ const finalTotalPrice = computed(() => {
 })
 
 function startCountdown() {
+  isFlashSaleEnded.value = false
   const rawEndDate = product.value?.endDate
+
   if (!rawEndDate) {
+    isFlashSaleEnded.value = true
     timeLeft.value = ''
     if (timerInterval)
       clearInterval(timerInterval)
     return
   }
+
   const endTimestamp = new Date(rawEndDate).getTime()
   if (timerInterval)
     clearInterval(timerInterval)
@@ -394,20 +427,26 @@ function startCountdown() {
   const updateTimer = () => {
     const now = new Date().getTime()
     const distance = endTimestamp - now
-    if (distance < 0) {
-      timeLeft.value = 'ĐÃ KẾT THÚC'
+
+    if (distance <= 0) {
+      isFlashSaleEnded.value = true
       clearInterval(timerInterval)
       return
     }
+
     const d = Math.floor(distance / (1000 * 60 * 60 * 24))
     const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
     const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
     const s = Math.floor((distance % (1000 * 60)) / 1000)
     const f = (n: number) => (n < 10 ? `0${n}` : n)
+
     timeLeft.value = d > 0 ? `${d} ngày ${f(h)}:${f(m)}:${f(s)}` : `${f(h)}:${f(m)}:${f(s)}`
   }
+
   updateTimer()
-  timerInterval = setInterval(updateTimer, 1000)
+  if (!isFlashSaleEnded.value) {
+    timerInterval = setInterval(updateTimer, 1000)
+  }
 }
 
 function formatCurrency(val: number | undefined) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
-import { CartItemResponse, GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
+import type { CartItemResponse } from '@/service/api/client/banhang.api'
+import { GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
 import {
   AddOutline,
@@ -68,13 +69,13 @@ async function handleRemove(productDetailId: string) {
         productDetailId: productDetailId,
         quantity: 0
       })
-
-      fetchCart()
     } else {
       const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
       delete cart[productDetailId]
       localStorageAction.set(CUSTOMER_CART_ITEM, cart)
     }
+
+    fetchCart()
     message.success('Đã xóa sản phẩm')
   } catch (e: any) {
     message.error('Xóa sản phẩm thất bại')
