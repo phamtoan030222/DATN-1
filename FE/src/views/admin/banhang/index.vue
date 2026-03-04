@@ -128,7 +128,147 @@ const idHDS = ref('')
 const loaiHD = ref('')
 let nextTabId = 1
 
-// State chính
+    // Sử dụng API thực tế để lấy danh sách IMEI
+    const response = await getImeiProductDetail(productId)
+    console.log('API Response:', response)
+
+    if (response.data && Array.isArray(response.data)) {
+      selectedSerials.value = response.data
+      console.log('Loaded serials:', selectedSerials.value.length, selectedSerials.value)
+    }
+    else {
+      console.warn('API response structure is not as expected:', response)
+      selectedSerials.value = []
+    }
+
+    selectedSerialIds.value = [] 
+    serialSearchQuery.value = ''
+    showSerialModal.value = true
+  }
+  catch (error) {
+    console.error('Failed to fetch serials:', error)
+    toast.error('Lấy danh sách serial thất bại!')
+    selectedSerials.value = []
+  }
+  finally {
+    loadingSerials.value = false
+  }
+}
+
+const serialSearchQuery = ref('')
+
+const filteredSerials = computed(() => {
+  if (!serialSearchQuery.value.trim()) return selectedSerials.value
+  const keyword = serialSearchQuery.value.trim().toLowerCase()
+  return selectedSerials.value.filter(s =>
+    s.code?.toLowerCase().includes(keyword)
+  )
+})
+
+// Hàm chọn sản phẩm để xem serial
+async function selectProductForSerial(product: ADProductDetailResponse) {
+  selectedProductDetail.value = product
+  loadingSerials.value = true
+  selectedSerials.value = []
+  selectedSerialIds.value = []
+
+  // Gọi API để lấy danh sách serial
+  await fetchSerialsByProduct(product.id)
+}
+
+// Hàm thêm serial (IMEI) vào giỏ hàng - CHUẨN NGHIỆP VỤ
+async function addSerialToCart() {
+  if (selectedSerialIds.value.length === 0) {
+    toast.warning('Vui lòng chọn ít nhất 1 serial')
+    return
+  }
+
+  if (!idHDS.value) {
+    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
+    return
+  }
+
+  if (!selectedProductDetail.value) {
+    toast.error('Không có thông tin sản phẩm!')
+    return
+  }
+
+  try {
+    // 1. Lấy danh sách IMEI đã chọn
+    const imeisDaChon = selectedSerials.value
+      .filter(s => selectedSerialIds.value.includes(s.id))
+      .map(s => ({
+        imeiCode: s.code, // Mã IMEI
+        imeiId: s.id, // ID IMEI
+      }))
+
+    console.log('IMEIs đã chọn:', imeisDaChon)
+
+    // 2. Gọi API thêm sản phẩm (hiện tại của bạn)
+    const payload: ADThemSanPhamRequest = {
+      invoiceId: idHDS.value,
+      productDetailId: selectedProductDetail.value.id,
+      imeiIds: imeisDaChon.map(i => i.imeiId), // Gửi ID IMEI
+    }
+
+    await themSanPham(payload)
+
+    // 3. LƯU IMEI ĐÃ CHỌN VÀO STATE để dùng khi thanh toán
+    // Tìm hoặc tạo idHoaDonChiTiet (giả sử lấy từ response)
+    // Hoặc lưu tạm với product id
+
+    // Cách tạm thời: lưu theo productId
+    const existingIndex = imeiDaChon.value.findIndex(
+      item => item.idHoaDonChiTiet === selectedProductDetail.value?.id,
+    )
+
+    if (existingIndex >= 0) {
+      // Cập nhật danh sách IMEI
+      imeiDaChon.value[existingIndex].danhSachImei = [
+        ...imeiDaChon.value[existingIndex].danhSachImei,
+        ...imeisDaChon.map(i => i.imeiCode),
+      ]
+    }
+    else {
+      // Thêm mới
+      imeiDaChon.value.push({
+        idHoaDonChiTiet: selectedProductDetail.value.id, // Tạm dùng productId
+        danhSachImei: imeisDaChon.map(i => i.imeiCode),
+      })
+    }
+
+    // 4. Thông báo thành công
+    toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`)
+
+    // 5. Reset và đóng modal
+    showSerialModal.value = false
+    selectedSerialIds.value = []
+    selectedSerials.value = []
+
+    // 6. Refresh giỏ hàng
+    await refreshCart()
+    await fetchDiscounts(idHDS.value)
+    await fetchHoaDon()
+  }
+  catch (error) {
+    console.error('Failed to add serials to cart:', error)
+    toast.error('Thêm serial vào giỏ hàng thất bại!')
+  }
+}
+
+// Hàm refresh giỏ hàng
+async function refreshCart() {
+  if (idHDS.value) {
+    const response = await GetGioHang(idHDS.value)
+    state.gioHang = response
+
+    // Cập nhật mapping IMEI với idHoaDonChiTiet thực tế
+    // (Cần backend trả về idHoaDonChiTiet trong response)
+
+    await fetchDiscounts(idHDS.value)
+  }
+}
+// Main reactive state object
 const state = reactive({
   searchQuery: '',
   idSP: '',
@@ -176,7 +316,6 @@ const localHardDrive = ref<string | null>(null)
 const localSelectedMaterial = ref<string | null>(null)
 const priceRange = ref<[number, number]>([0, 0])
 
-// Options cho bộ lọc
 const ColorOptions = ref<{ label: string, value: string }[]>([])
 const CpuOptions = ref<{ label: string, value: string }[]>([])
 const GpuOptions = ref<{ label: string, value: string }[]>([])
@@ -185,6 +324,43 @@ const HardDriveOptions = ref<{ label: string, value: string }[]>([])
 const MaterialOptions = ref<{ label: string, value: string }[]>([])
 
 // State cho giá min/max
+const filteredProducts = computed(() => {
+
+    const colorLabel = ColorOptions.value.find(o => o.value === localColor.value)?.label
+  const cpuLabel = CpuOptions.value.find(o => o.value === localCPU.value)?.label
+  const gpuLabel = GpuOptions.value.find(o => o.value === localGPU.value)?.label
+  const ramLabel = RamOptions.value.find(o => o.value === localRAM.value)?.label
+  const hardDriveLabel = HardDriveOptions.value.find(o => o.value === localHardDrive.value)?.label
+  const materialLabel = MaterialOptions.value.find(o => o.value === localSelectedMaterial.value)?.label
+
+
+  return stateSP.products.filter((p) => {
+    const effectivePrice = p.percentage > 0
+      ? p.price * (1 - p.percentage / 100)
+      : p.price
+
+    const keyword = localSearchQuery.value.trim().toLowerCase()
+    const matchSearch = !keyword
+      || p.name?.toLowerCase().includes(keyword)
+      || p.code?.toLowerCase().includes(keyword)
+
+    const matchColor = !colorLabel || p.color === colorLabel
+    const matchCPU = !cpuLabel || p.cpu === cpuLabel
+    const matchGPU = !gpuLabel || p.gpu === gpuLabel
+    const matchRAM = !ramLabel || p.ram === ramLabel
+    const matchHardDrive = !hardDriveLabel || p.hardDrive === hardDriveLabel
+    const matchMaterial = !materialLabel || p.material === materialLabel
+
+    // Lọc khoảng giá
+    const matchPrice = effectivePrice >= priceRange.value[0] && effectivePrice <= priceRange.value[1]
+
+
+
+    return matchSearch && matchColor && matchCPU && matchGPU && matchRAM && matchHardDrive && matchMaterial && matchPrice
+  })
+})
+
+// State cho min max price
 const stateMinMaxPrice = reactive({
   priceMin: 0,
   priceMax: 0,
@@ -531,10 +707,193 @@ async function fetchWards(districtId: number) {
     wards.value = []
   }
 }
+async function fetchColor() {
+  const { data } = await getColors()
+  ColorOptions.value = data.map((c: any) => ({ 
+    label: c.ten || c.Label || c.label, 
+    value: c.ten || c.Label || c.label  
+  }))
+}
 
-/**
- * Tính phí vận chuyển
- */
+async function fetchCPU() {
+  const { data } = await getCPUs()
+  CpuOptions.value = data.map((c: any) => ({ 
+    label: c.ten || c.Label || c.label, 
+    value: c.ten || c.Label || c.label 
+  }))
+}
+
+async function fetchGPU() {
+  const { data } = await getGPUs()
+  GpuOptions.value = data.map((g: any) => ({ 
+    label: g.ten || g.Label || g.label, 
+    value: g.ten || g.Label || g.label 
+  }))
+}
+
+async function fetchRAM() {
+  const { data } = await getRAMs()
+  RamOptions.value = data.map((r: any) => ({ 
+    label: r.ten || r.Label || r.label, 
+    value: r.ten || r.Label || r.label 
+  }))
+}
+
+async function fetchHardDrive() {
+  const { data } = await getHardDrives()
+  HardDriveOptions.value = data.map((h: any) => ({ 
+    label: h.ten || h.Label || h.label, 
+    value: h.ten || h.Label || h.label 
+  }))
+}
+
+async function fetchMaterial() {
+  const { data } = await getMaterials()
+  MaterialOptions.value = data.map((m: any) => ({ 
+    label: m.ten || m.Label || m.label, 
+    value: m.ten || m.Label || m.label 
+  }))
+}
+
+async function checkFromDistrictAndWard() {
+  try {
+    const response = await getGHNDistricts(null, GHN_API_TOKEN)
+    const districtExists = response.data?.some((d: any) => d.DistrictID === FROM_DISTRICT_ID) || false
+    if (!districtExists) {
+      console.error(`FROM_DISTRICT_ID ${FROM_DISTRICT_ID} không hợp lệ!`)
+      return false
+    }
+    const wardResponse = await getGHNWards(FROM_DISTRICT_ID, GHN_API_TOKEN)
+    const wardExists = wardResponse.data?.some((w: any) => w.WardCode === FROM_WARD_CODE) || false
+    if (!wardExists) {
+      console.error(`FROM_WARD_CODE ${FROM_WARD_CODE} không hợp lệ!`)
+      toast.error('Mã phường/xã nguồn không hợp lệ.')
+      return false
+    }
+    return true
+  }
+  catch (error) {
+    console.error('Lỗi khi kiểm tra mã quận/huyện hoặc phường/xã:', error)
+    return false
+  }
+}
+
+onMounted(async () => {
+  await fetchColor()
+  await fetchCPU()
+  await fetchGPU()
+  await fetchRAM()
+  await fetchHardDrive()
+  await fetchMaterial()
+  await fetchHoaDon()
+  await checkFromDistrictAndWard()
+  await fetchProvinces()
+  setDefaultPaymentMethod()
+})
+
+async function onProvinceChange(value: string) {
+  deliveryInfo.tinhThanhPho = value
+  const selectedProvince = provinces.value.find(p => p.value === value)
+  provinceCode.value = selectedProvince ? Number.parseInt(selectedProvince.code) : null
+  if (provinceCode.value) {
+    await fetchDistricts(provinceCode.value)
+    deliveryInfo.quanHuyen = undefined
+    deliveryInfo.phuongXa = undefined
+    districtCode.value = null
+    wardCode.value = null
+    await calculateShippingFee()
+  }
+  else {
+    districts.value = []
+    wards.value = []
+    shippingFee.value = 0
+    calculateTotalAmounts()
+  }
+
+  deliveryInfoByInvoice[idHDS.value] = {
+    tenNguoiNhan: deliveryInfo.tenNguoiNhan,
+    sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
+    diaChiCuThe: deliveryInfo.diaChiCuThe,
+    tinhThanhPho: deliveryInfo.tinhThanhPho,
+    quanHuyen: deliveryInfo.quanHuyen,
+    phuongXa: deliveryInfo.phuongXa,
+    provinceCode: provinceCode.value,
+    districtCode: districtCode.value,
+    wardCode: wardCode.value,
+    shippingFee: shippingFee.value,
+  }
+}
+
+async function onDistrictChange(value: string) {
+  deliveryInfo.quanHuyen = value
+  const selectedDistrict = districts.value.find(d => d.value === value)
+  districtCode.value = selectedDistrict ? Number.parseInt(selectedDistrict.code) : null
+  if (districtCode.value) {
+    await fetchWards(districtCode.value)
+    deliveryInfo.phuongXa = undefined
+    wardCode.value = null
+    await calculateShippingFee()
+  }
+  else {
+    wards.value = []
+    shippingFee.value = 0
+    calculateTotalAmounts()
+  }
+
+  deliveryInfoByInvoice[idHDS.value] = {
+    tenNguoiNhan: deliveryInfo.tenNguoiNhan,
+    sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
+    diaChiCuThe: deliveryInfo.diaChiCuThe,
+    tinhThanhPho: deliveryInfo.tinhThanhPho,
+    quanHuyen: deliveryInfo.quanHuyen,
+    phuongXa: deliveryInfo.phuongXa,
+    provinceCode: provinceCode.value,
+    districtCode: districtCode.value,
+    wardCode: wardCode.value,
+    shippingFee: shippingFee.value,
+  }
+}
+
+async function onWardChange(value: string) {
+  deliveryInfo.phuongXa = value
+  const selectedWard = wards.value.find(w => w.value === value)
+  wardCode.value = selectedWard ? selectedWard.code : null
+  await calculateShippingFee()
+
+  deliveryInfoByInvoice[idHDS.value] = {
+    tenNguoiNhan: deliveryInfo.tenNguoiNhan,
+    sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
+    diaChiCuThe: deliveryInfo.diaChiCuThe,
+    tinhThanhPho: deliveryInfo.tinhThanhPho,
+    quanHuyen: deliveryInfo.quanHuyen,
+    phuongXa: deliveryInfo.phuongXa,
+    provinceCode: provinceCode.value,
+    districtCode: districtCode.value,
+    wardCode: wardCode.value,
+    shippingFee: shippingFee.value,
+  }
+}
+
+const newCustomer = reactive({
+  ten: '',
+  sdt: '',
+})
+
+const isFreeShipping = ref(false)
+
+watch(tienHang, () => {
+  calculateTotalAmounts()
+  if (isDeliveryEnabled.value && provinceCode.value && districtCode.value && wardCode.value) {
+    calculateShippingFee()
+  }
+})
+
+watch(tienHang, async (newTienHang) => {
+  if (idHDS.value) {
+    await fetchDiscounts(idHDS.value)
+  }
+})
+
 async function calculateShippingFee() {
   if (
     !isDeliveryEnabled.value
@@ -1377,9 +1736,211 @@ async function selectKhachHang(getIdKH: any) {
   }
 }
 
-/**
- * Thêm khách hàng mới
- */
+async function deleteProduc(idSPS: any, idHDCT: string) {
+  try {
+    const formData = new FormData()
+    formData.append('idHD', idHDS.value)
+    formData.append('idSP', idSPS)
+    formData.append('idHDCT', idHDCT)
+    await xoaSP(formData)
+    betterDiscountMessage.value = ''
+    state.gioHang = state.gioHang.filter(item => item.id !== idSPS)
+    calculateTotalAmounts()
+
+    await fetchDiscounts(idHDS.value)
+    const response = await GetGioHang(idHDS.value)
+    state.gioHang = response
+    toast.success('Xóa sản phẩm thành công!')
+    await capNhatDanhSach()
+    await fetchDiscounts(idHDS.value)
+  }
+  catch (error) {
+    console.error('Failed to delete product:', error)
+    toast.error('Xóa sản phẩm thất bại!')
+  }
+}
+
+async function fetchProducts() {
+  try {
+    const params: ADProductDetailRequest = {
+      page: 1,
+      size: 9999, 
+    }
+    const response = await getProductDetails(params)
+    stateSP.products = response.data?.data || []
+    state.products = response.data?.data || []
+    stateSP.totalItems = response.data?.totalElements || 0
+    state.totalItems = response.data?.totalElements || 0
+    calculateMinMaxPrice(stateSP.products) 
+  }
+  catch (error) {
+    console.error('Failed to fetch products:', error)
+    toast.error('Lấy danh sách sản phẩm thất bại!')
+  }
+}
+
+watch(customerSearchQuery, () => {
+  state.paginationParams.page = 1
+  debouncedFetchCustomers()
+})
+
+async function confirmQuantityP() {
+  showDeliveryModal.value = false
+  applyBestDiscount()
+  xacNhan(0)
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
+
+// Tính toán min và max price từ danh sách sản phẩm
+function calculateMinMaxPrice(products: ADProductDetailResponse[]) {
+  if (products.length === 0) {
+    stateMinMaxPrice.priceMin = 0
+    stateMinMaxPrice.priceMax = 1000000
+    priceRange.value = [0, 1000000]
+    return
+  }
+
+  const prices = products.map(p => p.price).filter(price => price > 0)
+  if (prices.length === 0) {
+    stateMinMaxPrice.priceMin = 0
+    stateMinMaxPrice.priceMax = 1000000
+    priceRange.value = [0, 1000000]
+    return
+  }
+
+  const minPrice = Math.min(...prices)
+  const maxPrice = Math.max(...prices)
+
+  // Làm tròn đến trăm nghìn
+  stateMinMaxPrice.priceMin = Math.floor(minPrice / 100000) * 100000
+  stateMinMaxPrice.priceMax = Math.ceil(maxPrice / 100000) * 100000
+
+  // Đảm bảo có khoảng cách tối thiểu
+  if (stateMinMaxPrice.priceMax - stateMinMaxPrice.priceMin < 100000) {
+    stateMinMaxPrice.priceMax = stateMinMaxPrice.priceMin + 100000
+  }
+
+  // Set giá trị mặc định cho slider
+  priceRange.value = [stateMinMaxPrice.priceMin, stateMinMaxPrice.priceMax]
+}
+
+const debouncedFetchProducts = debounce(async () => {
+  stateSP.searchQuery = localSearchQuery.value
+  stateSP.selectedMaterial = localSelectedMaterial.value
+  await fetchProducts()
+}, 300)
+
+watch(() => state.gioHang, calculateTotalAmounts, { deep: true })
+watch(giamGia, calculateTotalAmounts)
+watch(shippingFee, calculateTotalAmounts)
+
+async function capNhatDanhSach() {
+  const response = await GetHoaDons()
+  if (response && Array.isArray(response)) {
+    tabs.value = response.map((invoice, index) => ({
+      id: index + 1,
+      idHD: invoice.id,
+      ma: invoice.ma,
+      soLuong: invoice.soLuong,
+      loaiHoaDon: invoice.loaiHoaDon,
+      products: invoice.data?.products || [],
+    }))
+  }
+}
+
+const isQrVNpayModalVisible = ref(false)
+
+function openQrModalVNPayCaHai() {
+  isBothPaymentModalVisible.value = true
+  amountPaid.value = 0
+}
+
+function openQrModalVNPay() {
+  isQrVNpayModalVisible.value = true
+}
+
+function closeQrModalVnPay() {
+  isQrVNpayModalVisible.value = false
+}
+
+const isQrModalVisible = ref(false)
+const qrData = ref('')
+const hasCamera = ref(true)
+
+let html5QrCode: Html5Qrcode
+
+function openQrModal() {
+  isQrModalVisible.value = true
+  nextTick(() => {
+    startQrScanning()
+  })
+}
+
+function startQrScanning() {
+  const qrRegionId = 'reader'
+  const qrRegionElement = document.getElementById(qrRegionId)
+  if (!qrRegionElement) {
+    console.error('Không tìm thấy phần tử với id \'reader\'')
+    return
+  }
+
+  html5QrCode = new Html5Qrcode(qrRegionId)
+
+  Html5Qrcode.getCameras()
+    .then((cameras: { id: string, label: string }[]) => {
+      if (cameras && cameras.length) {
+        hasCamera.value = true
+        const cameraId = cameras[0].id
+        html5QrCode.start(
+          cameraId,
+          { fps: 10, qrbox: 250 },
+          (qrCodeMessage: string) => {
+            qrData.value = qrCodeMessage
+            // Tìm sản phẩm theo serial hoặc mã
+            const product = stateSP.products.find(p =>
+              p.code === qrCodeMessage || p.id === qrCodeMessage,
+            )
+            if (product) {
+              selectProductForSerial(product)
+            }
+            else {
+              toast.error('Không tìm thấy sản phẩm với mã này!')
+            }
+            html5QrCode.stop()
+            closeQrModal()
+          },
+          (errorMessage) => {
+            console.warn('Lỗi đọc QR: ', errorMessage)
+          },
+        )
+      }
+      else {
+        console.warn('Không tìm thấy camera nào!')
+        hasCamera.value = false
+        toast.error('Không tìm thấy camera hoặc không có quyền truy cập camera!')
+      }
+    })
+    .catch((error: any) => {
+      console.error('Lỗi khi lấy camera: ', error)
+      hasCamera.value = false
+      toast.error(`Lỗi khi truy cập camera: ${error.message}`)
+    })
+}
+
+function closeQrModal() {
+  isQrModalVisible.value = false
+  stopQrScanning()
+}
+
+function stopQrScanning() {
+  html5QrCode.stop().catch(err => console.error('Không thể dừng scanner:', err))
+}
+
+const addCustomerLoading = ref(false)
+
 async function addCustomer() {
   try {
     if (!newCustomer.ten || !newCustomer.sdt) {
@@ -3609,8 +4170,144 @@ onMounted(async () => {
                     Đặt lại bộ lọc
                   </NButton>
                 </NSpace>
-              </NGi>
-            </NGrid>
+
+            </NGi>
+          </NGrid>
+
+          <!-- Hàng 2: 6 combobox filter -->
+          <NGrid :cols="24" :x-gap="12" :y-gap="12">
+            <NGi :span="4">
+              <NSelect v-model:value="localColor" :options="ColorOptions" placeholder="Màu sắc" clearable />
+            </NGi>
+            <NGi :span="4">
+              <NSelect v-model:value="localCPU" :options="CpuOptions" placeholder="CPU" clearable />
+            </NGi>
+            <NGi :span="4">
+              <NSelect v-model:value="localGPU" :options="GpuOptions" placeholder="GPU" clearable />
+            </NGi>
+            <NGi :span="4">
+              <NSelect v-model:value="localRAM" :options="RamOptions" placeholder="RAM" clearable />
+            </NGi>
+            <NGi :span="4">
+              <NSelect v-model:value="localHardDrive" :options="HardDriveOptions" placeholder="Ổ cứng" clearable />
+            </NGi>
+            <NGi :span="4">
+              <NSelect
+                v-model:value="localSelectedMaterial" :options="MaterialOptions" placeholder="Chất liệu"
+                clearable
+              />
+            </NGi>
+          </NGrid>
+
+          <!-- Hàng 3: Nút reset -->
+          <NGrid :cols="24" :x-gap="12">
+            <NGi :span="24">
+              <NSpace justify="end">
+                <NButton type="default" size="small" secondary @click="resetFilters">
+                  <template #icon>
+                    <NIcon>
+                      <ReloadOutline />
+                    </NIcon>
+                  </template>
+                  Đặt lại bộ lọc
+                </NButton>
+              </NSpace>
+            </NGi>
+          </NGrid>
+        </NSpace>
+      </template>
+      <!-- <NDataTable
+        :columns="columns" :data="filteredProducts" :max-height="400" size="small" :pagination="{
+          page: stateSP.paginationParams.page,
+          pageSize: stateSP.paginationParams.size,
+          pageCount: Math.ceil(stateSP.totalItems / stateSP.paginationParams.size),
+          showSizePicker: true,
+          pageSizes: [10, 20, 30, 40, 50],
+        }" @update:page="handlePageChange" @update:page-size="handlePageSizeChange"
+      /> -->
+
+        <NDataTable
+          :columns="columns"
+          :data="filteredProducts"
+          :max-height="400"
+          size="small"
+          :pagination="{
+            pageSize: 10,
+            showSizePicker: true,
+            pageSizes: [10, 20, 50],
+          }"
+         />  
+    </NCard>
+  </NModal>
+
+  <!-- Modal chọn serial -->
+  <NModal
+    v-model:show="showSerialModal" preset="dialog" title="Chọn Serial Sản Phẩm"
+    style="width: 90%; max-width: 1200px" :mask-closable="false"
+  >
+    <NCard size="small" :bordered="false">
+      <template #header>
+        <NSpace align="center" justify="space-between" class="serial-modal-header">
+          <div>
+            <NText strong>
+              {{ selectedProductDetail?.name }} - {{ selectedProductDetail?.code }}
+            </NText>
+            <NText depth="3" size="small" style="display: block; margin-top: 4px">
+              Giá: {{ formatCurrency(selectedProductDetail?.price || 0) }}
+            </NText>
+          </div>
+          <div style="text-align: right">
+            <NText type="primary" strong>
+              Còn {{ availableSerialsCount }} serial khả dụng
+            </NText>
+            <NText depth="3" size="small" style="display: block; margin-top: 4px">
+              Tổng: {{ selectedSerials.length }} serial
+            </NText>
+          </div>
+        </NSpace>
+        <NInput
+            v-model:value="serialSearchQuery"
+            placeholder="Tìm theo số serial/IMEI..."
+            clearable
+            style="margin-top: 12px"
+            @clear="serialSearchQuery = ''"
+          >
+            <template #prefix>
+              <NIcon><SearchOutline /></NIcon>
+            </template>
+        </NInput>
+      </template>
+
+      <!-- Thêm loading state -->
+      <div v-if="loadingSerials" style="text-align: center; padding: 40px">
+        <n-spin size="large">
+          <template #description>
+            Đang tải danh sách serial...
+          </template>
+        </n-spin>
+      </div>
+
+      <!-- Data table khi có dữ liệu -->
+      <NDataTable
+        v-else :columns="serialColumns" :data="filteredSerials" :max-height="400" size="small"
+        :pagination="{ pageSize: 10 }" :loading="loadingSerials" :bordered="false"
+      />
+
+      <template #footer>
+        <NSpace justify="space-between" align="center" style="width: 100%">
+          <NText depth="3">
+            Đã chọn {{ selectedSerialIds.length }} serial
+          </NText>
+          <NSpace>
+            <NButton @click="showSerialModal = false">
+              Hủy
+            </NButton>
+            <NButton
+              type="primary" :disabled="selectedSerialIds.length === 0 || loadingSerials"
+              :loading="loadingSerials" @click="addSerialToCart"
+            >
+              Thêm {{ selectedSerialIds.length }} serial vào giỏ
+            </NButton>
           </NSpace>
         </template>
 

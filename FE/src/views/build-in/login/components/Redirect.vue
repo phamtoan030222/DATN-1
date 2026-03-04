@@ -47,7 +47,7 @@ onMounted( async () => {
   }
   router.push({ name: 'login' })
 })
-</script>
+</script> 
 
 <template>
   <div class="redirect-container">

@@ -22,6 +22,7 @@ import com.sd20201.datn.core.client.banhang.repository.ClientBHVoucherDetailRepo
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartItemRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangCartRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangIMEIRepository;
+import com.sd20201.datn.core.client.banhang.repository.ClientBanHangProductDetailDiscountRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientBanHangSanPhamChiTiet;
 import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonChiTietRepository;
 import com.sd20201.datn.core.client.banhang.repository.ClientTaoHoaDonRepository;
@@ -100,6 +101,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientBanHangCartItemRepository cartItemRepository;
 
     private final CustomerRepository customerRepository;
+
+    private final ClientBanHangProductDetailDiscountRepository productDetailDiscountRepository;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -224,8 +227,17 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     @Override
     public ResponseObject<?> getListGioHang(String id) {
         Long currentTime = System.currentTimeMillis();
+        List<String> idCurrentDiscounts = productDetailDiscountRepository.getIdByDate(currentTime);
+
+        if (!idCurrentDiscounts.isEmpty()) {
+            return ResponseObject.successForward(
+                    cartItemRepository.getCartItemsContainDiscountById(id, idCurrentDiscounts),
+                    "OKE"
+            );
+        }
+
         return ResponseObject.successForward(
-                cartItemRepository.getCartItemsById(id, currentTime),
+                cartItemRepository.getCartItemsById(id),
                 "OKE"
         );
     }

@@ -20,8 +20,11 @@ import {
   NSwitch,
   NTag,
   NTooltip,
+  NUpload, // Đã thêm cho Import Excel
+  // Đã thêm cho Import Excel
   useMessage,
 } from 'naive-ui'
+import type { UploadCustomRequestOptions } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 
 // --- API IMPORTS ---
@@ -171,7 +174,7 @@ function isCellPast(dateString: string, startTime: string) {
   return cellDateTime < new Date()
 }
 
-// --- LOGIC MỚI: Tự động khóa các ca trùng giờ ---
+// --- LOGIC: Tự động khóa các ca trùng giờ ---
 const shiftOptions = computed(() => {
   return shifts.value.map((candidate) => {
     let isDisabled = false
@@ -212,7 +215,7 @@ async function handleAssign() {
     const staff = staffList.value.find(s => s.id === assignState.staffId)
     await scheduleApi.assign({
       shiftId: assignState.shift!.id!,
-      staffId: assignState.staffId,
+      staffId: assignState.staffId as number,
       workDate: assignState.date,
       staffName: staff?.fullName,
     })
@@ -240,7 +243,7 @@ async function handleBulkAssign() {
     startDate: start,
     endDate: end,
     daysOfWeek: bulkAssignState.daysOfWeek,
-    overwrite: bulkAssignState.isOverwrite, // Đã sửa tên biến để gửi xuống Java đúng chuẩn
+    overwrite: bulkAssignState.isOverwrite,
   }
 
   try {
@@ -273,9 +276,9 @@ function getAvatar(staffId: any) {
 function handleEditFromTable(row: WorkSchedule) {
   if (!row.shift || !row.workDate)
     return
-  assignState.shift = row.shift
+  assignState.shift = row.shift as any
   assignState.date = row.workDate
-  assignState.staffId = row.staff?.id || null
+  assignState.staffId = (row as any).staff?.id || null
   const d = new Date(row.workDate)
   const dayOfWeek = d.getDay()
   const label = dayOfWeek === 0 ? 'CN' : `Thứ ${dayOfWeek + 1}`
@@ -290,21 +293,21 @@ const tableColumns = [
     width: 150,
     fixed: 'left',
     sorter: (a: any, b: any) => new Date(a.workDate).getTime() - new Date(b.workDate).getTime(),
-    render(row: WorkSchedule) {
+    render(row: any) {
       return h('div', { class: 'flex items-center gap-2' }, [
         h(Icon, { icon: 'carbon:calendar', class: 'text-gray-400 text-base' }),
         h('span', { style: 'font-size: 14px; color: #374151;' }, row.workDate),
       ])
     },
   },
-  { title: 'Bắt đầu', key: 'startTime', align: 'center', width: 150, render(row: WorkSchedule) { return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.startTime?.slice(0, 5)) } },
-  { title: 'Kết thúc', key: 'endTime', align: 'center', width: 150, render(row: WorkSchedule) { return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.endTime?.slice(0, 5)) } },
-  { title: 'Ca làm việc', key: 'shiftName', align: 'center', width: 150, render(row: WorkSchedule) { return h(NTag, { type: 'default', bordered: true, round: true, size: 'small', class: 'px-3 text-gray-600' }, { default: () => row.shift?.name }) } },
+  { title: 'Bắt đầu', key: 'startTime', align: 'center', width: 150, render(row: any) { return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.startTime?.slice(0, 5)) } },
+  { title: 'Kết thúc', key: 'endTime', align: 'center', width: 150, render(row: any) { return h('span', { style: 'font-size: 14px; color: #374151;' }, row.shift?.endTime?.slice(0, 5)) } },
+  { title: 'Ca làm việc', key: 'shiftName', align: 'center', width: 150, render(row: any) { return h(NTag, { type: 'default', bordered: true, round: true, size: 'small', class: 'px-3 text-gray-600' }, { default: () => row.shift?.name }) } },
   {
     title: 'Nhân viên',
     key: 'staffName',
     minWidth: 160,
-    render(row: WorkSchedule) {
+    render(row: any) {
       const avatarUrl = getAvatar(row.staff?.id)
       return h(NSpace, { align: 'center', justify: 'start', size: 10 }, {
         default: () => [
@@ -319,7 +322,7 @@ const tableColumns = [
     key: 'status',
     align: 'center',
     width: 120,
-    render(row: WorkSchedule) {
+    render(row: any) {
       const now = new Date(); const workDate = new Date(row.workDate!)
       const isPast = workDate.setHours(0, 0, 0, 0) < now.setHours(0, 0, 0, 0)
       const type = isPast ? 'info' : 'success'; const label = isPast ? 'Đã làm' : 'Dự kiến'
@@ -332,7 +335,7 @@ const tableColumns = [
     align: 'center',
     width: 90,
     fixed: 'right',
-    render(row: WorkSchedule) {
+    render(row: any) {
       return h('div', { class: 'flex items-center justify-center gap-2' }, [
         h(NTooltip, { trigger: 'hover' }, { trigger: () => h(NButton, { size: 'small', circle: true, secondary: true, type: 'warning', onClick: () => handleEditFromTable(row) }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:edit' }) }) }), default: () => 'Sửa lịch' }),
         h(NPopconfirm, { onPositiveClick: () => removeAssign(row.id), positiveText: 'Xóa', negativeText: 'Hủy' }, { trigger: () => h(NButton, { circle: true, size: 'small', type: 'error', secondary: true }, { icon: () => h(NIcon, null, { default: () => h(Icon, { icon: 'carbon:trash-can' }) }) }), default: () => 'Xóa lịch làm việc này?' }),
@@ -342,7 +345,7 @@ const tableColumns = [
 ]
 
 const filteredSchedules = computed(() => {
-  const result = schedules.value.filter((item) => {
+  const result = schedules.value.filter((item: any) => {
     const matchName = !filterParams.staffName || (item.staff?.name || '').toLowerCase().includes(filterParams.staffName.toLowerCase())
     const matchShift = !filterParams.shiftName || (item.shift?.name || '').toLowerCase().includes(filterParams.shiftName.toLowerCase())
     let matchDate = true
@@ -353,7 +356,7 @@ const filteredSchedules = computed(() => {
     return matchName && matchShift && matchDate
   })
 
-  return result.sort((a, b) => {
+  return result.sort((a: any, b: any) => {
     const dateA = new Date(a.workDate!).getTime(); const dateB = new Date(b.workDate!).getTime()
     if (dateA !== dateB)
       return dateA - dateB
@@ -373,7 +376,7 @@ function openAssignModal(shift: Shift, day: any) {
   assignState.shift = shift
   assignState.date = day.date
   assignState.dateLabel = day.label
-  const existing = getAssign(shift.id!, day.date)
+  const existing = getAssign(shift.id!, day.date) as any
   assignState.staffId = existing && existing.staff ? existing.staff.id : null
   showModal.value = true
 }
@@ -383,15 +386,59 @@ function clearFilters() {
 }
 
 function openBulkModal() {
-  // 1. Reset lại toàn bộ dữ liệu về mặc định
   bulkAssignState.staffId = null
   bulkAssignState.shiftIds = []
   bulkAssignState.dateRange = null
   bulkAssignState.daysOfWeek = [1, 2, 3, 4, 5, 6, 7]
   bulkAssignState.isOverwrite = false
-
-  // 2. Mở modal lên
   showBulkModal.value = true
+}
+
+// 👇 CÁC HÀM MỚI CHO TÍNH NĂNG EXCEL 👇
+
+// Tải file mẫu
+async function downloadTemplate() {
+  const hideMsg = message.loading('Đang khởi tạo file mẫu...', { duration: 0 })
+  try {
+    const res = await scheduleApi.downloadTemplate()
+
+    // Tạo link ảo để tải file từ Blob
+    const url = window.URL.createObjectURL(new Blob([res.data]))
+    const link = document.createElement('a')
+    link.href = url
+    link.setAttribute('download', 'Template_XepLich_MyLaptop.xlsx')
+    document.body.appendChild(link)
+    link.click()
+
+    // Dọn dẹp
+    link.remove()
+    window.URL.revokeObjectURL(url)
+    hideMsg.destroy()
+    message.success('Tải file mẫu thành công!')
+  }
+  catch (error) {
+    hideMsg.destroy()
+    message.error('Lỗi khi tải file mẫu!')
+  }
+}
+
+// Xử lý Upload file Excel lên server
+async function handleUpload({ file, onFinish, onError }: UploadCustomRequestOptions) {
+  if (!file.file)
+    return
+  const loadingMsg = message.loading('Đang xử lý file Excel, vui lòng đợi...', { duration: 0 })
+  try {
+    const res = await scheduleApi.importExcel(file.file)
+    loadingMsg.destroy()
+    message.success(res.data?.message || 'Import lịch làm việc thành công!')
+    onFinish()
+    loadData() // Load lại lịch để hiển thị kết quả
+  }
+  catch (e: any) {
+    loadingMsg.destroy()
+    message.error(getErrorMessage(e))
+    onError()
+  }
 }
 
 onMounted(loadData)
@@ -416,7 +463,7 @@ onMounted(loadData)
         </div>
       </div>
 
-      <div class="flex gap-3">
+      <div class="flex gap-3 items-center">
         <NRadioGroup v-model:value="viewMode" size="medium">
           <NRadioButton value="matrix">
             <div class="flex items-center gap-1">
@@ -429,6 +476,30 @@ onMounted(loadData)
             </div>
           </NRadioButton>
         </NRadioGroup>
+
+        <NTooltip trigger="hover">
+          <template #trigger>
+            <NButton circle secondary type="info" @click="downloadTemplate">
+              <template #icon>
+                <NIcon><Icon icon="carbon:document-download" /></NIcon>
+              </template>
+            </NButton>
+          </template>
+          Tải file Excel mẫu
+        </NTooltip>
+
+        <NUpload
+          accept=".xlsx, .xls"
+          :show-file-list="false"
+          :custom-request="handleUpload"
+        >
+          <NButton type="primary" secondary class="rounded-full px-4 text-emerald-600 border-emerald-600 hover:bg-emerald-50">
+            <template #icon>
+              <NIcon><Icon icon="carbon:document-import" /></NIcon>
+            </template>
+            Nhập Excel
+          </NButton>
+        </NUpload>
 
         <NButton type="primary" class="rounded-full px-4 !bg-emerald-600 hover:!bg-emerald-700" :loading="loading" @click="loadData">
           <template #icon>
@@ -532,11 +603,11 @@ onMounted(loadData)
                 <div class="bg-white border-l-4 border-l-emerald-500 border-y border-r border-gray-200 shadow-sm rounded-lg p-3 h-full flex flex-col items-center justify-center gap-2 relative hover:shadow-md transition-all">
                   <NAvatar round :size="38" :src="getAvatar(getAssign(shift.id!, day.date)?.staff?.id)" class="border-2 border-white shadow-sm flex-shrink-0" object-fit="cover" :style="{ backgroundColor: '#ecfdf5', color: '#059669', fontWeight: 'bold' }">
                     <template v-if="!getAvatar(getAssign(shift.id!, day.date)?.staff?.id)">
-                      {{ getAssign(shift.id!, day.date)?.staff?.name?.charAt(0).toUpperCase() }}
+                      {{ (getAssign(shift.id!, day.date) as any)?.staff?.name?.charAt(0).toUpperCase() }}
                     </template>
                   </NAvatar>
-                  <span class="text-[11px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{{ getAssign(shift.id!, day.date)?.staff?.name }}</span>
-                  <span class="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 rounded border border-emerald-100 uppercase tracking-tighter">{{ getAssign(shift.id!, day.date)?.staff?.code }}</span>
+                  <span class="text-[11px] font-bold text-gray-700 text-center leading-tight line-clamp-2">{{ (getAssign(shift.id!, day.date) as any)?.staff?.name }}</span>
+                  <span class="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1.5 rounded border border-emerald-100 uppercase tracking-tighter">{{ (getAssign(shift.id!, day.date) as any)?.staff?.code }}</span>
 
                   <div v-if="!isCellPast(day.date, shift.startTime)" class="absolute -top-2 -right-2 flex gap-1 opacity-0 group-hover/item:opacity-100 transition-all duration-200 z-20" @click.stop>
                     <div class="w-7 h-7 bg-white rounded-full shadow-md border border-gray-200 flex items-center justify-center cursor-pointer hover:bg-emerald-500 hover:text-white text-emerald-600 transition-all transform hover:scale-110" @click="openAssignModal(shift, day)">

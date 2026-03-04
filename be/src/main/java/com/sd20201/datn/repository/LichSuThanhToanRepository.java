@@ -1,24 +1,21 @@
 package com.sd20201.datn.repository;
 
 import com.sd20201.datn.entity.LichSuThanhToan;
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public interface LichSuThanhToanRepository extends JpaRepository<LichSuThanhToan, Long> {
-    /**
-     * Tính tổng tiền mặt thu được của nhân viên trong khoảng thời gian.
-     * @param accountId: ID tài khoản nhân viên
-     * @param type: Loại giao dịch (VD: "TIEN_MAT" hoặc "CASH" - tùy DB bạn lưu là gì)
-     * @param start: Thời gian bắt đầu (LocalDateTime)
-     * @param end: Thời gian kết thúc (LocalDateTime)
-     */
-    @Query("SELECT COALESCE(SUM(lstt.soTien), 0) FROM LichSuThanhToan lstt " +
-            "WHERE lstt.nhanVien.account.id = :accountId " +
-            "AND lstt.loaiGiaoDich = :type " +
-            "AND lstt.thoiGian BETWEEN :start AND :end")
-    BigDecimal sumTotalCash(String accountId, String type, LocalDateTime start, LocalDateTime end);
-
+    @Query("SELECT SUM(l.soTien) FROM LichSuThanhToan l " +
+            "WHERE l.hoaDon.shiftHandover.id = :shiftId " +
+            "AND l.loaiGiaoDich = :loaiGiaoDich " +
+            "AND l.trangThaiThanhToan = 1") // Số 1 tương ứng với Đã thanh toán trong DB của bạn
+    BigDecimal sumAmountByShiftIdAndMethod(
+            @Param("shiftId") String shiftId,
+            @Param("loaiGiaoDich") String loaiGiaoDich
+    );
 }

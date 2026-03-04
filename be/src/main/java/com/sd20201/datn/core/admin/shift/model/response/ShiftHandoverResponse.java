@@ -2,7 +2,7 @@ package com.sd20201.datn.core.admin.shift.model.response;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.sd20201.datn.entity.ShiftHandover;
-import com.sd20201.datn.entity.Staff; // <--- QUAN TRỌNG: Phải import cái này
+import com.sd20201.datn.entity.Staff;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -25,9 +25,13 @@ public class ShiftHandoverResponse {
     private LocalDateTime endTime;
 
     private BigDecimal initialCash;
-    private BigDecimal totalCashAmount;
-    private BigDecimal realCashAmount;
-    private BigDecimal diffAmount;
+    private BigDecimal totalCashAmount; // Tổng tiền mặt hệ thống (Đã bao gồm tiền đầu ca + tiền mặt bán được)
+    private BigDecimal realCashAmount;  // Tiền mặt nhân viên đếm thực tế
+    private BigDecimal diffAmount;      // Tiền chênh lệch
+
+    // Trường chuyển khoản để FE hiển thị
+    private BigDecimal totalTransferAmount;
+
     private String note;
     private Integer status;
     private Integer totalBills;
@@ -36,13 +40,9 @@ public class ShiftHandoverResponse {
         this.id = entity.getId();
         this.name = entity.getName();
 
-        // 👇 ĐOẠN CODE SỬA LỖI ĐỎ CỦA BẠN 👇
         if (entity.getAccount() != null) {
-            // Lấy Staff từ Account
             Staff staff = entity.getAccount().getStaff();
-
             if (staff != null) {
-                // Entity Staff có hàm getName() vì đã thêm ở Bước 1
                 this.staffName = staff.getName();
                 this.staffCode = staff.getCode();
             } else {
@@ -50,18 +50,18 @@ public class ShiftHandoverResponse {
                 this.staffCode = "ADMIN";
             }
         }
-        // 👆 ---------------------------- 👆
 
         this.startTime = entity.getStartTime();
         this.endTime = entity.getEndTime();
         this.totalBills = entity.getTotalBills();
 
-
-
-        // Xử lý null an toàn
+        // Xử lý null an toàn cho tiền mặt
         this.initialCash = entity.getInitialCash() != null ? entity.getInitialCash() : BigDecimal.ZERO;
         this.totalCashAmount = entity.getTotalCashAmount() != null ? entity.getTotalCashAmount() : BigDecimal.ZERO;
         this.realCashAmount = entity.getRealCashAmount() != null ? entity.getRealCashAmount() : BigDecimal.ZERO;
+
+        // 👇 ĐÃ MỞ KHÓA: Map dữ liệu tiền chuyển khoản từ Entity sang Response 👇
+        this.totalTransferAmount = entity.getTotalTransferAmount() != null ? entity.getTotalTransferAmount() : BigDecimal.ZERO;
 
         this.note = entity.getNote();
 
@@ -69,10 +69,10 @@ public class ShiftHandoverResponse {
             this.status = entity.getStatus().ordinal();
         }
 
-        // Tính chênh lệch
-        if (entity.getRealCashAmount() != null) {
-            BigDecimal lyThuyet = this.initialCash.add(this.totalCashAmount);
-            this.diffAmount = this.realCashAmount.subtract(lyThuyet);
+        // Tính chênh lệch chuẩn xác
+        if (entity.getRealCashAmount() != null && entity.getTotalCashAmount() != null) {
+            // Chênh lệch = Thực tế đếm được - Hệ thống tính toán (đã bao gồm đầu ca)
+            this.diffAmount = this.realCashAmount.subtract(this.totalCashAmount);
         } else {
             this.diffAmount = BigDecimal.ZERO;
         }

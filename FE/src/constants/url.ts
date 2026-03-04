@@ -96,6 +96,10 @@ export const API_CUSTOMER_STATISTICS = `${PREFIX_API_CUSTOMER}/statistics` as st
 export const API_CUSTOMER_BAN_HANG = `${PREFIX_API_CUSTOMER}/ban-hang` as string
 export const API_CUSTOMER_HOA_DON = `${PREFIX_API_CUSTOMER}/hoa-don` as string
 export const API_CUSTOMER_HOA_DON_DETAIL = `${API_CUSTOMER_HOA_DON}/detail` as string
+
+// invoice endpoints for customer
+export const API_CUSTOMER_INVOICE = `${PREFIX_API_CUSTOMER}/invoices` as string
+
 export const API_CUSTOMER_PAYMENTS = `${PREFIX_API_CUSTOMER}/payments` as string
 export const API_CUSTOMER_SHIPPING_FEE = `${PREFIX_API_CUSTOMER}/shipping-fee` as string
 export const API_CUSTOMER_WAREHOUSE = `${PREFIX_API_CUSTOMER}/warehouse` as string
