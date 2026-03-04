@@ -69,6 +69,9 @@ public interface ADStaffRepository extends StaffRepository {
     // 3. Tìm theo CCCD
     Optional<Staff> findByCitizenIdentifyCard(String citizenIdentifyCard);
 
+    // 👇 THÊM DÒNG NÀY ĐỂ TÌM NHÂN VIÊN TỪ FILE EXCEL 👇
+    Optional<Staff> findByCode(String code);
+
     // của tâm thêm
     @Query("SELECT s.email FROM Staff s WHERE s.account.roleConstant = :role AND s.status = :status")
     List<String> findEmailsByRoleAndStatus(@Param("role") RoleConstant role, @Param("status") EntityStatus status);

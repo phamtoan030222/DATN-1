@@ -9,7 +9,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { handoverApi } from '@/service/api/admin/shift/handover'
+import { handoverApi } from '@/service/api/admin/shift/handover' // Path giữ nguyên theo project của bạn
 
 const router = useRouter()
 const message = useMessage()
@@ -24,21 +24,23 @@ const shiftId = ref('')
 const staffName = ref('')
 const startTime = ref('')
 
+// Biến lưu trữ số liệu từ Backend
 const initialCash = ref(0)
-const totalCashSales = ref(0)
-const totalTransferSales = ref(0)
-const totalExpense = ref(0)
-const totalInvoiceCount = ref(0)
+const expectedCash = ref(0) // Mapped từ totalCashAmount (BE)
+const totalTransferSales = ref(0) // Mapped từ totalTransferAmount (BE)
+const totalInvoiceCount = ref(0) // Mapped từ totalBills (BE)
 
 const actualCash = ref<number | null>(null)
 const displayActualCash = ref('')
 const note = ref('')
 
 // --- COMPUTED ---
-const expectedCash = computed(() => {
-  return (initialCash.value || 0) + (totalCashSales.value || 0) - (totalExpense.value || 0)
+// Doanh thu tiền mặt thực tế bán được = Tổng lý thuyết (BE) - Tiền đầu ca
+const cashRevenue = computed(() => {
+  return Math.max(0, expectedCash.value - initialCash.value)
 })
 
+// Tính tiền chênh lệch
 const diff = computed(() => {
   const actual = actualCash.value === null ? 0 : actualCash.value
   return actual - expectedCash.value
@@ -108,8 +110,9 @@ async function fetchCurrentShift(count = 0) {
       }
       catch { startTime.value = '...' }
 
+      // MAPPING CHUẨN XÁC TỪ BACKEND
       initialCash.value = Number(realData.initialCash) || 0
-      totalCashSales.value = Number(realData.totalCashAmount) || 0
+      expectedCash.value = Number(realData.totalCashAmount) || 0 // Tổng lý thuyết phải có
       totalTransferSales.value = Number(realData.totalTransferAmount) || 0
       totalInvoiceCount.value = Number(realData.totalBills) || 0
 
@@ -134,11 +137,9 @@ async function handleLogout() {
 }
 
 async function submit() {
-  // 1. Kiểm tra nhập tiền
   if (actualCash.value === null)
     return message.warning('⚠️ Vui lòng nhập tiền mặt thực tế!')
 
-  // 2. LOGIC CHẶN: Lệch tiền mà không có Note -> Báo lỗi & Chặn
   if (diff.value !== 0) {
     if (!note.value || note.value.trim() === '') {
       const type = diff.value > 0 ? 'dư' : 'thiếu'
@@ -237,7 +238,7 @@ onMounted(() => fetchCurrentShift())
                 <span class="text-sm text-gray-500 font-medium flex items-center gap-1">
                   Doanh thu Tiền mặt
                 </span>
-                <span class="font-mono text-lg font-bold text-emerald-600">+{{ formatVND(totalCashSales) }}</span>
+                <span class="font-mono text-lg font-bold text-emerald-600">+{{ formatVND(cashRevenue) }}</span>
               </div>
 
               <div class="flex justify-between items-center">
@@ -263,7 +264,7 @@ onMounted(() => fetchCurrentShift())
               {{ formatVND(expectedCash) }}
             </div>
             <div class="text-[10px] text-emerald-500 mt-1 font-medium">
-              (Đầu ca + Doanh thu Tiền mặt - Chi phí)
+              (Đầu ca + Doanh thu Tiền mặt)
             </div>
           </div>
         </div>
@@ -347,6 +348,7 @@ onMounted(() => fetchCurrentShift())
 </template>
 
 <style scoped>
+/* Giữ nguyên CSS của bạn */
 :deep(.n-input.custom-input) {
   background-color: #f9fafb;
   border-radius: 0.5rem;

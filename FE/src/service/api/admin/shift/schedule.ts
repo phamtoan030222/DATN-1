@@ -24,8 +24,25 @@ export const scheduleApi = {
     return request.delete(`/api/v1/admin/schedules/${id}`)
   },
 
-  // Xếp lịch nâng cao (Đã thêm đúng tiền tố /api/v1)
+  // Xếp lịch nâng cao
   assignBulk: (data: any) => {
     return request.post('/api/v1/admin/schedules/bulk', data)
+  },
+
+  // 👇 THÊM MỚI: Import Excel lịch làm việc 👇
+  importExcel: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    // Lưu ý: Đảm bảo URL này khớp với URL Controller ở Backend của bạn
+    // Ví dụ: '/api/v1/admin/schedules/import' hoặc '/api/v1/work-schedules/import'
+    return request.post('/api/v1/admin/schedules/import', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+  },
+
+  downloadTemplate: () => {
+    // responseType: 'blob' rất quan trọng để Axios hiểu đây là file
+    return request.get('/api/v1/admin/schedules/template', { responseType: 'blob' })
   },
 }

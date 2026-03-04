@@ -52,7 +52,7 @@ const canStartShift = computed(() => {
   return true
 })
 
-// --- 1. LOGIC NHẬP TIỀN (ĐÃ FIX) ---
+// --- 1. LOGIC NHẬP TIỀN ---
 function handleInputMoney(e: any) {
   let rawValue = e.target.value
   rawValue = rawValue.replace(/\D/g, '') // Chỉ lấy số
@@ -102,14 +102,14 @@ async function checkShiftStatus() {
   }
 
   // ---------------------------------------------------------
-  // BƯỚC 1: LỌC QUYỀN (ROLE) - CHỈ CHO PHÉP NHÂN VIÊN
+  // BƯỚC 1: KIỂM TRA QUYỀN CỦA CON NGƯỜI (USER ROLE)
   // ---------------------------------------------------------
-  const roles = currentUser.rolesCodes || currentUser.roles || []
-  const isStaff = Array.isArray(roles) && roles.some((r: string) => {
+  const userRoles = currentUser.rolesCodes || currentUser.roles || []
+  const isStaff = Array.isArray(userRoles) && userRoles.some((r: string) => {
     return r.toUpperCase().includes('NHAN_VIEN')
   })
 
-  // Nếu là Admin, Quản lý, hoặc Khách hàng vãng lai -> Ẩn Modal ngay lập tức
+  // Nếu người đăng nhập không phải nhân viên -> Ẩn Modal
   if (!isStaff && !props.forceShow) {
     showModal.value = false
     checking.value = false
@@ -117,27 +117,26 @@ async function checkShiftStatus() {
   }
 
   // ---------------------------------------------------------
-  // BƯỚC 2: LỌC ĐƯỜNG DẪN (ROUTE) - BẢO VỆ GIAO DIỆN KHÁCH HÀNG
+  // BƯỚC 2: KIỂM TRA TÍNH CHẤT CỦA TRANG (ROUTE META ROLES)
+  // (GIẢI QUYẾT TRIỆT ĐỂ YÊU CẦU CỦA BẠN DỰA VÀO VUE ROUTER)
   // ---------------------------------------------------------
-  // Danh sách các trang Public / Frontend dành cho khách mua hàng
-  const isClientPage
-    = route.path === '/'
-      || route.path.startsWith('/home')
-      || route.path.startsWith('/product')
-      || route.path.startsWith('/cart')
-      || route.path.startsWith('/checkout')
+  // Lấy mảng roles được định nghĩa trong meta của trang hiện tại
+  // (Đã được khai báo trong staticRoutes.ts của bạn)
+  const routeRoles = (route.meta?.roles as string[]) || []
 
-  // Nếu Nhân viên đang lướt ra ngoài trang của Khách hàng -> Tạm thời ẩn Modal
-  if (isClientPage && !props.forceShow) {
+  // Một trang được coi là nội bộ (Admin/Nhân viên) nếu Route đó BẮT BUỘC có role QUAN_LY hoặc NHAN_VIEN
+  const isBackOfficePage = routeRoles.includes('QUAN_LY') || routeRoles.includes('NHAN_VIEN')
+
+  // Nếu trang hiện tại KHÔNG yêu cầu các quyền trên (tức là trang Home, Cart của khách) -> Ẩn Modal ngay!
+  if (!isBackOfficePage && !props.forceShow) {
     showModal.value = false
     checking.value = false
     return
   }
 
   // ---------------------------------------------------------
-  // BƯỚC 3: KIỂM TRA TRẠNG THÁI CA LÀM VIỆC
+  // BƯỚC 3: KIỂM TRA TRẠNG THÁI CA LÀM VIỆC TỪ BACKEND
   // ---------------------------------------------------------
-  // Check vé thông hành ở Session (Tránh gọi API liên tục khi chuyển trang)
   const hasSessionTicket = sessionStorage.getItem('SHIFT_ACTIVE_TICKET') === 'true'
   if (hasSessionTicket && !props.forceShow) {
     showModal.value = false
@@ -146,21 +145,19 @@ async function checkShiftStatus() {
   }
 
   try {
-    // Nếu chưa có vé, gọi API xuống DB để kiểm tra chắc chắn
     const res = await handoverApi.getCurrentShift(userId)
+    const shiftData = res.data?.data || res.data
 
-    // TH1: Backend báo "Đang trong ca làm việc"
-    if (res && res.data && res.data.id) {
-      sessionStorage.setItem('SHIFT_ACTIVE_TICKET', 'true') // Cấp lại vé thông hành
+    if (shiftData && shiftData.id) {
+      sessionStorage.setItem('SHIFT_ACTIVE_TICKET', 'true')
       showModal.value = false
+      viewMode.value = false
     }
-    // TH2: Backend báo "Chưa có ca làm việc nào"
     else {
       staffName.value = currentUser.fullName || currentUser.username || 'Nhân viên'
-      await fetchLastClosedShift() // Lấy số dư ca trước
-      identifyShift(userId) // Tra cứu lịch làm việc hôm nay
+      await fetchLastClosedShift()
+      identifyShift(userId)
 
-      // Bung bảng Mở ca yêu cầu nhập tiền
       if (!viewMode.value) {
         showModal.value = true
       }
@@ -174,7 +171,7 @@ async function checkShiftStatus() {
   }
 }
 
-// --- Lấy tiền ca đóng gần nhất (ĐÃ FIX FORMAT) ---
+// --- Lấy tiền ca đóng gần nhất ---
 async function fetchLastClosedShift() {
   try {
     const res = await handoverApi.getLastClosedShift()
