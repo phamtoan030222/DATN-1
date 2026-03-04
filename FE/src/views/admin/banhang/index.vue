@@ -39,7 +39,8 @@ import type { ADPDImeiResponse, ADProductDetailRequest, ADProductDetailResponse 
 import type { AvailableServiceRequest, ShippingFeeRequest } from '@/service/api/ghn.api'
 import { calculateFee, getAvailableServices, getGHNDistricts, getGHNProvinces, getGHNWards } from '@/service/api/ghn.api'
 import { localStorageAction } from '@/utils/storage'
-import { Html5Qrcode } from 'html5-qrcode'
+// ✅ THAY ĐỔI 1: Import thêm Html5QrcodeSupportedFormats để hỗ trợ barcode
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
 import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
@@ -49,6 +50,8 @@ import 'vue3-toastify/dist/index.css'
 // Naive UI Icons
 import {
   AddCircleOutline,
+  // ✅ THAY ĐỔI 2: Import BarcodeOutline thay QrCodeOutline
+  BarcodeOutline,
   ReloadOutline,
   SearchOutline,
   TrashOutline,
@@ -1567,11 +1570,10 @@ const columnsKhachHang: DataTableColumns<KhachHangResponse> = [
 const columnsGiohang: DataTableColumns<any> = [
   {
     title: 'Serial đã chọn',
-    key: 'imel', // Đổi thành 'imei' nếu backend trả về 'imei'
+    key: 'imel',
     width: 110,
     render: (row) => {
-      // Kiểm tra xem row có field imel/imei không
-      if (row.imel) { // Hoặc row.imei tùy backend trả về
+      if (row.imel) {
         return h(NTag, {
           type: 'success',
           size: 'small',
@@ -1581,9 +1583,8 @@ const columnsGiohang: DataTableColumns<any> = [
         }, () => `${row.imel}`)
       }
 
-      // Nếu không có imel trong row, kiểm tra trong state imeiDaChon
       const imeiItem = imeiDaChon.value.find(
-        item => item.idHoaDonChiTiet === row.idHDCT, // Sử dụng idHDCT thay vì id
+        item => item.idHoaDonChiTiet === row.idHDCT,
       )
 
       if (imeiItem && imeiItem.danhSachImei.length > 0) {
@@ -1651,7 +1652,6 @@ const columnsGiohang: DataTableColumns<any> = [
       vertical: true,
       size: 4,
     }, () => [
-      // Dòng 1
       h('div', {
         style: {
           display: 'flex',
@@ -1691,8 +1691,6 @@ const columnsGiohang: DataTableColumns<any> = [
           },
         }, `RAM: ${row.ram}`),
       ]),
-
-      // Dòng 2
       h('div', {
         style: {
           display: 'flex',
@@ -1882,7 +1880,6 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
       vertical: true,
       size: 4,
     }, () => [
-      // Dòng 1
       h('div', {
         style: {
           display: 'flex',
@@ -1922,8 +1919,6 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
           },
         }, `RAM: ${row.ram}`),
       ]),
-
-      // Dòng 2
       h('div', {
         style: {
           display: 'flex',
@@ -2014,6 +2009,22 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
           selectedSerialIds.value = selectedSerialIds.value.filter(id => id !== row.id)
         }
       },
+    }),
+  },
+  {
+    // ✅ THAY ĐỔI 4: Đổi "In QR" → "In Barcode", gọi printSerialBarcode
+    title: 'In Barcode',
+    key: 'barcode',
+    width: 100,
+    align: 'center',
+    render: row => h(NButton, {
+      size: 'small',
+      secondary: true,
+      disabled: row.imeiStatus !== 'AVAILABLE',
+      onClick: () => printSerialBarcode(row.code),
+    }, {
+      icon: () => h(NIcon, null, () => h(BarcodeOutline)),
+      default: () => 'In Barcode',
     }),
   },
   {
@@ -2171,7 +2182,6 @@ async function xacNhan(check: number) {
   console.log('Giỏ hàng:', state.gioHang)
   console.log('IMEI đã chọn:', imeiDaChon.value)
 
-  // Kiểm tra từng sản phẩm
   state.gioHang.forEach((item, index) => {
     console.log(`Sản phẩm ${index + 1}:`, {
       ten: item.ten || item.name,
@@ -2191,13 +2201,11 @@ async function xacNhan(check: number) {
     return
   }
 
-  // KIỂM TRA GIỎ HÀNG TRỐNG
   if (state.gioHang.length === 0) {
     toast.error('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi thanh toán.')
     return
   }
 
-  // Kiểm tra thông tin giao hàng nếu là giao hàng
   if (isDeliveryEnabled.value) {
     if (!deliveryInfo.tenNguoiNhan || !deliveryInfo.sdtNguoiNhan || !deliveryInfo.diaChiCuThe
       || !deliveryInfo.tinhThanhPho || !deliveryInfo.quanHuyen || !deliveryInfo.phuongXa) {
@@ -2210,20 +2218,15 @@ async function xacNhan(check: number) {
     }
   }
 
-  // Xác định loại hóa đơn
   const loaiHoaDon = isDeliveryEnabled.value ? 'GIAO_HANG' : 'TAI_QUAY'
+  const danhSachImeiChon = imeiDaChon.value
 
-  // LẤY DANH SÁCH IMEI ĐÃ CHỌN từ state
-  const danhSachImeiChon = imeiDaChon.value // Sử dụng state đã lưu
-
-  // Kiểm tra IMEI nếu có sản phẩm quản lý IMEI
   const coSanPhamImei = state.gioHang.some(item => item.sanPhamChiTiet?.quanLyImei)
   if (coSanPhamImei && danhSachImeiChon.length === 0) {
     toast.error('Vui lòng chọn IMEI cho sản phẩm laptop!')
     return
   }
 
-  // Kiểm tra số lượng IMEI có khớp không
   let hasError = false
   for (const item of state.gioHang) {
     if (item.sanPhamChiTiet?.quanLyImei) {
@@ -2249,7 +2252,6 @@ async function xacNhan(check: number) {
   const selectedWard = wards.value.find(w => w.code === deliveryInfo.phuongXa)
 
   try {
-    // Tạo request object (JSON)
     const requestData: ParamsThanhCong = {
       idHD: idHDS.value,
       idNV: idNV.userId,
@@ -2262,11 +2264,9 @@ async function xacNhan(check: number) {
         : '',
       tienShip: shippingFee.value,
       giamGia: giamGia.value,
-      phuongThucThanhToan: state.currentPaymentMethod, // '0', '1', '2'
+      phuongThucThanhToan: state.currentPaymentMethod,
       idPGG: selectedDiscount.value?.id,
       check: isDeliveryEnabled.value ? 1 : 0,
-
-      // THÊM FIELD IMEI (quan trọng)
       loaiHoaDon,
       danhSachImei: danhSachImeiChon,
       daXacNhanImei: true,
@@ -2274,10 +2274,8 @@ async function xacNhan(check: number) {
 
     console.log('Gửi request thanh toán:', requestData)
 
-    // Gửi request với JSON
     const res = await thanhToanThanhCong(requestData)
 
-    // Xử lý response
     if (res.message != null) {
       if (res.message.startsWith('Số')) {
         toast.error(res.message)
@@ -2297,7 +2295,6 @@ async function xacNhan(check: number) {
       }
     }
 
-    // Thành công
     if (isDeliveryEnabled.value) {
       toast.success('Đã chuyển trạng thái giao hang!')
     }
@@ -2305,7 +2302,6 @@ async function xacNhan(check: number) {
       toast.success('Thanh toán thành công!')
     }
 
-    // Reset các state (bao gồm IMEI)
     await resetAfterPayment()
   }
   catch (error: any) {
@@ -2319,7 +2315,6 @@ async function xacNhan(check: number) {
   }
 }
 
-// Hàm reset sau thanh toán
 async function resetAfterPayment() {
   await fetchProducts()
   await capNhatDanhSach()
@@ -2359,8 +2354,6 @@ async function resetAfterPayment() {
   provinceCode.value = null
   districtCode.value = null
   wardCode.value = null
-
-  // Reset danh sách IMEI đã chọn
   imeiDaChon.value = []
 }
 
@@ -2422,14 +2415,13 @@ async function createInvoice() {
     return
   }
 
-  // Tạo tab tạm ngay
   const tempMa = genTempMaHoaDon()
   const newTabId = nextTabId++
 
   tabs.value.push({
     id: newTabId,
-    idHD: '', // Chưa có DB id
-    code: tempMa, // Mã tạm
+    idHD: '',
+    code: tempMa,
     soLuong: 0,
     loaiHoaDon: 'TAI_QUAY',
     products: [],
@@ -2438,7 +2430,6 @@ async function createInvoice() {
 
   activeTab.value = newTabId
 
-  // Reset state
   idHDS.value = ''
   loaiHD.value = 'TAI_QUAY'
 
@@ -2469,7 +2460,6 @@ async function createInvoice() {
   tienKhachThanhToan.value = 0
   tienThieu.value = 0
 
-  // Gọi API tạo hóa đơn thật
   try {
     const formData = new FormData()
     formData.append('idNV', idNV.userId)
@@ -2477,7 +2467,6 @@ async function createInvoice() {
 
     const newInvoice = await getCreateHoaDon(formData)
 
-    // Update lại tab
     const tab = tabs.value.find(t => t.id === newTabId)
     if (tab) {
       tab.idHD = newInvoice.data.id
@@ -2493,17 +2482,13 @@ async function createInvoice() {
       newTabId,
       newInvoice.data.id,
       newInvoice.data.loaiHoaDon || 'OFFLINE',
-
     )
 
     toast.success('Tạo hóa đơn thành công!')
   }
   catch (error) {
     console.error('Failed to create invoice:', error)
-
-    // Nếu API lỗi → xóa tab tạm
     tabs.value = tabs.value.filter(t => t.id !== newTabId)
-
     toast.error('Tạo hóa đơn thất bại!')
   }
 }
@@ -2651,14 +2636,14 @@ async function fetchProducts() {
   try {
     const params: ADProductDetailRequest = {
       page: 1,
-      size: 9999, 
+      size: 9999,
     }
     const response = await getProductDetails(params)
     stateSP.products = response.data?.data || []
     state.products = response.data?.data || []
     stateSP.totalItems = response.data?.totalElements || 0
     state.totalItems = response.data?.totalElements || 0
-    calculateMinMaxPrice(stateSP.products) 
+    calculateMinMaxPrice(stateSP.products)
   }
   catch (error) {
     console.error('Failed to fetch products:', error)
@@ -2681,7 +2666,6 @@ function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 }
 
-// Tính toán min và max price từ danh sách sản phẩm
 function calculateMinMaxPrice(products: ADProductDetailResponse[]) {
   if (products.length === 0) {
     stateMinMaxPrice.priceMin = 0
@@ -2701,16 +2685,13 @@ function calculateMinMaxPrice(products: ADProductDetailResponse[]) {
   const minPrice = Math.min(...prices)
   const maxPrice = Math.max(...prices)
 
-  // Làm tròn đến trăm nghìn
   stateMinMaxPrice.priceMin = Math.floor(minPrice / 100000) * 100000
   stateMinMaxPrice.priceMax = Math.ceil(maxPrice / 100000) * 100000
 
-  // Đảm bảo có khoảng cách tối thiểu
   if (stateMinMaxPrice.priceMax - stateMinMaxPrice.priceMin < 100000) {
     stateMinMaxPrice.priceMax = stateMinMaxPrice.priceMin + 100000
   }
 
-  // Set giá trị mặc định cho slider
   priceRange.value = [stateMinMaxPrice.priceMin, stateMinMaxPrice.priceMax]
 }
 
@@ -2753,77 +2734,161 @@ function closeQrModalVnPay() {
   isQrVNpayModalVisible.value = false
 }
 
-const isQrModalVisible = ref(false)
+// ✅ THAY ĐỔI 5: Đổi tên biến/modal liên quan barcode scanning
+const isBarcodeModalVisible = ref(false)  // Đổi tên từ isQrModalVisible
 const qrData = ref('')
 const hasCamera = ref(true)
 
 let html5QrCode: Html5Qrcode
+let isScannerRunning = false
+
+// ✅ Giữ alias để không phá vỡ code cũ trong template
+const isQrModalVisible = isBarcodeModalVisible
 
 function openQrModal() {
-  isQrModalVisible.value = true
+  if (!idHDS.value) {
+    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
+    return
+  }
+  isBarcodeModalVisible.value = true
   nextTick(() => {
     startQrScanning()
   })
 }
 
+async function addSerialByCode(serialCode: string) {
+  if (!idHDS.value) {
+    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
+    return
+  }
+
+  let code = serialCode.trim()
+  if (code.startsWith('http')) {
+    toast.error('Barcode không chứa serial hợp lệ. Vui lòng dùng barcode in trực tiếp từ hệ thống!')
+    return
+  }
+
+  toast.info(`Đang tìm serial: ${code}...`)
+
+  try {
+    let foundProduct: ADProductDetailResponse | null = null
+    let foundSerial: ADPDImeiResponse | null = null
+
+    for (const product of stateSP.products) {
+      const response = await getImeiProductDetail(product.id)
+      if (response.data && Array.isArray(response.data)) {
+        const serial = response.data.find((s: ADPDImeiResponse) => s.code === code)
+        if (serial) {
+          foundProduct = product
+          foundSerial = serial
+          break
+        }
+      }
+    }
+
+    if (!foundProduct || !foundSerial) {
+      toast.error(`Không tìm thấy serial: ${code}`)
+      return
+    }
+
+    if (foundSerial.imeiStatus !== 'AVAILABLE') {
+      toast.error(`Serial ${code} không khả dụng (${foundSerial.imeiStatus})`)
+      return
+    }
+
+    selectedProductDetail.value = foundProduct
+    selectedSerials.value = [foundSerial]
+    selectedSerialIds.value = [foundSerial.id]
+
+    await addSerialToCart()
+
+    toast.success(`Đã thêm serial ${code} — ${foundProduct.name}`)
+  }
+  catch (error) {
+    console.error('addSerialByCode error:', error)
+    toast.error('Thêm serial thất bại!')
+  }
+}
+
+// ✅ THAY ĐỔI 6: Cập nhật startQrScanning để hỗ trợ các định dạng barcode
 function startQrScanning() {
   const qrRegionId = 'reader'
   const qrRegionElement = document.getElementById(qrRegionId)
   if (!qrRegionElement) {
-    console.error('Không tìm thấy phần tử với id \'reader\'')
+    console.error('Không tìm thấy phần tử reader')
     return
   }
 
-  html5QrCode = new Html5Qrcode(qrRegionId)
+  // Cấu hình các định dạng barcode được hỗ trợ
+  const formatsToSupport = [
+    Html5QrcodeSupportedFormats.CODE_128,   // Phổ biến nhất cho serial
+    Html5QrcodeSupportedFormats.CODE_39,    // Alphanumeric
+    Html5QrcodeSupportedFormats.CODE_93,    // Compact barcode
+    Html5QrcodeSupportedFormats.EAN_13,     // Hàng hóa tiêu dùng
+    Html5QrcodeSupportedFormats.EAN_8,      // EAN-8
+    Html5QrcodeSupportedFormats.UPC_A,      // UPC-A
+    Html5QrcodeSupportedFormats.UPC_E,      // UPC-E
+    Html5QrcodeSupportedFormats.ITF,        // Interleaved 2 of 5
+    Html5QrcodeSupportedFormats.QR_CODE,    // Vẫn giữ QR để fallback
+  ]
+
+  html5QrCode = new Html5Qrcode(qrRegionId, { formatsToSupport })
 
   Html5Qrcode.getCameras()
     .then((cameras: { id: string, label: string }[]) => {
       if (cameras && cameras.length) {
         hasCamera.value = true
-        const cameraId = cameras[0].id
+        isScannerRunning = true
         html5QrCode.start(
-          cameraId,
-          { fps: 10, qrbox: 250 },
-          (qrCodeMessage: string) => {
-            qrData.value = qrCodeMessage
-            // Tìm sản phẩm theo serial hoặc mã
-            const product = stateSP.products.find(p =>
-              p.code === qrCodeMessage || p.id === qrCodeMessage,
-            )
-            if (product) {
-              selectProductForSerial(product)
-            }
-            else {
-              toast.error('Không tìm thấy sản phẩm với mã này!')
-            }
-            html5QrCode.stop()
-            closeQrModal()
+          cameras[0].id,
+          {
+            fps: 10,
+            // ✅ Dùng qrbox hình chữ nhật nằm ngang — phù hợp barcode 1D
+            qrbox: { width: 350, height: 120 },
           },
-          (errorMessage) => {
-            console.warn('Lỗi đọc QR: ', errorMessage)
+          async (decodedText: string) => {
+            if (!isScannerRunning) return
+            isScannerRunning = false
+            await stopQrScanning()
+            isBarcodeModalVisible.value = false
+            await addSerialByCode(decodedText)
+          },
+          (_errorMessage) => {
+            // Bỏ qua lỗi scan thông thường
           },
         )
       }
       else {
-        console.warn('Không tìm thấy camera nào!')
         hasCamera.value = false
-        toast.error('Không tìm thấy camera hoặc không có quyền truy cập camera!')
+        toast.error('Không tìm thấy camera!')
       }
     })
     .catch((error: any) => {
-      console.error('Lỗi khi lấy camera: ', error)
       hasCamera.value = false
-      toast.error(`Lỗi khi truy cập camera: ${error.message}`)
+      toast.error(`Lỗi truy cập camera: ${error.message || error}`)
     })
 }
 
 function closeQrModal() {
-  isQrModalVisible.value = false
+  isBarcodeModalVisible.value = false
+  isScannerRunning = false
   stopQrScanning()
 }
 
-function stopQrScanning() {
-  html5QrCode.stop().catch(err => console.error('Không thể dừng scanner:', err))
+async function stopQrScanning() {
+  if (!html5QrCode) return
+  try {
+    const state = html5QrCode.getState()
+    if (state === 2) {
+      await html5QrCode.stop()
+    }
+  }
+  catch (err) {
+    // ignore
+  }
+  finally {
+    isScannerRunning = false
+  }
 }
 
 const addCustomerLoading = ref(false)
@@ -2904,16 +2969,90 @@ onMounted(async () => {
     await fetchDiscounts(idHDS.value)
   }
 })
-// code tâm thêm
+
 // Tự động tìm voucher giảm nhiều tiền nhất
 const bestSuggestion = computed(() => {
   const suggestions = state.autoVoucherResult?.voucherTotHon || []
   if (suggestions.length === 0)
     return null
-
-  // Sắp xếp giảm dần theo số tiền được giảm thêm  và lấy cái đầu tiên
   return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0]
 })
+
+// ✅ THAY ĐỔI 3: Hàm in Barcode thay thế printSerialQR
+// Dùng JsBarcode (load từ CDN trong popup) thay vì QRCode npm
+async function printSerialBarcode(serialCode: string) {
+  try {
+    const win = window.open('', '_blank', 'width=520,height=380')
+    if (!win) {
+      toast.error('Trình duyệt chặn popup, vui lòng cho phép popup!')
+      return
+    }
+
+    win.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Barcode - ${serialCode}</title>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>
+          <style>
+            @page { margin: 0; size: 90mm 45mm; }
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+              width: 90mm;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              padding: 4mm 6mm;
+              background: white;
+              font-family: monospace;
+            }
+            svg {
+              width: 78mm;
+              height: 28mm;
+              display: block;
+            }
+            .serial-text {
+              font-size: 11pt;
+              font-weight: bold;
+              margin-top: 2mm;
+              letter-spacing: 1px;
+              text-align: center;
+            }
+          </style>
+        </head>
+        <body>
+          <svg id="barcode"></svg>
+          <p class="serial-text">${serialCode}</p>
+          <script>
+            window.onload = function() {
+              try {
+                JsBarcode("#barcode", "${serialCode}", {
+                  format: "CODE128",
+                  width: 2.2,
+                  height: 80,
+                  displayValue: false,
+                  margin: 4,
+                  background: "#ffffff",
+                  lineColor: "#000000"
+                });
+              } catch(e) {
+                document.body.innerHTML = '<p style="color:red;padding:16px">Lỗi tạo barcode: ' + e.message + '</p>';
+              }
+              setTimeout(function() { window.print(); }, 400);
+            }
+          <\/script>
+        </body>
+      </html>
+    `)
+    win.document.close()
+  }
+  catch (err) {
+    console.error(err)
+    toast.error('Tạo barcode thất bại!')
+  }
+}
+
 </script>
 
 <template>
@@ -3010,14 +3149,13 @@ const bestSuggestion = computed(() => {
             <NButton type="primary" size="small" @click="openProductSelectionModal">
               Chọn sản phẩm
             </NButton>
-            <!-- <n-button type="primary" size="small" @click="openQrModal">
+            <!-- ✅ THAY ĐỔI 5 (template): "Quét Serial" → "Quét Barcode", icon BarcodeOutline -->
+            <NButton type="default" size="small" secondary @click="openQrModal">
               <template #icon>
-                <n-icon>
-                  <QrCodeOutline />
-                </n-icon>
+                <NIcon><BarcodeOutline /></NIcon>
               </template>
-  Quét QR
-  </n-button> -->
+              Quét Barcode
+            </NButton>
           </NSpace>
         </template>
         <div v-if="state.gioHang.length > 0">
@@ -3140,7 +3278,6 @@ const bestSuggestion = computed(() => {
         <template #header>
           <NSpace align="center" justify="space-between" style="width: 100%">
             <NText type="primary" strong>
-              <NIcon :component="TicketOutline" style="margin-right: 6px;" />
               Voucher khả dụng
             </NText>
             <NTag type="success" size="small" round>
@@ -3149,7 +3286,6 @@ const bestSuggestion = computed(() => {
           </NSpace>
         </template>
 
-        <!-- Voucher đang được áp dụng -->
         <div v-if="selectedVoucher" class="current-voucher-section mb-3">
           <NAlert type="success" :show-icon="true" title="Đang áp dụng">
             <NSpace vertical :size="8">
@@ -3158,8 +3294,7 @@ const bestSuggestion = computed(() => {
                   {{ selectedVoucher.code }}
                 </NText>
                 <NTag type="success" size="small">
-                  {{ selectedVoucher.typeVoucher === 'PERCENTAGE' ? `${selectedVoucher.discountValue}%` : 'Giảm cố định'
-                  }}
+                  {{ selectedVoucher.typeVoucher === 'PERCENTAGE' ? `${selectedVoucher.discountValue}%` : 'Giảm cố định' }}
                 </NTag>
               </NSpace>
               <NSpace justify="space-between">
@@ -3170,19 +3305,10 @@ const bestSuggestion = computed(() => {
                   -{{ formatCurrency(selectedVoucher.giamGiaThucTe) }}
                 </NText>
               </NSpace>
-              <NSpace v-if="selectedVoucher.dieuKien > 0" justify="space-between">
-                <NText depth="3">
-                  Điều kiện:
-                </NText>
-                <NText depth="3">
-                  {{ formatCurrency(selectedVoucher.dieuKien) }}
-                </NText>
-              </NSpace>
             </NSpace>
           </NAlert>
         </div>
 
-        <!-- Danh sách voucher có thể áp dụng -->
         <NScrollbar style="max-height: 200px;">
           <NList size="small" bordered>
             <NListItem
@@ -3198,27 +3324,9 @@ const bestSuggestion = computed(() => {
                 <template #description>
                   <NSpace vertical :size="3" style="margin-top: 4px">
                     <NSpace justify="space-between">
-                      <NText depth="3" size="small">
-                        Giảm:
-                      </NText>
+                      <NText depth="3" size="small">Giảm:</NText>
                       <NText strong class="text-success" size="small">
                         {{ formatCurrency(voucher.giamGiaThucTe) }}
-                      </NText>
-                    </NSpace>
-                    <NSpace v-if="voucher.dieuKien > 0" justify="space-between">
-                      <NText depth="3" size="small">
-                        Điều kiện:
-                      </NText>
-                      <NText depth="3" size="small">
-                        {{ formatCurrency(voucher.dieuKien) }}
-                      </NText>
-                    </NSpace>
-                    <NSpace v-if="voucher.maxValue" justify="space-between">
-                      <NText depth="3" size="small">
-                        Tối đa:
-                      </NText>
-                      <NText depth="3" size="small">
-                        {{ formatCurrency(voucher.maxValue) }}
                       </NText>
                     </NSpace>
                   </NSpace>
@@ -3239,9 +3347,7 @@ const bestSuggestion = computed(() => {
 
         <template #footer>
           <NSpace justify="space-between" align="center" style="width: 100%">
-            <NText depth="3" size="small">
-              Tự động chọn voucher tốt nhất
-            </NText>
+            <NText depth="3" size="small">Tự động chọn voucher tốt nhất</NText>
             <NButton v-if="selectedVoucher" type="error" size="tiny" text @click="removeVoucher">
               Bỏ chọn
             </NButton>
@@ -3249,7 +3355,6 @@ const bestSuggestion = computed(() => {
         </template>
       </NCard>
 
-      <!-- CARD GỢI Ý MUA THÊM (THÊM MỚI) -->
       <NCard
         v-if="idHDS && state.autoVoucherResult?.voucherTotHon?.length > 0"
         class="card" size="small"
@@ -3258,7 +3363,6 @@ const bestSuggestion = computed(() => {
         <template #header>
           <NSpace align="center" justify="space-between" style="width: 100%">
             <NText type="primary" strong>
-              <NIcon :component="RocketOutline" style="margin-right: 6px;" />
               Gợi ý mua thêm
             </NText>
             <NTag type="warning" size="small" round>
@@ -3271,7 +3375,7 @@ const bestSuggestion = computed(() => {
           <NList size="small" bordered>
             <NListItem
               v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon"
-              :key="suggestion.voucherId" :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }"
+              :key="suggestion.voucherId"
             >
               <NThing :title="suggestion.code">
                 <template #avatar>
@@ -3282,66 +3386,30 @@ const bestSuggestion = computed(() => {
                 <template #description>
                   <NSpace vertical :size="4" style="margin-top: 4px">
                     <NSpace justify="space-between">
-                      <NText depth="3" size="small">
-                        Cần mua thêm:
-                      </NText>
+                      <NText depth="3" size="small">Cần mua thêm:</NText>
                       <NText strong class="text-warning" size="small">
                         {{ formatCurrency(suggestion.canMuaThem) }}
                       </NText>
                     </NSpace>
                     <NSpace justify="space-between">
-                      <NText depth="3" size="small">
-                        Giảm thêm:
-                      </NText>
+                      <NText depth="3" size="small">Giảm thêm:</NText>
                       <NText strong class="text-success" size="small">
                         +{{ formatCurrency(suggestion.giamThem) }}
-                      </NText>
-                    </NSpace>
-                    <NSpace justify="space-between">
-                      <NText depth="3" size="small">
-                        Tổng giảm mới:
-                      </NText>
-                      <NText strong class="text-success" size="small">
-                        {{ formatCurrency(suggestion.giamGiaMoi) }}
-                      </NText>
-                    </NSpace>
-                    <NSpace justify="space-between">
-                      <NText depth="3" size="small">
-                        Điều kiện:
-                      </NText>
-                      <NText depth="3" size="small">
-                        {{ formatCurrency(suggestion.dieuKien) }}
                       </NText>
                     </NSpace>
                   </NSpace>
                 </template>
               </NThing>
               <template #suffix>
-                <NSpace vertical :size="4" style="align-items: flex-end;">
-                  <NButton
-                    type="warning" size="small" :loading="applyingBetterVoucher === suggestion.voucherId"
-                    @click="showSuggestionDetail(suggestion)"
-                  >
-                    Chi tiết
-                  </NButton>
-                  <NText v-if="suggestion.hieuQua >= 50" type="error" size="tiny" strong>
-                    Rất hiệu quả!
-                  </NText>
-                </NSpace>
+                <NButton type="warning" size="small" @click="showSuggestionDetail(suggestion)">
+                  Chi tiết
+                </NButton>
               </template>
             </NListItem>
           </NList>
         </NScrollbar>
-
-        <template #footer>
-          <NText depth="3" size="small">
-            <NIcon :component="InformationCircleOutline" style="margin-right: 4px;" />
-            Hiệu quả: % giảm thêm trên số tiền mua thêm
-          </NText>
-        </template>
       </NCard>
 
-      <!-- CARD THÔNG TIN ĐƠN HÀNG (CẬP NHẬT) -->
       <NCard class="card" size="small">
         <template #header>
           <NSpace justify="space-between" align="center" style="width: 100%">
@@ -3349,18 +3417,14 @@ const bestSuggestion = computed(() => {
               Thông tin đơn hàng
             </NText>
             <NSpace align="center">
-              <NText depth="3">
-                Giao hàng
-              </NText>
+              <NText depth="3">Giao hàng</NText>
               <NSwitch v-model:value="isDeliveryEnabled" size="small" @update:value="giaoHang" />
               <NButton
                 type="primary" size="small" :loading="autoApplying" secondary circle
                 @click="triggerAutoApplyVoucher"
               >
                 <template #icon>
-                  <NIcon>
-                    <RocketOutline />
-                  </NIcon>
+                  <NIcon><ReloadOutline /></NIcon>
                 </template>
               </NButton>
             </NSpace>
@@ -3368,79 +3432,32 @@ const bestSuggestion = computed(() => {
         </template>
 
         <NSpace vertical :size="16">
-          <!-- Phần chọn voucher -->
           <div v-if="idHDS">
-            <NText depth="3">
-              Mã giảm giá
-            </NText>
+            <NText depth="3">Mã giảm giá</NText>
             <NSpace align="center" class="mt-1">
-              <NInput v-model:value="selectedDiscountCode" placeholder="Chọn mã giảm giá" readonly style="flex: 1">
-                <template #prefix>
-                  <NIcon :component="TicketOutline" />
-                </template>
-              </NInput>
+              <NInput v-model:value="selectedDiscountCode" placeholder="Chọn mã giảm giá" readonly style="flex: 1" />
               <NButton v-if="selectedVoucher" type="error" size="small" secondary @click="removeVoucher">
                 Bỏ chọn
               </NButton>
             </NSpace>
-
-            <!-- Tâm thêm -->
-            <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2" />
           </div>
-
-          <!-- Code của toàn -->
-          <!-- <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
-              <NAlert type="warning" size="small" :show-icon="true">
-                <template #icon>
-                  <NIcon>
-                    <AlertCircleOutline />
-                  </NIcon>
-                </template>
-                Có voucher tốt hơn!
-                <NButton text type="primary" size="tiny" @click="applyBestSuggestion">
-                  Xem ngay
-                </NButton>
-              </NAlert>
-            </div>
-          </div> -->
 
           <NDivider style="margin: 8px 0" />
 
-          <!-- Tổng tiền chi tiết -->
           <NSpace vertical :size="12">
             <NSpace justify="space-between">
-              <NText depth="3">
-                Tổng tiền hàng:
-              </NText>
-              <NText strong>
-                {{ formatCurrency(tienHang) }}
-              </NText>
+              <NText depth="3">Tổng tiền hàng:</NText>
+              <NText strong>{{ formatCurrency(tienHang) }}</NText>
             </NSpace>
 
             <NSpace v-if="giamGia > 0" justify="space-between">
-              <NText depth="3">
-                Đợt giảm giá:
-              </NText>
-              <NText type="success">
-                -{{ formatCurrency(giamGia) }}
-              </NText>
+              <NText depth="3">Giảm giá:</NText>
+              <NText type="success">-{{ formatCurrency(giamGia) }}</NText>
             </NSpace>
 
-            <NSpace v-if="giamGia > 0" justify="space-between">
-              <NText depth="3">
-                Giảm giá:
-              </NText>
-              <NText type="success">
-                -{{ formatCurrency(giamGia) }}
-              </NText>
-            </NSpace>
-
-            <!-- Phí vận chuyển -->
             <template v-if="isDeliveryEnabled">
               <NSpace justify="space-between" align="center">
-                <NText depth="3">
-                  Phí vận chuyển:
-                </NText>
+                <NText depth="3">Phí vận chuyển:</NText>
                 <NSpace align="center">
                   <NInputNumber
                     v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
@@ -3456,34 +3473,23 @@ const bestSuggestion = computed(() => {
 
             <NDivider style="margin: 8px 0" />
 
-            <!-- Tổng cuối cùng -->
             <NSpace justify="space-between">
-              <NText strong size="large">
-                Tổng thanh toán:
-              </NText>
-              <NText strong type="primary" size="large">
-                {{ formatCurrency(tongTien) }}
-              </NText>
+              <NText strong size="large">Tổng thanh toán:</NText>
+              <NText strong type="primary" size="large">{{ formatCurrency(tongTien) }}</NText>
             </NSpace>
 
-            <!-- Tiết kiệm được -->
             <NAlert v-if="giamGia > 0" type="success" size="small" show-icon>
               <NSpace justify="space-between" align="center">
                 <span>Bạn tiết kiệm được:</span>
-                <NText strong type="success">
-                  {{ formatCurrency(giamGia) }}
-                </NText>
+                <NText strong type="success">{{ formatCurrency(giamGia) }}</NText>
               </NSpace>
             </NAlert>
           </NSpace>
 
           <NDivider style="margin: 12px 0" />
 
-          <!-- Phương thức thanh toán -->
           <NSpace vertical :size="8">
-            <NText depth="3">
-              Phương thức thanh toán:
-            </NText>
+            <NText depth="3">Phương thức thanh toán:</NText>
             <NSpace>
               <NButton
                 :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small"
@@ -3497,11 +3503,9 @@ const bestSuggestion = computed(() => {
               >
                 Chuyển khoản
               </NButton>
-              
             </NSpace>
           </NSpace>
 
-          <!-- Nút xác nhận thanh toán -->
           <NPopconfirm positive-text="Đồng ý" negative-text="Hủy" @positive-click="xacNhan(0)">
             <template #trigger>
               <NButton type="primary" size="large" style="width: 100%; margin-top: 8px">
@@ -3516,7 +3520,7 @@ const bestSuggestion = computed(() => {
       </NCard>
     </div>
 
-    <!-- MODAL CHI TIẾT GỢI Ý (THÊM MỚI) -->
+    <!-- MODAL CHI TIẾT GỢI Ý -->
     <NModal
       v-model:show="showSuggestionDetailModal" preset="dialog" title="Chi tiết voucher tốt hơn"
       style="width: 500px"
@@ -3524,76 +3528,28 @@ const bestSuggestion = computed(() => {
       <NCard v-if="selectedSuggestion" size="small">
         <NSpace vertical :size="16">
           <NSpace justify="space-between" align="center">
-            <NText strong size="large">
-              {{ selectedSuggestion.code }}
-            </NText>
+            <NText strong size="large">{{ selectedSuggestion.code }}</NText>
             <NTag :type="getSuggestionTagType(selectedSuggestion.hieuQua)" size="medium">
               Hiệu quả: {{ selectedSuggestion.hieuQua }}%
             </NTag>
           </NSpace>
-
           <NDivider />
-
           <NSpace vertical :size="12">
             <NSpace justify="space-between">
-              <NText depth="3">
-                Tổng tiền hiện tại:
-              </NText>
-              <NText strong>
-                {{ formatCurrency(tienHang) }}
-              </NText>
+              <NText depth="3">Tổng tiền hiện tại:</NText>
+              <NText strong>{{ formatCurrency(tienHang) }}</NText>
             </NSpace>
-
             <NSpace justify="space-between">
-              <NText depth="3">
-                Cần đạt tổng:
-              </NText>
-              <NText strong class="text-primary">
-                {{ formatCurrency(selectedSuggestion.dieuKien) }}
-              </NText>
+              <NText depth="3">Cần mua thêm:</NText>
+              <NText strong class="text-warning">{{ formatCurrency(selectedSuggestion.canMuaThem) }}</NText>
             </NSpace>
-
-            <NSpace justify="space-between">
-              <NText depth="3">
-                Cần mua thêm:
-              </NText>
-              <NText strong class="text-warning">
-                {{ formatCurrency(selectedSuggestion.canMuaThem) }}
-              </NText>
-            </NSpace>
-
             <NDivider />
-
             <NSpace justify="space-between">
-              <NText depth="3">
-                Giảm giá hiện tại:
-              </NText>
-              <NText depth="3">
-                {{ formatCurrency(giamGia) }}
-              </NText>
-            </NSpace>
-
-            <NSpace justify="space-between">
-              <NText depth="3">
-                Giảm giá mới:
-              </NText>
-              <NText strong class="text-success">
-                {{ formatCurrency(selectedSuggestion.giamGiaMoi) }}
-              </NText>
-            </NSpace>
-
-            <NSpace justify="space-between">
-              <NText depth="3">
-                Được thêm:
-              </NText>
-              <NText strong class="text-success">
-                +{{ formatCurrency(selectedSuggestion.giamThem) }}
-              </NText>
+              <NText depth="3">Giảm thêm:</NText>
+              <NText strong class="text-success">+{{ formatCurrency(selectedSuggestion.giamThem) }}</NText>
             </NSpace>
           </NSpace>
-
           <NDivider />
-
           <NSpace justify="space-between" align="center">
             <NText depth="3" size="small">
               Mua thêm <strong>{{ formatCurrency(selectedSuggestion.canMuaThem) }}</strong>
@@ -3607,7 +3563,7 @@ const bestSuggestion = computed(() => {
       </NCard>
     </NModal>
 
-    <!-- MODAL CHỌN VOUCHER (CẬP NHẬT) -->
+    <!-- MODAL CHỌN VOUCHER -->
     <NModal
       v-model:show="showDiscountModal" preset="dialog" title="Chọn mã giảm giá" style="width: 700px"
       :mask-closable="false"
@@ -3626,17 +3582,7 @@ const bestSuggestion = computed(() => {
                         </NTag>
                       </template>
                       <template #description>
-                        <NSpace vertical :size="3" style="margin-top: 4px">
-                          <NText depth="3" size="small">
-                            Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
-                          </NText>
-                          <NText v-if="voucher.dieuKien > 0" depth="3" size="small">
-                            Điều kiện: {{ formatCurrency(voucher.dieuKien) }}
-                          </NText>
-                          <NText v-if="voucher.maxValue" depth="3" size="small">
-                            Tối đa: {{ formatCurrency(voucher.maxValue) }}
-                          </NText>
-                        </NSpace>
+                        <NText depth="3" size="small">Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}</NText>
                       </template>
                     </NThing>
                     <template #suffix>
@@ -3665,18 +3611,9 @@ const bestSuggestion = computed(() => {
                       </NTag>
                     </template>
                     <template #description>
-                      <NSpace vertical :size="3" style="margin-top: 4px">
-                        <NText depth="3" size="small">
-                          Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem)
-                          }}
-                        </NText>
-                        <NText depth="3" size="small">
-                          Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
-                        </NText>
-                        <NText depth="3" size="small">
-                          Điều kiện: {{ formatCurrency(suggestion.dieuKien) }}
-                        </NText>
-                      </NSpace>
+                      <NText depth="3" size="small">
+                        Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem) }} | Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
+                      </NText>
                     </template>
                   </NThing>
                   <template #suffix>
@@ -3692,21 +3629,15 @@ const bestSuggestion = computed(() => {
       </NCard>
       <template #action>
         <NSpace justify="end">
-          <NButton v-if="selectedVoucher" @click="removeVoucher">
-            Bỏ chọn
-          </NButton>
-          <NButton type="primary" :loading="autoApplying" @click="triggerAutoApplyVoucher">
-            Tìm lại voucher
-          </NButton>
-          <NButton @click="showDiscountModal = false">
-            Đóng
-          </NButton>
+          <NButton v-if="selectedVoucher" @click="removeVoucher">Bỏ chọn</NButton>
+          <NButton type="primary" :loading="autoApplying" @click="triggerAutoApplyVoucher">Tìm lại voucher</NButton>
+          <NButton @click="showDiscountModal = false">Đóng</NButton>
         </NSpace>
       </template>
     </NModal>
   </div>
 
-  <!-- Modals -->
+  <!-- Modal chọn sản phẩm -->
   <NModal
     v-model:show="showProductModal" preset="dialog" title="Chọn sản phẩm" style="width: 90%; max-width: 1400px"
     :mask-closable="false"
@@ -3714,14 +3645,10 @@ const bestSuggestion = computed(() => {
     <NCard size="small" :bordered="false">
       <template #header>
         <NSpace vertical :size="12">
-          <!-- Hàng 1: Tìm kiếm và khoảng giá -->
           <NGrid :cols="24" :x-gap="12" :y-gap="12">
-            <!-- Ô tìm kiếm -->
             <NGi :span="12">
               <NInput v-model:value="localSearchQuery" placeholder="Tìm kiếm sản phẩm..." clearable />
             </NGi>
-
-            <!-- Khoảng giá với slider -->
             <NGi :span="12">
               <NFormItem label="Khoảng giá" label-placement="left">
                 <NSpace vertical :size="12" style="width: 100%">
@@ -3730,19 +3657,14 @@ const bestSuggestion = computed(() => {
                     :max="stateMinMaxPrice.priceMax" :format-tooltip="formatTooltipRangePrice" style="width: 100%"
                   />
                   <NSpace justify="space-between" style="width: 100%">
-                    <NText depth="3">
-                      {{ formatCurrency(priceRange[0]) }}
-                    </NText>
-                    <NText depth="3">
-                      {{ formatCurrency(priceRange[1]) }}
-                    </NText>
+                    <NText depth="3">{{ formatCurrency(priceRange[0]) }}</NText>
+                    <NText depth="3">{{ formatCurrency(priceRange[1]) }}</NText>
                   </NSpace>
                 </NSpace>
               </NFormItem>
             </NGi>
           </NGrid>
 
-          <!-- Hàng 2: 6 combobox filter -->
           <NGrid :cols="24" :x-gap="12" :y-gap="12">
             <NGi :span="4">
               <NSelect v-model:value="localColor" :options="ColorOptions" placeholder="Màu sắc" clearable />
@@ -3760,22 +3682,16 @@ const bestSuggestion = computed(() => {
               <NSelect v-model:value="localHardDrive" :options="HardDriveOptions" placeholder="Ổ cứng" clearable />
             </NGi>
             <NGi :span="4">
-              <NSelect
-                v-model:value="localSelectedMaterial" :options="MaterialOptions" placeholder="Chất liệu"
-                clearable
-              />
+              <NSelect v-model:value="localSelectedMaterial" :options="MaterialOptions" placeholder="Chất liệu" clearable />
             </NGi>
           </NGrid>
 
-          <!-- Hàng 3: Nút reset -->
           <NGrid :cols="24" :x-gap="12">
             <NGi :span="24">
               <NSpace justify="end">
                 <NButton type="default" size="small" secondary @click="resetFilters">
                   <template #icon>
-                    <NIcon>
-                      <ReloadOutline />
-                    </NIcon>
+                    <NIcon><ReloadOutline /></NIcon>
                   </template>
                   Đặt lại bộ lọc
                 </NButton>
@@ -3784,27 +3700,14 @@ const bestSuggestion = computed(() => {
           </NGrid>
         </NSpace>
       </template>
-      <!-- <NDataTable
-        :columns="columns" :data="filteredProducts" :max-height="400" size="small" :pagination="{
-          page: stateSP.paginationParams.page,
-          pageSize: stateSP.paginationParams.size,
-          pageCount: Math.ceil(stateSP.totalItems / stateSP.paginationParams.size),
-          showSizePicker: true,
-          pageSizes: [10, 20, 30, 40, 50],
-        }" @update:page="handlePageChange" @update:page-size="handlePageSizeChange"
-      /> -->
 
-        <NDataTable
-          :columns="columns"
-          :data="filteredProducts"
-          :max-height="400"
-          size="small"
-          :pagination="{
-            pageSize: 10,
-            showSizePicker: true,
-            pageSizes: [10, 20, 50],
-          }"
-         />  
+      <NDataTable
+        :columns="columns"
+        :data="filteredProducts"
+        :max-height="400"
+        size="small"
+        :pagination="{ pageSize: 10, showSizePicker: true, pageSizes: [10, 20, 50] }"
+      />
     </NCard>
   </NModal>
 
@@ -3817,45 +3720,37 @@ const bestSuggestion = computed(() => {
       <template #header>
         <NSpace align="center" justify="space-between" class="serial-modal-header">
           <div>
-            <NText strong>
-              {{ selectedProductDetail?.name }} - {{ selectedProductDetail?.code }}
-            </NText>
+            <NText strong>{{ selectedProductDetail?.name }} - {{ selectedProductDetail?.code }}</NText>
             <NText depth="3" size="small" style="display: block; margin-top: 4px">
               Giá: {{ formatCurrency(selectedProductDetail?.price || 0) }}
             </NText>
           </div>
           <div style="text-align: right">
-            <NText type="primary" strong>
-              Còn {{ availableSerialsCount }} serial khả dụng
-            </NText>
+            <NText type="primary" strong>Còn {{ availableSerialsCount }} serial khả dụng</NText>
             <NText depth="3" size="small" style="display: block; margin-top: 4px">
               Tổng: {{ selectedSerials.length }} serial
             </NText>
           </div>
         </NSpace>
         <NInput
-            v-model:value="serialSearchQuery"
-            placeholder="Tìm theo số serial/IMEI..."
-            clearable
-            style="margin-top: 12px"
-            @clear="serialSearchQuery = ''"
-          >
-            <template #prefix>
-              <NIcon><SearchOutline /></NIcon>
-            </template>
+          v-model:value="serialSearchQuery"
+          placeholder="Tìm theo số serial/IMEI..."
+          clearable
+          style="margin-top: 12px"
+          @clear="serialSearchQuery = ''"
+        >
+          <template #prefix>
+            <NIcon><SearchOutline /></NIcon>
+          </template>
         </NInput>
       </template>
 
-      <!-- Thêm loading state -->
       <div v-if="loadingSerials" style="text-align: center; padding: 40px">
         <n-spin size="large">
-          <template #description>
-            Đang tải danh sách serial...
-          </template>
+          <template #description>Đang tải danh sách serial...</template>
         </n-spin>
       </div>
 
-      <!-- Data table khi có dữ liệu -->
       <NDataTable
         v-else :columns="serialColumns" :data="filteredSerials" :max-height="400" size="small"
         :pagination="{ pageSize: 10 }" :loading="loadingSerials" :bordered="false"
@@ -3863,13 +3758,9 @@ const bestSuggestion = computed(() => {
 
       <template #footer>
         <NSpace justify="space-between" align="center" style="width: 100%">
-          <NText depth="3">
-            Đã chọn {{ selectedSerialIds.length }} serial
-          </NText>
+          <NText depth="3">Đã chọn {{ selectedSerialIds.length }} serial</NText>
           <NSpace>
-            <NButton @click="showSerialModal = false">
-              Hủy
-            </NButton>
+            <NButton @click="showSerialModal = false">Hủy</NButton>
             <NButton
               type="primary" :disabled="selectedSerialIds.length === 0 || loadingSerials"
               :loading="loadingSerials" @click="addSerialToCart"
@@ -3890,9 +3781,7 @@ const bestSuggestion = computed(() => {
       <NSpace vertical :size="16">
         <NInput v-model:value="customerSearchQuery" placeholder="Tìm kiếm theo tên hoặc số điện thoại..." clearable>
           <template #prefix>
-            <NIcon>
-              <SearchOutline />
-            </NIcon>
+            <NIcon><SearchOutline /></NIcon>
           </template>
         </NInput>
 
@@ -3915,9 +3804,7 @@ const bestSuggestion = computed(() => {
     @negative-click="closeBothPaymentModal"
   >
     <NSpace vertical :size="16">
-      <NText depth="3">
-        Quét QR để thanh toán phần còn lại
-      </NText>
+      <NText depth="3">Quét QR để thanh toán phần còn lại</NText>
       <NImage src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
       <NForm :model="paymentForm">
         <NFormItem label="Số tiền khách đưa (VND)" path="amountPaid">
@@ -3926,17 +3813,11 @@ const bestSuggestion = computed(() => {
       </NForm>
       <NSpace vertical :size="8">
         <NSpace justify="space-between">
-          <NText depth="3">
-            Tổng tiền khách đã trả:
-          </NText>
-          <NText strong>
-            {{ formatCurrency(tienKhachThanhToan + (amountPaid || 0)) }}
-          </NText>
+          <NText depth="3">Tổng tiền khách đã trả:</NText>
+          <NText strong>{{ formatCurrency(tienKhachThanhToan + (amountPaid || 0)) }}</NText>
         </NSpace>
         <NSpace justify="space-between">
-          <NText depth="3">
-            Tiền còn thiếu:
-          </NText>
+          <NText depth="3">Tiền còn thiếu:</NText>
           <NText type="error" strong>
             {{ formatCurrency(Math.max(0, tongTien - (tienKhachThanhToan + (amountPaid || 0)))) }}
           </NText>
@@ -3950,9 +3831,7 @@ const bestSuggestion = computed(() => {
     :mask-closable="false" @positive-click="closeQrModalVnPay"
   >
     <NSpace vertical align="center" :size="16">
-      <NText depth="3">
-        Quét mã QR để thanh toán qua VNPay
-      </NText>
+      <NText depth="3">Quét mã QR để thanh toán qua VNPay</NText>
       <NImage src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
     </NSpace>
   </NModal>
@@ -3964,63 +3843,32 @@ const bestSuggestion = computed(() => {
   >
     <NSpace vertical align="center" :size="16">
       <NText>Đang có một phiếu giảm giá tốt hơn</NText>
-      <NText type="primary" strong>
-        {{ phieuNgon }}
-      </NText>
-      <NText depth="3">
-        Bạn có muốn áp dụng không?
-      </NText>
+      <NText type="primary" strong>{{ phieuNgon }}</NText>
+      <NText depth="3">Bạn có muốn áp dụng không?</NText>
     </NSpace>
   </NModal>
 
+  <!-- ✅ THAY ĐỔI 7: Modal quét barcode - đổi title và giao diện phù hợp barcode -->
   <NModal
-    v-model:show="isQrModalVisible" preset="dialog" title="Quét mã QR sản phẩm" :mask-closable="false"
-    @after-leave="stopQrScanning"
+    v-model:show="isBarcodeModalVisible"
+    preset="dialog"
+    title="Quét Barcode Serial"
+    :mask-closable="false"
+    @update:show="(val) => { if (!val) closeQrModal() }"
   >
     <NCard size="small" :bordered="false">
-      <div id="reader" style="width: 100%; max-width: 400px; margin: 0 auto;" />
+      <!-- Hướng dẫn scan barcode -->
+      <NAlert type="info" size="small" show-icon style="margin-bottom: 12px;">
+        Đặt barcode vào khung hình chữ nhật để quét. Hỗ trợ Code128, Code39, EAN, UPC.
+      </NAlert>
+
+      <!-- Vùng quét - hình chữ nhật nằm ngang phù hợp barcode 1D -->
+      <div id="reader" style="width: 100%; max-width: 440px; margin: 0 auto;" />
+
       <NAlert v-if="!hasCamera" type="error" title="Lỗi camera" class="mt-2">
         Không tìm thấy camera hoặc không có quyền truy cập camera.
       </NAlert>
     </NCard>
-  </NModal>
-
-  <NModal
-    v-model:show="showDiscountModal" preset="dialog" title="Chọn mã giảm giá" style="width: 600px"
-    :mask-closable="false"
-  >
-    <NCard size="small" :bordered="false">
-      <NList v-if="state.discountList.length > 0" class="discount-list">
-        <NListItem v-for="item in state.discountList" :key="item.id">
-          <NThing :title="item.ma" :description="item.ten">
-            <template #avatar>
-              <NTag type="success" size="small">
-                {{ formatCurrency(item.giaTriGiamThucTe) }}
-              </NTag>
-            </template>
-          </NThing>
-          <template #suffix>
-            <NButton
-              type="primary" size="small" :disabled="!!selectedDiscount && selectedDiscount.id === item.id"
-              @click="selectDiscount(item)"
-            >
-              {{ selectedDiscount?.id === item.id ? 'Đã chọn' : 'Chọn' }}
-            </NButton>
-          </template>
-        </NListItem>
-      </NList>
-      <NEmpty v-else description="Không có mã giảm giá nào phù hợp" />
-    </NCard>
-    <template #action>
-      <NSpace justify="end">
-        <NButton v-if="selectedDiscount" @click="resetDiscount">
-          Bỏ chọn
-        </NButton>
-        <NButton @click="showDiscountModal = false">
-          Đóng
-        </NButton>
-      </NSpace>
-    </template>
   </NModal>
 </template>
 
@@ -4100,6 +3948,10 @@ const bestSuggestion = computed(() => {
   margin-top: 4px;
 }
 
+.mt-2 {
+  margin-top: 8px;
+}
+
 .filter-price-range {
   background: #f5f5f5;
   padding: 8px 12px;
@@ -4111,6 +3963,21 @@ const bestSuggestion = computed(() => {
   border-bottom: 1px solid #f0f0f0;
   padding-bottom: 12px;
   margin-bottom: 16px;
+}
+
+/* Style cho barcode scanner region - hình chữ nhật ngang */
+:deep(#reader) {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+:deep(#reader video) {
+  border-radius: 8px;
+}
+
+/* Đảm bảo scan box hình chữ nhật */
+:deep(#reader__scan_region) {
+  background: transparent !important;
 }
 
 @media (max-width: 1200px) {
@@ -4135,19 +4002,7 @@ const bestSuggestion = computed(() => {
   }
 }
 
-/* Style cho checkbox trong bảng serial */
 :deep(.n-checkbox) {
   margin-right: 0;
-}
-
-/* Responsive cho bảng */
-@media (max-width: 768px) {
-  .main-layout {
-    padding: 8px;
-  }
-
-  .n-card {
-    margin-bottom: 12px;
-  }
 }
 </style>

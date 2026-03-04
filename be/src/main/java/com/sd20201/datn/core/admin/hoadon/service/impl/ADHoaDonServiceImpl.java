@@ -602,7 +602,6 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
         }
     }
 
-    // Các phương thức khác giữ nguyên
     @Override
     public ResponseObject<?> getAllHoaDon(ADHoaDonSearchRequest request) {
         try {
