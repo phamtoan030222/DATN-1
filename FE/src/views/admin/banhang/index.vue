@@ -199,7 +199,6 @@ const autoApplying = ref(false)
 const applyingBetterVoucher = ref<string | null>(null)
 const betterDiscountMessage = ref('')
 const isBestDiscountApplied = ref(false)
-const phieuNgon = ref('')
 
 // State cho giao hàng
 const isDeliveryEnabled = ref(false)
@@ -221,10 +220,8 @@ const districtCode = ref<number | null>(null)
 const wardCode = ref<string | null>(null)
 const isFreeShipping = ref(false)
 const currentDeliveryInfo = ref<ThongTinGiaoHangResponse | null>(null)
-const deliveryInfoByInvoice = reactive<{ [key: string]: any }>({})
 
 // State cho thanh toán
-const soTien = ref(0)
 const tienKhachThanhToan = ref(0)
 const tienThieu = ref(0)
 const tongTien = ref(0)
@@ -255,16 +252,10 @@ const imeiDaChon = ref<
 // State cho modals
 const showKhachHangModal = ref(false)
 const showProductModal = ref(false)
-const showDiscountModal = ref(false)
-const showDeliveryModal = ref(false)
 const showSuggestionDetailModal = ref(false)
 const selectedSuggestion = ref<any>(null)
-const discountTab = ref('auto')
 const addCustomerLoading = ref(false)
 const isQrVNpayModalVisible = ref(false)
-const isQrModalVisible = ref(false)
-const qrData = ref('')
-const hasCamera = ref(true)
 const qrCodeUrl = ref('/images/qr.png')
 
 // State cho thanh toán kết hợp
@@ -280,35 +271,6 @@ const bothPaymentMethod = ref<'CASH_FIRST' | 'BANKING_FIRST'>('CASH_FIRST')
  */
 const availableSerialsCount = computed(() => {
   return selectedSerials.value.filter(s => s.imeiStatus === 'AVAILABLE').length
-})
-
-/**
- * Giá nhỏ nhất trong danh sách sản phẩm
- */
-const minProductPrice = computed(() => {
-  if (stateSP.products.length === 0)
-    return 0
-  const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
-  return prices.length > 0 ? Math.min(...prices) : 0
-})
-
-/**
- * Giá lớn nhất trong danh sách sản phẩm
- */
-const maxProductPrice = computed(() => {
-  if (stateSP.products.length === 0)
-    return 0
-  const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
-  return prices.length > 0 ? Math.max(...prices) : 0
-})
-
-/**
- * Kiểm tra có voucher gợi ý tốt hơn không
- */
-const hasBetterVoucherSuggestion = computed(() => {
-  return state.autoVoucherResult?.voucherTotHon?.some(
-    v => v.giamThem > (selectedVoucher.value?.giamGiaThucTe || 0),
-  )
 })
 
 // ==================== WATCHERS ====================
