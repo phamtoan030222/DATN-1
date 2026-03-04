@@ -94,7 +94,7 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
     List<ClientBanHangProductDetailCartResponse> findProductDetailCartResponseByIdIn(List<String> ids, Long time);
 
     @Query(value = """
-    SELECT :quantity < count(i.id)
+    SELECT :quantity <= count(i.id)
     FROM ProductDetail pd
     LEFT JOIN IMEI i on pd.id = i.productDetail.id
     WHERE pd = :productDetail
