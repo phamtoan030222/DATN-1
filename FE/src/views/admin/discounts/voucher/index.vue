@@ -36,7 +36,7 @@ const router = useRouter()
 const message = useMessage()
 
 /* ===================== Formatters ===================== */
-function formatDateTime(timestamp: number | undefined) {
+function formatDateTime(timestamp: number | null | undefined) {
   if (!timestamp)
     return '-'
   return new Date(timestamp).toLocaleString('vi-VN', {
@@ -65,7 +65,7 @@ function getVoucherStatus(row: ADVoucherResponse) {
   const isOutOfStock = remainingQuantity !== null && remainingQuantity <= 0
   if (isExpired || isOutOfStock)
     return { text: 'Đã kết thúc', type: 'default', value: 'ENDED' }
-  const isPaused = row.status === 1 || row.status === 'INACTIVE'
+  const isPaused = row.status === 'INACTIVE'
   if (isPaused)
     return { text: 'Tạm dừng', type: 'warning', value: 'PAUSED' }
   return { text: 'Đang diễn ra', type: 'success', value: 'ONGOING' }
@@ -123,7 +123,7 @@ async function handleSwitchStatus(row: ADVoucherResponse) {
   if (switchingId.value)
     return
   const originalStatus = row.status
-  const isCurrentlyActive = row.status === 0 || row.status === 'ACTIVE'
+  const isCurrentlyActive = row.status === 'ACTIVE' || row.status === 0
 
   switchingId.value = row.id || null
 
@@ -397,7 +397,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
         }))
       }
       else if (!isEnded) {
-        const isChecked = row.status === 0 || row.status === 'ACTIVE'
+        const isChecked = (row.status === 'ACTIVE' || row.status === 0) as any
         // [MỚI] Hiệu ứng load trên switch
         const isSwitchingThisRow = switchingId.value === row.id
 
@@ -443,7 +443,13 @@ onMounted(() => fetchData())
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
-              <NButton size="large" circle secondary type="success" class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="resetFilters">
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="success"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                @click="resetFilters">
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
                 </NIcon>
@@ -459,9 +465,15 @@ onMounted(() => fetchData())
           <div class="text-xs font-bold text-black-600 mb-1 ml-1">
             Tìm kiếm chung
           </div>
-          <NInput v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
+          <NInput
+            v-model:value="filters.keyword"
+            placeholder="Tìm theo mã hoặc tên phiếu..."
+            clearable
+            @input="handleSearch">
             <template #prefix>
-              <NIcon><Icon icon="carbon:search" class="text-gray-600" /></NIcon>
+              <NIcon>
+                <Icon icon="carbon:search" class="text-gray-600" />
+              </NIcon>
             </template>
           </NInput>
         </div>
@@ -490,45 +502,89 @@ onMounted(() => fetchData())
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton type="primary" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="openAddPage">
+            <NButton
+              type="primary"
+              secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="openAddPage">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tạo mới</span>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tạo
+                mới</span>
             </NButton>
-            <NButton type="success" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" :loading="exportLoading" :disabled="loading" @click="handleExportExcel">
+            <NButton
+              type="success"
+              secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              :loading="exportLoading"
+              :disabled="loading"
+              @click="handleExportExcel">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="file-icons:microsoft-excel" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất Excel</span>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất
+                Excel</span>
             </NButton>
-            <NButton type="info" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="fetchData">
+            <NButton
+              type="info"
+              secondary
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="fetchData">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tải lại</span>
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tải
+                lại</span>
             </NButton>
           </NSpace>
         </div>
       </template>
 
-      <NDataTable v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading" :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" class="rounded-lg overflow-hidden" />
+      <NDataTable
+        v-model:checked-row-keys="checkedRowKeys"
+        :columns="columns"
+        :data="displayData"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        striped
+        :scroll-x="1200"
+        class="rounded-lg overflow-hidden"
+      />
 
       <div class="flex justify-end mt-4">
-        <NPagination v-model:page="pagination.page" v-model:page-size="pagination.pageSize" :item-count="pagination.itemCount" :page-sizes="[5, 10, 20, 50]" :show-size-picker="true" />
+        <NPagination
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :item-count="pagination.itemCount"
+          :page-sizes="[5, 10, 20, 50]"
+          :show-size-picker="true"
+        />
       </div>
     </NCard>
   </div>
 </template>
 
 <style scoped>
-:deep(.n-input .n-input__input-el) { font-size: 14px; }
-:deep(.n-slider .n-slider-rail .n-slider-rail__fill) { background-color: #16a34a !important; }
-:deep(.n-slider:hover .n-slider-rail .n-slider-rail__fill) { background-color: #15803d !important; }
+:deep(.n-input .n-input__input-el) {
+  font-size: 14px;
+}
+
+:deep(.n-slider .n-slider-rail .n-slider-rail__fill) {
+  background-color: #16a34a !important;
+}
+
+:deep(.n-slider:hover .n-slider-rail .n-slider-rail__fill) {
+  background-color: #15803d !important;
+}
 </style>

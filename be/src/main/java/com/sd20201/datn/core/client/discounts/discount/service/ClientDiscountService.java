@@ -4,8 +4,11 @@ import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDisco
 import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDscountFilterRequest;
 import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDiscountUpdateRequest;
 import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDiscountValidateRequest;
+import com.sd20201.datn.core.client.discounts.discount.model.response.ClientDiscountResponse;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import jakarta.validation.Valid;
+
+import java.util.List;
 
 public interface ClientDiscountService {
     ResponseObject<?> getAllDiscounts(ClientDiscountRequest request);
@@ -24,4 +27,5 @@ public interface ClientDiscountService {
 
     ResponseObject<?> sendEmailDiscount(String id);
 
+    List<ClientDiscountResponse> layDanhSachSaleDangHoatDong();
 }
