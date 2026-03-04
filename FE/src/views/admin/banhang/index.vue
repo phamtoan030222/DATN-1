@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import type { Address } from '@/service/api/admin/users/customer/address'
 import type {
   GoiYVoucherResponse,
   KhachHangResponse,
@@ -24,14 +25,12 @@ import {
   getProductDetails,
   getRAMs,
   huyHoaDon,
-
   suaGiaoHang,
   thanhToanThanhCong,
   themKhachHang,
   themMoiKhachHang,
   themSanPham,
   themSL,
-
   xoaSL,
   xoaSP,
 } from '@/service/api/admin/banhang.api'
@@ -39,7 +38,6 @@ import type { ADPDImeiResponse, ADProductDetailRequest, ADProductDetailResponse 
 import type { AvailableServiceRequest, ShippingFeeRequest } from '@/service/api/ghn.api'
 import { calculateFee, getAvailableServices, getGHNDistricts, getGHNProvinces, getGHNWards } from '@/service/api/ghn.api'
 import { localStorageAction } from '@/utils/storage'
-// ✅ THAY ĐỔI 1: Import thêm Html5QrcodeSupportedFormats để hỗ trợ barcode
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
@@ -50,8 +48,8 @@ import 'vue3-toastify/dist/index.css'
 // Naive UI Icons
 import {
   AddCircleOutline,
-  // ✅ THAY ĐỔI 2: Import BarcodeOutline thay QrCodeOutline
   BarcodeOutline,
+  CloseOutline,
   ReloadOutline,
   SearchOutline,
   TrashOutline,
@@ -68,7 +66,6 @@ import {
   NDivider,
   NEmpty,
   NForm,
-  NFormItem,
   NFormItemGi,
   NGi,
   NGrid,
@@ -90,7 +87,14 @@ import {
   NTooltip,
 } from 'naive-ui'
 
-// Local filter variables
+// ==================== CONSTANTS ====================
+const USER_INFO = localStorageAction.get(USER_INFO_STORAGE_KEY)
+const GHN_API_TOKEN = '72f634c6-58a2-11f0-8a1e-1e10d8df3c04'
+const GHN_SHOP_ID = 5872469
+const FROM_DISTRICT_ID = 3440
+const FROM_WARD_CODE = '13010'
+
+// ==================== FILTER STATE ====================
 const localSearchQuery = ref('')
 const localColor = ref<string | null>(null)
 const localCPU = ref<string | null>(null)
@@ -99,26 +103,17 @@ const localRAM = ref<string | null>(null)
 const localHardDrive = ref<string | null>(null)
 const localSelectedMaterial = ref<string | null>(null)
 
-const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
+// ==================== MASTER DATA ====================
 const ColorOptions = ref<{ label: string, value: string }[]>([])
 const CpuOptions = ref<{ label: string, value: string }[]>([])
 const GpuOptions = ref<{ label: string, value: string }[]>([])
 const RamOptions = ref<{ label: string, value: string }[]>([])
 const HardDriveOptions = ref<{ label: string, value: string }[]>([])
 const MaterialOptions = ref<{ label: string, value: string }[]>([])
+const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
+const selectedDiscount = ref<PhieuGiamGiaResponse | null>(null)
 
-const isBothPaymentModalVisible = ref(false)
-const amountPaid = ref(0)
-const bothPaymentLoading = ref(false)
-const soTien = ref(0)
-const tienKhachThanhToan = ref(0)
-const tienThieu = ref(0)
-const tongTien = ref(0)
-const tongTienTruocGiam = ref(0)
-const giamGia = ref(0)
-const tienHang = ref(0)
-const idSP = ref('')
-const idHDS = ref('')
+// ==================== INVOICE STATE ====================
 const tabs = ref<Array<{
   id: number
   idHD: string
@@ -129,15 +124,52 @@ const tabs = ref<Array<{
   isTemp?: boolean
 }>>([])
 const activeTab = ref(0)
-const idPGG = ref('')
-let nextTabId = 1
+const idHDS = ref('')
 const loaiHD = ref('')
-const showDiscountModal = ref(false)
-const discountList = ref<PhieuGiamGiaResponse[]>([])
-const selectedDiscount = ref<PhieuGiamGiaResponse | null>(null)
-const selectedDiscountCode = ref<string>('')
+let nextTabId = 1
+const soTien = ref(0)
+
+// ==================== CART STATE ====================
+const state = reactive({
+  gioHang: [] as any[],
+  detailKhachHang: null as KhachHangResponse | null,
+  discountList: [] as PhieuGiamGiaResponse[],
+  phuongThuThanhToan: [] as PhuongThucThanhToanResponse[],
+  khachHang: [] as KhachHangResponse[],
+  products: [] as ADProductDetailResponse[],
+  autoVoucherResult: null as GoiYVoucherResponse | null,
+  currentPaymentMethod: '0',
+  paginationParams: { page: 1, size: 10 },
+  totalItemsKH: 0,
+})
+
+// ==================== PRODUCT STATE ====================
+const stateSP = reactive({
+  products: [] as ADProductDetailResponse[],
+  paginationParams: { page: 1, size: 10 },
+  totalItems: 0,
+})
+
+// ==================== VOUCHER STATE ====================
+const selectedVoucher = ref<any>(null)
+const applyingVoucher = ref<string | null>(null)
+const autoApplying = ref(false)
+const giamGia = ref(0)
+const betterDiscountMessage = ref('')
+const showSuggestionDetailModal = ref(false)
+const selectedSuggestion = ref<any>(null)
+
+// ==================== PAYMENT STATE ====================
+const tienHang = ref(0)
+const tongTien = ref(0)
+const tongTienTruocGiam = ref(0)
+const tienKhachThanhToan = ref(0)
+const tienThieu = ref(0)
+const shippingFee = ref(0)
+const isFreeShipping = ref(false)
+
+// ==================== DELIVERY STATE ====================
 const isDeliveryEnabled = ref(false)
-const showDeliveryModal = ref(false)
 const deliveryInfo = reactive({
   tenNguoiNhan: '',
   sdtNguoiNhan: '',
@@ -147,221 +179,78 @@ const deliveryInfo = reactive({
   diaChiCuThe: '',
   ghiChu: '',
 })
-const currentDeliveryInfo = ref<ThongTinGiaoHangResponse | null>(null)
-const customerSearchQuery = ref('')
-const betterDiscountMessage = ref('')
-const deliveryInfoByInvoice = reactive<{ [key: string]: any }>({})
-// GHN specific states
 const provinces = ref<Array<{ value: string, label: string, code: string }>>([])
 const districts = ref<Array<{ value: string, label: string, code: string }>>([])
 const wards = ref<Array<{ value: string, label: string, code: string }>>([])
-const shippingFee = ref(0)
 const provinceCode = ref<number | null>(null)
 const districtCode = ref<number | null>(null)
 const wardCode = ref<string | null>(null)
-const FROM_DISTRICT_ID = 3440
-const FROM_WARD_CODE = '13010'
-const isBestDiscountApplied = ref(false)
-const phieuNgon = ref('')
-const GHN_API_TOKEN = '72f634c6-58a2-11f0-8a1e-1e10d8df3c04'
-const GHN_SHOP_ID = 5872469
+const deliveryInfoByInvoice = reactive<{ [key: string]: any }>({})
 
-// State cho modal serial
+// ==================== DELIVERY EDIT MODAL ====================
+const showDeliveryEditModal = ref(false)
+const editDeliveryForm = reactive({
+  tenNguoiNhan: '',
+  sdtNguoiNhan: '',
+  tinhThanhPho: null as string | null,
+  quanHuyen: null as string | null,
+  phuongXa: null as string | null,
+  diaChiCuThe: '',
+  ghiChu: '',
+})
+const editProvinceCode = ref<number | null>(null)
+const editDistrictCode = ref<number | null>(null)
+const editWardCode = ref<string | null>(null)
+
+// ==================== CUSTOMER STATE ====================
+const customerSearchQuery = ref('')
+const newCustomer = reactive({ ten: '', sdt: '' })
+const addCustomerLoading = ref(false)
+
+// ==================== IMEI STATE ====================
 const showSerialModal = ref(false)
 const selectedProductDetail = ref<ADProductDetailResponse | null>(null)
-const selectedSerials = ref<ADPDImeiResponse[]>([]) // Sửa type cho đúng
+const selectedSerials = ref<ADPDImeiResponse[]>([])
 const selectedSerialIds = ref<string[]>([])
-const loadingSerials = ref(false) // Thêm loading state
-
-// Hoặc tạo state riêng
+const loadingSerials = ref(false)
+const serialSearchQuery = ref('')
 const imeiDaChon = ref<Array<{
   idHoaDonChiTiet: string
   danhSachImei: string[]
 }>>([])
 
-async function fetchSerialsByProduct(productId: string) {
-  try {
-    console.log('Fetching serials for product:', productId)
+// ==================== MODAL STATE ====================
+const showProductModal = ref(false)
+const showKhachHangModal = ref(false)
+const showDiscountModal = ref(false)
+const showDeliveryModal = ref(false)
+const isBothPaymentModalVisible = ref(false)
+const isQrVNpayModalVisible = ref(false)
+const isBarcodeModalVisible = ref(false)
 
-    // Sử dụng API thực tế để lấy danh sách IMEI
-    const response = await getImeiProductDetail(productId)
-    console.log('API Response:', response)
+// ==================== BARCODE SCANNER ====================
+let html5QrCode: Html5Qrcode
+let isScannerRunning = false
+const hasCamera = ref(true)
 
-    if (response.data && Array.isArray(response.data)) {
-      selectedSerials.value = response.data
-      console.log('Loaded serials:', selectedSerials.value.length, selectedSerials.value)
-    }
-    else {
-      console.warn('API response structure is not as expected:', response)
-      selectedSerials.value = []
-    }
-
-    selectedSerialIds.value = []
-    serialSearchQuery.value = ''
-    showSerialModal.value = true
-  }
-  catch (error) {
-    console.error('Failed to fetch serials:', error)
-    toast.error('Lấy danh sách serial thất bại!')
-    selectedSerials.value = []
-  }
-  finally {
-    loadingSerials.value = false
-  }
-}
-
-const serialSearchQuery = ref('')
-
-const filteredSerials = computed(() => {
-  if (!serialSearchQuery.value.trim())
-    return selectedSerials.value
-  const keyword = serialSearchQuery.value.trim().toLowerCase()
-  return selectedSerials.value.filter(s =>
-    s.code?.toLowerCase().includes(keyword),
-  )
-})
-
-// Hàm chọn sản phẩm để xem serial
-async function selectProductForSerial(product: ADProductDetailResponse) {
-  selectedProductDetail.value = product
-  loadingSerials.value = true
-  selectedSerials.value = []
-  selectedSerialIds.value = []
-
-  // Gọi API để lấy danh sách serial
-  await fetchSerialsByProduct(product.id)
-}
-
-// Hàm thêm serial (IMEI) vào giỏ hàng - CHUẨN NGHIỆP VỤ
-async function addSerialToCart() {
-  if (selectedSerialIds.value.length === 0) {
-    toast.warning('Vui lòng chọn ít nhất 1 serial')
-    return
-  }
-
-  if (!idHDS.value) {
-    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
-    return
-  }
-
-  if (!selectedProductDetail.value) {
-    toast.error('Không có thông tin sản phẩm!')
-    return
-  }
-
-  try {
-    // 1. Lấy danh sách IMEI đã chọn
-    const imeisDaChon = selectedSerials.value
-      .filter(s => selectedSerialIds.value.includes(s.id))
-      .map(s => ({
-        imeiCode: s.code, // Mã IMEI
-        imeiId: s.id, // ID IMEI
-      }))
-
-    console.log('IMEIs đã chọn:', imeisDaChon)
-
-    // 2. Gọi API thêm sản phẩm (hiện tại của bạn)
-    const payload: ADThemSanPhamRequest = {
-      invoiceId: idHDS.value,
-      productDetailId: selectedProductDetail.value.id,
-      imeiIds: imeisDaChon.map(i => i.imeiId), // Gửi ID IMEI
-    }
-
-    await themSanPham(payload)
-
-    // 3. LƯU IMEI ĐÃ CHỌN VÀO STATE để dùng khi thanh toán
-    // Tìm hoặc tạo idHoaDonChiTiet (giả sử lấy từ response)
-    // Hoặc lưu tạm với product id
-
-    // Cách tạm thời: lưu theo productId
-    const existingIndex = imeiDaChon.value.findIndex(
-      item => item.idHoaDonChiTiet === selectedProductDetail.value?.id,
-    )
-
-    if (existingIndex >= 0) {
-      // Cập nhật danh sách IMEI
-      imeiDaChon.value[existingIndex].danhSachImei = [
-        ...imeiDaChon.value[existingIndex].danhSachImei,
-        ...imeisDaChon.map(i => i.imeiCode),
-      ]
-    }
-    else {
-      // Thêm mới
-      imeiDaChon.value.push({
-        idHoaDonChiTiet: selectedProductDetail.value.id, // Tạm dùng productId
-        danhSachImei: imeisDaChon.map(i => i.imeiCode),
-      })
-    }
-
-    // 4. Thông báo thành công
-    toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`)
-
-    // 5. Reset và đóng modal
-    showSerialModal.value = false
-    selectedSerialIds.value = []
-    selectedSerials.value = []
-
-    // 6. Refresh giỏ hàng
-    await refreshCart()
-    await fetchDiscounts(idHDS.value)
-    await fetchHoaDon()
-  }
-  catch (error) {
-    console.error('Failed to add serials to cart:', error)
-    toast.error('Thêm serial vào giỏ hàng thất bại!')
-  }
-}
-
-// Hàm refresh giỏ hàng
-async function refreshCart() {
-  if (idHDS.value) {
-    const response = await GetGioHang(idHDS.value)
-    state.gioHang = response
-
-    // Cập nhật mapping IMEI với idHoaDonChiTiet thực tế
-    // (Cần backend trả về idHoaDonChiTiet trong response)
-
-    await fetchDiscounts(idHDS.value)
-  }
-}
-// Main reactive state object
-const state = reactive({
-  searchQuery: '',
-  idSP: '',
-  searchStatus: null as number | null,
-  isModalOpen: false,
-  isModaThanhToanlOpen: false,
-  isModalChangeStatus: false,
-  selectedProductId: null as string | null,
-  khachHang: [] as KhachHangResponse[],
-  thanhToan: [],
-  discountList: [] as PhieuGiamGiaResponse[],
-  phuongThuThanhToan: [] as PhuongThucThanhToanResponse[],
-  tongTien: null as { tongTien: number } | null,
-  detailKhachHang: null as KhachHangResponse | null,
-  products: [] as ADProductDetailResponse[],
-  gioHang: [] as any[],
-  paginationParams: { page: 1, size: 10 },
-  totalItems: 0,
-  totalItemsKH: 0,
-  selectedPaymentMethod: '' as string,
-  currentPaymentMethod: '0',
-  autoVoucherResult: null as GoiYVoucherResponse | null,
-})
-
-const stateSP = reactive({
-  searchQuery: '',
-  searchStatus: null as number | null,
-  selectedMaterial: null as string | null,
-  isModalOpen: false,
-  isModalChangeStatus: false,
-  selectedProductId: null as string | null,
-  products: [] as ADProductDetailResponse[],
-  paginationParams: { page: 1, size: 10 },
-  totalItems: 0,
-})
-
+// ==================== PRICE RANGE ====================
 const priceRange = ref<[number, number]>([0, 0])
+const stateMinMaxPrice = reactive({
+  priceMin: 0,
+  priceMax: 0,
+})
+
+// ==================== COMPUTED ====================
+const hasCartItems = computed(() => state.gioHang.length > 0)
+
+const hasDeliveryInfo = computed(() => {
+  return !!(deliveryInfo.tenNguoiNhan
+    && deliveryInfo.sdtNguoiNhan
+    && deliveryInfo.diaChiCuThe
+    && deliveryInfo.tinhThanhPho
+    && deliveryInfo.quanHuyen
+    && deliveryInfo.phuongXa)
+})
 
 const filteredProducts = computed(() => {
   const colorLabel = ColorOptions.value.find(o => o.value === localColor.value)?.label
@@ -387,295 +276,36 @@ const filteredProducts = computed(() => {
     const matchRAM = !ramLabel || p.ram === ramLabel
     const matchHardDrive = !hardDriveLabel || p.hardDrive === hardDriveLabel
     const matchMaterial = !materialLabel || p.material === materialLabel
-
-    // Lọc khoảng giá
     const matchPrice = effectivePrice >= priceRange.value[0] && effectivePrice <= priceRange.value[1]
 
     return matchSearch && matchColor && matchCPU && matchGPU && matchRAM && matchHardDrive && matchMaterial && matchPrice
   })
 })
 
-// State cho min max price
-const stateMinMaxPrice = reactive({
-  priceMin: 0,
-  priceMax: 0,
+const filteredSerials = computed(() => {
+  if (!serialSearchQuery.value.trim())
+    return selectedSerials.value
+  const keyword = serialSearchQuery.value.trim().toLowerCase()
+  return selectedSerials.value.filter(s => s.code?.toLowerCase().includes(keyword))
 })
 
-// Format tooltip cho slider
-function formatTooltipRangePrice(value: number) {
-  return formatCurrency(value)
-}
-
-// Tính toán min và max price từ danh sách sản phẩm
-const minProductPrice = computed(() => {
-  if (stateSP.products.length === 0)
-    return 0
-  const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
-  return prices.length > 0 ? Math.min(...prices) : 0
-})
-
-const maxProductPrice = computed(() => {
-  if (stateSP.products.length === 0)
-    return 0
-  const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
-  return prices.length > 0 ? Math.max(...prices) : 0
-})
-
-// Tính số lượng serial khả dụng
 const availableSerialsCount = computed(() => {
   return selectedSerials.value.filter(s => s.imeiStatus === 'AVAILABLE').length
 })
 
-const debouncedFetchCustomers = debounce(async () => {
-  await fetchCustomers()
-}, 300)
-
-async function fetchCustomers() {
-  try {
-    const params = {
-      page: state.paginationParams.page,
-      size: state.paginationParams.size,
-      q: customerSearchQuery.value.trim(),
-    }
-    const response = await GetKhachHang(params)
-    state.khachHang = response.data?.data || []
-    state.totalItemsKH = response.totalElements || 0
-  }
-  catch (error) {
-    console.error('Failed to fetch customers:', error)
-    state.khachHang = []
-    state.totalItemsKH = 0
-  }
+// ==================== UTILITY FUNCTIONS ====================
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
 }
 
-const selectedVoucher = ref<any>(null)
-const applyingVoucher = ref<string | null>(null)
-const autoApplying = ref(false)
-const applyingBetterVoucher = ref<string | null>(null)
-const showSuggestionDetailModal = ref(false)
-const selectedSuggestion = ref<any>(null)
-const discountTab = ref('auto')
-
-// Computed properties
-const hasBetterVoucherSuggestion = computed(() => {
-  return state.autoVoucherResult?.voucherTotHon?.some(v =>
-    v.giamThem > (selectedVoucher.value?.giamGiaThucTe || 0),
-  )
-})
-
-// Hàm trigger auto apply voucher
-async function triggerAutoApplyVoucher() {
-  if (!idHDS.value || tienHang.value <= 0) {
-    toast.error('Vui lòng có sản phẩm trong giỏ hàng trước!')
-    return
-  }
-
-  autoApplying.value = true
-  try {
-    const params = {
-      invoiceId: idHDS.value,
-      tongTien: tienHang.value,
-      customerId: state.detailKhachHang?.id ?? null,
-    }
-
-    const response = await getMaGiamGia(params)
-
-    if (response) {
-      state.autoVoucherResult = response
-
-      // Tự động chọn voucher tốt nhất nếu chưa có voucher nào được chọn
-      if (!selectedVoucher.value && response.voucherApDung?.length > 0) {
-        // Tìm voucher có giamGiaThucTe lớn nhất
-        const bestVoucher = response.voucherApDung.reduce((best, current) =>
-          (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
-        )
-        await selectVoucher(bestVoucher)
-      }
-
-      toast.success(`Tìm thấy ${response.voucherApDung?.length || 0} voucher phù hợp`)
-    }
-  }
-  catch (error) {
-    console.error('Auto apply voucher failed:', error)
-    toast.error('Lỗi khi tìm voucher phù hợp')
-  }
-  finally {
-    autoApplying.value = false
-  }
-}
-
-// Hàm chọn voucher
-async function selectVoucher(voucher: any) {
-  applyingVoucher.value = voucher.voucherId
-
-  try {
-    // 1. Cập nhật state
-    selectedVoucher.value = voucher
-    selectedDiscountCode.value = voucher.code
-    giamGia.value = voucher.giamGiaThucTe
-
-    // 2. Cập nhật selectedDiscount (nếu cần cho backward compatibility)
-    selectedDiscount.value = {
-      id: voucher.voucherId,
-      ma: voucher.code,
-      giaTriGiamThucTe: voucher.giamGiaThucTe,
-      typeVoucher: voucher.typeVoucher,
-      discountValue: voucher.discountValue,
-      maxValue: voucher.maxValue,
-      dieuKien: voucher.dieuKien,
-    } as any
-
-    // 3. Tính toán lại tổng tiền
-    calculateTotalAmounts()
-
-    toast.success(`Đã áp dụng voucher ${voucher.code}`)
-  }
-  catch (error) {
-    console.error('Select voucher failed:', error)
-    toast.error('Lỗi khi áp dụng voucher')
-  }
-  finally {
-    applyingVoucher.value = null
-  }
-}
-
-// Hàm xóa voucher
-function removeVoucher() {
-  selectedVoucher.value = null
-  selectedDiscount.value = null
-  selectedDiscountCode.value = ''
-  giamGia.value = 0
-  calculateTotalAmounts()
-  toast.info('Đã bỏ chọn voucher')
-}
-
-// Hàm hiển thị chi tiết suggestion
-function showSuggestionDetail(suggestion: any) {
-  selectedSuggestion.value = suggestion
-  showSuggestionDetailModal.value = true
-}
-
-// Hàm áp dụng suggestion tốt nhất
-function applyBestSuggestion() {
-  if (state.autoVoucherResult?.voucherTotHon?.length > 0) {
-    showSuggestionDetail(state.autoVoucherResult.voucherTotHon[0])
-  }
-}
-
-// Hàm áp dụng suggestion voucher
-function applySuggestionVoucher() {
-  if (!selectedSuggestion.value)
-    return
-
-  // Tìm voucher trong danh sách voucherApDung
-  const fullVoucher = state.autoVoucherResult?.voucherApDung?.find(
-    v => v.voucherId === selectedSuggestion.value.voucherId,
-  )
-
-  if (fullVoucher) {
-    selectVoucher(fullVoucher)
-    showSuggestionDetailModal.value = false
-    toast.info(`Voucher ${fullVoucher.code} sẽ được áp dụng khi đủ điều kiện`)
-  }
-}
-
-// Hàm lấy tag type cho voucher
-function getVoucherTagType(type: string) {
-  return type === 'PERCENTAGE' ? 'success' : 'warning'
-}
-
-// Hàm lấy tag type cho suggestion
-function getSuggestionTagType(hieuQua: number) {
-  if (hieuQua >= 50)
-    return 'error' // Rất hiệu quả
-  if (hieuQua >= 30)
-    return 'warning' // Hiệu quả
-  if (hieuQua >= 15)
-    return 'info' // Khá hiệu quả
-  return 'default' // Bình thường
-}
-
-// Cập nhật fetchDiscounts để lưu kết quả auto apply
-async function fetchDiscounts(idHD: string) {
-  try {
-    if (!idHD) {
-      resetDiscount()
-      return
-    }
-
-    const params = {
-      invoiceId: idHD,
-      tongTien: tienHang.value,
-      customerId: state.detailKhachHang?.id ?? null,
-    }
-
-    const response = await getMaGiamGia(params)
-
-    // Lưu kết quả vào state
-    state.autoVoucherResult = response
-    state.discountList = response.voucherApDung ?? []
-
-    // Cập nhật thông báo gợi ý mua thêm
-    if (response.voucherTotHon?.length > 0) {
-      const bestSuggestion = response.voucherTotHon[0]
-      betterDiscountMessage.value
-        = `Mua thêm ${formatCurrency(bestSuggestion.canMuaThem)} `
-          + `để được giảm thêm ${formatCurrency(bestSuggestion.giamThem)}`
-    }
-    else {
-      betterDiscountMessage.value = ''
-    }
-
-    // Nếu chưa có voucher được chọn, tự động chọn voucher tốt nhất
-    if (!selectedVoucher.value && response.voucherApDung?.length > 0) {
-      const bestVoucher = response.voucherApDung.reduce((best, current) =>
-        (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
-      )
-      selectVoucher(bestVoucher)
-    }
-  }
-  catch (error) {
-    console.error('Fetch discounts failed', error)
-    resetDiscount()
-    state.discountList = []
-    state.autoVoucherResult = null
-  }
-}
-
-// Watch để trigger auto apply khi thay đổi giỏ hàng
-watch(
-  () => tienHang.value,
-  async (newValue) => {
-    if (newValue > 0 && idHDS.value) {
-      // Debounce để tránh gọi API nhiều lần
-      setTimeout(async () => {
-        await fetchDiscounts(idHDS.value)
-      }, 500)
-    }
-  },
-  { immediate: true },
-)
-
-// Khi thay đổi khách hàng
-watch(
-  () => state.detailKhachHang?.id,
-  async () => {
-    if (tienHang.value > 0 && idHDS.value) {
-      await fetchDiscounts(idHDS.value)
-    }
-  },
-)
-
-// Cập nhật calculateTotalAmounts để tính cả voucher
 function calculateTotalAmounts() {
   tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan), 0)
 
-  // Ưu tiên sử dụng voucher được chọn
   if (selectedVoucher.value) {
     giamGia.value = selectedVoucher.value.giamGiaThucTe
   }
   else {
-    giamGia.value = selectedDiscount.value ? selectedDiscount.value.giaTriGiamThucTe || 0 : 0
+    giamGia.value = 0
   }
 
   tongTienTruocGiam.value = tienHang.value
@@ -690,1400 +320,124 @@ function calculateTotalAmounts() {
   tienThieu.value = tongTien.value - tienKhachThanhToan.value
 }
 
-watch(localSearchQuery, () => {
-  debouncedFetchProducts()
-})
-
-watch([localColor, localCPU, localGPU, localRAM, localHardDrive, localSelectedMaterial], () => {
-  debouncedFetchProducts()
-})
-
-function resetFilters() {
-  localSearchQuery.value = ''
-  localColor.value = null
-  localCPU.value = null
-  localGPU.value = null
-  localRAM.value = null
-  localHardDrive.value = null
-  localSelectedMaterial.value = null
-  stateSP.searchQuery = ''
-  stateSP.selectedMaterial = null
-  fetchProducts()
-}
-
-function handleColorChange() {
-  debouncedFetchProducts()
-}
-
-function handleCPUChange() {
-  debouncedFetchProducts()
-}
-
-function handleGPUChange() {
-  debouncedFetchProducts()
-}
-
-function handleRAMChange() {
-  debouncedFetchProducts()
-}
-
-function handleHardDriveChange() {
-  debouncedFetchProducts()
-}
-
-function parseCurrency(value: string) {
-  if (!value)
-    return 0
-  let str = String(value).replace(/[^0-9nghìtrieu]/g, '').trim().toLowerCase()
-  let number = Number.parseInt(str.replace(/\D/g, '')) || 0
-
-  if (str.includes('nghìn')) {
-    number *= 1000
-  }
-  else if (str.includes('triệu')) {
-    number *= 1000000
-  }
-
-  return number
-}
-
-function formatCurrencyInput(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
-}
-
-async function fetchProvinces() {
+// ==================== VOUCHER FUNCTIONS ====================
+async function fetchDiscounts(idHD: string) {
   try {
-    const response = await getGHNProvinces(GHN_API_TOKEN)
-    provinces.value = response.map((item: any) => ({
-      value: String(item.ProvinceID),
-      label: item.ProvinceName,
-      code: String(item.ProvinceID),
-    }))
-  }
-  catch (error) {
-    console.error('Failed to fetch provinces:', error)
-    provinces.value = []
-  }
-}
-
-async function fetchDistricts(provinceId: number) {
-  try {
-    const response = await getGHNDistricts(provinceId, GHN_API_TOKEN)
-    districts.value = response.map((item: any) => ({
-      value: String(item.DistrictID),
-      label: item.DistrictName,
-      code: String(item.DistrictID),
-    }))
-  }
-  catch (error) {
-    console.error('Failed to fetch districts:', error)
-    toast.error('Không thể tải danh sách Quận/Huyện.')
-    districts.value = []
-  }
-}
-
-async function fetchWards(districtId: number) {
-  try {
-    const response = await getGHNWards(districtId, GHN_API_TOKEN)
-    wards.value = response.map((item: any) => ({
-      value: item.WardCode,
-      label: item.WardName,
-      code: item.WardCode,
-    }))
-  }
-  catch (error) {
-    console.error('Failed to fetch wards:', error)
-    toast.error('Không thể tải danh sách Phường/Xã.')
-    wards.value = []
-  }
-}
-async function fetchColor() {
-  const { data } = await getColors()
-  ColorOptions.value = data.map((c: any) => ({
-    label: c.ten || c.Label || c.label,
-    value: c.ten || c.Label || c.label,
-  }))
-}
-
-async function fetchCPU() {
-  const { data } = await getCPUs()
-  CpuOptions.value = data.map((c: any) => ({
-    label: c.ten || c.Label || c.label,
-    value: c.ten || c.Label || c.label,
-  }))
-}
-
-async function fetchGPU() {
-  const { data } = await getGPUs()
-  GpuOptions.value = data.map((g: any) => ({
-    label: g.ten || g.Label || g.label,
-    value: g.ten || g.Label || g.label,
-  }))
-}
-
-async function fetchRAM() {
-  const { data } = await getRAMs()
-  RamOptions.value = data.map((r: any) => ({
-    label: r.ten || r.Label || r.label,
-    value: r.ten || r.Label || r.label,
-  }))
-}
-
-async function fetchHardDrive() {
-  const { data } = await getHardDrives()
-  HardDriveOptions.value = data.map((h: any) => ({
-    label: h.ten || h.Label || h.label,
-    value: h.ten || h.Label || h.label,
-  }))
-}
-
-async function fetchMaterial() {
-  const { data } = await getMaterials()
-  MaterialOptions.value = data.map((m: any) => ({
-    label: m.ten || m.Label || m.label,
-    value: m.ten || m.Label || m.label,
-  }))
-}
-
-async function checkFromDistrictAndWard() {
-  try {
-    const response = await getGHNDistricts(null, GHN_API_TOKEN)
-    const districtExists = response.data?.some((d: any) => d.DistrictID === FROM_DISTRICT_ID) || false
-    if (!districtExists) {
-      console.error(`FROM_DISTRICT_ID ${FROM_DISTRICT_ID} không hợp lệ!`)
-      return false
-    }
-    const wardResponse = await getGHNWards(FROM_DISTRICT_ID, GHN_API_TOKEN)
-    const wardExists = wardResponse.data?.some((w: any) => w.WardCode === FROM_WARD_CODE) || false
-    if (!wardExists) {
-      console.error(`FROM_WARD_CODE ${FROM_WARD_CODE} không hợp lệ!`)
-      toast.error('Mã phường/xã nguồn không hợp lệ.')
-      return false
-    }
-    return true
-  }
-  catch (error) {
-    console.error('Lỗi khi kiểm tra mã quận/huyện hoặc phường/xã:', error)
-    return false
-  }
-}
-
-onMounted(async () => {
-  await fetchColor()
-  await fetchCPU()
-  await fetchGPU()
-  await fetchRAM()
-  await fetchHardDrive()
-  await fetchMaterial()
-  await fetchHoaDon()
-  await checkFromDistrictAndWard()
-  await fetchProvinces()
-  setDefaultPaymentMethod()
-})
-
-async function onProvinceChange(value: string) {
-  deliveryInfo.tinhThanhPho = value
-  const selectedProvince = provinces.value.find(p => p.value === value)
-  provinceCode.value = selectedProvince ? Number.parseInt(selectedProvince.code) : null
-  if (provinceCode.value) {
-    await fetchDistricts(provinceCode.value)
-    deliveryInfo.quanHuyen = undefined
-    deliveryInfo.phuongXa = undefined
-    districtCode.value = null
-    wardCode.value = null
-    await calculateShippingFee()
-  }
-  else {
-    districts.value = []
-    wards.value = []
-    shippingFee.value = 0
-    calculateTotalAmounts()
-  }
-
-  deliveryInfoByInvoice[idHDS.value] = {
-    tenNguoiNhan: deliveryInfo.tenNguoiNhan,
-    sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
-    diaChiCuThe: deliveryInfo.diaChiCuThe,
-    tinhThanhPho: deliveryInfo.tinhThanhPho,
-    quanHuyen: deliveryInfo.quanHuyen,
-    phuongXa: deliveryInfo.phuongXa,
-    provinceCode: provinceCode.value,
-    districtCode: districtCode.value,
-    wardCode: wardCode.value,
-    shippingFee: shippingFee.value,
-  }
-}
-
-async function onDistrictChange(value: string) {
-  deliveryInfo.quanHuyen = value
-  const selectedDistrict = districts.value.find(d => d.value === value)
-  districtCode.value = selectedDistrict ? Number.parseInt(selectedDistrict.code) : null
-  if (districtCode.value) {
-    await fetchWards(districtCode.value)
-    deliveryInfo.phuongXa = undefined
-    wardCode.value = null
-    await calculateShippingFee()
-  }
-  else {
-    wards.value = []
-    shippingFee.value = 0
-    calculateTotalAmounts()
-  }
-
-  deliveryInfoByInvoice[idHDS.value] = {
-    tenNguoiNhan: deliveryInfo.tenNguoiNhan,
-    sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
-    diaChiCuThe: deliveryInfo.diaChiCuThe,
-    tinhThanhPho: deliveryInfo.tinhThanhPho,
-    quanHuyen: deliveryInfo.quanHuyen,
-    phuongXa: deliveryInfo.phuongXa,
-    provinceCode: provinceCode.value,
-    districtCode: districtCode.value,
-    wardCode: wardCode.value,
-    shippingFee: shippingFee.value,
-  }
-}
-
-async function onWardChange(value: string) {
-  deliveryInfo.phuongXa = value
-  const selectedWard = wards.value.find(w => w.value === value)
-  wardCode.value = selectedWard ? selectedWard.code : null
-  await calculateShippingFee()
-
-  deliveryInfoByInvoice[idHDS.value] = {
-    tenNguoiNhan: deliveryInfo.tenNguoiNhan,
-    sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
-    diaChiCuThe: deliveryInfo.diaChiCuThe,
-    tinhThanhPho: deliveryInfo.tinhThanhPho,
-    quanHuyen: deliveryInfo.quanHuyen,
-    phuongXa: deliveryInfo.phuongXa,
-    provinceCode: provinceCode.value,
-    districtCode: districtCode.value,
-    wardCode: wardCode.value,
-    shippingFee: shippingFee.value,
-  }
-}
-
-const newCustomer = reactive({
-  ten: '',
-  sdt: '',
-})
-
-const isFreeShipping = ref(false)
-
-watch(tienHang, () => {
-  calculateTotalAmounts()
-  if (isDeliveryEnabled.value && provinceCode.value && districtCode.value && wardCode.value) {
-    calculateShippingFee()
-  }
-})
-
-watch(tienHang, async (newTienHang) => {
-  if (idHDS.value) {
-    await fetchDiscounts(idHDS.value)
-  }
-})
-
-async function calculateShippingFee() {
-  if (!isDeliveryEnabled.value || !idHDS.value || !provinceCode.value || !districtCode.value || !wardCode.value || tienHang.value <= 0) {
-    shippingFee.value = 0
-    isFreeShipping.value = false
-    calculateTotalAmounts()
-    return
-  }
-
-  if (tienHang.value > 5000000) {
-    isFreeShipping.value = true
-    shippingFee.value = 0
-    toast.success('Đơn hàng trên 5,000,000 VND, miễn phí vận chuyển!')
-    calculateTotalAmounts()
-    return
-  }
-
-  try {
-    const availableServicesRequestBody: AvailableServiceRequest = {
-      shop_id: GHN_SHOP_ID,
-      from_district: FROM_DISTRICT_ID,
-      to_district: districtCode.value,
-    }
-    const availableServicesResponse = await getAvailableServices(GHN_API_TOKEN, availableServicesRequestBody)
-
-    if (!availableServicesResponse.data || !availableServicesResponse.data.length) {
-      shippingFee.value = 0
-      isFreeShipping.value = false
-      toast.warn('Không tìm thấy dịch vụ vận chuyển phù hợp.')
-      calculateTotalAmounts()
+    if (!idHD || !hasCartItems.value) {
+      resetDiscountState()
       return
     }
 
-    const selectedServiceId = availableServicesResponse.data[0].service_id
-    const requestBody: ShippingFeeRequest = {
-      myRequest: {
-        FromDistrictID: FROM_DISTRICT_ID,
-        FromWardCode: FROM_WARD_CODE,
-        ServiceID: selectedServiceId,
-        ToDistrictID: districtCode.value,
-        ToWardCode: wardCode.value,
-        Height: 15,
-        Length: 15,
-        Weight: 500,
-        Width: 15,
-        InsuranceValue: tienHang.value,
-        Coupon: null,
-        PickShift: null,
-      },
+    const params = {
+      invoiceId: idHD,
+      tongTien: tienHang.value,
+      customerId: state.detailKhachHang?.id ?? null,
     }
 
-    const response = await calculateFee(requestBody, GHN_API_TOKEN, GHN_SHOP_ID)
-    shippingFee.value = response.data.total || 0
-    isFreeShipping.value = false
-    calculateTotalAmounts()
-  }
-  catch (error) {
-    console.error('Failed to calculate shipping fee:', error)
-    shippingFee.value = 0
-    isFreeShipping.value = false
-    toast.error('Không thể tính phí vận chuyển.')
-    calculateTotalAmounts()
-  }
-}
+    const response = await getMaGiamGia(params)
 
-async function confirmBothPayment() {
-  bothPaymentLoading.value = true
-  try {
-    if (!idHDS.value)
-      throw new Error('Không có hóa đơn được chọn!')
-    if (amountPaid.value <= 0)
-      throw new Error('Vui lòng nhập số tiền hợp lệ!')
-    const remainingAmount = tongTien.value - tienKhachThanhToan.value - amountPaid.value
-    if (remainingAmount > 0) {
-      toast.info(`Còn ${formatCurrency(remainingAmount)} cần thanh toán qua QR.`)
+    state.autoVoucherResult = response
+    state.discountList = response.voucherApDung ?? []
+
+    if (response.voucherTotHon?.length > 0) {
+      const bestSuggestion = response.voucherTotHon[0]
+      betterDiscountMessage.value = `Mua thêm ${formatCurrency(bestSuggestion.canMuaThem)} để được giảm thêm ${formatCurrency(bestSuggestion.giamThem)}`
     }
     else {
-      toast.success('Thanh toán đủ!')
+      betterDiscountMessage.value = ''
     }
 
-    const formData = new FormData()
-    formData.append('idHD', idHDS.value)
-    formData.append('tongTien', amountPaid.value.toString())
-    formData.append('phuongThuc', 'Cả hai')
-    await themPTTT(formData)
-
-    toast.success('Xác nhận thanh toán cả hai phương thức thành công!')
-    await clickkActiveTab(activeTab.value, idHDS.value, loaiHD.value)
-    closeBothPaymentModal()
-  }
-  catch (error: any) {
-    console.error('Error in confirmBothPayment:', error)
-    toast.error(error.message || 'Xác nhận thanh toán thất bại!')
-  }
-  finally {
-    bothPaymentLoading.value = false
-  }
-}
-
-watch([deliveryInfo.tinhThanhPho, deliveryInfo.quanHuyen, deliveryInfo.phuongXa], () => {
-  localStorage.setItem('deliveryInfoByInvoice', JSON.stringify(deliveryInfoByInvoice))
-})
-
-watch(selectedDiscount, () => {
-  localStorage.setItem('selectedDiscount', JSON.stringify(selectedDiscount.value))
-  localStorage.setItem('isBestDiscountApplied', JSON.stringify(isBestDiscountApplied.value))
-})
-
-function applyBestDiscount() {
-  if (state.discountList.length > 0) {
-    const bestDiscount = state.discountList.reduce((best, current) =>
-      (best.giaTriGiamThucTe || 0) > (current.giaTriGiamThucTe || 0) ? best : current,
-    )
-    selectedDiscount.value = bestDiscount
-    selectedDiscountCode.value = bestDiscount.ma
-    phieuNgon.value = bestDiscount.ma
-    giamGia.value = bestDiscount.giaTriGiamThucTe || 0
-    isBestDiscountApplied.value = true
-  }
-  else {
-    selectedDiscount.value = null
-    selectedDiscountCode.value = ''
-    giamGia.value = 0
-    isBestDiscountApplied.value = false
-  }
-  calculateTotalAmounts()
-  showDiscountModal.value = false
-}
-
-async function giaoHang(isDeliveryEnableds: boolean) {
-  isDeliveryEnabled.value = isDeliveryEnableds
-
-  if (isDeliveryEnabled.value && state.detailKhachHang) {
-    deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
-    deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
-    deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
-
-    if (!provinces.value.length) {
-      await fetchProvinces()
+    if (!selectedVoucher.value && response.voucherApDung?.length > 0) {
+      const bestVoucher = response.voucherApDung.reduce((best, current) =>
+        (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
+      )
+      await selectVoucher(bestVoucher)
     }
-
-    const tinhThanhPhoId = state.detailKhachHang.tinh
-    const quanHuyenId = state.detailKhachHang.huyen
-    const phuongXaId = state.detailKhachHang.xa
-
-    if (tinhThanhPhoId) {
-      const selectedProvince = provinces.value.find(p => p.code === tinhThanhPhoId.toString())
-      if (selectedProvince) {
-        deliveryInfo.tinhThanhPho = selectedProvince.value
-        provinceCode.value = Number.parseInt(tinhThanhPhoId)
-        await fetchDistricts(provinceCode.value)
-      }
-    }
-
-    if (quanHuyenId && provinceCode.value) {
-      const selectedDistrict = districts.value.find(d => d.code === quanHuyenId.toString())
-      if (selectedDistrict) {
-        deliveryInfo.quanHuyen = selectedDistrict.value
-        districtCode.value = Number.parseInt(quanHuyenId)
-        await fetchWards(districtCode.value)
-      }
-    }
-
-    if (phuongXaId && districtCode.value) {
-      const selectedWard = wards.value.find(w => w.code === phuongXaId)
-      if (selectedWard) {
-        deliveryInfo.phuongXa = selectedWard.value
-        wardCode.value = phuongXaId
-      }
-    }
-
-    await calculateShippingFee()
-
-    deliveryInfoByInvoice[idHDS.value] = {
-      tenNguoiNhan: deliveryInfo.tenNguoiNhan,
-      sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
-      diaChiCuThe: deliveryInfo.diaChiCuThe,
-      tinhThanhPho: deliveryInfo.tinhThanhPho,
-      quanHuyen: deliveryInfo.quanHuyen,
-      phuongXa: deliveryInfo.phuongXa,
-      provinceCode: provinceCode.value,
-      districtCode: districtCode.value,
-      wardCode: wardCode.value,
-      shippingFee: shippingFee.value,
-    }
-  }
-  else {
-    Object.assign(deliveryInfo, {
-      tenNguoiNhan: state.detailKhachHang?.ten || '',
-      sdtNguoiNhan: state.detailKhachHang?.sdt || '',
-      diaChiCuThe: state.detailKhachHang?.diaChi || '',
-      tinhThanhPho: undefined,
-      quanHuyen: undefined,
-      phuongXa: undefined,
-    })
-    provinceCode.value = null
-    districtCode.value = null
-    wardCode.value = null
-    shippingFee.value = 0
-    isFreeShipping.value = false
-    calculateTotalAmounts()
-
-    deliveryInfoByInvoice[idHDS.value] = {
-      tenNguoiNhan: state.detailKhachHang?.ten || '',
-      sdtNguoiNhan: state.detailKhachHang?.sdt || '',
-      diaChiCuThe: state.detailKhachHang?.diaChi || '',
-      tinhThanhPho: undefined,
-      quanHuyen: undefined,
-      phuongXa: undefined,
-      provinceCode: null,
-      districtCode: null,
-      wardCode: null,
-      shippingFee: 0,
-    }
-  }
-
-  await suaGiaoHang(idHDS.value)
-  await capNhatDanhSach()
-}
-
-function selectDiscount(discount: PhieuGiamGiaResponse) {
-  selectedDiscount.value = discount
-  selectedDiscountCode.value = discount.ma
-  giamGia.value = discount.giaTriGiamThucTe || 0
-  toast.success(`Đã chọn phiếu giảm giá: ${discount.ma}`)
-  calculateTotalAmounts()
-  if (phieuNgon.value === discount.ma) {
-    isBestDiscountApplied.value = true
-  }
-  else {
-    isBestDiscountApplied.value = false
-  }
-  showDiscountModal.value = false
-}
-
-function handlePageChange(page: number) {
-  stateSP.paginationParams.page = page
-  fetchProducts()
-}
-
-function handlePageSizeChange(pageSize: number) {
-  stateSP.paginationParams.size = pageSize
-  stateSP.paginationParams.page = 1
-  fetchProducts()
-}
-
-function handleCustomerPageChange(page: number) {
-  state.paginationParams.page = page
-  fetchCustomers()
-}
-
-function handleCustomerPageSizeChange(pageSize: number) {
-  state.paginationParams.size = pageSize
-  state.paginationParams.page = 1
-  fetchCustomers()
-}
-
-function closeBothPaymentModal() {
-  isBothPaymentModalVisible.value = false
-  amountPaid.value = 0
-  bothPaymentLoading.value = false
-}
-
-async function themPTTT(formData: FormData) {
-  try {
-    await new Promise(resolve => setTimeout(resolve, 500))
   }
   catch (error) {
-    console.error('Failed to add payment method:', error)
-    throw error
+    console.error('Fetch discounts failed', error)
+    resetDiscountState()
   }
 }
 
-async function handlePaymentMethod(method: string) {
-  if (!idHDS.value) {
-    toast.error('Vui lòng chọn hoặc tạo hóa đơn trước khi chọn phương thức thanh toán!')
+function resetDiscountState() {
+  state.autoVoucherResult = null
+  state.discountList = []
+  betterDiscountMessage.value = ''
+}
+
+async function selectVoucher(voucher: any) {
+  applyingVoucher.value = voucher.voucherId
+  try {
+    selectedVoucher.value = voucher
+    giamGia.value = voucher.giamGiaThucTe
+    calculateTotalAmounts()
+    toast.success(`Đã áp dụng voucher ${voucher.code}`)
+  }
+  catch (error) {
+    console.error('Select voucher failed:', error)
+    toast.error('Lỗi khi áp dụng voucher')
+  }
+  finally {
+    applyingVoucher.value = null
+  }
+}
+
+function removeVoucher() {
+  selectedVoucher.value = null
+  giamGia.value = 0
+  calculateTotalAmounts()
+  toast.info('Đã bỏ chọn voucher')
+}
+
+async function triggerAutoApplyVoucher() {
+  if (!hasCartItems.value) {
+    toast.error('Vui lòng có sản phẩm trong giỏ hàng trước!')
     return
   }
 
-  state.currentPaymentMethod = method
-
+  autoApplying.value = true
   try {
-    if (method === '0') {
-      toast.success('Đã chọn phương thức thanh toán Tiền mặt.')
+    await fetchDiscounts(idHDS.value)
+    if (state.autoVoucherResult?.voucherApDung?.length) {
+      toast.success(`Tìm thấy ${state.autoVoucherResult.voucherApDung.length} voucher phù hợp`)
     }
-    else if (method === '1') {
-      toast.success('Đã chọn phương thức thanh toán chuyển khoản.')
-      openQrModalVNPay()
-    }
-    else if (method === '2') {
-      toast.success('Đã chọn phương thức thanh toán vừa chuyển khoản vừa tiền mặt.')
-      openQrModalVNPayCaHai()
+    else {
+      toast.info('Không tìm thấy voucher phù hợp')
     }
   }
-  catch (error: any) {
-    console.error('Error in handlePaymentMethod:', error)
-    toast.error('Có lỗi khi chọn phương thức thanh toán!')
+  catch (error) {
+    console.error('Auto apply voucher failed:', error)
+    toast.error('Lỗi khi tìm voucher phù hợp')
+  }
+  finally {
+    autoApplying.value = false
   }
 }
 
-async function updatePaymentStatus() {
+function getVoucherTagType(type: string) {
+  return type === 'PERCENTAGE' ? 'success' : 'warning'
+}
+
+function getSuggestionTagType(hieuQua: number) {
+  if (hieuQua >= 50)
+    return 'error'
+  if (hieuQua >= 30)
+    return 'warning'
+  if (hieuQua >= 15)
+    return 'info'
+  return 'default'
+}
+
+// ==================== CART FUNCTIONS ====================
+async function refreshCart() {
   if (idHDS.value) {
-    const responsePTTT = await getPhuongThucThanhToan(idHDS.value)
-    state.phuongThuThanhToan = responsePTTT
-    let totalPaid = 0
-    state.phuongThuThanhToan.forEach((item) => {
-      totalPaid += item.tongTien
-    })
-    tienKhachThanhToan.value = totalPaid
-    tienThieu.value = (tongTien.value || 0) - tienKhachThanhToan.value
-  }
-}
-
-async function fetchHoaDon() {
-  try {
-    await fetchProducts()
-    const response = await GetHoaDons()
-
-    if (response && Array.isArray(response)) {
-      tabs.value = response.map((invoice, index) => ({
-        id: index + 1,
-        idHD: invoice.id,
-        code: invoice.code,
-        soLuong: invoice.soLuong,
-        loaiHoaDon: invoice.loaiHoaDon,
-        products: invoice.data?.products || [],
-      }))
-
-      if (tabs.value.length > 0) {
-        activeTab.value = tabs.value[0].id
-        idHDS.value = tabs.value[0].idHD
-        loaiHD.value = tabs.value[0].loaiHoaDon
-
-        await clickkActiveTab(tabs.value[0].id, tabs.value[0].idHD, tabs.value[0].loaiHoaDon)
-      }
-      else {
-        resetDiscount()
-        currentDeliveryInfo.value = null
-        isDeliveryEnabled.value = false
-        Object.assign(deliveryInfo, {
-          tenNguoiNhan: '',
-          sdtNguoiNhan: '',
-          diaChiCuThe: '',
-          tinhThanhPho: undefined,
-          quanHuyen: undefined,
-          phuongXa: undefined,
-        })
-        provinceCode.value = null
-        districtCode.value = null
-        wardCode.value = null
-        shippingFee.value = 0
-        isFreeShipping.value = false
-        state.gioHang = []
-        state.detailKhachHang = null
-        state.currentPaymentMethod = '0'
-        tongTien.value = 0
-        tongTienTruocGiam.value = 0
-        giamGia.value = 0
-        tienHang.value = 0
-        tienKhachThanhToan.value = 0
-        tienThieu.value = 0
-      }
-    }
-  }
-  catch (error) {
-    console.error('Failed to fetch invoices:', error)
-    toast.error('Lấy danh sách hóa đơn thất bại!')
-    resetDiscount()
-    currentDeliveryInfo.value = null
-    isDeliveryEnabled.value = false
-    Object.assign(deliveryInfo, {
-      tenNguoiNhan: '',
-      sdtNguoiNhan: '',
-      diaChiCuThe: '',
-      tinhThanhPho: undefined,
-      quanHuyen: undefined,
-      phuongXa: undefined,
-    })
-    provinceCode.value = null
-    districtCode.value = null
-    wardCode.value = null
-    shippingFee.value = 0
-    isFreeShipping.value = false
-  }
-}
-
-function resetDiscount() {
-  state.discountList = []
-  selectedDiscount.value = null
-  selectedDiscountCode.value = ''
-  giamGia.value = 0
-  calculateTotalAmounts()
-}
-
-async function clickkActiveTab(id: number, hd: string, loaiHoaDon: string) {
-  idHDS.value = hd
-  activeTab.value = id
-  loaiHD.value = loaiHoaDon
-  isBestDiscountApplied.value = false
-
-  if (tienHang.value > 0) {
-    await fetchDiscounts(hd)
-  }
-
-  try {
-    Object.assign(deliveryInfo, {
-      tenNguoiNhan: '',
-      sdtNguoiNhan: '',
-      diaChiCuThe: '',
-      tinhThanhPho: undefined,
-      quanHuyen: undefined,
-      phuongXa: undefined,
-    })
-    provinceCode.value = null
-    districtCode.value = null
-    wardCode.value = null
-    shippingFee.value = 0
-    isFreeShipping.value = false
-
-    const response = await GetGioHang(hd)
+    const response = await GetGioHang(idHDS.value)
     state.gioHang = response
-
-    const responseKH = await GeOneKhachHang(hd)
-    state.detailKhachHang = responseKH.id ? responseKH : null
-
-    isDeliveryEnabled.value = loaiHoaDon === 'GIAO_HANG'
-
-    if (isDeliveryEnabled.value && state.detailKhachHang) {
-      deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
-      deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
-      deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
-
-      const tinhThanhPhoId = state.detailKhachHang.tinh
-      const quanHuyenId = state.detailKhachHang.huyen
-      const phuongXaId = state.detailKhachHang.xa
-
-      if (!provinces.value.length) {
-        await fetchProvinces()
-      }
-
-      if (tinhThanhPhoId) {
-        const selectedProvince = provinces.value.find(p => p.code === tinhThanhPhoId.toString())
-        if (selectedProvince) {
-          deliveryInfo.tinhThanhPho = selectedProvince.value
-          provinceCode.value = Number.parseInt(tinhThanhPhoId)
-          await fetchDistricts(provinceCode.value)
-        }
-      }
-
-      if (quanHuyenId && provinceCode.value) {
-        const selectedDistrict = districts.value.find(d => d.code === quanHuyenId.toString())
-        if (selectedDistrict) {
-          deliveryInfo.quanHuyen = selectedDistrict.value
-          districtCode.value = Number.parseInt(quanHuyenId)
-          await fetchWards(districtCode.value)
-        }
-      }
-
-      if (phuongXaId && districtCode.value) {
-        const selectedWard = wards.value.find(w => w.code === phuongXaId)
-        if (selectedWard) {
-          deliveryInfo.phuongXa = selectedWard.value
-          wardCode.value = phuongXaId
-        }
-      }
-
-      if (deliveryInfoByInvoice[hd]) {
-        Object.assign(deliveryInfo, {
-          tenNguoiNhan: deliveryInfoByInvoice[hd].tenNguoiNhan,
-          sdtNguoiNhan: deliveryInfoByInvoice[hd].sdtNguoiNhan,
-          diaChiCuThe: deliveryInfoByInvoice[hd].diaChiCuThe,
-          tinhThanhPho: deliveryInfoByInvoice[hd].tinhThanhPho,
-          quanHuyen: deliveryInfoByInvoice[hd].quanHuyen,
-          phuongXa: deliveryInfoByInvoice[hd].phuongXa,
-        })
-        provinceCode.value = deliveryInfoByInvoice[hd].provinceCode
-        districtCode.value = deliveryInfoByInvoice[hd].districtCode
-        wardCode.value = deliveryInfoByInvoice[hd].wardCode
-        shippingFee.value = deliveryInfoByInvoice[hd].shippingFee
-      }
-
-      await calculateShippingFee()
-    }
-    else if (state.detailKhachHang) {
-      deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
-      deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
-      deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
-    }
-
-    deliveryInfoByInvoice[hd] = {
-      tenNguoiNhan: deliveryInfo.tenNguoiNhan,
-      sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
-      diaChiCuThe: deliveryInfo.diaChiCuThe,
-      tinhThanhPho: deliveryInfo.tinhThanhPho,
-      quanHuyen: deliveryInfo.quanHuyen,
-      phuongXa: deliveryInfo.phuongXa,
-      provinceCode: provinceCode.value,
-      districtCode: districtCode.value,
-      wardCode: wardCode.value,
-      shippingFee: shippingFee.value,
-    }
-
-    calculateTotalAmounts()
-    await fetchDiscounts(hd)
-    await updatePaymentStatus()
-  }
-  catch (error) {
-    console.error('Failed to switch invoice:', error)
-    toast.error('Chuyển hóa đơn thất bại!')
-    resetDiscount()
-    isDeliveryEnabled.value = false
-    Object.assign(deliveryInfo, {
-      tenNguoiNhan: '',
-      sdtNguoiNhan: '',
-      diaChiCuThe: '',
-      tinhThanhPho: undefined,
-      quanHuyen: undefined,
-      phuongXa: undefined,
-    })
-    provinceCode.value = null
-    districtCode.value = null
-    wardCode.value = null
-    shippingFee.value = 0
-    isFreeShipping.value = false
     calculateTotalAmounts()
   }
 }
 
-watch(isDeliveryEnabled, async (newValue) => {
-  if (!newValue) {
-    currentDeliveryInfo.value = null
-    Object.assign(deliveryInfo, { tenNguoiNhan: '', sdtNguoiNhan: '', diaChiGiaoHang: '', tinhThanhPho: undefined, quanHuyen: undefined, phuongXa: undefined, diaChiCuThe: '' })
-    shippingFee.value = 0
-    provinceCode.value = null
-    districtCode.value = null
-    wardCode.value = null
-    calculateTotalAmounts()
-  }
-  else {
-    await fetchProvinces()
-  }
-}, { immediate: true })
-
-const columnsKhachHang: DataTableColumns<KhachHangResponse> = [
-  {
-    title: 'STT',
-    key: 'stt',
-    width: 60,
-    align: 'center',
-    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
-  },
-  {
-    title: 'Tên khách hàng',
-    key: 'ten',
-    width: 150,
-    ellipsis: true,
-  },
-  {
-    title: 'Số điện thoại',
-    key: 'sdt',
-    width: 130,
-    align: 'center',
-  },
-  {
-    title: 'Thao tác',
-    key: 'operation',
-    width: 90,
-    align: 'center',
-    render: row => h(
-      NButton,
-      {
-        type: 'primary',
-        size: 'small',
-        secondary: true,
-        onClick: () => selectKhachHang(row.id),
-      },
-      { default: () => 'Chọn' },
-    ),
-  },
-]
-
-const columnsGiohang: DataTableColumns<any> = [
-  {
-    title: 'Serial đã chọn',
-    key: 'imel',
-    width: 110,
-    render: (row) => {
-      if (row.imel) {
-        return h(NTag, {
-          type: 'success',
-          size: 'small',
-          onClick: () => {
-            toast.info(`IMEI: ${row.imel}`)
-          },
-        }, () => `${row.imel}`)
-      }
-
-      const imeiItem = imeiDaChon.value.find(
-        item => item.idHoaDonChiTiet === row.idHDCT,
-      )
-
-      if (imeiItem && imeiItem.danhSachImei.length > 0) {
-        return h(NTag, {
-          type: 'success',
-          size: 'small',
-          onClick: () => {
-            toast.info(`Đã chọn ${imeiItem.danhSachImei.length} IMEI: ${imeiItem.danhSachImei.join(', ')}`)
-          },
-        }, () => `${imeiItem.danhSachImei.length} IMEI`)
-      }
-
-      return h(NTag, {
-        type: 'warning',
-        size: 'small',
-      }, () => 'Chưa chọn IMEI')
-    },
-  },
-  {
-    title: 'Ảnh',
-    key: 'anh',
-    width: 80,
-    align: 'center',
-    render: (row) => {
-      return h(
-        NBadge,
-        {
-          value: row.percentage ? `-${row.percentage}%` : undefined,
-          type: 'error',
-          offset: [-5, 0],
-          style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
-        },
-        {
-          default: () => h(NImage, {
-            width: 100,
-            height: 70,
-            src: row.urlImage || row.anh,
-            objectFit: 'cover',
-            style: {
-              'border-radius': '4px',
-              'border': '1px solid #eee',
-            },
-          }),
-        },
-      )
-    },
-  },
-  {
-    title: 'Tên sản phẩm',
-    key: 'name',
-    width: 150,
-    ellipsis: {
-      tooltip: true,
-    },
-    render: row => h('div', { style: { fontWeight: 500 } }, row.name || row.ten),
-  },
-  {
-    title: 'Thông số kỹ thuật',
-    key: 'specifications',
-    width: 200,
-    ellipsis: {
-      tooltip: true,
-    },
-    render: row => h(NSpace, {
-      vertical: true,
-      size: 4,
-    }, () => [
-      h('div', {
-        style: {
-          display: 'flex',
-          gap: '6px',
-          flexWrap: 'wrap',
-          marginBottom: '4px',
-        },
-      }, [
-        row.cpu && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#1677ff',
-            'background': '#e6f4ff',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #91caff',
-          },
-        }, `CPU: ${row.cpu}`),
-        row.gpu && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#389e0d',
-            'background': '#f6ffed',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #b7eb8f',
-          },
-        }, `GPU: ${row.gpu}`),
-        row.ram && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#d46b08',
-            'background': '#fff7e6',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #ffd591',
-          },
-        }, `RAM: ${row.ram}`),
-      ]),
-      h('div', {
-        style: {
-          display: 'flex',
-          gap: '6px',
-          flexWrap: 'wrap',
-        },
-      }, [
-        row.hardDrive && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#722ed1',
-            'background': '#f9f0ff',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #d3adf7',
-          },
-        }, `Ổ cứng: ${row.hardDrive}`),
-        row.color && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#13c2c2',
-            'background': '#e6fffb',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #87e8de',
-          },
-        }, `Màu: ${row.color}`),
-        row.material && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#eb2f96',
-            'background': '#fff0f6',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #ffadd2',
-          },
-        }, `Chất liệu: ${row.material}`),
-      ]),
-    ]),
-  },
-
-  {
-    title: 'Đơn giá',
-    key: 'price',
-    width: 110,
-    align: 'right',
-    render: row => h(NText, {
-      style: { fontWeight: 500 },
-    }, () => formatCurrency(row.giaGoc)),
-  },
-  {
-    title: 'Giá bán',
-    key: 'total',
-    width: 120,
-    align: 'right',
-    render: row => h(NText, {
-      type: 'primary',
-      strong: true,
-      style: { fontSize: '14px' },
-    }, () => formatCurrency((row.giaGoc) * (1 - row.percentage / 100))),
-  },
-  {
-    title: 'Thao tác',
-    key: 'operation',
-    width: 80,
-    align: 'center',
-    render: row => h(NTooltip, null, {
-      trigger: () => h(NButton, {
-        type: 'error',
-        size: 'small',
-        text: true,
-        circle: true,
-        onClick: () => deleteProduc(row.id, row.idHDCT),
-        style: { '--n-border-radius': '50%' },
-      }, {
-        icon: () => h(NIcon, null, () => h(TrashOutline)),
-      }),
-      default: () => 'Xóa sản phẩm',
-    }),
-  },
-]
-
-const columns: DataTableColumns<ADProductDetailResponse> = [
-  {
-    title: 'STT',
-    key: 'stt',
-    width: 60,
-    align: 'center',
-    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
-  },
-
-  {
-    title: 'Ảnh chi tiết',
-    key: 'detailImages',
-    width: 120,
-    align: 'center',
-    render: (row) => {
-      const imageUrl = row.urlImage
-      const percentage = row.percentage
-
-      if (!imageUrl || imageUrl.trim() === '') {
-        return h(NText, { depth: 3, size: 'small' }, () => 'Không có')
-      }
-      return h(
-        NBadge,
-        {
-          value: percentage ? `-${percentage}%` : undefined,
-          type: 'error',
-          offset: [-5, 5],
-        },
-        {
-          default: () => h(NImage, {
-            width: 100,
-            height: 80,
-            src: imageUrl,
-            objectFit: 'cover',
-            style: {
-              borderRadius: '4px',
-              border: '1px solid #f0f0f0',
-              cursor: 'pointer',
-            },
-            fallbackSrc: '/images/no-image.png',
-            previewSrc: imageUrl,
-            onError: (e) => {
-              console.error('Không thể tải ảnh:', imageUrl, e)
-            },
-          }),
-        },
-      )
-    },
-  },
-  {
-    title: 'Mã',
-    key: 'code',
-    width: 100,
-    ellipsis: true,
-    render: row => h(NText, { strong: true }, () => row.code),
-  },
-
-  {
-    title: 'Số lượng',
-    key: 'quantity',
-    width: 90,
-    align: 'center',
-    render: row => h(NTag, {
-      type: row.quantity > 0 ? 'success' : 'error',
-      size: 'small',
-      round: true,
-    }, () => row.quantity),
-  },
-  {
-    title: 'Giá bán',
-    key: 'price',
-    width: 120,
-    align: 'center',
-    render: (row) => {
-      const originalPrice = row.price || 0
-      const percentage = row.percentage
-
-      if (percentage && percentage > 0) {
-        const discountedPrice = originalPrice * (1 - percentage / 100)
-
-        return h(NSpace, { vertical: true, size: 0, align: 'center', justify: 'center' }, () => [
-          h(
-            NText,
-            { delete: true, depth: 3, style: { fontSize: '12px', lineHeight: '1.2' } },
-            () => formatCurrency(originalPrice),
-          ),
-          h(
-            NText,
-            { type: 'primary', strong: true, style: { fontSize: '14px' } },
-            () => formatCurrency(discountedPrice),
-          ),
-        ])
-      }
-      return h(NText, { type: 'primary', strong: true }, () => formatCurrency(originalPrice))
-    },
-  },
-  {
-    title: 'Thông số kỹ thuật',
-    key: 'specifications',
-    width: 200,
-    ellipsis: {
-      tooltip: true,
-    },
-    render: row => h(NSpace, {
-      vertical: true,
-      size: 4,
-    }, () => [
-      h('div', {
-        style: {
-          display: 'flex',
-          gap: '6px',
-          flexWrap: 'wrap',
-          marginBottom: '4px',
-        },
-      }, [
-        row.cpu && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#1677ff',
-            'background': '#e6f4ff',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #91caff',
-          },
-        }, `CPU: ${row.cpu}`),
-        row.gpu && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#389e0d',
-            'background': '#f6ffed',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #b7eb8f',
-          },
-        }, `GPU: ${row.gpu}`),
-        row.ram && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#d46b08',
-            'background': '#fff7e6',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #ffd591',
-          },
-        }, `RAM: ${row.ram}`),
-      ]),
-      h('div', {
-        style: {
-          display: 'flex',
-          gap: '6px',
-          flexWrap: 'wrap',
-        },
-      }, [
-        row.hardDrive && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#722ed1',
-            'background': '#f9f0ff',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #d3adf7',
-          },
-        }, `Ổ cứng: ${row.hardDrive}`),
-        row.color && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#13c2c2',
-            'background': '#e6fffb',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #87e8de',
-          },
-        }, `Màu: ${row.color}`),
-        row.material && h('span', {
-          style: {
-            'font-size': '11px',
-            'color': '#eb2f96',
-            'background': '#fff0f6',
-            'padding': '1px 6px',
-            'border-radius': '3px',
-            'border': '1px solid #ffadd2',
-          },
-        }, `Chất liệu: ${row.material}`),
-      ]),
-    ]),
-  },
-  {
-    title: 'Trạng thái',
-    key: 'status',
-    width: 100,
-    align: 'center',
-    render: row => h(NTag, {
-      type: row.status === 'ACTIVE' ? 'success' : 'error',
-      size: 'small',
-      round: true,
-    }, () => row.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'),
-  },
-  {
-    title: 'Thao tác',
-    key: 'operation',
-    width: 120,
-    align: 'center',
-    render: row => h(NSpace, { size: 8 }, () => [
-      h(NTooltip, null, {
-        trigger: () => h(NButton, {
-          type: 'primary',
-          size: 'small',
-          secondary: true,
-          onClick: () => selectProductForSerial(row),
-          disabled: row.status !== 'ACTIVE' || row.quantity <= 0,
-        }, { default: () => 'Chọn Serial' }),
-        default: () => row.status !== 'ACTIVE'
-          ? 'Sản phẩm không hoạt động'
-          : row.quantity <= 0 ? 'Hết hàng' : `Chọn serial từ ${row.quantity} sản phẩm có sẵn`,
-      }),
-    ]),
-  },
-]
-
-const serialColumns: DataTableColumns<ADPDImeiResponse> = [
-  {
-    title: 'Chọn',
-    key: 'select',
-    width: 60,
-    align: 'center',
-    render: row => h(NCheckbox, {
-      checked: selectedSerialIds.value.includes(row.id),
-      disabled: row.imeiStatus !== 'AVAILABLE',
-      onUpdateChecked: (checked) => {
-        if (checked) {
-          selectedSerialIds.value = [...selectedSerialIds.value, row.id]
-        }
-        else {
-          selectedSerialIds.value = selectedSerialIds.value.filter(id => id !== row.id)
-        }
-      },
-    }),
-  },
-  {
-    // ✅ THAY ĐỔI 4: Đổi "In QR" → "In Barcode", gọi printSerialBarcode
-    title: 'In Barcode',
-    key: 'barcode',
-    width: 100,
-    align: 'center',
-    render: row => h(NButton, {
-      size: 'small',
-      secondary: true,
-      disabled: row.imeiStatus !== 'AVAILABLE',
-      onClick: () => printSerialBarcode(row.code),
-    }, {
-      icon: () => h(NIcon, null, () => h(BarcodeOutline)),
-      default: () => 'In Barcode',
-    }),
-  },
-  {
-    title: 'Serial/IMEI',
-    key: 'serialNumber',
-    width: 180,
-    render: row => h(NText, {
-      strong: true,
-      code: true,
-      style: {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-      },
-    }, () => row.code || '-'),
-  },
-  {
-    title: 'Tên',
-    key: 'name',
-    width: 120,
-    render: row => h(NText, () => row.name || '-'),
-  },
-  {
-    title: 'Trạng thái',
-    key: 'status',
-    width: 100,
-    align: 'center',
-    render: (row) => {
-      const statusConfig: Record<string, { type: any, text: string }> = {
-        AVAILABLE: { type: 'success', text: 'Khả dụng' },
-        SOLD: { type: 'warning', text: 'Đã bán' },
-        DEFECTIVE: { type: 'error', text: 'Lỗi' },
-        RESERVED: { type: 'info', text: 'Đã đặt' },
-      }
-      const config = statusConfig[row.imeiStatus] || {
-        type: 'default',
-        text: row.imeiStatus || 'Không xác định',
-      }
-      return h(NTag, {
-        type: config.type,
-        size: 'small',
-        round: true,
-      }, () => config.text)
-    },
-  },
-  {
-    title: 'Trạng thái SP',
-    key: 'productStatus',
-    width: 100,
-    align: 'center',
-    render: (row) => {
-      const config = {
-        ACTIVE: { type: 'success', text: 'Hoạt động' },
-        INACTIVE: { type: 'default', text: 'Không HĐ' },
-      }[row.status] || { type: 'default', text: row.status || '-' }
-      return h(NTag, {
-        type: config.type,
-        size: 'small',
-        round: true,
-      }, () => config.text)
-    },
-  },
-]
 async function increaseQuantity(idHDCT: any, idSPS: any) {
   try {
     const formData = new FormData()
@@ -2097,261 +451,15 @@ async function increaseQuantity(idHDCT: any, idSPS: any) {
       return
     }
 
-    if (res.message === 'Số lượng sản phẩm thêm vào nhiều hơn số lượng trong kho') {
-      toast.error(res.message)
-      return
+    await refreshCart()
+    if (hasCartItems.value) {
+      await fetchDiscounts(idHDS.value)
     }
-
-    const response = await GetGioHang(idHDS.value)
-    state.gioHang = response
-
-    calculateTotalAmounts()
-    await fetchDiscounts(idHDS.value)
-    capNhatDanhSach()
   }
   catch (error) {
     console.error('Failed to increase quantity:', error)
     toast.error('Tăng số lượng thất bại!')
-    const updatedProduct = state.gioHang.find(item => item.id === idSPS)
-    if (updatedProduct) {
-      updatedProduct.soLuong = Math.max(0, updatedProduct.soLuong - 1)
-      calculateTotalAmounts()
-    }
   }
-}
-
-async function huy(idHD: string) {
-  try {
-    const formData = new FormData()
-    formData.append('idNV', idNV.userId)
-    formData.append('idHD', idHD)
-
-    const res = await huyHoaDon(formData)
-
-    toast.success(res.message)
-
-    await fetchProducts()
-    await capNhatDanhSach()
-
-    await fetchHoaDon()
-
-    const indexToRemove = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
-    if (indexToRemove !== -1) {
-      tabs.value.splice(indexToRemove, 1)
-    }
-
-    idHDS.value = ''
-    activeTab.value = 0
-    state.gioHang = []
-    state.detailKhachHang = null
-    state.phuongThuThanhToan = []
-    state.tongTien = null
-    tongTien.value = 0
-    tongTienTruocGiam.value = 0
-    giamGia.value = 0
-    tienHang.value = 0
-    soTien.value = 0
-    tienKhachThanhToan.value = 0
-    tienThieu.value = 0
-    state.currentPaymentMethod = '0'
-    resetDiscount()
-    isDeliveryEnabled.value = false
-    currentDeliveryInfo.value = null
-    Object.assign(deliveryInfo, { tenNguoiNhan: '', sdtNguoiNhan: '', diaChiGiaoHang: '', tinhThanhPho: undefined, quanHuyen: undefined, phuongXa: undefined, diaChiCuThe: '' })
-    shippingFee.value = 0
-    provinceCode.value = null
-    districtCode.value = null
-    wardCode.value = null
-  }
-  catch (error: any) {
-    if (error?.response?.data?.message) {
-      toast.error(error.response.data.message)
-    }
-    else {
-      toast.error('Có lỗi xảy ra khi xác nhận thanh toán!')
-      console.error('Lỗi khi xác nhận thanh toán:', error)
-    }
-  }
-}
-
-async function xacNhan(check: number) {
-  console.log('=== DEBUG XÁC NHẬN THANH TOÁN ===')
-  console.log('Giỏ hàng:', state.gioHang)
-  console.log('IMEI đã chọn:', imeiDaChon.value)
-
-  state.gioHang.forEach((item, index) => {
-    console.log(`Sản phẩm ${index + 1}:`, {
-      ten: item.ten || item.name,
-      id: item.id,
-      idHDCT: item.idHDCT,
-      soLuong: item.soLuong,
-      sanPhamChiTiet: item.sanPhamChiTiet,
-      quanLyImei: item.sanPhamChiTiet?.quanLyImei,
-      hasImei: 'imel' in item ? item.imel : 'Không có field imel',
-    })
-  })
-
-  console.log('=== END DEBUG ===')
-  if (!idHDS.value) {
-    toast.error('Vui lòng chọn một hóa đơn để xác nhận thanh toán!')
-    console.error('Lỗi: idHDS.value là null khi xác nhận thanh toán.')
-    return
-  }
-
-  if (state.gioHang.length === 0) {
-    toast.error('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi thanh toán.')
-    return
-  }
-
-  if (isDeliveryEnabled.value) {
-    if (!deliveryInfo.tenNguoiNhan || !deliveryInfo.sdtNguoiNhan || !deliveryInfo.diaChiCuThe
-      || !deliveryInfo.tinhThanhPho || !deliveryInfo.quanHuyen || !deliveryInfo.phuongXa) {
-      toast.error('Vui lòng nhập đầy đủ thông tin giao hàng!')
-      return
-    }
-    if (shippingFee.value < 0 && tienHang.value > 0) {
-      toast.error('Vui làm kiểm tra lại tiền giao hàng')
-      return
-    }
-  }
-
-  const loaiHoaDon = isDeliveryEnabled.value ? 'GIAO_HANG' : 'TAI_QUAY'
-  const danhSachImeiChon = imeiDaChon.value
-
-  const coSanPhamImei = state.gioHang.some(item => item.sanPhamChiTiet?.quanLyImei)
-  if (coSanPhamImei && danhSachImeiChon.length === 0) {
-    toast.error('Vui lòng chọn IMEI cho sản phẩm laptop!')
-    return
-  }
-
-  let hasError = false
-  for (const item of state.gioHang) {
-    if (item.sanPhamChiTiet?.quanLyImei) {
-      const imeiItem = danhSachImeiChon.find(i => i.idHoaDonChiTiet === item.idHoaDonChiTiet)
-      if (!imeiItem) {
-        toast.error(`Chưa chọn IMEI cho sản phẩm ${item.tenSanPham}!`)
-        hasError = true
-        break
-      }
-      if (imeiItem.danhSachImei.length !== item.soLuong) {
-        toast.error(`Số lượng IMEI cho sản phẩm ${item.tenSanPham} không khớp! Cần ${item.soLuong}, đã chọn ${imeiItem.danhSachImei.length}`)
-        hasError = true
-        break
-      }
-    }
-  }
-
-  if (hasError)
-    return
-
-  const selectedProvince = provinces.value.find(p => p.code === deliveryInfo.tinhThanhPho)
-  const selectedDistrict = districts.value.find(d => d.code === deliveryInfo.quanHuyen)
-  const selectedWard = wards.value.find(w => w.code === deliveryInfo.phuongXa)
-
-  try {
-    const requestData: ParamsThanhCong = {
-      idHD: idHDS.value,
-      idNV: idNV.userId,
-      tienHang: tienHang.value,
-      tongTien: tongTien.value.toString(),
-      ten: deliveryInfo.tenNguoiNhan,
-      sdt: deliveryInfo.sdtNguoiNhan,
-      diaChi: isDeliveryEnabled.value
-        ? `${deliveryInfo.diaChiCuThe}, ${selectedWard?.label}, ${selectedDistrict?.label}, ${selectedProvince?.label}`
-        : '',
-      tienShip: shippingFee.value,
-      giamGia: giamGia.value,
-      phuongThucThanhToan: state.currentPaymentMethod,
-      idPGG: selectedDiscount.value?.id,
-      check: isDeliveryEnabled.value ? 1 : 0,
-      loaiHoaDon,
-      danhSachImei: danhSachImeiChon,
-      daXacNhanImei: true,
-    }
-
-    console.log('Gửi request thanh toán:', requestData)
-
-    const res = await thanhToanThanhCong(requestData)
-
-    if (res.message != null) {
-      if (res.message.startsWith('Số')) {
-        toast.error(res.message)
-        return
-      }
-
-      if (res.message.startsWith('Phiếu')) {
-        toast.error(res.message)
-        await fetchDiscounts(idHDS.value)
-        return
-      }
-
-      if (res.message.startsWith('Đã')) {
-        showDeliveryModal.value = true
-        await fetchDiscounts(idHDS.value)
-        return
-      }
-    }
-
-    if (isDeliveryEnabled.value) {
-      toast.success('Đã chuyển trạng thái giao hang!')
-    }
-    else {
-      toast.success('Thanh toán thành công!')
-    }
-
-    await resetAfterPayment()
-  }
-  catch (error: any) {
-    if (error?.response?.data?.message) {
-      toast.error(error.response.data.message)
-    }
-    else {
-      toast.error('Có lỗi xảy ra khi xác nhận thanh toán!')
-      console.error('Lỗi khi xác nhận thanh toán:', error)
-    }
-  }
-}
-
-async function resetAfterPayment() {
-  await fetchProducts()
-  await capNhatDanhSach()
-
-  const indexToRemove = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
-  if (indexToRemove !== -1) {
-    tabs.value.splice(indexToRemove, 1)
-  }
-
-  idHDS.value = ''
-  activeTab.value = 0
-  state.gioHang = []
-  state.detailKhachHang = null
-  state.phuongThuThanhToan = []
-  state.tongTien = null
-  tongTien.value = 0
-  tongTienTruocGiam.value = 0
-  giamGia.value = 0
-  tienHang.value = 0
-  soTien.value = 0
-  tienKhachThanhToan.value = 0
-  tienThieu.value = 0
-  state.currentPaymentMethod = '0'
-  resetDiscount()
-  isDeliveryEnabled.value = false
-  currentDeliveryInfo.value = null
-  Object.assign(deliveryInfo, {
-    tenNguoiNhan: '',
-    sdtNguoiNhan: '',
-    diaChiGiaoHang: '',
-    tinhThanhPho: undefined,
-    quanHuyen: undefined,
-    phuongXa: undefined,
-    diaChiCuThe: '',
-  })
-  shippingFee.value = 0
-  provinceCode.value = null
-  districtCode.value = null
-  wardCode.value = null
-  imeiDaChon.value = []
 }
 
 async function decreaseQuantity(idHDCT: any, idSPS: any) {
@@ -2361,267 +469,39 @@ async function decreaseQuantity(idHDCT: any, idSPS: any) {
     formData.append('idHDCT', idHDCT)
     await xoaSL(formData)
 
-    const response = await GetGioHang(idHDS.value)
-    state.gioHang = response
-
-    calculateTotalAmounts()
-    await fetchDiscounts(idHDS.value)
-    capNhatDanhSach()
+    await refreshCart()
+    if (hasCartItems.value) {
+      await fetchDiscounts(idHDS.value)
+    }
+    else {
+      resetDiscountState()
+    }
   }
   catch (error) {
     console.error('Failed to decrease quantity:', error)
     toast.error('Giảm số lượng thất bại!')
-    const updatedProduct = state.gioHang.find(item => item.id === idSPS)
-    if (updatedProduct) {
-      updatedProduct.soLuong = Math.min(updatedProduct.soLuong + 1, 1)
-      calculateTotalAmounts()
-    }
   }
 }
 
-watch(
-  () => tienHang.value,
-  async () => {
-    if (idHDS.value) {
-      await fetchDiscounts(idHDS.value)
-    }
-  },
-)
-
-watch(
-  () => [deliveryInfo.tinhThanhPho, deliveryInfo.quanHuyen, deliveryInfo.phuongXa],
-  async () => {
-    if (isDeliveryEnabled.value) {
-      await calculateShippingFee()
-    }
-  },
-)
-
-async function openProductSelectionModal() {
-  if (!idHDS.value) {
-    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước khi chọn sản phẩm!')
-    return
-  }
-  await fetchProducts()
-  showProductModal.value = true
-}
-
-async function createInvoice() {
-  if (tabs.value.length >= 10) {
-    toast.warning('Chỉ được tạo tối đa 10 hóa đơn!', { autoClose: 3000 })
-    return
-  }
-
-  const tempMa = genTempMaHoaDon()
-  const newTabId = nextTabId++
-
-  tabs.value.push({
-    id: newTabId,
-    idHD: '',
-    code: tempMa,
-    soLuong: 0,
-    loaiHoaDon: 'TAI_QUAY',
-    products: [],
-    isTemp: true,
-  })
-
-  activeTab.value = newTabId
-
-  idHDS.value = ''
-  loaiHD.value = 'TAI_QUAY'
-
-  state.gioHang = []
-  state.detailKhachHang = null
-  resetDiscount()
-  isDeliveryEnabled.value = false
-  currentDeliveryInfo.value = null
-
-  Object.assign(deliveryInfo, {
-    tenNguoiNhan: '',
-    sdtNguoiNhan: '',
-    diaChiCuThe: '',
-    tinhThanhPho: undefined,
-    quanHuyen: undefined,
-    phuongXa: undefined,
-  })
-
-  provinceCode.value = null
-  districtCode.value = null
-  wardCode.value = null
-  shippingFee.value = 0
-  isFreeShipping.value = false
-  state.currentPaymentMethod = '0'
-  tienHang.value = 0
-  tongTien.value = 0
-  tongTienTruocGiam.value = 0
-  tienKhachThanhToan.value = 0
-  tienThieu.value = 0
-
-  try {
-    const formData = new FormData()
-    formData.append('idNV', idNV.userId)
-    formData.append('ma', tempMa)
-
-    const newInvoice = await getCreateHoaDon(formData)
-
-    const tab = tabs.value.find(t => t.id === newTabId)
-    if (tab) {
-      tab.idHD = newInvoice.data.id
-      tab.code = newInvoice.data.code
-      tab.loaiHoaDon = newInvoice.data.loaiHoaDon || 'OFFLINE'
-      tab.isTemp = false
-    }
-
-    idHDS.value = newInvoice.data.id
-    loaiHD.value = newInvoice.data.loaiHoaDon || 'OFFLINE'
-
-    await clickkActiveTab(
-      newTabId,
-      newInvoice.data.id,
-      newInvoice.data.loaiHoaDon || 'OFFLINE',
-    )
-
-    toast.success('Tạo hóa đơn thành công!')
-  }
-  catch (error) {
-    console.error('Failed to create invoice:', error)
-    tabs.value = tabs.value.filter(t => t.id !== newTabId)
-    toast.error('Tạo hóa đơn thất bại!')
-  }
-}
-
-function genTempMaHoaDon(): string {
-  return `HD-TMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-}
-
-function closeModalP() {
-  showDeliveryModal.value = false
-  xacNhan(0)
-}
-
-const showKhachHangModal = ref(false)
-const showProductModal = ref(false)
-
-function setDefaultPaymentMethod() {
-  state.currentPaymentMethod = '0'
-}
-
-async function selectKhachHang(getIdKH: any) {
-  try {
-    const formData = new FormData()
-    formData.append('idHD', idHDS.value)
-    formData.append('idKH', getIdKH)
-    await themKhachHang(formData)
-    const responseKH = await GeOneKhachHang(idHDS.value)
-    state.detailKhachHang = responseKH
-
-    Object.assign(deliveryInfo, {
-      tenNguoiNhan: '',
-      sdtNguoiNhan: '',
-      diaChiCuThe: '',
-      tinhThanhPho: undefined,
-      quanHuyen: undefined,
-      phuongXa: undefined,
-    })
-    provinceCode.value = null
-    districtCode.value = null
-    wardCode.value = null
-    shippingFee.value = 0
-
-    if (state.detailKhachHang) {
-      deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
-      deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
-      deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
-
-      if (loaiHD.value === 'GIAO_HANG') {
-        const tinhThanhPhoId = state.detailKhachHang.tinh
-        const quanHuyenId = state.detailKhachHang.huyen
-        const phuongXaId = state.detailKhachHang.xa
-
-        if (!provinces.value.length) {
-          await fetchProvinces()
-        }
-
-        if (tinhThanhPhoId) {
-          const selectedProvince = provinces.value.find(p => p.code === tinhThanhPhoId.toString())
-          if (selectedProvince) {
-            deliveryInfo.tinhThanhPho = selectedProvince.value
-            provinceCode.value = Number.parseInt(tinhThanhPhoId)
-            await fetchDistricts(provinceCode.value)
-          }
-        }
-
-        if (quanHuyenId && provinceCode.value) {
-          const selectedDistrict = districts.value.find(d => d.code === quanHuyenId.toString())
-          if (selectedDistrict) {
-            deliveryInfo.quanHuyen = selectedDistrict.value
-            districtCode.value = Number.parseInt(quanHuyenId)
-            await fetchWards(districtCode.value)
-          }
-        }
-
-        if (phuongXaId && districtCode.value) {
-          const selectedWard = wards.value.find(w => w.code === phuongXaId)
-          if (selectedWard) {
-            deliveryInfo.phuongXa = selectedWard.value
-            wardCode.value = phuongXaId
-          }
-        }
-
-        if (tinhThanhPhoId && quanHuyenId && phuongXaId) {
-          isDeliveryEnabled.value = true
-          await calculateShippingFee()
-        }
-        else {
-          isDeliveryEnabled.value = false
-          toast.info('Thông tin địa chỉ khách hàng không đầy đủ, vui lòng nhập thủ công.')
-        }
-      }
-      else {
-        isDeliveryEnabled.value = false
-      }
-
-      deliveryInfoByInvoice[idHDS.value] = {
-        tenNguoiNhan: deliveryInfo.tenNguoiNhan,
-        sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
-        diaChiCuThe: deliveryInfo.diaChiCuThe,
-        tinhThanhPho: deliveryInfo.tinhThanhPho,
-        quanHuyen: deliveryInfo.quanHuyen,
-        phuongXa: deliveryInfo.phuongXa,
-        provinceCode: provinceCode.value,
-        districtCode: districtCode.value,
-        wardCode: wardCode.value,
-        shippingFee: shippingFee.value,
-      }
-    }
-
-    await fetchDiscounts(idHDS.value)
-    showKhachHangModal.value = false
-    toast.success('Chọn khách hàng thành công!')
-  }
-  catch (error) {
-    console.error('Failed to select customer:', error)
-    toast.error('Chọn khách hàng thất bại!')
-  }
-}
-
-async function deleteProduc(idSPS: any, idHDCT: string) {
+async function deleteProduct(idSPS: any, idHDCT: string) {
   try {
     const formData = new FormData()
     formData.append('idHD', idHDS.value)
     formData.append('idSP', idSPS)
     formData.append('idHDCT', idHDCT)
     await xoaSP(formData)
-    betterDiscountMessage.value = ''
+
     state.gioHang = state.gioHang.filter(item => item.id !== idSPS)
     calculateTotalAmounts()
 
-    await fetchDiscounts(idHDS.value)
-    const response = await GetGioHang(idHDS.value)
-    state.gioHang = response
+    if (hasCartItems.value) {
+      await fetchDiscounts(idHDS.value)
+    }
+    else {
+      resetDiscountState()
+    }
+
     toast.success('Xóa sản phẩm thành công!')
-    await capNhatDanhSach()
-    await fetchDiscounts(idHDS.value)
   }
   catch (error) {
     console.error('Failed to delete product:', error)
@@ -2629,356 +509,65 @@ async function deleteProduc(idSPS: any, idHDCT: string) {
   }
 }
 
-async function fetchProducts() {
+// ==================== IMEI FUNCTIONS ====================
+async function fetchSerialsByProduct(productId: string) {
   try {
-    const params: ADProductDetailRequest = {
-      page: 1,
-      size: 9999,
-    }
-    const response = await getProductDetails(params)
-    stateSP.products = response.data?.data || []
-    state.products = response.data?.data || []
-    stateSP.totalItems = response.data?.totalElements || 0
-    state.totalItems = response.data?.totalElements || 0
-    calculateMinMaxPrice(stateSP.products)
+    loadingSerials.value = true
+    const response = await getImeiProductDetail(productId)
+    selectedSerials.value = response.data || []
   }
   catch (error) {
-    console.error('Failed to fetch products:', error)
-    toast.error('Lấy danh sách sản phẩm thất bại!')
-  }
-}
-
-watch(customerSearchQuery, () => {
-  state.paginationParams.page = 1
-  debouncedFetchCustomers()
-})
-
-async function confirmQuantityP() {
-  showDeliveryModal.value = false
-  applyBestDiscount()
-  xacNhan(0)
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
-}
-
-function calculateMinMaxPrice(products: ADProductDetailResponse[]) {
-  if (products.length === 0) {
-    stateMinMaxPrice.priceMin = 0
-    stateMinMaxPrice.priceMax = 1000000
-    priceRange.value = [0, 1000000]
-    return
-  }
-
-  const prices = products.map(p => p.price).filter(price => price > 0)
-  if (prices.length === 0) {
-    stateMinMaxPrice.priceMin = 0
-    stateMinMaxPrice.priceMax = 1000000
-    priceRange.value = [0, 1000000]
-    return
-  }
-
-  const minPrice = Math.min(...prices)
-  const maxPrice = Math.max(...prices)
-
-  stateMinMaxPrice.priceMin = Math.floor(minPrice / 100000) * 100000
-  stateMinMaxPrice.priceMax = Math.ceil(maxPrice / 100000) * 100000
-
-  if (stateMinMaxPrice.priceMax - stateMinMaxPrice.priceMin < 100000) {
-    stateMinMaxPrice.priceMax = stateMinMaxPrice.priceMin + 100000
-  }
-
-  priceRange.value = [stateMinMaxPrice.priceMin, stateMinMaxPrice.priceMax]
-}
-
-const debouncedFetchProducts = debounce(async () => {
-  stateSP.searchQuery = localSearchQuery.value
-  stateSP.selectedMaterial = localSelectedMaterial.value
-  await fetchProducts()
-}, 300)
-
-watch(() => state.gioHang, calculateTotalAmounts, { deep: true })
-watch(giamGia, calculateTotalAmounts)
-watch(shippingFee, calculateTotalAmounts)
-
-async function capNhatDanhSach() {
-  const response = await GetHoaDons()
-  if (response && Array.isArray(response)) {
-    tabs.value = response.map((invoice, index) => ({
-      id: index + 1,
-      idHD: invoice.id,
-      ma: invoice.ma,
-      soLuong: invoice.soLuong,
-      loaiHoaDon: invoice.loaiHoaDon,
-      products: invoice.data?.products || [],
-    }))
-  }
-}
-
-const isQrVNpayModalVisible = ref(false)
-
-function openQrModalVNPayCaHai() {
-  isBothPaymentModalVisible.value = true
-  amountPaid.value = 0
-}
-
-function openQrModalVNPay() {
-  isQrVNpayModalVisible.value = true
-}
-
-function closeQrModalVnPay() {
-  isQrVNpayModalVisible.value = false
-}
-
-// ✅ THAY ĐỔI 5: Đổi tên biến/modal liên quan barcode scanning
-const isBarcodeModalVisible = ref(false) // Đổi tên từ isQrModalVisible
-const qrData = ref('')
-const hasCamera = ref(true)
-
-let html5QrCode: Html5Qrcode
-let isScannerRunning = false
-
-// ✅ Giữ alias để không phá vỡ code cũ trong template
-const isQrModalVisible = isBarcodeModalVisible
-
-function openQrModal() {
-  if (!idHDS.value) {
-    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
-    return
-  }
-  isBarcodeModalVisible.value = true
-  nextTick(() => {
-    startQrScanning()
-  })
-}
-
-async function addSerialByCode(serialCode: string) {
-  if (!idHDS.value) {
-    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
-    return
-  }
-
-  let code = serialCode.trim()
-  if (code.startsWith('http')) {
-    toast.error('Barcode không chứa serial hợp lệ. Vui lòng dùng barcode in trực tiếp từ hệ thống!')
-    return
-  }
-
-  toast.info(`Đang tìm serial: ${code}...`)
-
-  try {
-    let foundProduct: ADProductDetailResponse | null = null
-    let foundSerial: ADPDImeiResponse | null = null
-
-    for (const product of stateSP.products) {
-      const response = await getImeiProductDetail(product.id)
-      if (response.data && Array.isArray(response.data)) {
-        const serial = response.data.find((s: ADPDImeiResponse) => s.code === code)
-        if (serial) {
-          foundProduct = product
-          foundSerial = serial
-          break
-        }
-      }
-    }
-
-    if (!foundProduct || !foundSerial) {
-      toast.error(`Không tìm thấy serial: ${code}`)
-      return
-    }
-
-    if (foundSerial.imeiStatus !== 'AVAILABLE') {
-      toast.error(`Serial ${code} không khả dụng (${foundSerial.imeiStatus})`)
-      return
-    }
-
-    selectedProductDetail.value = foundProduct
-    selectedSerials.value = [foundSerial]
-    selectedSerialIds.value = [foundSerial.id]
-
-    await addSerialToCart()
-
-    toast.success(`Đã thêm serial ${code} — ${foundProduct.name}`)
-  }
-  catch (error) {
-    console.error('addSerialByCode error:', error)
-    toast.error('Thêm serial thất bại!')
-  }
-}
-
-// ✅ THAY ĐỔI 6: Cập nhật startQrScanning để hỗ trợ các định dạng barcode
-function startQrScanning() {
-  const qrRegionId = 'reader'
-  const qrRegionElement = document.getElementById(qrRegionId)
-  if (!qrRegionElement) {
-    console.error('Không tìm thấy phần tử reader')
-    return
-  }
-
-  // Cấu hình các định dạng barcode được hỗ trợ
-  const formatsToSupport = [
-    Html5QrcodeSupportedFormats.CODE_128, // Phổ biến nhất cho serial
-    Html5QrcodeSupportedFormats.CODE_39, // Alphanumeric
-    Html5QrcodeSupportedFormats.CODE_93, // Compact barcode
-    Html5QrcodeSupportedFormats.EAN_13, // Hàng hóa tiêu dùng
-    Html5QrcodeSupportedFormats.EAN_8, // EAN-8
-    Html5QrcodeSupportedFormats.UPC_A, // UPC-A
-    Html5QrcodeSupportedFormats.UPC_E, // UPC-E
-    Html5QrcodeSupportedFormats.ITF, // Interleaved 2 of 5
-    Html5QrcodeSupportedFormats.QR_CODE, // Vẫn giữ QR để fallback
-  ]
-
-  html5QrCode = new Html5Qrcode(qrRegionId, { formatsToSupport })
-
-  Html5Qrcode.getCameras()
-    .then((cameras: { id: string, label: string }[]) => {
-      if (cameras && cameras.length) {
-        hasCamera.value = true
-        isScannerRunning = true
-        html5QrCode.start(
-          cameras[0].id,
-          {
-            fps: 10,
-            // ✅ Dùng qrbox hình chữ nhật nằm ngang — phù hợp barcode 1D
-            qrbox: { width: 350, height: 120 },
-          },
-          async (decodedText: string) => {
-            if (!isScannerRunning)
-              return
-            isScannerRunning = false
-            await stopQrScanning()
-            isBarcodeModalVisible.value = false
-            await addSerialByCode(decodedText)
-          },
-          (_errorMessage) => {
-            // Bỏ qua lỗi scan thông thường
-          },
-        )
-      }
-      else {
-        hasCamera.value = false
-        toast.error('Không tìm thấy camera!')
-      }
-    })
-    .catch((error: any) => {
-      hasCamera.value = false
-      toast.error(`Lỗi truy cập camera: ${error.message || error}`)
-    })
-}
-
-function closeQrModal() {
-  isBarcodeModalVisible.value = false
-  isScannerRunning = false
-  stopQrScanning()
-}
-
-async function stopQrScanning() {
-  if (!html5QrCode)
-    return
-  try {
-    const state = html5QrCode.getState()
-    if (state === 2) {
-      await html5QrCode.stop()
-    }
-  }
-  catch (err) {
-    // ignore
+    console.error('Failed to fetch serials:', error)
+    toast.error('Lấy danh sách serial thất bại!')
+    selectedSerials.value = []
   }
   finally {
-    isScannerRunning = false
+    loadingSerials.value = false
   }
 }
 
-const addCustomerLoading = ref(false)
+async function selectProductForSerial(product: ADProductDetailResponse) {
+  selectedProductDetail.value = product
+  selectedSerialIds.value = []
+  serialSearchQuery.value = ''
+  await fetchSerialsByProduct(product.id)
+  showSerialModal.value = true
+}
 
-async function addCustomer() {
+async function addSerialToCart() {
+  if (selectedSerialIds.value.length === 0) {
+    toast.warning('Vui lòng chọn ít nhất 1 serial')
+    return
+  }
+
   try {
-    if (!newCustomer.ten || !newCustomer.sdt) {
-      toast.error('Vui lòng nhập đầy đủ thông tin khách hàng!')
-      return
+    const imeisDaChon = selectedSerials.value
+      .filter(s => selectedSerialIds.value.includes(s.id))
+      .map(s => s.id)
+
+    const payload = {
+      invoiceId: idHDS.value,
+      productDetailId: selectedProductDetail.value!.id,
+      imeiIds: imeisDaChon,
     }
 
-    const phoneRegex = /^\d{10}$/
-    if (!phoneRegex.test(newCustomer.sdt)) {
-      toast.error('Số điện thoại phải là 10 chữ số!')
-      return
+    await themSanPham(payload)
+
+    toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`)
+    showSerialModal.value = false
+    selectedSerialIds.value = []
+
+    await refreshCart()
+    if (hasCartItems.value) {
+      await fetchDiscounts(idHDS.value)
     }
-
-    if (!idHDS.value) {
-      toast.error('Vui lòng chọn hoặc tạo hóa đơn trước khi thêm khách hàng!')
-      return
-    }
-
-    addCustomerLoading.value = true
-
-    const formData = new FormData()
-    formData.append('ten', newCustomer.ten)
-    formData.append('sdt', newCustomer.sdt)
-
-    const response = await themMoiKhachHang(formData)
-    const newCustomerId = response.data
-
-    console.log(`New Khách hàng: ${newCustomerId}`)
-
-    const selectFormData = new FormData()
-    selectFormData.append('idHD', idHDS.value)
-    selectFormData.append('idKH', newCustomerId)
-    await themKhachHang(selectFormData)
-
-    const responseKH = await GeOneKhachHang(idHDS.value)
-    state.detailKhachHang = responseKH.id ? responseKH : null
-
-    newCustomer.ten = ''
-    newCustomer.sdt = ''
-
-    toast.success('Thêm và chọn khách hàng thành công!')
   }
   catch (error) {
-    console.error('Failed to add customer:', error)
-    toast.error('Thêm khách hàng thất bại!')
-  }
-  finally {
-    addCustomerLoading.value = false
+    console.error('Failed to add serials to cart:', error)
+    toast.error('Thêm serial vào giỏ hàng thất bại!')
   }
 }
 
-onMounted(async () => {
-  const storedDiscount = localStorage.getItem('selectedDiscount')
-  const storedBestDiscount = localStorage.getItem('isBestDiscountApplied')
-  if (storedDiscount) {
-    selectedDiscount.value = JSON.parse(storedDiscount)
-  }
-  if (storedBestDiscount) {
-    isBestDiscountApplied.value = JSON.parse(storedBestDiscount)
-  }
-  const storedDeliveryInfo = localStorage.getItem('deliveryInfoByInvoice')
-  if (storedDeliveryInfo) {
-    Object.assign(deliveryInfoByInvoice, JSON.parse(storedDeliveryInfo))
-  }
-  await fetchCustomers()
-  await fetchHoaDon()
-  if (idHDS.value) {
-    await fetchDiscounts(idHDS.value)
-  }
-  setDefaultPaymentMethod()
-  await fetchProvinces()
-
-  if (idHDS.value && state.gioHang.length > 0) {
-    await fetchDiscounts(idHDS.value)
-  }
-})
-
-// Tự động tìm voucher giảm nhiều tiền nhất
-const bestSuggestion = computed(() => {
-  const suggestions = state.autoVoucherResult?.voucherTotHon || []
-  if (suggestions.length === 0)
-    return null
-  return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0]
-})
-
-// ✅ THAY ĐỔI 3: Hàm in Barcode thay thế printSerialQR
-// Dùng JsBarcode (load từ CDN trong popup) thay vì QRCode npm
 async function printSerialBarcode(serialCode: string) {
   try {
     const win = window.open('', '_blank', 'width=520,height=380')
@@ -3051,24 +640,1467 @@ async function printSerialBarcode(serialCode: string) {
     toast.error('Tạo barcode thất bại!')
   }
 }
+
+// ==================== CUSTOMER FUNCTIONS ====================
+async function fetchCustomers() {
+  try {
+    const params = {
+      page: state.paginationParams.page,
+      size: state.paginationParams.size,
+      q: customerSearchQuery.value.trim(),
+    }
+    const response = await GetKhachHang(params)
+    state.khachHang = response.data?.data || []
+    state.totalItemsKH = response.totalElements || 0
+  }
+  catch (error) {
+    console.error('Failed to fetch customers:', error)
+    state.khachHang = []
+  }
+}
+
+const debouncedFetchCustomers = debounce(fetchCustomers, 300)
+
+async function selectKhachHang(customerId: string) {
+  try {
+    const formData = new FormData()
+    formData.append('idHD', idHDS.value)
+    formData.append('idKH', customerId)
+    await themKhachHang(formData)
+
+    const response = await GeOneKhachHang(idHDS.value)
+    state.detailKhachHang = response
+
+    showKhachHangModal.value = false
+    toast.success('Chọn khách hàng thành công!')
+
+    if (hasCartItems.value) {
+      await fetchDiscounts(idHDS.value)
+    }
+  }
+  catch (error) {
+    console.error('Failed to select customer:', error)
+    toast.error('Chọn khách hàng thất bại!')
+  }
+}
+
+function clearSelectedCustomer() {
+  state.detailKhachHang = null
+  toast.info('Đã bỏ chọn khách hàng')
+}
+
+async function addNewCustomer() {
+  try {
+    if (!newCustomer.ten || !newCustomer.sdt) {
+      toast.error('Vui lòng nhập đầy đủ thông tin!')
+      return
+    }
+
+    if (!/^\d{10}$/.test(newCustomer.sdt)) {
+      toast.error('Số điện thoại phải là 10 chữ số!')
+      return
+    }
+
+    addCustomerLoading.value = true
+
+    const formData = new FormData()
+    formData.append('ten', newCustomer.ten)
+    formData.append('sdt', newCustomer.sdt)
+
+    const response = await themMoiKhachHang(formData)
+    const newCustomerId = response.data
+
+    const selectFormData = new FormData()
+    selectFormData.append('idHD', idHDS.value)
+    selectFormData.append('idKH', newCustomerId)
+    await themKhachHang(selectFormData)
+
+    const customerResponse = await GeOneKhachHang(idHDS.value)
+    state.detailKhachHang = customerResponse
+
+    newCustomer.ten = ''
+    newCustomer.sdt = ''
+
+    toast.success('Thêm và chọn khách hàng thành công!')
+
+    if (hasCartItems.value) {
+      await fetchDiscounts(idHDS.value)
+    }
+  }
+  catch (error) {
+    console.error('Failed to add customer:', error)
+    toast.error('Thêm khách hàng thất bại!')
+  }
+  finally {
+    addCustomerLoading.value = false
+  }
+}
+
+// ==================== INVOICE FUNCTIONS ====================
+async function fetchHoaDon() {
+  try {
+    const response = await GetHoaDons()
+
+    if (response && Array.isArray(response)) {
+      tabs.value = response.map((invoice, index) => ({
+        id: index + 1,
+        idHD: invoice.id,
+        code: invoice.code,
+        soLuong: invoice.soLuong,
+        loaiHoaDon: invoice.loaiHoaDon,
+        products: invoice.data?.products || [],
+      }))
+
+      if (tabs.value.length > 0) {
+        activeTab.value = tabs.value[0].id
+        await switchInvoice(tabs.value[0].id, tabs.value[0].idHD, tabs.value[0].loaiHoaDon)
+      }
+    }
+  }
+  catch (error) {
+    console.error('Failed to fetch invoices:', error)
+    toast.error('Lấy danh sách hóa đơn thất bại!')
+  }
+}
+
+async function createInvoice() {
+  if (tabs.value.length >= 10) {
+    toast.warning('Chỉ được tạo tối đa 10 hóa đơn!')
+    return
+  }
+
+  const tempMa = `HD-TMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+  const newTabId = nextTabId++
+
+  tabs.value.push({
+    id: newTabId,
+    idHD: '',
+    code: tempMa,
+    soLuong: 0,
+    loaiHoaDon: 'TAI_QUAY',
+    products: [],
+    isTemp: true,
+  })
+
+  activeTab.value = newTabId
+  resetCurrentInvoice()
+
+  try {
+    const formData = new FormData()
+    formData.append('idNV', USER_INFO.userId)
+    formData.append('ma', tempMa)
+
+    const newInvoice = await getCreateHoaDon(formData)
+    const tab = tabs.value.find(t => t.id === newTabId)
+    if (tab) {
+      tab.idHD = newInvoice.data.id
+      tab.code = newInvoice.data.code
+      tab.loaiHoaDon = newInvoice.data.loaiHoaDon || 'OFFLINE'
+      tab.isTemp = false
+    }
+
+    await switchInvoice(newTabId, newInvoice.data.id, newInvoice.data.loaiHoaDon || 'OFFLINE')
+    toast.success('Tạo hóa đơn thành công!')
+  }
+  catch (error) {
+    console.error('Failed to create invoice:', error)
+    tabs.value = tabs.value.filter(t => t.id !== newTabId)
+    toast.error('Tạo hóa đơn thất bại!')
+  }
+}
+
+async function cancelInvoice(invoiceId: string) {
+  try {
+    const formData = new FormData()
+    formData.append('idNV', USER_INFO.userId)
+    formData.append('idHD', invoiceId)
+
+    await huyHoaDon(formData)
+    toast.success('Hủy hóa đơn thành công!')
+
+    const index = tabs.value.findIndex(tab => tab.idHD === invoiceId)
+    if (index !== -1) {
+      tabs.value.splice(index, 1)
+    }
+
+    if (tabs.value.length > 0) {
+      await switchInvoice(tabs.value[0].id, tabs.value[0].idHD, tabs.value[0].loaiHoaDon)
+    }
+    else {
+      resetInvoiceState()
+    }
+  }
+  catch (error: any) {
+    toast.error(error?.response?.data?.message || 'Hủy hóa đơn thất bại!')
+  }
+}
+
+async function switchInvoice(tabId: number, invoiceId: string, type: string) {
+  idHDS.value = invoiceId
+  activeTab.value = tabId
+  loaiHD.value = type
+  isDeliveryEnabled.value = type === 'GIAO_HANG'
+
+  try {
+    resetDiscountState()
+    state.gioHang = []
+    state.detailKhachHang = null
+
+    const cartResponse = await GetGioHang(invoiceId)
+    state.gioHang = cartResponse
+    calculateTotalAmounts()
+
+    const customerResponse = await GeOneKhachHang(invoiceId)
+    state.detailKhachHang = customerResponse.id ? customerResponse : null
+
+    if (hasCartItems.value) {
+      await fetchDiscounts(invoiceId)
+    }
+
+    if (isDeliveryEnabled.value && state.detailKhachHang) {
+      await loadDeliveryInfo()
+    }
+  }
+  catch (error) {
+    console.error('Failed to switch invoice:', error)
+    toast.error('Chuyển hóa đơn thất bại!')
+  }
+}
+
+function resetInvoiceState() {
+  idHDS.value = ''
+  loaiHD.value = ''
+  state.gioHang = []
+  state.detailKhachHang = null
+  resetDiscountState()
+  selectedVoucher.value = null
+  giamGia.value = 0
+  isDeliveryEnabled.value = false
+  calculateTotalAmounts()
+}
+
+function resetCurrentInvoice() {
+  idHDS.value = ''
+  state.gioHang = []
+  state.detailKhachHang = null
+  resetDiscountState()
+  selectedVoucher.value = null
+  giamGia.value = 0
+  calculateTotalAmounts()
+}
+
+// ==================== DELIVERY FUNCTIONS ====================
+async function fetchProvinces() {
+  try {
+    const response = await getGHNProvinces(GHN_API_TOKEN)
+    provinces.value = response.map((item: any) => ({
+      value: String(item.ProvinceID),
+      label: item.ProvinceName,
+      code: String(item.ProvinceID),
+    }))
+  }
+  catch (error) {
+    console.error('Failed to fetch provinces:', error)
+  }
+}
+
+async function fetchDistrictsFromGHN(provinceId: number) {
+  try {
+    const response = await getGHNDistricts(GHN_API_TOKEN, provinceId)
+    districts.value = response.map((item: any) => ({
+      value: String(item.DistrictID),
+      label: item.DistrictName,
+      code: String(item.DistrictID),
+    }))
+  }
+  catch (error) {
+    console.error('Failed to fetch districts:', error)
+  }
+}
+
+async function fetchWardsFromGHN(districtId: number) {
+  try {
+    const response = await getGHNWards(GHN_API_TOKEN, districtId)
+    wards.value = response.map((item: any) => ({
+      value: item.WardCode,
+      label: item.WardName,
+      code: item.WardCode,
+    }))
+  }
+  catch (error) {
+    console.error('Failed to fetch wards:', error)
+  }
+}
+
+// Cập nhật loadDeliveryInfo
+async function loadDeliveryInfo() {
+  if (!state.detailKhachHang)
+    return
+
+  console.log('Loading delivery info for customer:', state.detailKhachHang)
+
+  deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
+  deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
+  deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
+  deliveryInfo.tinhThanhPho = state.detailKhachHang.tinh || null
+  deliveryInfo.quanHuyen = state.detailKhachHang.huyen || null
+  deliveryInfo.phuongXa = state.detailKhachHang.xa || null
+
+  // Tìm và set các code value từ tên
+  if (deliveryInfo.tinhThanhPho) {
+    const province = provinces.value.find(p => p.label === deliveryInfo.tinhThanhPho)
+    if (province) {
+      provinceCode.value = Number(province.code)
+      // Fetch districts cho tỉnh này
+      await fetchDistrictsFromGHN(provinceCode.value)
+    }
+  }
+
+  if (deliveryInfo.quanHuyen && provinceCode.value) {
+    const district = districts.value.find(d => d.label === deliveryInfo.quanHuyen)
+    if (district) {
+      districtCode.value = Number(district.code)
+      // Fetch wards cho huyện này
+      await fetchWardsFromGHN(districtCode.value)
+    }
+  }
+
+  if (deliveryInfo.phuongXa && districtCode.value) {
+    const ward = wards.value.find(w => w.label === deliveryInfo.phuongXa)
+    if (ward) {
+      wardCode.value = ward.code
+    }
+  }
+
+  await loadLocationNames()
+  await calculateShippingFee()
+}
+
+// Cập nhật toggleDelivery
+async function toggleDelivery(enabled: boolean) {
+  isDeliveryEnabled.value = enabled
+
+  if (enabled && state.detailKhachHang) {
+    await loadDeliveryInfo()
+  }
+  else {
+    // Reset delivery info
+    deliveryInfo.tenNguoiNhan = state.detailKhachHang?.ten || ''
+    deliveryInfo.sdtNguoiNhan = state.detailKhachHang?.sdt || ''
+    deliveryInfo.diaChiCuThe = state.detailKhachHang?.diaChi || ''
+    deliveryInfo.tinhThanhPho = null
+    deliveryInfo.quanHuyen = null
+    deliveryInfo.phuongXa = null
+    provinceCode.value = null
+    districtCode.value = null
+    wardCode.value = null
+    shippingFee.value = 0
+    calculateTotalAmounts()
+  }
+
+  // Cập nhật trạng thái giao hàng lên server
+  try {
+    const formData = new FormData()
+    formData.append('idHD', idHDS.value)
+    formData.append('check', enabled ? '1' : '0')
+    await suaGiaoHang(formData)
+  }
+  catch (error) {
+    console.error('Failed to update delivery status:', error)
+  }
+}
+
+// ==================== DELIVERY EDIT FUNCTIONS ====================
+function openDeliveryEditModal() {
+  // Copy current values to edit form
+  editDeliveryForm.tenNguoiNhan = deliveryInfo.tenNguoiNhan
+  editDeliveryForm.sdtNguoiNhan = deliveryInfo.sdtNguoiNhan
+  editDeliveryForm.tinhThanhPho = deliveryInfo.tinhThanhPho
+  editDeliveryForm.quanHuyen = deliveryInfo.quanHuyen
+  editDeliveryForm.phuongXa = deliveryInfo.phuongXa
+  editDeliveryForm.diaChiCuThe = deliveryInfo.diaChiCuThe
+  editDeliveryForm.ghiChu = deliveryInfo.ghiChu
+
+  editProvinceCode.value = provinceCode.value
+  editDistrictCode.value = districtCode.value
+  editWardCode.value = wardCode.value
+
+  showDeliveryEditModal.value = true
+}
+
+async function onEditProvinceChange(value: string) {
+  editDeliveryForm.tinhThanhPho = value
+  const selectedProvince = provinces.value.find(p => p.value === value)
+  editProvinceCode.value = selectedProvince ? Number.parseInt(selectedProvince.code) : null
+
+  if (editProvinceCode.value) {
+    await fetchDistrictsFromGHN(editProvinceCode.value)
+    editDeliveryForm.quanHuyen = null
+    editDeliveryForm.phuongXa = null
+    editDistrictCode.value = null
+    editWardCode.value = null
+  }
+  else {
+    districts.value = []
+    wards.value = []
+  }
+}
+
+async function onEditDistrictChange(value: string) {
+  editDeliveryForm.quanHuyen = value
+  const selectedDistrict = districts.value.find(d => d.value === value)
+  editDistrictCode.value = selectedDistrict ? Number.parseInt(selectedDistrict.code) : null
+
+  if (editDistrictCode.value) {
+    await fetchWardsFromGHN(editDistrictCode.value)
+    editDeliveryForm.phuongXa = null
+    editWardCode.value = null
+  }
+  else {
+    wards.value = []
+  }
+}
+
+function onEditWardChange(value: string) {
+  editDeliveryForm.phuongXa = value
+  const selectedWard = wards.value.find(w => w.value === value)
+  editWardCode.value = selectedWard ? selectedWard.code : null
+}
+
+async function saveDeliveryInfo() {
+  // Validate
+  // if (!editDeliveryForm.tenNguoiNhan || !editDeliveryForm.sdtNguoiNhan || !editDeliveryForm.diaChiCuThe
+  //   || !editDeliveryForm.tinhThanhPho || !editDeliveryForm.quanHuyen || !editDeliveryForm.phuongXa) {
+  //   toast.error('Vui lòng nhập đầy đủ thông tin giao hàng!')
+  //   return
+  // }
+
+  // Update deliveryInfo
+  deliveryInfo.tenNguoiNhan = editDeliveryForm.tenNguoiNhan
+  deliveryInfo.sdtNguoiNhan = editDeliveryForm.sdtNguoiNhan
+  deliveryInfo.tinhThanhPho = editDeliveryForm.tinhThanhPho
+  deliveryInfo.quanHuyen = editDeliveryForm.quanHuyen
+  deliveryInfo.phuongXa = editDeliveryForm.phuongXa
+  deliveryInfo.diaChiCuThe = editDeliveryForm.diaChiCuThe
+  deliveryInfo.ghiChu = editDeliveryForm.ghiChu
+
+  provinceCode.value = editProvinceCode.value
+  districtCode.value = editDistrictCode.value
+  wardCode.value = editWardCode.value
+
+  // Recalculate shipping fee
+  await calculateShippingFee()
+
+  // Save to storage
+  deliveryInfoByInvoice[idHDS.value] = {
+    tenNguoiNhan: deliveryInfo.tenNguoiNhan,
+    sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
+    diaChiCuThe: deliveryInfo.diaChiCuThe,
+    tinhThanhPho: deliveryInfo.tinhThanhPho,
+    quanHuyen: deliveryInfo.quanHuyen,
+    phuongXa: deliveryInfo.phuongXa,
+    provinceCode: provinceCode.value,
+    districtCode: districtCode.value,
+    wardCode: wardCode.value,
+    shippingFee: shippingFee.value,
+    ghiChu: deliveryInfo.ghiChu,
+  }
+
+  showDeliveryEditModal.value = false
+  toast.success('Cập nhật thông tin giao hàng thành công!')
+}
+
+// ==================== PROVINCE/DISTRICT/WARD HANDLERS ====================
+async function onProvinceChange(value: string) {
+  deliveryInfo.tinhThanhPho = value
+  const selectedProvince = provinces.value.find(p => p.value === value)
+  provinceCode.value = selectedProvince ? Number.parseInt(selectedProvince.code) : null
+
+  if (provinceCode.value) {
+    await fetchDistrictsFromGHN(provinceCode.value)
+    deliveryInfo.quanHuyen = null
+    deliveryInfo.phuongXa = null
+    districtCode.value = null
+    wardCode.value = null
+    await calculateShippingFee()
+  }
+  else {
+    districts.value = []
+    wards.value = []
+    shippingFee.value = 0
+    calculateTotalAmounts()
+  }
+}
+
+async function onDistrictChange(value: string) {
+  deliveryInfo.quanHuyen = value
+  const selectedDistrict = districts.value.find(d => d.value === value)
+  districtCode.value = selectedDistrict ? Number.parseInt(selectedDistrict.code) : null
+
+  if (districtCode.value) {
+    await fetchWardsFromGHN(districtCode.value)
+    deliveryInfo.phuongXa = null
+    wardCode.value = null
+    await calculateShippingFee()
+  }
+  else {
+    wards.value = []
+    shippingFee.value = 0
+    calculateTotalAmounts()
+  }
+}
+
+async function onWardChange(value: string) {
+  deliveryInfo.phuongXa = value
+  const selectedWard = wards.value.find(w => w.value === value)
+  wardCode.value = selectedWard ? selectedWard.code : null
+  await calculateShippingFee()
+}
+
+// ==================== PRODUCT FUNCTIONS ====================
+async function fetchProducts() {
+  try {
+    const params: ADProductDetailRequest = {
+      page: 1,
+      size: 9999,
+    }
+    const response = await getProductDetails(params)
+    stateSP.products = response.data?.data || []
+    state.products = response.data?.data || []
+    stateSP.totalItems = response.data?.totalElements || 0
+    calculateMinMaxPrice(stateSP.products)
+  }
+  catch (error) {
+    console.error('Failed to fetch products:', error)
+    toast.error('Lấy danh sách sản phẩm thất bại!')
+  }
+}
+
+const debouncedFetchProducts = debounce(fetchProducts, 300)
+
+function calculateMinMaxPrice(products: ADProductDetailResponse[]) {
+  if (products.length === 0) {
+    stateMinMaxPrice.priceMin = 0
+    stateMinMaxPrice.priceMax = 1000000
+    priceRange.value = [0, 1000000]
+    return
+  }
+
+  const prices = products.map(p => p.price).filter(price => price > 0)
+  if (prices.length === 0) {
+    stateMinMaxPrice.priceMin = 0
+    stateMinMaxPrice.priceMax = 1000000
+    priceRange.value = [0, 1000000]
+    return
+  }
+
+  const minPrice = Math.min(...prices)
+  const maxPrice = Math.max(...prices)
+
+  stateMinMaxPrice.priceMin = Math.floor(minPrice / 100000) * 100000
+  stateMinMaxPrice.priceMax = Math.ceil(maxPrice / 100000) * 100000
+
+  if (stateMinMaxPrice.priceMax - stateMinMaxPrice.priceMin < 100000) {
+    stateMinMaxPrice.priceMax = stateMinMaxPrice.priceMin + 100000
+  }
+
+  priceRange.value = [stateMinMaxPrice.priceMin, stateMinMaxPrice.priceMax]
+}
+
+function resetFilters() {
+  localSearchQuery.value = ''
+  localColor.value = null
+  localCPU.value = null
+  localGPU.value = null
+  localRAM.value = null
+  localHardDrive.value = null
+  localSelectedMaterial.value = null
+  debouncedFetchProducts()
+}
+
+function openProductSelectionModal() {
+  if (!idHDS.value) {
+    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
+    return
+  }
+  fetchProducts()
+  showProductModal.value = true
+}
+
+// ==================== PAYMENT FUNCTIONS ====================
+async function updatePaymentStatus() {
+  if (idHDS.value) {
+    const response = await getPhuongThucThanhToan(idHDS.value)
+    state.phuongThuThanhToan = response
+    let totalPaid = 0
+    response.forEach((item) => { totalPaid += item.tongTien })
+    tienKhachThanhToan.value = totalPaid
+    tienThieu.value = (tongTien.value || 0) - tienKhachThanhToan.value
+  }
+}
+
+function setPaymentMethod(method: string) {
+  state.currentPaymentMethod = method
+  const messages: Record<string, string> = {
+    0: 'Tiền mặt',
+    1: 'Chuyển khoản',
+    2: 'Kết hợp',
+  }
+  toast.success(`Đã chọn phương thức thanh toán ${messages[method] || method}`)
+}
+
+// ==================== BARCODE SCANNER ====================
+function openBarcodeScanner() {
+  if (!idHDS.value) {
+    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
+    return
+  }
+  isBarcodeModalVisible.value = true
+  nextTick(() => startBarcodeScanning())
+}
+
+function startBarcodeScanning() {
+  const qrRegionId = 'reader'
+  const qrRegionElement = document.getElementById(qrRegionId)
+  if (!qrRegionElement)
+    return
+
+  const formatsToSupport = [
+    Html5QrcodeSupportedFormats.CODE_128,
+    Html5QrcodeSupportedFormats.CODE_39,
+    Html5QrcodeSupportedFormats.EAN_13,
+    Html5QrcodeSupportedFormats.EAN_8,
+  ]
+
+  html5QrCode = new Html5Qrcode(qrRegionId, { formatsToSupport })
+
+  Html5Qrcode.getCameras()
+    .then((cameras) => {
+      if (cameras?.length) {
+        hasCamera.value = true
+        isScannerRunning = true
+        html5QrCode.start(
+          cameras[0].id,
+          { fps: 10, qrbox: { width: 350, height: 120 } },
+          async (decodedText: string) => {
+            if (!isScannerRunning)
+              return
+            isScannerRunning = false
+            await stopBarcodeScanning()
+            isBarcodeModalVisible.value = false
+            await addSerialByCode(decodedText)
+          },
+          () => { },
+        )
+      }
+      else {
+        hasCamera.value = false
+        toast.error('Không tìm thấy camera!')
+      }
+    })
+    .catch((error) => {
+      hasCamera.value = false
+      toast.error(`Lỗi truy cập camera: ${error.message || error}`)
+    })
+}
+
+async function stopBarcodeScanning() {
+  if (!html5QrCode)
+    return
+  try {
+    if (html5QrCode.getState() === 2) {
+      await html5QrCode.stop()
+    }
+  }
+  catch (err) {
+    // Ignore
+  }
+  finally {
+    isScannerRunning = false
+  }
+}
+
+function closeBarcodeModal() {
+  isBarcodeModalVisible.value = false
+  stopBarcodeScanning()
+}
+
+async function addSerialByCode(serialCode: string) {
+  const code = serialCode.trim()
+
+  if (!/^\d{15,17}$/.test(code)) {
+    toast.error('Mã IMEI không hợp lệ! IMEI phải là 15-17 chữ số.')
+    return
+  }
+
+  toast.info(`Đang tìm IMEI: ${code}...`)
+
+  try {
+    for (const product of stateSP.products) {
+      const response = await getImeiProductDetail(product.id)
+      const serial = response.data?.find((s: ADPDImeiResponse) => s.code === code)
+
+      if (serial) {
+        if (serial.imeiStatus !== 'AVAILABLE') {
+          toast.error(`IMEI ${code} không khả dụng`)
+          return
+        }
+
+        selectedProductDetail.value = product
+        selectedSerials.value = [serial]
+        selectedSerialIds.value = [serial.id]
+        await addSerialToCart()
+        toast.success(`Đã thêm IMEI ${code}`)
+        return
+      }
+    }
+
+    toast.error(`Không tìm thấy IMEI: ${code}`)
+  }
+  catch (error) {
+    console.error('addSerialByCode error:', error)
+    toast.error('Thêm IMEI thất bại!')
+  }
+}
+
+// ==================== CHECKOUT FUNCTION ====================
+async function xacNhan(check: number) {
+  console.log('=== XÁC NHẬN THANH TOÁN ===')
+
+  if (!idHDS.value) {
+    toast.error('Vui lòng chọn một hóa đơn!')
+    return
+  }
+
+  if (!hasCartItems.value) {
+    toast.error('Giỏ hàng trống!')
+    return
+  }
+
+  // if (isDeliveryEnabled.value) {
+  //   if (!hasDeliveryInfo.value) {
+  //     toast.error('Vui lòng nhập đầy đủ thông tin giao hàng!')
+  //     return
+  //   }
+  // }
+
+  const hasImeiProduct = state.gioHang.some(item => item.sanPhamChiTiet?.quanLyImei)
+  if (hasImeiProduct && imeiDaChon.value.length === 0) {
+    toast.error('Vui lòng chọn IMEI cho sản phẩm laptop!')
+    return
+  }
+
+  for (const item of state.gioHang) {
+    if (item.sanPhamChiTiet?.quanLyImei) {
+      const imeiItem = imeiDaChon.value.find(i => i.idHoaDonChiTiet === item.idHoaDonChiTiet)
+      if (!imeiItem) {
+        toast.error(`Chưa chọn IMEI cho sản phẩm ${item.tenSanPham || item.name}!`)
+        return
+      }
+      if (imeiItem.danhSachImei.length !== item.soLuong) {
+        toast.error(`Số lượng IMEI cho sản phẩm ${item.tenSanPham || item.name} không khớp!`)
+        return
+      }
+    }
+  }
+
+  try {
+    const selectedProvince = provinces.value.find(p => p.value === deliveryInfo.tinhThanhPho)
+    const selectedDistrict = districts.value.find(d => d.value === deliveryInfo.quanHuyen)
+    const selectedWard = wards.value.find(w => w.value === deliveryInfo.phuongXa)
+
+    const requestData = {
+      idHD: idHDS.value,
+      idNV: USER_INFO?.userId,
+      tienHang: tienHang.value,
+      tongTien: tongTien.value.toString(),
+      ten: deliveryInfo.tenNguoiNhan,
+      sdt: deliveryInfo.sdtNguoiNhan,
+      diaChi: isDeliveryEnabled.value
+        ? `${deliveryInfo.diaChiCuThe}, ${selectedWard?.label}, ${selectedDistrict?.label}, ${selectedProvince?.label}`
+        : '',
+      tienShip: shippingFee.value,
+      giamGia: giamGia.value,
+      phuongThucThanhToan: state.currentPaymentMethod,
+      idPGG: selectedVoucher.value?.voucherId,
+      check: isDeliveryEnabled.value ? 1 : 0,
+      loaiHoaDon: isDeliveryEnabled.value ? 'GIAO_HANG' : 'TAI_QUAY',
+      danhSachImei: imeiDaChon.value,
+      daXacNhanImei: true,
+    }
+
+    const res = await thanhToanThanhCong(requestData)
+
+    if (res.message) {
+      if (res.message.startsWith('Số') || res.message.startsWith('Phiếu')) {
+        toast.error(res.message)
+        return
+      }
+    }
+
+    toast.success(isDeliveryEnabled.value ? 'Đã chuyển trạng thái giao hàng!' : 'Thanh toán thành công!')
+    await resetAfterPayment()
+  }
+  catch (error: any) {
+    toast.error(error?.response?.data?.message || 'Có lỗi xảy ra!')
+  }
+}
+
+// ==================== RESET AFTER PAYMENT ====================
+async function resetAfterPayment() {
+  await fetchProducts()
+
+  const index = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
+  if (index !== -1) {
+    tabs.value.splice(index, 1)
+  }
+
+  if (tabs.value.length > 0) {
+    await switchInvoice(tabs.value[0].id, tabs.value[0].idHD, tabs.value[0].loaiHoaDon)
+  }
+  else {
+    resetInvoiceState()
+  }
+
+  imeiDaChon.value = []
+  showDeliveryModal.value = false
+}
+
+// ==================== LOCATION FUNCTIONS ====================
+const API_GEO_V2 = 'https://provinces.open-api.vn/api/v2'
+
+const provinceNameMap = ref<Record<string, string>>({})
+const districtNameMap = ref<Record<string, string>>({})
+const communeNameMap = ref<Record<string, string>>({})
+const provinceCodeLookup = ref<Record<string, number>>({})
+const districtCodeLookup = ref<Record<string, number>>({})
+const loadedProvinceDetails = new Set<string>()
+
+async function initProvinces() {
+  try {
+    const res = await fetch(`${API_GEO_V2}/p/?depth=1`)
+    const data = await res.json()
+    data.forEach((p: any) => {
+      provinceNameMap.value[String(p.code)] = p.name
+      provinceNameMap.value[p.codename] = p.name
+      provinceCodeLookup.value[p.codename] = p.code
+      provinceCodeLookup.value[String(p.code)] = p.code
+    })
+  }
+  catch (e) { console.error('Lỗi tải tỉnh thành') }
+}
+
+async function fetchDistricts(provinceId: number) {
+  try {
+    const res = await fetch(`${API_GEO_V2}/p/${provinceId}?depth=2`)
+    const data = await res.json()
+
+    if (data.districts) {
+      data.districts.forEach((d: any) => {
+        districtNameMap.value[String(d.code)] = d.name
+        districtNameMap.value[d.codename] = d.name
+        districtCodeLookup.value[d.codename] = d.code
+        districtCodeLookup.value[String(d.code)] = d.code
+
+        if (d.wards) {
+          d.wards.forEach((w: any) => {
+            communeNameMap.value[String(w.code)] = w.name
+            communeNameMap.value[w.codename] = w.name
+          })
+        }
+      })
+    }
+  }
+  catch (e) {
+    console.error(`Lỗi tải quận/huyện tỉnh ${provinceId}`, e)
+  }
+}
+
+async function fetchWards(districtId: number) {
+  try {
+    const res = await fetch(`${API_GEO_V2}/d/${districtId}?depth=2`)
+    const data = await res.json()
+
+    if (data.wards) {
+      data.wards.forEach((w: any) => {
+        communeNameMap.value[String(w.code)] = w.name
+        communeNameMap.value[w.codename] = w.name
+      })
+    }
+  }
+  catch (e) {
+    console.error(`Lỗi tải xã/phường huyện ${districtId}`, e)
+  }
+}
+
+function resolveFullAddress(
+  provinceCode?: string | null,
+  districtCode?: string | null,
+  wardCode?: string | null,
+  detailAddress?: string | null,
+): string {
+  if (!provinceCode && !districtCode && !wardCode && !detailAddress) {
+    return 'Chưa có địa chỉ'
+  }
+
+  const formatSnakeCase = (str: string): string => {
+    return str.split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ')
+  }
+
+  const pRaw = String(provinceCode || '')
+  let pName = provinceNameMap.value[pRaw]
+  if (!pName) {
+    pName = formatSnakeCase(pRaw)
+    if (pName && !pName.includes('Tỉnh') && !pName.includes('Thành phố')) {
+      pName = `Tỉnh ${pName}`
+    }
+  }
+
+  const dRaw = String(districtCode || '')
+  const dName = districtNameMap.value[dRaw] || (dRaw ? formatSnakeCase(dRaw) : '')
+
+  const wRaw = String(wardCode || '')
+  const wName = communeNameMap.value[wRaw] || (wRaw ? formatSnakeCase(wRaw) : '')
+
+  const detail = detailAddress || ''
+
+  const parts = [detail, wName, dName, pName].filter(part => part && part !== 'null' && part !== 'undefined')
+
+  return parts.length > 0 ? parts.join(', ') : 'Chưa có địa chỉ'
+}
+
+const formatFullAddress = computed(() => {
+  return resolveFullAddress(
+    deliveryInfo.tinhThanhPho,
+    deliveryInfo.quanHuyen,
+    deliveryInfo.phuongXa,
+    deliveryInfo.diaChiCuThe,
+  )
+})
+
+async function loadLocationNames() {
+  if (!deliveryInfo.tinhThanhPho) {
+    console.log('Không có tinhThanhPho để tải')
+    return
+  }
+
+  console.log('loadLocationNames - tinhThanhPho:', deliveryInfo.tinhThanhPho)
+
+  let provinceId = provinceCodeLookup.value[String(deliveryInfo.tinhThanhPho)]
+  if (!provinceId) {
+    provinceId = Number(deliveryInfo.tinhThanhPho)
+  }
+
+  if (provinceId && !isNaN(provinceId) && !loadedProvinceDetails.has(String(provinceId))) {
+    await fetchDistricts(provinceId)
+    loadedProvinceDetails.add(String(provinceId))
+  }
+
+  if (deliveryInfo.quanHuyen && !districtNameMap.value[deliveryInfo.quanHuyen]) {
+    console.log('Chưa có tên huyện:', deliveryInfo.quanHuyen)
+  }
+}
+
+function resolveAddress(addr: Address): string {
+  if (!addr)
+    return 'Chưa cập nhật'
+
+  const pRaw = String(addr.provinceCity || '')
+  const pName = provinceNameMap.value[pRaw] || pRaw
+
+  const wRaw = String(addr.wardCommune || '')
+  const wName = communeNameMap.value[wRaw] || wRaw
+
+  const detail = addr.addressDetail || ''
+
+  return [detail, wName, pName]
+    .filter(part => part && part !== 'null' && part !== 'undefined')
+    .join(', ')
+}
+
+// ==================== WATCHERS ====================
+watch(() => state.gioHang.length, (newLength) => {
+  if (newLength === 0) {
+    resetDiscountState()
+    selectedVoucher.value = null
+    giamGia.value = 0
+  }
+})
+
+watch(() => tienHang.value, (newValue) => {
+  if (newValue > 0 && idHDS.value) {
+    setTimeout(() => {
+      if (hasCartItems.value) {
+        fetchDiscounts(idHDS.value)
+      }
+    }, 500)
+  }
+})
+
+watch(() => state.detailKhachHang?.id, () => {
+  if (hasCartItems.value && idHDS.value) {
+    fetchDiscounts(idHDS.value)
+  }
+})
+
+watch(customerSearchQuery, () => {
+  state.paginationParams.page = 1
+  debouncedFetchCustomers()
+})
+
+watch([localSearchQuery, localColor, localCPU, localGPU, localRAM, localHardDrive, localSelectedMaterial], () => {
+  debouncedFetchProducts()
+})
+
+// Watch delivery info changes
+watch([() => deliveryInfo.tinhThanhPho, () => deliveryInfo.quanHuyen, () => deliveryInfo.phuongXa], async () => {
+  if (isDeliveryEnabled.value && idHDS.value) {
+    await calculateShippingFee()
+  }
+})
+
+// ==================== INIT ====================
+onMounted(async () => {
+  await initProvinces()
+  await calculateShippingFee()
+  const [colors, cpus, gpus, rams, hardDrives, materials] = await Promise.all([
+    getColors(),
+    getCPUs(),
+    getGPUs(),
+    getRAMs(),
+    getHardDrives(),
+    getMaterials(),
+  ])
+
+  ColorOptions.value = colors.data.map((c: any) => ({ label: c.ten, value: c.ten }))
+  CpuOptions.value = cpus.data.map((c: any) => ({ label: c.ten, value: c.ten }))
+  GpuOptions.value = gpus.data.map((g: any) => ({ label: g.ten, value: g.ten }))
+  RamOptions.value = rams.data.map((r: any) => ({ label: r.ten, value: r.ten }))
+  HardDriveOptions.value = hardDrives.data.map((h: any) => ({ label: h.ten, value: h.ten }))
+  MaterialOptions.value = materials.data.map((m: any) => ({ label: m.ten, value: m.ten }))
+
+  await fetchProvinces()
+  await fetchProducts()
+  await fetchCustomers()
+  await fetchHoaDon()
+})
+
+// ==================== CALCULATE SHIPPING FEE ====================
+async function calculateShippingFee() {
+  console.log('=== CALCULATE SHIPPING FEE ===', {
+    isDeliveryEnabled: isDeliveryEnabled.value,
+    idHDS: idHDS.value,
+    provinceCode: provinceCode.value,
+    districtCode: districtCode.value,
+    wardCode: wardCode.value,
+    tienHang: tienHang.value,
+  })
+
+  // Kiểm tra điều kiện
+  if (!isDeliveryEnabled.value) {
+    console.log('❌ Delivery not enabled')
+    shippingFee.value = 0
+    isFreeShipping.value = false
+    calculateTotalAmounts()
+    return
+  }
+
+  if (!idHDS.value || !provinceCode.value || !districtCode.value || !wardCode.value) {
+    console.log('❌ Missing delivery info:', {
+      idHDS: idHDS.value,
+      provinceCode: provinceCode.value,
+      districtCode: districtCode.value,
+      wardCode: wardCode.value,
+    })
+    shippingFee.value = 0
+    isFreeShipping.value = false
+    calculateTotalAmounts()
+    return
+  }
+
+  const amount = Number(tienHang.value)
+  console.log('Tiền hàng:', amount)
+
+  // Check free shipping
+  if (amount > 5000000) {
+    console.log('✅ Free shipping applied!')
+    isFreeShipping.value = true
+    shippingFee.value = 0
+    toast.success('Đơn hàng trên 5,000,000 VND, miễn phí vận chuyển!')
+    calculateTotalAmounts()
+    return
+  }
+
+  // Tính phí ship bình thường
+  try {
+    console.log('Calculating normal shipping fee...')
+    const availableServicesRequestBody: AvailableServiceRequest = {
+      shop_id: GHN_SHOP_ID,
+      from_district: FROM_DISTRICT_ID,
+      to_district: districtCode.value,
+    }
+
+    const availableServicesResponse = await getAvailableServices(GHN_API_TOKEN, availableServicesRequestBody)
+    console.log('Available services:', availableServicesResponse)
+
+    if (!availableServicesResponse.data || !availableServicesResponse.data.length) {
+      throw new Error('No available services')
+    }
+
+    const selectedServiceId = availableServicesResponse.data[0].service_id
+    const requestBody: ShippingFeeRequest = {
+      myRequest: {
+        FromDistrictID: FROM_DISTRICT_ID,
+        FromWardCode: FROM_WARD_CODE,
+        ServiceID: selectedServiceId,
+        ToDistrictID: districtCode.value,
+        ToWardCode: wardCode.value,
+        Height: 15,
+        Length: 15,
+        Weight: 500,
+        Width: 15,
+        InsuranceValue: amount,
+        Coupon: null,
+        PickShift: null,
+      },
+    }
+
+    const response = await calculateFee(requestBody, GHN_API_TOKEN, GHN_SHOP_ID)
+    console.log('Shipping fee response:', response)
+
+    shippingFee.value = response.data.total || 0
+    isFreeShipping.value = false
+    calculateTotalAmounts()
+  }
+  catch (error) {
+    console.error('Failed to calculate shipping fee:', error)
+    shippingFee.value = 0
+    isFreeShipping.value = false
+    toast.error('Không thể tính phí vận chuyển.')
+    calculateTotalAmounts()
+  }
+}
+
+// ==================== TABLE COLUMNS ====================
+const columnsKhachHang: DataTableColumns<KhachHangResponse> = [
+  {
+    title: 'STT',
+    key: 'stt',
+    width: 60,
+    align: 'center',
+    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
+  },
+  {
+    title: 'Tên khách hàng',
+    key: 'ten',
+    width: 150,
+  },
+  {
+    title: 'Số điện thoại',
+    key: 'sdt',
+    width: 130,
+    align: 'center',
+  },
+  {
+    title: 'Thao tác',
+    key: 'operation',
+    width: 90,
+    align: 'center',
+    render: row => h(
+      NButton,
+      {
+        type: 'primary',
+        size: 'small',
+        secondary: true,
+        onClick: () => selectKhachHang(row.id),
+      },
+      () => 'Chọn',
+    ),
+  },
+]
+
+function parseCurrency(value: string) {
+  if (!value)
+    return 0
+  let str = String(value).replace(/[^0-9nghìtrieu]/g, '').trim().toLowerCase()
+  let number = Number.parseInt(str.replace(/\D/g, '')) || 0
+
+  if (str.includes('nghìn')) {
+    number *= 1000
+  }
+  else if (str.includes('triệu')) {
+    number *= 1000000
+  }
+
+  return number
+}
+
+const columnsGiohang: DataTableColumns<any> = [
+  {
+    title: 'Serial đã chọn',
+    key: 'imel',
+    width: 110,
+    render: (row) => {
+      if (row.imel) {
+        return h(NTag, {
+          type: 'success',
+          size: 'small',
+          onClick: () => {
+            toast.info(`IMEI: ${row.imel}`)
+          },
+        }, () => `${row.imel}`)
+      }
+
+      const imeiItem = imeiDaChon.value.find(
+        item => item.idHoaDonChiTiet === row.idHDCT,
+      )
+
+      if (imeiItem && imeiItem.danhSachImei.length > 0) {
+        return h(NTag, {
+          type: 'success',
+          size: 'small',
+          onClick: () => {
+            toast.info(`Đã chọn ${imeiItem.danhSachImei.length} IMEI: ${imeiItem.danhSachImei.join(', ')}`)
+          },
+        }, () => `${imeiItem.danhSachImei.length} IMEI`)
+      }
+
+      return h(NTag, {
+        type: 'warning',
+        size: 'small',
+      }, () => 'Chưa chọn IMEI')
+    },
+  },
+  {
+    title: 'Ảnh',
+    key: 'anh',
+    width: 80,
+    align: 'center',
+    render: (row) => {
+      return h(
+        NBadge,
+        {
+          value: row.percentage ? `-${row.percentage}%` : undefined,
+          type: 'error',
+          offset: [-5, 0],
+          style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
+        },
+        {
+          default: () => h(NImage, {
+            width: 100,
+            height: 70,
+            src: row.urlImage || row.anh,
+            objectFit: 'cover',
+            style: {
+              'border-radius': '4px',
+              'border': '1px solid #eee',
+            },
+          }),
+        },
+      )
+    },
+  },
+  {
+    title: 'Tên sản phẩm',
+    key: 'name',
+    width: 150,
+    ellipsis: { tooltip: true },
+    render: row => h('div', { style: { fontWeight: 500 } }, row.name || row.ten),
+  },
+  {
+    title: 'Thông số',
+    key: 'specs',
+    width: 200,
+    render: row => h(NSpace, { vertical: true, size: 4 }, () => [
+      h('div', { style: { display: 'flex', gap: '6px', flexWrap: 'wrap' } }, [
+        row.cpu && h('span', { style: { fontSize: '11px', color: '#1677ff', background: '#e6f4ff', padding: '1px 6px', borderRadius: '3px' } }, `CPU: ${row.cpu}`),
+        row.gpu && h('span', { style: { fontSize: '11px', color: '#389e0d', background: '#f6ffed', padding: '1px 6px', borderRadius: '3px' } }, `GPU: ${row.gpu}`),
+        row.ram && h('span', { style: { fontSize: '11px', color: '#d46b08', background: '#fff7e6', padding: '1px 6px', borderRadius: '3px' } }, `RAM: ${row.ram}`),
+      ]),
+    ]),
+  },
+  {
+    title: 'Đơn giá',
+    key: 'price',
+    width: 110,
+    align: 'right',
+    render: row => h(NText, { strong: true }, () => formatCurrency(row.giaGoc)),
+  },
+
+  {
+    title: 'Thành tiền',
+    key: 'total',
+    width: 120,
+    align: 'right',
+    render: row => h(NText, { type: 'primary', strong: true }, () =>
+      formatCurrency(row.giaGoc * row.soLuong * (1 - (row.percentage || 0) / 100))),
+  },
+  {
+    title: '',
+    key: 'action',
+    width: 50,
+    align: 'center',
+    render: row => h(NButton, {
+      type: 'error',
+      size: 'tiny',
+      text: true,
+      onClick: () => deleteProduct(row.id, row.idHDCT),
+    }, { icon: () => h(NIcon, null, () => h(TrashOutline)) }),
+  },
+]
+
+const columns: DataTableColumns<ADProductDetailResponse> = [
+  {
+    title: 'STT',
+    key: 'stt',
+    width: 60,
+    align: 'center',
+    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
+  },
+  {
+    title: 'Ảnh',
+    key: 'image',
+    width: 100,
+    align: 'center',
+    render: (row) => {
+      if (!row.urlImage)
+        return h(NText, { depth: 3 }, () => 'Không có')
+      return h(NImage, {
+        width: 80,
+        height: 60,
+        src: row.urlImage,
+        objectFit: 'cover',
+        style: { borderRadius: '4px' },
+      })
+    },
+  },
+  {
+    title: 'Mã',
+    key: 'code',
+    width: 100,
+    render: row => h(NText, { strong: true }, () => row.code),
+  },
+  {
+    title: 'Tên sản phẩm',
+    key: 'name',
+    width: 150,
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: 'Giá',
+    key: 'price',
+    width: 120,
+    align: 'center',
+    render: (row) => {
+      if (row.percentage > 0) {
+        const discountedPrice = row.price * (1 - row.percentage / 100)
+        return h(NSpace, { vertical: true, size: 0 }, () => [
+          h(NText, { delete: true, depth: 3, style: { fontSize: '12px' } }, () => formatCurrency(row.price)),
+          h(NText, { type: 'primary', strong: true }, () => formatCurrency(discountedPrice)),
+        ])
+      }
+      return h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.price))
+    },
+  },
+  {
+    title: 'Tồn kho',
+    key: 'quantity',
+    width: 80,
+    align: 'center',
+    render: row => h(NTag, { type: row.quantity > 0 ? 'success' : 'error', size: 'small' }, () => row.quantity),
+  },
+  {
+    title: 'Thao tác',
+    key: 'action',
+    width: 100,
+    align: 'center',
+    render: row => h(NButton, {
+      type: 'primary',
+      size: 'small',
+      secondary: true,
+      disabled: row.status !== 'ACTIVE' || row.quantity <= 0,
+      onClick: () => selectProductForSerial(row),
+    }, () => 'Chọn IMEI'),
+  },
+]
+
+const serialColumns: DataTableColumns<ADPDImeiResponse> = [
+  {
+    title: 'Chọn',
+    key: 'select',
+    width: 60,
+    align: 'center',
+    render: row => h(NCheckbox, {
+      checked: selectedSerialIds.value.includes(row.id),
+      disabled: row.imeiStatus !== 'AVAILABLE',
+      onUpdateChecked: (checked) => {
+        if (checked) {
+          selectedSerialIds.value = [...selectedSerialIds.value, row.id]
+        }
+        else {
+          selectedSerialIds.value = selectedSerialIds.value.filter(id => id !== row.id)
+        }
+      },
+    }),
+  },
+  {
+    title: 'In',
+    key: 'print',
+    width: 80,
+    align: 'center',
+    render: row => h(NButton, {
+      size: 'tiny',
+      text: true,
+      onClick: () => printSerialBarcode(row.code),
+    }, {
+      icon: () => h(NIcon, null, () => h(BarcodeOutline)),
+    }),
+  },
+  {
+    title: 'IMEI',
+    key: 'code',
+    width: 180,
+    render: row => h(NText, { code: true, style: { fontFamily: 'monospace' } }, () => row.code || '-'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 100,
+    align: 'center',
+    render: (row) => {
+      const statusMap: Record<string, { type: any, text: string }> = {
+        AVAILABLE: { type: 'success', text: 'Khả dụng' },
+        SOLD: { type: 'warning', text: 'Đã bán' },
+        RESERVED: { type: 'info', text: 'Đã đặt' },
+      }
+      const config = statusMap[row.imeiStatus] || { type: 'default', text: row.imeiStatus || '-' }
+      return h(NTag, { type: config.type, size: 'small' }, () => config.text)
+    },
+  },
+]
+
+function formatCurrencyInput(value: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
 </script>
 
 <template>
   <div class="main-layout">
+    <!-- LEFT COLUMN -->
     <div class="left-column">
+      <!-- Pending Invoices -->
       <NCard class="card" size="small">
         <template #header>
           <NText type="primary" strong>
             Hóa đơn chờ
           </NText>
         </template>
-
         <template #header-extra>
-          <NButton type="primary" size="small" class="btn-create-new-invoice" @click="createInvoice">
+          <NButton type="primary" size="small" @click="createInvoice">
             <template #icon>
-              <NIcon>
-                <AddCircleOutline />
-              </NIcon>
+              <NIcon><AddCircleOutline /></NIcon>
             </template>
             Tạo hóa đơn mới
           </NButton>
@@ -3079,29 +2111,30 @@ async function printSerialBarcode(serialCode: string) {
             <div class="pending-invoices-wrapper">
               <NSpace :wrap="false">
                 <div
-                  v-for="tab in tabs" :key="tab.id"
-                  class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
-                  @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
+                  v-for="tab in tabs"
+                  :key="tab.id"
+                  class="pending-invoice-card"
+                  :class="{ active: activeTab === tab.id }"
+                  @click="switchInvoice(tab.id, tab.idHD, tab.loaiHoaDon)"
                 >
                   <div class="invoice-header">
                     <NText strong>
                       {{ tab.code }}
                     </NText>
-
                     <NPopconfirm
                       v-if="tab.soLuong > 0"
                       :show-icon="false"
                       positive-text="Xác nhận hủy"
                       negative-text="Hủy bỏ"
-                      @positive-click="() => huy(tab.idHD)"
+                      @positive-click="cancelInvoice(tab.idHD)"
                     >
                       <template #trigger>
                         <NButton text type="error" size="tiny" @click.stop>
                           <NIcon><TrashOutline /></NIcon>
                         </NButton>
                       </template>
-                      <div class="popconfirm-content">
-                        <NText strong style="display: block; margin-bottom: 8px;">
+                      <div>
+                        <NText strong>
                           Xác nhận hủy
                         </NText>
                         <NText depth="3">
@@ -3109,18 +2142,10 @@ async function printSerialBarcode(serialCode: string) {
                         </NText>
                       </div>
                     </NPopconfirm>
-
-                    <NButton
-                      v-else
-                      text
-                      type="error"
-                      size="tiny"
-                      @click.stop="huy(tab.idHD)"
-                    >
+                    <NButton v-else text type="error" size="tiny" @click.stop="cancelInvoice(tab.idHD)">
                       <NIcon><TrashOutline /></NIcon>
                     </NButton>
                   </div>
-
                   <NSpace vertical :size="4">
                     <NTag type="warning" size="small" round>
                       Chờ xử lý
@@ -3136,6 +2161,7 @@ async function printSerialBarcode(serialCode: string) {
         </div>
       </NCard>
 
+      <!-- Cart -->
       <NCard class="card" size="small">
         <template #header>
           <NText type="primary" strong>
@@ -3147,85 +2173,111 @@ async function printSerialBarcode(serialCode: string) {
             <NButton type="primary" size="small" @click="openProductSelectionModal">
               Chọn sản phẩm
             </NButton>
-            <!-- ✅ THAY ĐỔI 5 (template): "Quét Serial" → "Quét Barcode", icon BarcodeOutline -->
-            <NButton type="default" size="small" secondary @click="openQrModal">
+            <NButton type="default" size="small" secondary @click="openBarcodeScanner">
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
-              Quét Barcode
+              Quét IMEI
             </NButton>
           </NSpace>
         </template>
-        <div v-if="state.gioHang.length > 0">
-          <NDataTable
-            :columns="columnsGiohang" :data="state.gioHang" :max-height="280" size="small"
-            :pagination="{ pageSize: 5 }"
-          />
-        </div>
+
+        <NDataTable
+          v-if="hasCartItems"
+          :columns="columnsGiohang"
+          :data="state.gioHang"
+          :max-height="280"
+          size="small"
+          :pagination="{ pageSize: 5 }"
+        />
         <NEmpty v-else description="Không có sản phẩm nào trong giỏ hàng" size="small" />
       </NCard>
 
+      <!-- Delivery Info -->
       <NCard v-if="isDeliveryEnabled" class="card" size="small">
         <template #header>
-          <NText type="primary" strong>
-            Thông tin người nhận
-          </NText>
+          <NSpace align="center" justify="space-between" style="width: 100%">
+            <NText type="primary" strong>
+              Thông tin người nhận
+            </NText>
+            <NButton
+              v-if="state.detailKhachHang"
+              text
+              type="info"
+              size="small"
+              @click="showDeliveryModal = true"
+            >
+              <template #icon />
+              Chỉnh sửa
+            </NButton>
+          </NSpace>
         </template>
-        <NForm ref="deliveryForm" :model="deliveryInfo" label-placement="left" :label-width="140">
-          <NGrid :cols="12" :x-gap="12" :y-gap="12">
-            <NFormItemGi :span="6" path="tenNguoiNhan" label="Tên người nhận" required>
-              <NInput v-model:value="deliveryInfo.tenNguoiNhan" placeholder="Nhập tên người nhận" clearable />
-            </NFormItemGi>
 
-            <NFormItemGi :span="6" path="sdtNguoiNhan" label="Số điện thoại" required>
-              <NInput v-model:value="deliveryInfo.sdtNguoiNhan" placeholder="Nhập số điện thoại" clearable />
-            </NFormItemGi>
+        <!-- Hiển thị thông tin người nhận -->
+        <div class="delivery-info-display">
+          <NSpace vertical :size="8">
+            <!-- Họ tên -->
+            <div>
+              <NText depth="3">
+                Họ tên:
+              </NText>
+              <NText strong>
+                {{ deliveryInfo.tenNguoiNhan || 'Chưa có' }}
+              </NText>
+            </div>
 
-            <NFormItemGi :span="4" path="tinhThanhPho" label="Tỉnh/Thành phố" required>
-              <NSelect
-                v-model:value="deliveryInfo.tinhThanhPho" placeholder="Chọn tỉnh/thành phố" :options="provinces"
-                filterable clearable @update:value="onProvinceChange"
-              />
-            </NFormItemGi>
+            <!-- Số điện thoại -->
+            <div>
+              <NText depth="3">
+                Số điện thoại:
+              </NText>
+              <NText strong>
+                {{ deliveryInfo.sdtNguoiNhan || 'Chưa có' }}
+              </NText>
+            </div>
 
-            <NFormItemGi :span="4" path="quanHuyen" label="Quận/Huyện" required>
-              <NSelect
-                v-model:value="deliveryInfo.quanHuyen" placeholder="Chọn quận/huyện" :options="districts"
-                filterable clearable @update:value="onDistrictChange"
-              />
-            </NFormItemGi>
+            <!-- Địa chỉ - HIỂN THỊ THÔNG MINH -->
+            <div>
+              <NText depth="3">
+                Địa chỉ:
+              </NText>
+              <NText strong class="address-text">
+                {{ formatFullAddress }}
+              </NText>
+            </div>
 
-            <NFormItemGi :span="4" path="phuongXa" label="Phường/Xã" required>
-              <NSelect
-                v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards"
-                filterable clearable @update:value="onWardChange"
-              />
-            </NFormItemGi>
-
-            <NFormItemGi :span="12" path="diaChiCuThe" label="Địa chỉ cụ thể" required>
-              <NInput v-model:value="deliveryInfo.diaChiCuThe" placeholder="Nhập số nhà, tên đường..." clearable />
-            </NFormItemGi>
-
-            <NFormItemGi :span="12" path="ghiChu" label="Ghi chú">
-              <NInput
-                v-model:value="deliveryInfo.ghiChu" type="textarea" placeholder="Nhập ghi chú (nếu có)"
-                :rows="3"
-              />
-            </NFormItemGi>
-          </NGrid>
-        </NForm>
+            <!-- Ghi chú (nếu có) -->
+            <div v-if="deliveryInfo.ghiChu">
+              <NText depth="3">
+                Ghi chú:
+              </NText>
+              <NText>{{ deliveryInfo.ghiChu }}</NText>
+            </div>
+          </NSpace>
+        </div>
       </NCard>
     </div>
 
+    <!-- RIGHT COLUMN -->
     <div class="right-column">
+      <!-- Customer Card -->
       <NCard class="card" size="small">
         <template #header>
-          <NText type="primary" strong>
-            Khách hàng
-          </NText>
+          <NSpace align="center" justify="space-between" style="width: 100%">
+            <NText type="primary" strong>
+              Khách hàng
+            </NText>
+            <NButton v-if="state.detailKhachHang" text type="error" size="tiny" @click="clearSelectedCustomer">
+              <template #icon>
+                <NIcon><CloseOutline /></NIcon>
+              </template>
+              Bỏ chọn
+            </NButton>
+          </NSpace>
         </template>
+
         <div v-if="state.detailKhachHang">
-          <NSpace vertical :size="16">
+          <NSpace vertical :size="12">
             <div>
               <NText depth="3">
                 Tên khách hàng
@@ -3241,38 +2293,36 @@ async function printSerialBarcode(serialCode: string) {
           </NSpace>
         </div>
         <div v-else>
-          <NSpace vertical :size="16">
+          <NSpace vertical :size="12">
             <div>
               <NText depth="3">
                 Tên khách hàng
               </NText>
-              <NInput v-model:value="newCustomer.ten" placeholder="Tên khách hàng" class="mt-1" />
+              <NInput v-model:value="newCustomer.ten" placeholder="Nhập tên khách hàng" class="mt-1" />
             </div>
             <div>
               <NText depth="3">
                 Số điện thoại
               </NText>
-              <NInput v-model:value="newCustomer.sdt" placeholder="Số điện thoại" class="mt-1" />
+              <NInput v-model:value="newCustomer.sdt" placeholder="Nhập số điện thoại" class="mt-1" />
             </div>
           </NSpace>
         </div>
+
         <template #footer>
           <NSpace>
             <NButton type="primary" secondary @click="showKhachHangModal = true">
               Chọn khách hàng
             </NButton>
-            <NButton type="primary" :loading="addCustomerLoading" secondary @click="addCustomer">
+            <NButton type="primary" :loading="addCustomerLoading" secondary @click="addNewCustomer">
               Thêm khách hàng
             </NButton>
           </NSpace>
         </template>
       </NCard>
 
-      <NCard
-        v-if="idHDS && state.autoVoucherResult?.voucherApDung?.length > 0"
-        class="card" size="small"
-        :segmented="{ content: true }"
-      >
+      <!-- Available Vouchers -->
+      <NCard v-if="hasCartItems && state.autoVoucherResult?.voucherApDung?.length" class="card" size="small">
         <template #header>
           <NSpace align="center" justify="space-between" style="width: 100%">
             <NText type="primary" strong>
@@ -3291,8 +2341,8 @@ async function printSerialBarcode(serialCode: string) {
                 <NText strong>
                   {{ selectedVoucher.code }}
                 </NText>
-                <NTag type="success" size="small">
-                  {{ selectedVoucher.typeVoucher === 'PERCENTAGE' ? `${selectedVoucher.discountValue}%` : 'Giảm cố định' }}
+                <NTag :type="getVoucherTagType(selectedVoucher.typeVoucher)" size="small">
+                  {{ selectedVoucher.typeVoucher === 'PERCENTAGE' ? `${selectedVoucher.discountValue}%` : 'Cố định' }}
                 </NTag>
               </NSpace>
               <NSpace justify="space-between">
@@ -3309,10 +2359,7 @@ async function printSerialBarcode(serialCode: string) {
 
         <NScrollbar style="max-height: 200px;">
           <NList size="small" bordered>
-            <NListItem
-              v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId"
-              :class="{ 'active-voucher': selectedVoucher?.voucherId === voucher.voucherId }"
-            >
+            <NListItem v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId">
               <NThing :title="voucher.code">
                 <template #avatar>
                   <NTag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
@@ -3320,21 +2367,16 @@ async function printSerialBarcode(serialCode: string) {
                   </NTag>
                 </template>
                 <template #description>
-                  <NSpace vertical :size="3" style="margin-top: 4px">
-                    <NSpace justify="space-between">
-                      <NText depth="3" size="small">
-                        Giảm:
-                      </NText>
-                      <NText strong class="text-success" size="small">
-                        {{ formatCurrency(voucher.giamGiaThucTe) }}
-                      </NText>
-                    </NSpace>
-                  </NSpace>
+                  <NText depth="3" size="small">
+                    Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
+                  </NText>
                 </template>
               </NThing>
               <template #suffix>
                 <NButton
-                  type="primary" size="small" :disabled="selectedVoucher?.voucherId === voucher.voucherId"
+                  type="primary"
+                  size="small"
+                  :disabled="selectedVoucher?.voucherId === voucher.voucherId"
                   :loading="applyingVoucher === voucher.voucherId"
                   @click="selectVoucher(voucher)"
                 >
@@ -3347,9 +2389,12 @@ async function printSerialBarcode(serialCode: string) {
 
         <template #footer>
           <NSpace justify="space-between" align="center" style="width: 100%">
-            <NText depth="3" size="small">
-              Tự động chọn voucher tốt nhất
-            </NText>
+            <NButton size="tiny" text :loading="autoApplying" @click="triggerAutoApplyVoucher">
+              <template #icon>
+                <NIcon><ReloadOutline /></NIcon>
+              </template>
+              Tìm lại voucher
+            </NButton>
             <NButton v-if="selectedVoucher" type="error" size="tiny" text @click="removeVoucher">
               Bỏ chọn
             </NButton>
@@ -3357,11 +2402,8 @@ async function printSerialBarcode(serialCode: string) {
         </template>
       </NCard>
 
-      <NCard
-        v-if="idHDS && state.autoVoucherResult?.voucherTotHon?.length > 0"
-        class="card" size="small"
-        :segmented="{ content: true }"
-      >
+      <!-- Purchase Suggestions -->
+      <NCard v-if="hasCartItems && state.autoVoucherResult?.voucherTotHon?.length" class="card" size="small">
         <template #header>
           <NSpace align="center" justify="space-between" style="width: 100%">
             <NText type="primary" strong>
@@ -3375,10 +2417,7 @@ async function printSerialBarcode(serialCode: string) {
 
         <NScrollbar style="max-height: 250px;">
           <NList size="small" bordered>
-            <NListItem
-              v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon"
-              :key="suggestion.voucherId"
-            >
+            <NListItem v-for="suggestion in state.autoVoucherResult.voucherTotHon" :key="suggestion.voucherId">
               <NThing :title="suggestion.code">
                 <template #avatar>
                   <NTag :type="getSuggestionTagType(suggestion.hieuQua)" size="small" round>
@@ -3386,7 +2425,7 @@ async function printSerialBarcode(serialCode: string) {
                   </NTag>
                 </template>
                 <template #description>
-                  <NSpace vertical :size="4" style="margin-top: 4px">
+                  <NSpace vertical :size="4">
                     <NSpace justify="space-between">
                       <NText depth="3" size="small">
                         Cần mua thêm:
@@ -3406,16 +2445,12 @@ async function printSerialBarcode(serialCode: string) {
                   </NSpace>
                 </template>
               </NThing>
-              <template #suffix>
-                <NButton type="warning" size="small" @click="showSuggestionDetail(suggestion)">
-                  Chi tiết
-                </NButton>
-              </template>
             </NListItem>
           </NList>
         </NScrollbar>
       </NCard>
 
+      <!-- Order Summary -->
       <NCard class="card" size="small">
         <template #header>
           <NSpace justify="space-between" align="center" style="width: 100%">
@@ -3426,34 +2461,13 @@ async function printSerialBarcode(serialCode: string) {
               <NText depth="3">
                 Giao hàng
               </NText>
-              <NSwitch v-model:value="isDeliveryEnabled" size="small" @update:value="giaoHang" />
-              <NButton
-                type="primary" size="small" :loading="autoApplying" secondary circle
-                @click="triggerAutoApplyVoucher"
-              >
-                <template #icon>
-                  <NIcon><ReloadOutline /></NIcon>
-                </template>
-              </NButton>
+              <NSwitch v-model:value="isDeliveryEnabled" size="small" @update:value="toggleDelivery" />
             </NSpace>
           </NSpace>
         </template>
 
         <NSpace vertical :size="16">
-          <div v-if="idHDS">
-            <NText depth="3">
-              Mã giảm giá
-            </NText>
-            <NSpace align="center" class="mt-1">
-              <NInput v-model:value="selectedDiscountCode" placeholder="Chọn mã giảm giá" readonly style="flex: 1" />
-              <NButton v-if="selectedVoucher" type="error" size="small" secondary @click="removeVoucher">
-                Bỏ chọn
-              </NButton>
-            </NSpace>
-          </div>
-
-          <NDivider style="margin: 8px 0" />
-
+          <!-- Amounts -->
           <NSpace vertical :size="12">
             <NSpace justify="space-between">
               <NText depth="3">
@@ -3493,6 +2507,8 @@ async function printSerialBarcode(serialCode: string) {
 
             <NDivider style="margin: 8px 0" />
 
+            <NDivider />
+
             <NSpace justify="space-between">
               <NText strong size="large">
                 Tổng thanh toán:
@@ -3501,39 +2517,34 @@ async function printSerialBarcode(serialCode: string) {
                 {{ formatCurrency(tongTien) }}
               </NText>
             </NSpace>
-
-            <NAlert v-if="giamGia > 0" type="success" size="small" show-icon>
-              <NSpace justify="space-between" align="center">
-                <span>Bạn tiết kiệm được:</span>
-                <NText strong type="success">
-                  {{ formatCurrency(giamGia) }}
-                </NText>
-              </NSpace>
-            </NAlert>
           </NSpace>
 
-          <NDivider style="margin: 12px 0" />
-
+          <!-- Payment method -->
           <NSpace vertical :size="8">
             <NText depth="3">
               Phương thức thanh toán:
             </NText>
             <NSpace>
               <NButton
-                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small"
-                secondary @click="handlePaymentMethod('0')"
+                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'"
+                size="small"
+                secondary
+                @click="setPaymentMethod('0')"
               >
                 Tiền mặt
               </NButton>
               <NButton
-                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'" size="small"
-                secondary @click="handlePaymentMethod('1')"
+                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'"
+                size="small"
+                secondary
+                @click="setPaymentMethod('1')"
               >
                 Chuyển khoản
               </NButton>
             </NSpace>
           </NSpace>
 
+          <!-- Checkout button -->
           <NPopconfirm positive-text="Đồng ý" negative-text="Hủy" @positive-click="xacNhan(0)">
             <template #trigger>
               <NButton type="primary" size="large" style="width: 100%; margin-top: 8px">
@@ -3548,410 +2559,356 @@ async function printSerialBarcode(serialCode: string) {
       </NCard>
     </div>
 
-    <!-- MODAL CHI TIẾT GỢI Ý -->
-    <NModal
-      v-model:show="showSuggestionDetailModal" preset="dialog" title="Chi tiết voucher tốt hơn"
-      style="width: 500px"
-    >
-      <NCard v-if="selectedSuggestion" size="small">
-        <NSpace vertical :size="16">
-          <NSpace justify="space-between" align="center">
-            <NText strong size="large">
-              {{ selectedSuggestion.code }}
-            </NText>
-            <NTag :type="getSuggestionTagType(selectedSuggestion.hieuQua)" size="medium">
-              Hiệu quả: {{ selectedSuggestion.hieuQua }}%
-            </NTag>
-          </NSpace>
-          <NDivider />
+    <!-- MODALS -->
+    <NModal v-model:show="showProductModal" preset="dialog" title="Chọn sản phẩm" style="width: 90%; max-width: 1400px">
+      <NCard size="small" :bordered="false">
+        <template #header>
           <NSpace vertical :size="12">
-            <NSpace justify="space-between">
-              <NText depth="3">
-                Tổng tiền hiện tại:
-              </NText>
-              <NText strong>
-                {{ formatCurrency(tienHang) }}
-              </NText>
-            </NSpace>
-            <NSpace justify="space-between">
-              <NText depth="3">
-                Cần mua thêm:
-              </NText>
-              <NText strong class="text-warning">
-                {{ formatCurrency(selectedSuggestion.canMuaThem) }}
-              </NText>
-            </NSpace>
-            <NDivider />
-            <NSpace justify="space-between">
-              <NText depth="3">
-                Giảm thêm:
-              </NText>
-              <NText strong class="text-success">
-                +{{ formatCurrency(selectedSuggestion.giamThem) }}
-              </NText>
-            </NSpace>
+            <NGrid :cols="24" :x-gap="12">
+              <NGi :span="12">
+                <NInput v-model:value="localSearchQuery" placeholder="Tìm kiếm sản phẩm..." clearable />
+              </NGi>
+              <NGi :span="12">
+                <NSlider
+                  v-model:value="priceRange"
+                  range
+                  :step="100000"
+                  :min="priceRange[0]"
+                  :max="priceRange[1]"
+                  :format-tooltip="formatCurrency"
+                />
+              </NGi>
+            </NGrid>
+
+            <NGrid :cols="24" :x-gap="12">
+              <NGi :span="4">
+                <NSelect v-model:value="localColor" :options="ColorOptions" placeholder="Màu sắc" clearable />
+              </NGi>
+              <NGi :span="4">
+                <NSelect v-model:value="localCPU" :options="CpuOptions" placeholder="CPU" clearable />
+              </NGi>
+              <NGi :span="4">
+                <NSelect v-model:value="localGPU" :options="GpuOptions" placeholder="GPU" clearable />
+              </NGi>
+              <NGi :span="4">
+                <NSelect v-model:value="localRAM" :options="RamOptions" placeholder="RAM" clearable />
+              </NGi>
+              <NGi :span="4">
+                <NSelect v-model:value="localHardDrive" :options="HardDriveOptions" placeholder="Ổ cứng" clearable />
+              </NGi>
+              <NGi :span="4">
+                <NSelect v-model:value="localSelectedMaterial" :options="MaterialOptions" placeholder="Chất liệu" clearable />
+              </NGi>
+            </NGrid>
+
+            <NGrid :cols="24">
+              <NGi :span="24">
+                <NSpace justify="end">
+                  <NButton type="default" size="small" secondary @click="resetFilters">
+                    <template #icon>
+                      <NIcon><ReloadOutline /></NIcon>
+                    </template>
+                    Đặt lại bộ lọc
+                  </NButton>
+                </NSpace>
+              </NGi>
+            </NGrid>
           </NSpace>
-          <NDivider />
-          <NSpace justify="space-between" align="center">
-            <NText depth="3" size="small">
-              Mua thêm <strong>{{ formatCurrency(selectedSuggestion.canMuaThem) }}</strong>
-              để được giảm thêm <strong>{{ formatCurrency(selectedSuggestion.giamThem) }}</strong>
-            </NText>
-            <NButton type="primary" @click="applySuggestionVoucher">
-              Áp dụng khi đủ điều kiện
+        </template>
+
+        <NDataTable
+          :columns="columns"
+          :data="filteredProducts"
+          :max-height="400"
+          size="small"
+          :pagination="{ pageSize: 10 }"
+        />
+      </NCard>
+    </NModal>
+
+    <!-- Modal chỉnh sửa thông tin giao hàng -->
+    <NModal v-model:show="showDeliveryModal" preset="dialog" title="Chỉnh sửa thông tin người nhận" style="width: 90%; max-width: 800px">
+      <NCard size="small" :bordered="false">
+        <NForm :model="deliveryInfo" label-placement="left" :label-width="140">
+          <NGrid :cols="12" :x-gap="12" :y-gap="12">
+            <NFormItemGi :span="6" label="Tên người nhận" required>
+              <NInput v-model:value="deliveryInfo.tenNguoiNhan" placeholder="Nhập tên người nhận" />
+            </NFormItemGi>
+            <NFormItemGi :span="6" label="Số điện thoại" required>
+              <NInput v-model:value="deliveryInfo.sdtNguoiNhan" placeholder="Nhập số điện thoại" />
+            </NFormItemGi>
+            <NFormItemGi :span="4" label="Tỉnh/Thành phố" required>
+              <NSelect
+                v-model:value="deliveryInfo.tinhThanhPho"
+                :options="provinces"
+                placeholder="Chọn tỉnh/thành phố"
+                filterable
+                clearable
+                @update:value="
+                  (v) => {
+                    deliveryInfo.tinhThanhPho = v
+                    provinceCode = v ? Number(v) : null
+                    if (provinceCode) {
+                      fetchDistrictsFromGHN(provinceCode)
+                    }
+                    deliveryInfo.quanHuyen = null
+                    deliveryInfo.phuongXa = null
+                  }
+                "
+              />
+            </NFormItemGi>
+            <NFormItemGi :span="4" label="Quận/Huyện" required>
+              <NSelect
+                v-model:value="deliveryInfo.quanHuyen"
+                :options="districts"
+                placeholder="Chọn quận/huyện"
+                filterable
+                clearable
+                :disabled="!deliveryInfo.tinhThanhPho"
+                @update:value="
+                  (v) => {
+                    deliveryInfo.quanHuyen = v
+                    districtCode = v ? Number(v) : null
+                    if (districtCode) {
+                      fetchWardsFromGHN(districtCode)
+                    }
+                    deliveryInfo.phuongXa = null
+                  }
+                "
+              />
+            </NFormItemGi>
+            <NFormItemGi :span="4" label="Phường/Xã" required>
+              <NSelect
+                v-model:value="deliveryInfo.phuongXa"
+                :options="wards"
+                placeholder="Chọn phường/xã"
+                filterable
+                clearable
+                :disabled="!deliveryInfo.quanHuyen"
+                @update:value="
+                  (v) => {
+                    deliveryInfo.phuongXa = v
+                    wardCode = v
+                  }
+                "
+              />
+            </NFormItemGi>
+            <NFormItemGi :span="12" label="Địa chỉ cụ thể" required>
+              <NInput v-model:value="deliveryInfo.diaChiCuThe" placeholder="Nhập số nhà, tên đường..." />
+            </NFormItemGi>
+            <NFormItemGi :span="12" label="Ghi chú">
+              <NInput v-model:value="deliveryInfo.ghiChu" type="textarea" placeholder="Nhập ghi chú (nếu có)" :rows="2" />
+            </NFormItemGi>
+          </NGrid>
+        </NForm>
+        <template #footer>
+          <NSpace justify="end">
+            <NButton @click="showDeliveryModal = false">
+              Hủy
+            </NButton>
+            <NButton type="primary" @click="saveDeliveryInfo">
+              Lưu thay đổi
             </NButton>
           </NSpace>
+        </template>
+      </NCard>
+    </NModal>
+
+    <NModal v-model:show="showSerialModal" preset="dialog" title="Chọn IMEI" style="width: 90%; max-width: 1200px">
+      <NCard size="small" :bordered="false">
+        <template #header>
+          <div class="serial-modal-header">
+            <div>
+              <NText strong>
+                {{ selectedProductDetail?.name }} - {{ selectedProductDetail?.code }}
+              </NText>
+              <NText depth="3" size="small">
+                Giá: {{ formatCurrency(selectedProductDetail?.price || 0) }}
+              </NText>
+            </div>
+            <div>
+              <NText type="primary" strong>
+                Còn {{ availableSerialsCount }} IMEI
+              </NText>
+            </div>
+          </div>
+          <NInput
+            v-model:value="serialSearchQuery"
+            placeholder="Tìm theo IMEI..."
+            clearable
+            style="margin-top: 12px"
+          >
+            <template #prefix>
+              <NIcon><SearchOutline /></NIcon>
+            </template>
+          </NInput>
+        </template>
+
+        <NDataTable
+          :columns="serialColumns"
+          :data="filteredSerials"
+          :max-height="400"
+          size="small"
+          :loading="loadingSerials"
+          :pagination="{ pageSize: 10 }"
+        />
+
+        <template #footer>
+          <NSpace justify="space-between" align="center" style="width: 100%">
+            <NText depth="3">
+              Đã chọn {{ selectedSerialIds.length }} IMEI
+            </NText>
+            <NSpace>
+              <NButton @click="showSerialModal = false">
+                Hủy
+              </NButton>
+              <NButton
+                type="primary"
+                :disabled="selectedSerialIds.length === 0"
+                @click="addSerialToCart"
+              >
+                Thêm {{ selectedSerialIds.length }} IMEI
+              </NButton>
+            </NSpace>
+          </NSpace>
+        </template>
+      </NCard>
+    </NModal>
+
+    <NModal v-model:show="showKhachHangModal" preset="dialog" title="Chọn khách hàng" style="width: 90%; max-width: 1000px">
+      <NCard size="small" :bordered="false">
+        <NSpace vertical :size="16">
+          <NInput v-model:value="customerSearchQuery" placeholder="Tìm kiếm theo tên hoặc số điện thoại..." clearable>
+            <template #prefix>
+              <NIcon><SearchOutline /></NIcon>
+            </template>
+          </NInput>
+
+          <NDataTable
+            :columns="columnsKhachHang"
+            :data="state.khachHang"
+            :max-height="400"
+            size="small"
+            :pagination="{
+              page: state.paginationParams.page,
+              pageSize: state.paginationParams.size,
+              pageCount: Math.ceil(state.totalItemsKH / state.paginationParams.size),
+              showSizePicker: true,
+              pageSizes: [10, 20, 30],
+            }"
+            @update:page="(p) => { state.paginationParams.page = p; fetchCustomers() }"
+            @update:page-size="(s) => { state.paginationParams.size = s; state.paginationParams.page = 1; fetchCustomers() }"
+          />
         </NSpace>
       </NCard>
     </NModal>
 
-    <!-- MODAL CHỌN VOUCHER -->
+    <!-- MODAL CHỈNH SỬA THÔNG TIN GIAO HÀNG -->
     <NModal
-      v-model:show="showDiscountModal" preset="dialog" title="Chọn mã giảm giá" style="width: 700px"
+      v-model:show="showDeliveryEditModal"
+      preset="dialog"
+      title="Chỉnh sửa thông tin giao hàng"
+      style="width: 700px"
       :mask-closable="false"
     >
       <NCard size="small" :bordered="false">
-        <n-tabs v-model:value="discountTab" type="segment">
-          <n-tab-pane name="auto" tab="Voucher khả dụng">
-            <div v-if="state.autoVoucherResult?.voucherApDung?.length > 0">
-              <NScrollbar style="max-height: 400px;">
-                <NList bordered class="discount-list">
-                  <NListItem v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId">
-                    <NThing :title="voucher.code">
-                      <template #avatar>
-                        <NTag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
-                          {{ voucher.typeVoucher === 'PERCENTAGE' ? `${voucher.discountValue}%` : 'Cố định' }}
-                        </NTag>
-                      </template>
-                      <template #description>
-                        <NText depth="3" size="small">
-                          Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
-                        </NText>
-                      </template>
-                    </NThing>
-                    <template #suffix>
-                      <NButton
-                        type="primary" size="small" :disabled="selectedVoucher?.voucherId === voucher.voucherId"
-                        @click="selectVoucher(voucher)"
-                      >
-                        {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
-                      </NButton>
-                    </template>
-                  </NListItem>
-                </NList>
-              </NScrollbar>
-            </div>
-            <NEmpty v-else description="Không có voucher nào phù hợp" />
-          </n-tab-pane>
-
-          <n-tab-pane v-if="state.autoVoucherResult?.voucherTotHon?.length > 0" name="suggestions" tab="Gợi ý mua thêm">
-            <NScrollbar style="max-height: 400px;">
-              <NList bordered class="discount-list">
-                <NListItem v-for="suggestion in state.autoVoucherResult.voucherTotHon" :key="suggestion.voucherId">
-                  <NThing :title="suggestion.code">
-                    <template #avatar>
-                      <NTag :type="getSuggestionTagType(suggestion.hieuQua)" size="small" round>
-                        {{ suggestion.hieuQua }}%
-                      </NTag>
-                    </template>
-                    <template #description>
-                      <NText depth="3" size="small">
-                        Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem) }} | Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
-                      </NText>
-                    </template>
-                  </NThing>
-                  <template #suffix>
-                    <NButton type="warning" size="small" @click="showSuggestionDetail(suggestion)">
-                      Chi tiết
-                    </NButton>
-                  </template>
-                </NListItem>
-              </NList>
-            </NScrollbar>
-          </n-tab-pane>
-        </n-tabs>
-      </NCard>
-      <template #action>
-        <NSpace justify="end">
-          <NButton v-if="selectedVoucher" @click="removeVoucher">
-            Bỏ chọn
-          </NButton>
-          <NButton type="primary" :loading="autoApplying" @click="triggerAutoApplyVoucher">
-            Tìm lại voucher
-          </NButton>
-          <NButton @click="showDiscountModal = false">
-            Đóng
-          </NButton>
-        </NSpace>
-      </template>
-    </NModal>
-  </div>
-
-  <!-- Modal chọn sản phẩm -->
-  <NModal
-    v-model:show="showProductModal" preset="dialog" title="Chọn sản phẩm" style="width: 90%; max-width: 1400px"
-    :mask-closable="false"
-  >
-    <NCard size="small" :bordered="false">
-      <template #header>
-        <NSpace vertical :size="12">
+        <NForm :model="editDeliveryForm" label-placement="left" :label-width="120">
           <NGrid :cols="24" :x-gap="12" :y-gap="12">
-            <NGi :span="12">
-              <NInput v-model:value="localSearchQuery" placeholder="Tìm kiếm sản phẩm..." clearable />
-            </NGi>
-            <NGi :span="12">
-              <NFormItem label="Khoảng giá" label-placement="left">
-                <NSpace vertical :size="12" style="width: 100%">
-                  <n-slider
-                    v-model:value="priceRange" range :step="100000" :min="stateMinMaxPrice.priceMin"
-                    :max="stateMinMaxPrice.priceMax" :format-tooltip="formatTooltipRangePrice" style="width: 100%"
-                  />
-                  <NSpace justify="space-between" style="width: 100%">
-                    <NText depth="3">
-                      {{ formatCurrency(priceRange[0]) }}
-                    </NText>
-                    <NText depth="3">
-                      {{ formatCurrency(priceRange[1]) }}
-                    </NText>
-                  </NSpace>
-                </NSpace>
-              </NFormItem>
-            </NGi>
+            <NFormItemGi :span="12" label="Tên người nhận" required>
+              <NInput
+                v-model:value="editDeliveryForm.tenNguoiNhan"
+                placeholder="Nhập tên người nhận"
+              />
+            </NFormItemGi>
+            <NFormItemGi :span="12" label="Số điện thoại" required>
+              <NInput
+                v-model:value="editDeliveryForm.sdtNguoiNhan"
+                placeholder="Nhập số điện thoại"
+              />
+            </NFormItemGi>
+
+            <NFormItemGi :span="8" label="Tỉnh/Thành phố" required>
+              <NSelect
+                v-model:value="editDeliveryForm.tinhThanhPho"
+                :options="provinces"
+                placeholder="Chọn tỉnh/thành phố"
+                filterable
+                clearable
+                @update:value="onEditProvinceChange"
+              />
+            </NFormItemGi>
+            <NFormItemGi :span="8" label="Quận/Huyện" required>
+              <NSelect
+                v-model:value="editDeliveryForm.quanHuyen"
+                :options="districts"
+                placeholder="Chọn quận/huyện"
+                filterable
+                clearable
+                @update:value="onEditDistrictChange"
+              />
+            </NFormItemGi>
+            <NFormItemGi :span="8" label="Phường/Xã" required>
+              <NSelect
+                v-model:value="editDeliveryForm.phuongXa"
+                :options="wards"
+                placeholder="Chọn phường/xã"
+                filterable
+                clearable
+                @update:value="onEditWardChange"
+              />
+            </NFormItemGi>
+
+            <NFormItemGi :span="24" label="Địa chỉ cụ thể" required>
+              <NInput
+                v-model:value="editDeliveryForm.diaChiCuThe"
+                placeholder="Nhập số nhà, tên đường..."
+              />
+            </NFormItemGi>
+
+            <NFormItemGi :span="24" label="Ghi chú">
+              <NInput
+                v-model:value="editDeliveryForm.ghiChu"
+                type="textarea"
+                placeholder="Nhập ghi chú (nếu có)"
+                :rows="2"
+              />
+            </NFormItemGi>
           </NGrid>
+        </NForm>
 
-          <NGrid :cols="24" :x-gap="12" :y-gap="12">
-            <NGi :span="4">
-              <NSelect v-model:value="localColor" :options="ColorOptions" placeholder="Màu sắc" clearable />
-            </NGi>
-            <NGi :span="4">
-              <NSelect v-model:value="localCPU" :options="CpuOptions" placeholder="CPU" clearable />
-            </NGi>
-            <NGi :span="4">
-              <NSelect v-model:value="localGPU" :options="GpuOptions" placeholder="GPU" clearable />
-            </NGi>
-            <NGi :span="4">
-              <NSelect v-model:value="localRAM" :options="RamOptions" placeholder="RAM" clearable />
-            </NGi>
-            <NGi :span="4">
-              <NSelect v-model:value="localHardDrive" :options="HardDriveOptions" placeholder="Ổ cứng" clearable />
-            </NGi>
-            <NGi :span="4">
-              <NSelect v-model:value="localSelectedMaterial" :options="MaterialOptions" placeholder="Chất liệu" clearable />
-            </NGi>
-          </NGrid>
-
-          <NGrid :cols="24" :x-gap="12">
-            <NGi :span="24">
-              <NSpace justify="end">
-                <NButton type="default" size="small" secondary @click="resetFilters">
-                  <template #icon>
-                    <NIcon><ReloadOutline /></NIcon>
-                  </template>
-                  Đặt lại bộ lọc
-                </NButton>
-              </NSpace>
-            </NGi>
-          </NGrid>
-        </NSpace>
-      </template>
-
-      <NDataTable
-        :columns="columns"
-        :data="filteredProducts"
-        :max-height="400"
-        size="small"
-        :pagination="{
-          pageSize: 10,
-          showSizePicker: true,
-          pageSizes: [10, 20, 50],
-        }"
-      />
-    </NCard>
-  </NModal>
-
-  <!-- Modal chọn serial -->
-  <NModal
-    v-model:show="showSerialModal" preset="dialog" title="Chọn Serial Sản Phẩm"
-    style="width: 90%; max-width: 1200px" :mask-closable="false"
-  >
-    <NCard size="small" :bordered="false">
-      <template #header>
-        <NSpace align="center" justify="space-between" class="serial-modal-header">
-          <div>
-            <NText strong>
-              {{ selectedProductDetail?.name }} - {{ selectedProductDetail?.code }}
-            </NText>
-            <NText depth="3" size="small" style="display: block; margin-top: 4px">
-              Giá: {{ formatCurrency(selectedProductDetail?.price || 0) }}
-            </NText>
-          </div>
-          <div style="text-align: right">
-            <NText type="primary" strong>
-              Còn {{ availableSerialsCount }} serial khả dụng
-            </NText>
-            <NText depth="3" size="small" style="display: block; margin-top: 4px">
-              Tổng: {{ selectedSerials.length }} serial
-            </NText>
-          </div>
-        </NSpace>
-        <NInput
-          v-model:value="serialSearchQuery"
-          placeholder="Tìm theo số serial/IMEI..."
-          clearable
-          style="margin-top: 12px"
-          @clear="serialSearchQuery = ''"
-        >
-          <template #prefix>
-            <NIcon><SearchOutline /></NIcon>
-          </template>
-        </NInput>
-      </template>
-
-      <div v-if="loadingSerials" style="text-align: center; padding: 40px">
-        <n-spin size="large">
-          <template #description>
-            Đang tải danh sách serial...
-          </template>
-        </n-spin>
-      </div>
-
-      <NDataTable
-        v-else :columns="serialColumns" :data="filteredSerials" :max-height="400" size="small"
-        :pagination="{ pageSize: 10 }" :loading="loadingSerials" :bordered="false"
-      />
-
-      <template #footer>
-        <NSpace justify="space-between" align="center" style="width: 100%">
-          <NText depth="3">
-            Đã chọn {{ selectedSerialIds.length }} serial
-          </NText>
-          <NSpace>
-            <NButton @click="showSerialModal = false">
+        <template #footer>
+          <NSpace justify="end">
+            <NButton @click="showDeliveryEditModal = false">
               Hủy
             </NButton>
-            <NButton
-              type="primary" :disabled="selectedSerialIds.length === 0 || loadingSerials"
-              :loading="loadingSerials" @click="addSerialToCart"
-            >
-              Thêm {{ selectedSerialIds.length }} serial vào giỏ
+            <NButton type="primary" @click="saveDeliveryInfo">
+              Lưu thay đổi
             </NButton>
           </NSpace>
-        </NSpace>
-      </template>
-    </NCard>
-  </NModal>
+        </template>
+      </NCard>
+    </NModal>
 
-  <NModal
-    v-model:show="showKhachHangModal" preset="dialog" title="Chọn khách hàng"
-    style="width: 90%; max-width: 1000px" :mask-closable="false"
-  >
-    <NCard size="small" :bordered="false">
-      <NSpace vertical :size="16">
-        <NInput v-model:value="customerSearchQuery" placeholder="Tìm kiếm theo tên hoặc số điện thoại..." clearable>
-          <template #prefix>
-            <NIcon><SearchOutline /></NIcon>
-          </template>
-        </NInput>
+    <NModal
+      v-model:show="isBarcodeModalVisible"
+      preset="dialog"
+      title="Quét IMEI"
+      :mask-closable="false"
+      @update:show="(val) => { if (!val) closeBarcodeModal() }"
+    >
+      <NCard size="small" :bordered="false">
+        <NAlert type="info" size="small" show-icon style="margin-bottom: 12px;">
+          Đặt mã IMEI (15-17 số) vào khung hình để quét.
+        </NAlert>
 
-        <NDataTable
-          :columns="columnsKhachHang" :data="state.khachHang" :max-height="400" size="small" :pagination="{
-            page: state.paginationParams.page,
-            pageSize: state.paginationParams.size,
-            pageCount: Math.ceil(state.totalItemsKH / state.paginationParams.size),
-            showSizePicker: true,
-            pageSizes: [10, 20, 30, 40, 50],
-          }" @update:page="handleCustomerPageChange" @update:page-size="handleCustomerPageSizeChange"
-        />
-      </NSpace>
-    </NCard>
-  </NModal>
+        <div id="reader" style="width: 100%; max-width: 440px; margin: 0 auto;" />
 
-  <NModal
-    v-model:show="isBothPaymentModalVisible" preset="dialog" title="Thanh toán kết hợp" positive-text="Xác nhận"
-    negative-text="Hủy" :loading="bothPaymentLoading" @positive-click="confirmBothPayment"
-    @negative-click="closeBothPaymentModal"
-  >
-    <NSpace vertical :size="16">
-      <NText depth="3">
-        Quét QR để thanh toán phần còn lại
-      </NText>
-      <NImage src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
-      <NForm :model="paymentForm">
-        <NFormItem label="Số tiền khách đưa (VND)" path="amountPaid">
-          <NInputNumber v-model:value="amountPaid" placeholder="Nhập số tiền" style="width: 100%" :min="0" />
-        </NFormItem>
-      </NForm>
-      <NSpace vertical :size="8">
-        <NSpace justify="space-between">
-          <NText depth="3">
-            Tổng tiền khách đã trả:
-          </NText>
-          <NText strong>
-            {{ formatCurrency(tienKhachThanhToan + (amountPaid || 0)) }}
-          </NText>
-        </NSpace>
-        <NSpace justify="space-between">
-          <NText depth="3">
-            Tiền còn thiếu:
-          </NText>
-          <NText type="error" strong>
-            {{ formatCurrency(Math.max(0, tongTien - (tienKhachThanhToan + (amountPaid || 0)))) }}
-          </NText>
-        </NSpace>
-      </NSpace>
-    </NSpace>
-  </NModal>
-
-  <NModal
-    v-model:show="isQrVNpayModalVisible" preset="dialog" title="Quét QR thanh toán" positive-text="Đã thanh toán"
-    :mask-closable="false" @positive-click="closeQrModalVnPay"
-  >
-    <NSpace vertical align="center" :size="16">
-      <NText depth="3">
-        Quét mã QR để thanh toán qua VNPay
-      </NText>
-      <NImage src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
-    </NSpace>
-  </NModal>
-
-  <NModal
-    v-model:show="showDeliveryModal" preset="dialog" title="Áp dụng phiếu giảm giá tốt hơn"
-    positive-text="Áp dụng" negative-text="Không" :mask-closable="false" @positive-click="confirmQuantityP"
-    @negative-click="closeModalP"
-  >
-    <NSpace vertical align="center" :size="16">
-      <NText>Đang có một phiếu giảm giá tốt hơn</NText>
-      <NText type="primary" strong>
-        {{ phieuNgon }}
-      </NText>
-      <NText depth="3">
-        Bạn có muốn áp dụng không?
-      </NText>
-    </NSpace>
-  </NModal>
-
-  <!-- ✅ THAY ĐỔI 7: Modal quét barcode - đổi title và giao diện phù hợp barcode -->
-  <NModal
-    v-model:show="isBarcodeModalVisible"
-    preset="dialog"
-    title="Quét Barcode Serial"
-    :mask-closable="false"
-    @update:show="(val) => { if (!val) closeQrModal() }"
-  >
-    <NCard size="small" :bordered="false">
-      <!-- Hướng dẫn scan barcode -->
-      <NAlert type="info" size="small" show-icon style="margin-bottom: 12px;">
-        Đặt barcode vào khung hình chữ nhật để quét. Hỗ trợ Code128, Code39, EAN, UPC.
-      </NAlert>
-
-      <!-- Vùng quét - hình chữ nhật nằm ngang phù hợp barcode 1D -->
-      <div id="reader" style="width: 100%; max-width: 440px; margin: 0 auto;" />
-
-      <NAlert v-if="!hasCamera" type="error" title="Lỗi camera" class="mt-2">
-        Không tìm thấy camera hoặc không có quyền truy cập camera.
-      </NAlert>
-    </NCard>
-  </NModal>
+        <NAlert v-if="!hasCamera" type="error" title="Lỗi camera" class="mt-2">
+          Không tìm thấy camera hoặc không có quyền truy cập camera.
+        </NAlert>
+      </NCard>
+    </NModal>
+  </div>
 </template>
 
 <style scoped>
@@ -3976,10 +2933,6 @@ async function printSerialBarcode(serialCode: string) {
   display: flex;
   flex-direction: column;
   gap: 16px;
-}
-
-.top-header {
-  margin-bottom: 8px;
 }
 
 .pending-invoices-container {
@@ -4017,37 +2970,27 @@ async function printSerialBarcode(serialCode: string) {
   margin-bottom: 8px;
 }
 
-.delete-invoice-btn {
-  margin-left: 4px;
-}
-
-.discount-list {
-  max-height: 400px;
-  overflow-y: auto;
-}
-
 .mt-1 {
   margin-top: 4px;
 }
 
-.mt-2 {
-  margin-top: 8px;
-}
-
-.filter-price-range {
-  background: #f5f5f5;
-  padding: 8px 12px;
-  border-radius: 6px;
-  border: 1px solid #e0e0e0;
-}
-
 .serial-modal-header {
-  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding-bottom: 12px;
   margin-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-/* Style cho barcode scanner region - hình chữ nhật ngang */
+.address-text {
+  display: block;
+  line-height: 1.5;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 100%;
+}
+
 :deep(#reader) {
   border-radius: 8px;
   overflow: hidden;
@@ -4055,11 +2998,6 @@ async function printSerialBarcode(serialCode: string) {
 
 :deep(#reader video) {
   border-radius: 8px;
-}
-
-/* Đảm bảo scan box hình chữ nhật */
-:deep(#reader__scan_region) {
-  background: transparent !important;
 }
 
 @media (max-width: 1200px) {
@@ -4071,20 +3009,5 @@ async function printSerialBarcode(serialCode: string) {
   .right-column {
     width: 100%;
   }
-}
-
-@media (max-width: 768px) {
-  .main-layout {
-    padding: 12px;
-    gap: 12px;
-  }
-
-  .pending-invoice-card {
-    min-width: 180px;
-  }
-}
-
-:deep(.n-checkbox) {
-  margin-right: 0;
 }
 </style>
