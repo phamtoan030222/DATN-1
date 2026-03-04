@@ -59,15 +59,7 @@ public interface ADHoaDonChiTietRepository extends InvoiceDetailRepository {
         kh.name AS tenKhachHang,
         kh.phone AS sdtKH,
         kh.email AS email,
-        CONCAT(
-            COALESCE(addr.address_detail, ''),
-            ', ',
-            COALESCE(addr.ward_commune, ''),
-            ', ',
-            COALESCE(addr.district, ''),
-            ', ',
-            COALESCE(addr.province_city, '')
-        ) AS diaChi,
+        hd.address_receiver AS diaChi,
 
         -- Lịch sử trạng thái
         (
