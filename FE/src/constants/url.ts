@@ -88,7 +88,6 @@ export const API_CUSTOMER_DISCOUNTS_VOUCHER
 export const API_CUSTOMER_CUSTOMERS = `${PREFIX_API_CUSTOMER}/customers` as string
 
 export const API_CUSTOMER_CUSTOMER_ADDRESSES = (customerId: string) => `${API_CUSTOMER_CUSTOMERS}/${customerId}/addresses`
-
 export const API_CUSTOMER_CUSTOMER_ADDRESS_DEFAULT = (customerId: string, addressId: string) => `${API_CUSTOMER_CUSTOMERS}/${customerId}/addresses/${addressId}/set-default`
 export const API_CUSTOMER_ORDERS = `${PREFIX_API_CUSTOMER}/orders` as string
 export const API_CUSTOMER_SALES = `${PREFIX_API_CUSTOMER}/sales` as string
@@ -116,5 +115,8 @@ export const PREFIX_API_HOA_DON_CUSTOMER = `${PREFIX_API_CUSTOMER}/hoa-don` as s
 export const API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL = `${API_ORDER_ONLINE}/product-detail` as string
 export const API_PREFIX_ORDER_ONLINE_PRODUCT = `${API_ORDER_ONLINE}/product` as string
 export const API_PREFIX_ORDER_ONLINE_VOUCHER = `${API_ORDER_ONLINE}/voucher` as string
+export const API_PREFIX_ORDER_ONLINE_DISCOUNT = `${API_ORDER_ONLINE}/discount` as string
+export const API_PREFIX_ORDER_ONLINE_DISCOUNTS = `${API_ORDER_ONLINE}/discounts` as string
+export const API_PREFIX_ORDER_ONLINE_DISCOUNT_DETAIL = `${API_ORDER_ONLINE}/discount-detail` as string
 
 // ------------- END -------------

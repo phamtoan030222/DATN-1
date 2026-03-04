@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
-import { CartItemResponse, GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
+import type { CartItemResponse } from '@/service/api/client/banhang.api'
+import { GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
 import {
   AddOutline,

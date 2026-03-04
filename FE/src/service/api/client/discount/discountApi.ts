@@ -1,4 +1,4 @@
-import { API_CUSTOMER_DISCOUNT, API_CUSTOMER_DISCOUNTS } from '@/constants/url'
+import { API_PREFIX_ORDER_ONLINE_DISCOUNT, API_PREFIX_ORDER_ONLINE_DISCOUNTS } from '@/constants/url'
 import type { DefaultResponse, PaginationParams } from '@/typings/api/api.common'
 import request from '@/service/request'
 
@@ -18,7 +18,6 @@ export interface DiscountResponse {
   endTime: number
   percentage: number
   description: string
-
   productCount?: number
 }
 
@@ -86,7 +85,7 @@ export interface ApplyDiscountRequest {
 
 export async function applySingleProductToDiscount(data: ApplyDiscountRequest) {
   try {
-    const res = await request.post(`${API_CUSTOMER_DISCOUNTS}/detail/applyProducts`, data)
+    const res = await request.post(`${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail/applyProducts`, data)
     return res.data
   }
   catch (error) {
@@ -140,7 +139,7 @@ export async function getAppliedProducts(discountId: string, params: PaginationP
 
   try {
     const res = await request.get<DefaultResponse<any>>(
-      `${API_CUSTOMER_DISCOUNTS}/detail/applied-products`,
+      `${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail/applied-products`,
       { params: queryParams },
     )
     console.log('📥 Applied products API response:', res.data)
@@ -195,7 +194,7 @@ export async function getUnappliedProducts(discountId: string, params: Paginatio
 
   try {
     const res = await request.get<DefaultResponse<any>>(
-      `${API_CUSTOMER_DISCOUNTS}/detail/not-applied-products`,
+      `${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail/not-applied-products`,
       { params: queryParams },
     )
 
@@ -233,10 +232,9 @@ export async function getUnappliedProducts(discountId: string, params: Paginatio
   }
 }
 
-// Áp dụng nhiều sản phẩm vào discount
 export async function applyProducts(discountId: string, products: { productDetailId: string, originalPrice: number, salePrice: number, description?: string }[]) {
   try {
-    const res = await request.post(`${API_CUSTOMER_DISCOUNTS}/detail/applyProducts`, {
+    const res = await request.post(`${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail/applyProducts`, {
       discountId,
       products,
     })
@@ -249,7 +247,7 @@ export async function applyProducts(discountId: string, products: { productDetai
 }
 
 export async function removeProductsFromDiscount(id: string) {
-  const res = await request.put(`${API_CUSTOMER_DISCOUNTS}/detail/updateStatus/${id}`)
+  const res = await request.put(`${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail/updateStatus/${id}`)
   return res.data
 }
 
@@ -271,7 +269,7 @@ export async function getAllDiscounts(params: ParamsGetDiscount) {
   }
 
   try {
-    const res = await request.get<DefaultResponse<any>>(API_CUSTOMER_DISCOUNT, {
+    const res = await request.get<DefaultResponse<any>>(API_PREFIX_ORDER_ONLINE_DISCOUNT, {
       params: queryParams,
     })
 
@@ -303,22 +301,6 @@ export interface ProductResponse {
   quantity: number
 }
 
-export interface ProductDetailResponse {
-  id: string
-  productCode: string
-  image: string
-  productDetailCode: string
-  productName: string
-  colorName?: string
-  ramName?: string
-  hardDriveName?: string
-  materialName?: string
-  gpuName?: string
-  cpuName?: string
-  price: number
-  description?: string
-}
-
 export async function getAllProducts(params: PaginationParams) {
   const page = (params.page && params.page > 0) ? params.page - 1 : 0
   const size = params.size || 10
@@ -334,7 +316,7 @@ export async function getAllProducts(params: PaginationParams) {
 
   try {
     const res = await request.get<DefaultResponse<any>>(
-      `${API_CUSTOMER_DISCOUNTS}/detail`,
+      `${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail`,
       { params: queryParams },
     )
 
@@ -360,7 +342,7 @@ export async function getAllProducts(params: PaginationParams) {
 export async function getProductDetailsByProductId(productId: string) {
   try {
     const res = await request.get<DefaultResponse<ProductDetailResponse[]>>(
-      `${API_CUSTOMER_DISCOUNTS}/detail/${productId}`,
+      `${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail/${productId}`,
     )
     return res.data
   }
@@ -371,31 +353,47 @@ export async function getProductDetailsByProductId(productId: string) {
 }
 
 export async function createDiscount(data: CreateDiscountRequest) {
-  const res = await request.post(`${API_CUSTOMER_DISCOUNT}/addDiscount`, data)
+  const res = await request.post(`${API_PREFIX_ORDER_ONLINE_DISCOUNT}/addDiscount`, data)
   return res.data
 }
 
 export async function updateDiscount(id: string, data: UpdateDiscountRequest) {
-  const res = await request.put(`${API_CUSTOMER_DISCOUNT}/updateDiscount/${id}`, data)
+  const res = await request.put(`${API_PREFIX_ORDER_ONLINE_DISCOUNT}/updateDiscount/${id}`, data)
   return res.data
 }
 
 export async function deactivateDiscount(id: string) {
-  const res = await request.put(`${API_CUSTOMER_DISCOUNT}/end/${id}`)
+  const res = await request.put(`${API_PREFIX_ORDER_ONLINE_DISCOUNT}/end/${id}`)
   return res.data
 }
 
 export async function startDiscount(id: string) {
-  const res = await request.put(`${API_CUSTOMER_DISCOUNT}/start/${id}`)
+  const res = await request.put(`${API_PREFIX_ORDER_ONLINE_DISCOUNT}/start/${id}`)
   return res.data
 }
 
 export async function deleteDiscount(id: string) {
-  const res = await request.delete(`${API_CUSTOMER_DISCOUNT}/delete/${id}`)
+  const res = await request.delete(`${API_PREFIX_ORDER_ONLINE_DISCOUNT}/delete/${id}`)
   return res.data
 }
 
 export async function sendEmail(id: string) {
-  const res = await request.post(`${API_CUSTOMER_DISCOUNT}/sendEmail/${id}`)
+  const res = await request.post(`${API_PREFIX_ORDER_ONLINE_DISCOUNT}/sendEmail/${id}`)
   return res.data
+}
+
+// ==========================================
+// THÊM MỚI: API Lấy danh sách đợt giảm giá đang/sắp diễn ra
+// ==========================================
+export async function getActiveDiscounts() {
+  try {
+    const res = await request.get<DefaultResponse<any>>(
+      `${API_PREFIX_ORDER_ONLINE_DISCOUNT}/get-discount`,
+    )
+    return res.data
+  }
+  catch (error) {
+    console.error('Lỗi khi lấy danh sách đợt giảm giá hoạt động:', error)
+    throw error
+  }
 }

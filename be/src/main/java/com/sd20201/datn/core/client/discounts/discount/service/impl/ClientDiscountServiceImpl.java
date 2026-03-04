@@ -4,6 +4,7 @@ import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDisco
 import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDscountFilterRequest;
 import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDiscountUpdateRequest;
 import com.sd20201.datn.core.client.discounts.discount.model.request.ClientDiscountValidateRequest;
+import com.sd20201.datn.core.client.discounts.discount.model.response.ClientDiscountResponse;
 import com.sd20201.datn.core.client.discounts.discount.repository.ClientCustomerDiscountRepository;
 import com.sd20201.datn.core.client.discounts.discount.repository.ClientDiscountRepossitory;
 import com.sd20201.datn.core.client.discounts.discount.repository.ClientDiscountSearchRepository;
@@ -30,9 +31,12 @@ import java.util.Map;
 public class ClientDiscountServiceImpl implements ClientDiscountService {
 
     private final ClientDiscountRepossitory adDiscountRepossitory;
+
     private final ClientDiscountSearchRepository adDiscountSearchRepository;
 
     private final ClientCustomerDiscountRepository customerRepository;
+
+    // ĐÃ XÓA BIẾN GÂY LỖI CIRCULAR REFERENCE Ở ĐÂY
 
     @Override
     public ResponseObject<?> getAllDiscounts(ClientDiscountRequest request) {
@@ -543,5 +547,9 @@ public class ClientDiscountServiceImpl implements ClientDiscountService {
         }
     }
 
-
+    @Override
+    public List<ClientDiscountResponse> layDanhSachSaleDangHoatDong() {
+        Long currentTime = System.currentTimeMillis();
+        return adDiscountRepossitory.getActiveDiscounts(currentTime, EntityStatus.ACTIVE);
+    }
 }
