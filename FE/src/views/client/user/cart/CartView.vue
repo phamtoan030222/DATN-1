@@ -68,13 +68,13 @@ async function handleRemove(productDetailId: string) {
         productDetailId: productDetailId,
         quantity: 0
       })
-
-      fetchCart()
     } else {
       const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
       delete cart[productDetailId]
       localStorageAction.set(CUSTOMER_CART_ITEM, cart)
     }
+
+    fetchCart()
     message.success('Đã xóa sản phẩm')
   } catch (e: any) {
     message.error('Xóa sản phẩm thất bại')
