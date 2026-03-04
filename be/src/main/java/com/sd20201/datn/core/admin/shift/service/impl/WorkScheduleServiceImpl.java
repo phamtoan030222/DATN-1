@@ -10,6 +10,7 @@ import com.sd20201.datn.entity.Account;
 import com.sd20201.datn.entity.Shift;
 import com.sd20201.datn.entity.Staff;
 import com.sd20201.datn.entity.WorkSchedule;
+import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.repository.AccountRepository;
 import com.sd20201.datn.repository.ShiftRepository;
 import com.sd20201.datn.repository.StaffRepository;
@@ -30,6 +31,12 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Optional;
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.poi.ss.util.CellRangeAddressList;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.ByteArrayOutputStream;
+import java.util.stream.Collectors;
 
 @Service
 public class WorkScheduleServiceImpl implements WorkScheduleService {
@@ -183,7 +190,8 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
             // 2. Đọc file lấy danh sách dữ liệu (Dùng ExcelHelper)
             List<ExcelScheduleRequest> requests = ExcelHelper.excelToScheduleRequests(file.getInputStream());
             List<WorkSchedule> schedulesToSave = new ArrayList<>();
-            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+            // Dùng d/M/yyyy giúp Java đọc được cả "05/03/2026" lẫn "5/3/2026"
+            DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("d/M/yyyy");
 
             if (requests.isEmpty()) {
                 return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "File Excel trống hoặc không có dữ liệu hợp lệ.");
@@ -260,6 +268,119 @@ public class WorkScheduleServiceImpl implements WorkScheduleService {
             // Bắt lỗi hệ thống
             e.printStackTrace();
             return new ResponseObject<>(null, HttpStatus.INTERNAL_SERVER_ERROR, "Đã xảy ra lỗi hệ thống khi đọc file Excel.");
+        }
+    }
+
+    @Override
+    public byte[] downloadTemplate() {
+        try {
+            // 1. Lấy danh sách Mã NV và Tên Ca từ Database (CHỈ LẤY ACTIVE)
+            List<String> staffCodes = staffRepo.findByStatus(EntityStatus.ACTIVE).stream()
+                    .map(Staff::getCode)
+                    .filter(code -> code != null && !code.isEmpty())
+                    .collect(Collectors.toList());
+
+            List<String> shiftNames = shiftTemplateRepo.findByStatus(EntityStatus.ACTIVE).stream()
+                    .map(Shift::getName)
+                    .filter(name -> name != null && !name.isEmpty())
+                    .collect(Collectors.toList());
+
+            // Đề phòng trường hợp DB rỗng
+            if (staffCodes.isEmpty()) staffCodes.add("CHUA_CO_NV_ACTIVE");
+            if (shiftNames.isEmpty()) shiftNames.add("CHUA_CO_CA_ACTIVE");
+
+            try (Workbook workbook = new XSSFWorkbook()) {
+                Sheet mainSheet = workbook.createSheet("Xep_Lich");
+                Sheet hiddenSheet = workbook.createSheet("HiddenData");
+
+                // --- 2. TẠO SHEET ẨN (Chứa data cho Dropdown) ---
+                for (int i = 0; i < Math.max(staffCodes.size(), shiftNames.size()); i++) {
+                    Row row = hiddenSheet.createRow(i);
+                    if (i < staffCodes.size()) row.createCell(0).setCellValue(staffCodes.get(i));
+                    if (i < shiftNames.size()) row.createCell(1).setCellValue(shiftNames.get(i));
+                }
+                // Ẩn sheet này đi
+                workbook.setSheetHidden(1, true);
+
+                // ==========================================
+                // --- 3. TẠO HEADER (DÒNG ĐẦU TIÊN - INDEX 0) ---
+                // ==========================================
+                Row headerRow = mainSheet.createRow(0);
+                headerRow.setHeightInPoints(25); // Cho dòng cao lên xíu
+                headerRow.createCell(0).setCellValue("Mã nhân viên");
+                headerRow.createCell(1).setCellValue("Ngày làm (dd/MM/yyyy)");
+                headerRow.createCell(2).setCellValue("Tên ca");
+
+                // Style cho Header (In đậm, nền xanh lá, căn giữa, viền bao quanh)
+                CellStyle headerStyle = workbook.createCellStyle();
+                Font headerFont = workbook.createFont();
+                headerFont.setBold(true);
+                headerStyle.setFont(headerFont);
+                headerStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
+                headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+                headerStyle.setAlignment(HorizontalAlignment.CENTER);
+                headerStyle.setVerticalAlignment(VerticalAlignment.CENTER);
+                headerStyle.setBorderTop(BorderStyle.THIN);
+                headerStyle.setBorderBottom(BorderStyle.THIN);
+                headerStyle.setBorderLeft(BorderStyle.THIN);
+                headerStyle.setBorderRight(BorderStyle.THIN);
+
+                for (int i = 0; i < 3; i++) {
+                    headerRow.getCell(i).setCellStyle(headerStyle);
+                }
+
+                // ==========================================
+                // --- 4. FORMAT CỘT & DATA VALIDATION ---
+                // ==========================================
+
+                // Ép cột B (Ngày tháng) thành TEXT và căn giữa
+                CellStyle textStyle = workbook.createCellStyle();
+                DataFormat format = workbook.createDataFormat();
+                textStyle.setDataFormat(format.getFormat("@"));
+                textStyle.setAlignment(HorizontalAlignment.CENTER); // Căn giữa
+                mainSheet.setDefaultColumnStyle(1, textStyle);
+
+                // Căn giữa luôn cột A (Mã NV) và cột C (Ca) cho đồng bộ (tuỳ chọn)
+                CellStyle centerStyle = workbook.createCellStyle();
+                centerStyle.setAlignment(HorizontalAlignment.CENTER);
+                mainSheet.setDefaultColumnStyle(0, centerStyle);
+                mainSheet.setDefaultColumnStyle(2, centerStyle);
+
+                DataValidationHelper validationHelper = mainSheet.getDataValidationHelper();
+
+                // Dropdown cho "Mã nhân viên" (Bắt đầu từ dòng 2 - Index 1)
+                CellRangeAddressList staffAddressList = new CellRangeAddressList(1, 1000, 0, 0);
+                DataValidationConstraint staffConstraint = validationHelper.createFormulaListConstraint(
+                        "HiddenData!$A$1:$A$" + staffCodes.size()
+                );
+                DataValidation staffValidation = validationHelper.createValidation(staffConstraint, staffAddressList);
+                staffValidation.setShowErrorBox(true);
+                mainSheet.addValidationData(staffValidation);
+
+                // Dropdown cho "Tên ca" (Bắt đầu từ dòng 2 - Index 1)
+                CellRangeAddressList shiftAddressList = new CellRangeAddressList(1, 1000, 2, 2);
+                DataValidationConstraint shiftConstraint = validationHelper.createFormulaListConstraint(
+                        "HiddenData!$B$1:$B$" + shiftNames.size()
+                );
+                DataValidation shiftValidation = validationHelper.createValidation(shiftConstraint, shiftAddressList);
+                shiftValidation.setShowErrorBox(true);
+                mainSheet.addValidationData(shiftValidation);
+
+                // ==========================================
+                // --- 5. KÉO RỘNG CÁC CỘT ---
+                // ==========================================
+                mainSheet.setColumnWidth(0, 20 * 256); // Cột Mã NV: rộng 20 character
+                mainSheet.setColumnWidth(1, 25 * 256); // Cột Ngày: rộng 25 character
+                mainSheet.setColumnWidth(2, 20 * 256); // Cột Tên ca: rộng 20 character
+
+                // --- 6. XUẤT FILE RA BYTE ARRAY ---
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                workbook.write(out);
+                return out.toByteArray();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Lỗi khi tạo file Excel Template: " + e.getMessage());
         }
     }
 }

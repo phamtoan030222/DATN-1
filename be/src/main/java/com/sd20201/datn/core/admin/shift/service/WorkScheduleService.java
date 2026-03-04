@@ -16,4 +16,6 @@ public interface WorkScheduleService {
     ResponseObject<?> createBulkSchedule(BulkCreateScheduleRequest req);
 
     ResponseObject<?> importExcelSchedule(MultipartFile file);
+
+    byte[] downloadTemplate();
 }

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-// ==================== IMPORTS ====================
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import type {
   GoiYVoucherResponse,
@@ -25,47 +24,37 @@ import {
   getProductDetails,
   getRAMs,
   huyHoaDon,
+
   suaGiaoHang,
   thanhToanThanhCong,
   themKhachHang,
   themMoiKhachHang,
   themSanPham,
   themSL,
-  xoaKhachHang,
+
   xoaSL,
   xoaSP,
 } from '@/service/api/admin/banhang.api'
-import type {
-  ADPDImeiResponse,
-  ADProductDetailRequest,
-  ADProductDetailResponse,
-} from '@/service/api/admin/product/productDetail.api'
+import type { ADPDImeiResponse, ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/admin/product/productDetail.api'
 import type { AvailableServiceRequest, ShippingFeeRequest } from '@/service/api/ghn.api'
 import { calculateFee, getAvailableServices, getGHNDistricts, getGHNProvinces, getGHNWards } from '@/service/api/ghn.api'
 import { localStorageAction } from '@/utils/storage'
+import { Html5Qrcode } from 'html5-qrcode'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
-import { computed, h, onMounted, reactive, ref, watch } from 'vue'
+import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
 
-// ==================== ICONS ====================
+// Naive UI Icons
 import {
   AddCircleOutline,
-  CheckmarkOutline,
-  CloseOutline,
-  InformationCircleOutline,
-  MoonOutline,
-  QrCodeOutline,
   ReloadOutline,
-  RocketOutline,
   SearchOutline,
-  TicketOutline,
   TrashOutline,
-  WalletOutline,
 } from '@vicons/ionicons5'
 
-// ==================== NAIVE UI COMPONENTS ====================
+// Naive UI components
 import {
   NAlert,
   NBadge,
@@ -88,8 +77,6 @@ import {
   NListItem,
   NModal,
   NPopconfirm,
-  NRadio,
-  NRadioGroup,
   NScrollbar,
   NSelect,
   NSpace,
@@ -100,33 +87,98 @@ import {
   NTooltip,
 } from 'naive-ui'
 
-// ==================== CONSTANTS & CONFIG ====================
-const GHN_API_TOKEN = '72f634c6-58a2-11f0-8a1e-1e10d8df3c04'
-const GHN_SHOP_ID = 5872469
+// Local filter variables
+const localSearchQuery = ref('')
+const localColor = ref<string | null>(null)
+const localCPU = ref<string | null>(null)
+const localGPU = ref<string | null>(null)
+const localRAM = ref<string | null>(null)
+const localHardDrive = ref<string | null>(null)
+const localSelectedMaterial = ref<string | null>(null)
+
+const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
+const ColorOptions = ref<{ label: string, value: string }[]>([])
+const CpuOptions = ref<{ label: string, value: string }[]>([])
+const GpuOptions = ref<{ label: string, value: string }[]>([])
+const RamOptions = ref<{ label: string, value: string }[]>([])
+const HardDriveOptions = ref<{ label: string, value: string }[]>([])
+const MaterialOptions = ref<{ label: string, value: string }[]>([])
+
+const isBothPaymentModalVisible = ref(false)
+const amountPaid = ref(0)
+const bothPaymentLoading = ref(false)
+const soTien = ref(0)
+const tienKhachThanhToan = ref(0)
+const tienThieu = ref(0)
+const tongTien = ref(0)
+const tongTienTruocGiam = ref(0)
+const giamGia = ref(0)
+const tienHang = ref(0)
+const idSP = ref('')
+const idHDS = ref('')
+const tabs = ref<Array<{
+  id: number
+  idHD: string
+  code: string
+  soLuong: number
+  products: any[]
+  loaiHoaDon: string
+  isTemp?: boolean
+}>>([])
+const activeTab = ref(0)
+const idPGG = ref('')
+let nextTabId = 1
+const loaiHD = ref('')
+const showDiscountModal = ref(false)
+const discountList = ref<PhieuGiamGiaResponse[]>([])
+const selectedDiscount = ref<PhieuGiamGiaResponse | null>(null)
+const selectedDiscountCode = ref<string>('')
+const isDeliveryEnabled = ref(false)
+const showDeliveryModal = ref(false)
+const deliveryInfo = reactive({
+  tenNguoiNhan: '',
+  sdtNguoiNhan: '',
+  tinhThanhPho: null as string | null,
+  quanHuyen: null as string | null,
+  phuongXa: null as string | null,
+  diaChiCuThe: '',
+  ghiChu: '',
+})
+const currentDeliveryInfo = ref<ThongTinGiaoHangResponse | null>(null)
+const customerSearchQuery = ref('')
+const betterDiscountMessage = ref('')
+const deliveryInfoByInvoice = reactive<{ [key: string]: any }>({})
+// GHN specific states
+const provinces = ref<Array<{ value: string, label: string, code: string }>>([])
+const districts = ref<Array<{ value: string, label: string, code: string }>>([])
+const wards = ref<Array<{ value: string, label: string, code: string }>>([])
+const shippingFee = ref(0)
+const provinceCode = ref<number | null>(null)
+const districtCode = ref<number | null>(null)
+const wardCode = ref<string | null>(null)
 const FROM_DISTRICT_ID = 3440
 const FROM_WARD_CODE = '13010'
+const isBestDiscountApplied = ref(false)
+const phieuNgon = ref('')
+const GHN_API_TOKEN = '72f634c6-58a2-11f0-8a1e-1e10d8df3c04'
+const GHN_SHOP_ID = 5872469
 
-// ==================== REACTIVE STATE ====================
+// State cho modal serial
+const showSerialModal = ref(false)
+const selectedProductDetail = ref<ADProductDetailResponse | null>(null)
+const selectedSerials = ref<ADPDImeiResponse[]>([]) // Sửa type cho đúng
+const selectedSerialIds = ref<string[]>([])
+const loadingSerials = ref(false) // Thêm loading state
 
-// Thông tin user từ localStorage
-const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
+// Hoặc tạo state riêng
+const imeiDaChon = ref<Array<{
+  idHoaDonChiTiet: string
+  danhSachImei: string[]
+}>>([])
 
-// State cho hóa đơn và tabs
-const tabs = ref<
-  Array<{
-    id: number
-    idHD: string
-    code: string
-    soLuong: number
-    products: any[]
-    loaiHoaDon: string
-    isTemp?: boolean
-  }>
->([])
-const activeTab = ref(0)
-const idHDS = ref('')
-const loaiHD = ref('')
-let nextTabId = 1
+async function fetchSerialsByProduct(productId: string) {
+  try {
+    console.log('Fetching serials for product:', productId)
 
     // Sử dụng API thực tế để lấy danh sách IMEI
     const response = await getImeiProductDetail(productId)
@@ -141,7 +193,7 @@ let nextTabId = 1
       selectedSerials.value = []
     }
 
-    selectedSerialIds.value = [] 
+    selectedSerialIds.value = []
     serialSearchQuery.value = ''
     showSerialModal.value = true
   }
@@ -158,10 +210,11 @@ let nextTabId = 1
 const serialSearchQuery = ref('')
 
 const filteredSerials = computed(() => {
-  if (!serialSearchQuery.value.trim()) return selectedSerials.value
+  if (!serialSearchQuery.value.trim())
+    return selectedSerials.value
   const keyword = serialSearchQuery.value.trim().toLowerCase()
   return selectedSerials.value.filter(s =>
-    s.code?.toLowerCase().includes(keyword)
+    s.code?.toLowerCase().includes(keyword),
   )
 })
 
@@ -293,7 +346,6 @@ const state = reactive({
   autoVoucherResult: null as GoiYVoucherResponse | null,
 })
 
-// State cho sản phẩm (modal)
 const stateSP = reactive({
   searchQuery: '',
   searchStatus: null as number | null,
@@ -306,33 +358,15 @@ const stateSP = reactive({
   totalItems: 0,
 })
 
-// State cho bộ lọc sản phẩm
-const localSearchQuery = ref('')
-const localColor = ref<string | null>(null)
-const localCPU = ref<string | null>(null)
-const localGPU = ref<string | null>(null)
-const localRAM = ref<string | null>(null)
-const localHardDrive = ref<string | null>(null)
-const localSelectedMaterial = ref<string | null>(null)
 const priceRange = ref<[number, number]>([0, 0])
 
-const ColorOptions = ref<{ label: string, value: string }[]>([])
-const CpuOptions = ref<{ label: string, value: string }[]>([])
-const GpuOptions = ref<{ label: string, value: string }[]>([])
-const RamOptions = ref<{ label: string, value: string }[]>([])
-const HardDriveOptions = ref<{ label: string, value: string }[]>([])
-const MaterialOptions = ref<{ label: string, value: string }[]>([])
-
-// State cho giá min/max
 const filteredProducts = computed(() => {
-
-    const colorLabel = ColorOptions.value.find(o => o.value === localColor.value)?.label
+  const colorLabel = ColorOptions.value.find(o => o.value === localColor.value)?.label
   const cpuLabel = CpuOptions.value.find(o => o.value === localCPU.value)?.label
   const gpuLabel = GpuOptions.value.find(o => o.value === localGPU.value)?.label
   const ramLabel = RamOptions.value.find(o => o.value === localRAM.value)?.label
   const hardDriveLabel = HardDriveOptions.value.find(o => o.value === localHardDrive.value)?.label
   const materialLabel = MaterialOptions.value.find(o => o.value === localSelectedMaterial.value)?.label
-
 
   return stateSP.products.filter((p) => {
     const effectivePrice = p.percentage > 0
@@ -354,8 +388,6 @@ const filteredProducts = computed(() => {
     // Lọc khoảng giá
     const matchPrice = effectivePrice >= priceRange.value[0] && effectivePrice <= priceRange.value[1]
 
-
-
     return matchSearch && matchColor && matchCPU && matchGPU && matchRAM && matchHardDrive && matchMaterial && matchPrice
   })
 })
@@ -366,128 +398,35 @@ const stateMinMaxPrice = reactive({
   priceMax: 0,
 })
 
-// State cho voucher
-const selectedVoucher = ref<any>(null)
-const selectedDiscount = ref<PhieuGiamGiaResponse | null>(null)
-const selectedDiscountCode = ref<string>('')
-const applyingVoucher = ref<string | null>(null)
-const autoApplying = ref(false)
-const applyingBetterVoucher = ref<string | null>(null)
-const betterDiscountMessage = ref('')
-const isBestDiscountApplied = ref(false)
+// Format tooltip cho slider
+function formatTooltipRangePrice(value: number) {
+  return formatCurrency(value)
+}
 
-// State cho giao hàng
-const isDeliveryEnabled = ref(false)
-const deliveryInfo = reactive({
-  tenNguoiNhan: '',
-  sdtNguoiNhan: '',
-  tinhThanhPho: null as string | null,
-  quanHuyen: null as string | null,
-  phuongXa: null as string | null,
-  diaChiCuThe: '',
-  ghiChu: '',
-})
-const provinces = ref<Array<{ value: string, label: string, code: string }>>([])
-const districts = ref<Array<{ value: string, label: string, code: string }>>([])
-const wards = ref<Array<{ value: string, label: string, code: string }>>([])
-const shippingFee = ref(0)
-const provinceCode = ref<number | null>(null)
-const districtCode = ref<number | null>(null)
-const wardCode = ref<string | null>(null)
-const isFreeShipping = ref(false)
-const currentDeliveryInfo = ref<ThongTinGiaoHangResponse | null>(null)
-
-// State cho thanh toán
-const tienKhachThanhToan = ref(0)
-const tienThieu = ref(0)
-const tongTien = ref(0)
-const tongTienTruocGiam = ref(0)
-const giamGia = ref(0)
-const tienHang = ref(0)
-
-// State cho khách hàng
-const customerSearchQuery = ref('')
-const newCustomer = reactive({
-  ten: '',
-  sdt: '',
+// Tính toán min và max price từ danh sách sản phẩm
+const minProductPrice = computed(() => {
+  if (stateSP.products.length === 0)
+    return 0
+  const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
+  return prices.length > 0 ? Math.min(...prices) : 0
 })
 
-// State cho serial IMEI
-const showSerialModal = ref(false)
-const selectedProductDetail = ref<ADProductDetailResponse | null>(null)
-const selectedSerials = ref<ADPDImeiResponse[]>([])
-const selectedSerialIds = ref<string[]>([])
-const loadingSerials = ref(false)
-const imeiDaChon = ref<
-  Array<{
-    idHoaDonChiTiet: string
-    danhSachImei: string[]
-  }>
->([])
+const maxProductPrice = computed(() => {
+  if (stateSP.products.length === 0)
+    return 0
+  const prices = stateSP.products.map(p => p.price).filter(price => price > 0)
+  return prices.length > 0 ? Math.max(...prices) : 0
+})
 
-// State cho modals
-const showKhachHangModal = ref(false)
-const showProductModal = ref(false)
-const showSuggestionDetailModal = ref(false)
-const selectedSuggestion = ref<any>(null)
-const addCustomerLoading = ref(false)
-const isQrVNpayModalVisible = ref(false)
-const qrCodeUrl = ref('/images/qr.png')
-
-// State cho thanh toán kết hợp
-const isBothPaymentModalVisible = ref(false)
-const amountPaid = ref(0)
-const bothPaymentLoading = ref(false)
-const bothPaymentMethod = ref<'CASH_FIRST' | 'BANKING_FIRST'>('CASH_FIRST')
-
-// ==================== COMPUTED PROPERTIES ====================
-
-/**
- * Số lượng serial khả dụng
- */
+// Tính số lượng serial khả dụng
 const availableSerialsCount = computed(() => {
   return selectedSerials.value.filter(s => s.imeiStatus === 'AVAILABLE').length
 })
 
-// ==================== WATCHERS ====================
+const debouncedFetchCustomers = debounce(async () => {
+  await fetchCustomers()
+}, 300)
 
-/**
- * Theo dõi thay đổi tổng tiền hàng để tự động gợi ý voucher
- */
-watch(
-  () => tienHang.value,
-  async (newValue, oldValue) => {
-    if (state.gioHang.length > 0 && newValue > 0 && idHDS.value) {
-      setTimeout(async () => {
-        await fetchDiscounts(idHDS.value)
-      }, 500)
-    }
-    else if (state.gioHang.length === 0) {
-      resetDiscount()
-      state.autoVoucherResult = null
-    }
-  },
-  { immediate: true },
-)
-
-/**
- * Theo dõi thay đổi khách hàng để cập nhật voucher
- */
-watch(
-  () => state.detailKhachHang?.id,
-  async () => {
-    if (state.gioHang.length > 0 && tienHang.value > 0 && idHDS.value) {
-      await fetchDiscounts(idHDS.value)
-    }
-  },
-  fetchCustomers(),
-)
-
-// ==================== API CALL FUNCTIONS ====================
-
-/**
- * Lấy danh sách khách hàng
- */
 async function fetchCustomers() {
   try {
     const params = {
@@ -506,87 +445,158 @@ async function fetchCustomers() {
   }
 }
 
-/**
- * Lấy danh sách hóa đơn
- */
-async function fetchHoaDon() {
+const selectedVoucher = ref<any>(null)
+const applyingVoucher = ref<string | null>(null)
+const autoApplying = ref(false)
+const applyingBetterVoucher = ref<string | null>(null)
+const showSuggestionDetailModal = ref(false)
+const selectedSuggestion = ref<any>(null)
+const discountTab = ref('auto')
+
+// Computed properties
+const hasBetterVoucherSuggestion = computed(() => {
+  return state.autoVoucherResult?.voucherTotHon?.some(v =>
+    v.giamThem > (selectedVoucher.value?.giamGiaThucTe || 0),
+  )
+})
+
+// Hàm trigger auto apply voucher
+async function triggerAutoApplyVoucher() {
+  if (!idHDS.value || tienHang.value <= 0) {
+    toast.error('Vui lòng có sản phẩm trong giỏ hàng trước!')
+    return
+  }
+
+  autoApplying.value = true
   try {
-    await fetchProducts()
-    const response = await GetHoaDons()
+    const params = {
+      invoiceId: idHDS.value,
+      tongTien: tienHang.value,
+      customerId: state.detailKhachHang?.id ?? null,
+    }
 
-    if (response && Array.isArray(response)) {
-      tabs.value = response.map((invoice, index) => ({
-        id: index + 1,
-        idHD: invoice.id,
-        code: invoice.code,
-        soLuong: invoice.soLuong,
-        loaiHoaDon: invoice.loaiHoaDon,
-        products: invoice.data?.products || [],
-      }))
+    const response = await getMaGiamGia(params)
 
-      if (tabs.value.length > 0) {
-        activeTab.value = tabs.value[0].id
-        idHDS.value = tabs.value[0].idHD
-        loaiHD.value = tabs.value[0].loaiHoaDon
-        await clickkActiveTab(tabs.value[0].id, tabs.value[0].idHD, tabs.value[0].loaiHoaDon)
+    if (response) {
+      state.autoVoucherResult = response
+
+      // Tự động chọn voucher tốt nhất nếu chưa có voucher nào được chọn
+      if (!selectedVoucher.value && response.voucherApDung?.length > 0) {
+        // Tìm voucher có giamGiaThucTe lớn nhất
+        const bestVoucher = response.voucherApDung.reduce((best, current) =>
+          (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
+        )
+        await selectVoucher(bestVoucher)
       }
-      else {
-        resetState()
-      }
+
+      toast.success(`Tìm thấy ${response.voucherApDung?.length || 0} voucher phù hợp`)
     }
   }
   catch (error) {
-    console.error('Failed to fetch invoices:', error)
-    toast.error('Lấy danh sách hóa đơn thất bại!')
-    resetState()
+    console.error('Auto apply voucher failed:', error)
+    toast.error('Lỗi khi tìm voucher phù hợp')
+  }
+  finally {
+    autoApplying.value = false
   }
 }
 
-/**
- * Lấy danh sách sản phẩm
- */
-async function fetchProducts() {
+// Hàm chọn voucher
+async function selectVoucher(voucher: any) {
+  applyingVoucher.value = voucher.voucherId
+
   try {
-    const params: ADProductDetailRequest = {
-      page: stateSP.paginationParams.page,
-      size: stateSP.paginationParams.size,
-      q: localSearchQuery.value || undefined,
-      idColor: localColor.value || undefined,
-      idCPU: localCPU.value || undefined,
-      idGPU: localGPU.value || undefined,
-      idRAM: localRAM.value || undefined,
-      idHardDrive: localHardDrive.value || undefined,
-      idMaterial: localSelectedMaterial.value || undefined,
-    }
-    const response = await getProductDetails(params)
-    stateSP.products = response.data?.data || []
-    state.products = response.data?.data || []
-    stateSP.totalItems = response.data?.totalElements || 0
-    state.totalItems = response.data?.totalElements || 0
+    // 1. Cập nhật state
+    selectedVoucher.value = voucher
+    selectedDiscountCode.value = voucher.code
+    giamGia.value = voucher.giamGiaThucTe
+
+    // 2. Cập nhật selectedDiscount (nếu cần cho backward compatibility)
+    selectedDiscount.value = {
+      id: voucher.voucherId,
+      ma: voucher.code,
+      giaTriGiamThucTe: voucher.giamGiaThucTe,
+      typeVoucher: voucher.typeVoucher,
+      discountValue: voucher.discountValue,
+      maxValue: voucher.maxValue,
+      dieuKien: voucher.dieuKien,
+    } as any
+
+    // 3. Tính toán lại tổng tiền
+    calculateTotalAmounts()
+
+    toast.success(`Đã áp dụng voucher ${voucher.code}`)
   }
   catch (error) {
-    console.error('Failed to fetch products:', error)
-    toast.error('Lấy danh sách sản phẩm thất bại!')
+    console.error('Select voucher failed:', error)
+    toast.error('Lỗi khi áp dụng voucher')
+  }
+  finally {
+    applyingVoucher.value = null
   }
 }
 
-/**
- * Lấy danh sách voucher khả dụng
- * @param idHD - ID hóa đơn
- */
+// Hàm xóa voucher
+function removeVoucher() {
+  selectedVoucher.value = null
+  selectedDiscount.value = null
+  selectedDiscountCode.value = ''
+  giamGia.value = 0
+  calculateTotalAmounts()
+  toast.info('Đã bỏ chọn voucher')
+}
+
+// Hàm hiển thị chi tiết suggestion
+function showSuggestionDetail(suggestion: any) {
+  selectedSuggestion.value = suggestion
+  showSuggestionDetailModal.value = true
+}
+
+// Hàm áp dụng suggestion tốt nhất
+function applyBestSuggestion() {
+  if (state.autoVoucherResult?.voucherTotHon?.length > 0) {
+    showSuggestionDetail(state.autoVoucherResult.voucherTotHon[0])
+  }
+}
+
+// Hàm áp dụng suggestion voucher
+function applySuggestionVoucher() {
+  if (!selectedSuggestion.value)
+    return
+
+  // Tìm voucher trong danh sách voucherApDung
+  const fullVoucher = state.autoVoucherResult?.voucherApDung?.find(
+    v => v.voucherId === selectedSuggestion.value.voucherId,
+  )
+
+  if (fullVoucher) {
+    selectVoucher(fullVoucher)
+    showSuggestionDetailModal.value = false
+    toast.info(`Voucher ${fullVoucher.code} sẽ được áp dụng khi đủ điều kiện`)
+  }
+}
+
+// Hàm lấy tag type cho voucher
+function getVoucherTagType(type: string) {
+  return type === 'PERCENTAGE' ? 'success' : 'warning'
+}
+
+// Hàm lấy tag type cho suggestion
+function getSuggestionTagType(hieuQua: number) {
+  if (hieuQua >= 50)
+    return 'error' // Rất hiệu quả
+  if (hieuQua >= 30)
+    return 'warning' // Hiệu quả
+  if (hieuQua >= 15)
+    return 'info' // Khá hiệu quả
+  return 'default' // Bình thường
+}
+
+// Cập nhật fetchDiscounts để lưu kết quả auto apply
 async function fetchDiscounts(idHD: string) {
   try {
     if (!idHD) {
       resetDiscount()
-      return
-    }
-
-    if (state.gioHang.length === 0) {
-      console.log('Giỏ hàng trống, không gọi API voucher')
-      resetDiscount()
-      state.discountList = []
-      state.autoVoucherResult = null
-      betterDiscountMessage.value = ''
       return
     }
 
@@ -598,19 +608,22 @@ async function fetchDiscounts(idHD: string) {
 
     const response = await getMaGiamGia(params)
 
+    // Lưu kết quả vào state
     state.autoVoucherResult = response
     state.discountList = response.voucherApDung ?? []
 
+    // Cập nhật thông báo gợi ý mua thêm
     if (response.voucherTotHon?.length > 0) {
       const bestSuggestion = response.voucherTotHon[0]
-      betterDiscountMessage.value = `Mua thêm ${formatCurrency(
-        bestSuggestion.canMuaThem,
-      )} để được giảm thêm ${formatCurrency(bestSuggestion.giamThem)}`
+      betterDiscountMessage.value
+        = `Mua thêm ${formatCurrency(bestSuggestion.canMuaThem)} `
+          + `để được giảm thêm ${formatCurrency(bestSuggestion.giamThem)}`
     }
     else {
       betterDiscountMessage.value = ''
     }
 
+    // Nếu chưa có voucher được chọn, tự động chọn voucher tốt nhất
     if (!selectedVoucher.value && response.voucherApDung?.length > 0) {
       const bestVoucher = response.voucherApDung.reduce((best, current) =>
         (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
@@ -626,35 +639,115 @@ async function fetchDiscounts(idHD: string) {
   }
 }
 
-/**
- * Lấy danh sách serial theo sản phẩm
- * @param productId - ID sản phẩm
- */
-async function fetchSerialsByProduct(productId: string) {
-  try {
-    const response = await getImeiProductDetail(productId)
-    if (response.data && Array.isArray(response.data)) {
-      selectedSerials.value = response.data
+// Watch để trigger auto apply khi thay đổi giỏ hàng
+watch(
+  () => tienHang.value,
+  async (newValue) => {
+    if (newValue > 0 && idHDS.value) {
+      // Debounce để tránh gọi API nhiều lần
+      setTimeout(async () => {
+        await fetchDiscounts(idHDS.value)
+      }, 500)
     }
-    else {
-      selectedSerials.value = []
+  },
+  { immediate: true },
+)
+
+// Khi thay đổi khách hàng
+watch(
+  () => state.detailKhachHang?.id,
+  async () => {
+    if (tienHang.value > 0 && idHDS.value) {
+      await fetchDiscounts(idHDS.value)
     }
-    selectedSerialIds.value = []
-    showSerialModal.value = true
+  },
+)
+
+// Cập nhật calculateTotalAmounts để tính cả voucher
+function calculateTotalAmounts() {
+  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan), 0)
+
+  // Ưu tiên sử dụng voucher được chọn
+  if (selectedVoucher.value) {
+    giamGia.value = selectedVoucher.value.giamGiaThucTe
   }
-  catch (error) {
-    console.error('Failed to fetch serials:', error)
-    toast.error('Lấy danh sách serial thất bại!')
-    selectedSerials.value = []
+  else {
+    giamGia.value = selectedDiscount.value ? selectedDiscount.value.giaTriGiamThucTe || 0 : 0
   }
-  finally {
-    loadingSerials.value = false
+
+  tongTienTruocGiam.value = tienHang.value
+  let currentTotal = tienHang.value - giamGia.value
+  if (currentTotal < 0)
+    currentTotal = 0
+
+  if (isDeliveryEnabled.value) {
+    currentTotal += shippingFee.value
   }
+  tongTien.value = currentTotal
+  tienThieu.value = tongTien.value - tienKhachThanhToan.value
 }
 
-/**
- * Lấy danh sách tỉnh/thành phố (GHN)
- */
+watch(localSearchQuery, () => {
+  debouncedFetchProducts()
+})
+
+watch([localColor, localCPU, localGPU, localRAM, localHardDrive, localSelectedMaterial], () => {
+  debouncedFetchProducts()
+})
+
+function resetFilters() {
+  localSearchQuery.value = ''
+  localColor.value = null
+  localCPU.value = null
+  localGPU.value = null
+  localRAM.value = null
+  localHardDrive.value = null
+  localSelectedMaterial.value = null
+  stateSP.searchQuery = ''
+  stateSP.selectedMaterial = null
+  fetchProducts()
+}
+
+function handleColorChange() {
+  debouncedFetchProducts()
+}
+
+function handleCPUChange() {
+  debouncedFetchProducts()
+}
+
+function handleGPUChange() {
+  debouncedFetchProducts()
+}
+
+function handleRAMChange() {
+  debouncedFetchProducts()
+}
+
+function handleHardDriveChange() {
+  debouncedFetchProducts()
+}
+
+function parseCurrency(value: string) {
+  if (!value)
+    return 0
+  let str = String(value).replace(/[^0-9nghìtrieu]/g, '').trim().toLowerCase()
+  let number = Number.parseInt(str.replace(/\D/g, '')) || 0
+
+  if (str.includes('nghìn')) {
+    number *= 1000
+  }
+  else if (str.includes('triệu')) {
+    number *= 1000000
+  }
+
+  return number
+}
+
+function formatCurrencyInput(value: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
+
 async function fetchProvinces() {
   try {
     const response = await getGHNProvinces(GHN_API_TOKEN)
@@ -670,10 +763,6 @@ async function fetchProvinces() {
   }
 }
 
-/**
- * Lấy danh sách quận/huyện theo tỉnh/thành phố
- * @param provinceId - ID tỉnh/thành phố
- */
 async function fetchDistricts(provinceId: number) {
   try {
     const response = await getGHNDistricts(provinceId, GHN_API_TOKEN)
@@ -685,14 +774,11 @@ async function fetchDistricts(provinceId: number) {
   }
   catch (error) {
     console.error('Failed to fetch districts:', error)
+    toast.error('Không thể tải danh sách Quận/Huyện.')
     districts.value = []
   }
 }
 
-/**
- * Lấy danh sách phường/xã theo quận/huyện
- * @param districtId - ID quận/huyện
- */
 async function fetchWards(districtId: number) {
   try {
     const response = await getGHNWards(districtId, GHN_API_TOKEN)
@@ -704,54 +790,55 @@ async function fetchWards(districtId: number) {
   }
   catch (error) {
     console.error('Failed to fetch wards:', error)
+    toast.error('Không thể tải danh sách Phường/Xã.')
     wards.value = []
   }
 }
 async function fetchColor() {
   const { data } = await getColors()
-  ColorOptions.value = data.map((c: any) => ({ 
-    label: c.ten || c.Label || c.label, 
-    value: c.ten || c.Label || c.label  
+  ColorOptions.value = data.map((c: any) => ({
+    label: c.ten || c.Label || c.label,
+    value: c.ten || c.Label || c.label,
   }))
 }
 
 async function fetchCPU() {
   const { data } = await getCPUs()
-  CpuOptions.value = data.map((c: any) => ({ 
-    label: c.ten || c.Label || c.label, 
-    value: c.ten || c.Label || c.label 
+  CpuOptions.value = data.map((c: any) => ({
+    label: c.ten || c.Label || c.label,
+    value: c.ten || c.Label || c.label,
   }))
 }
 
 async function fetchGPU() {
   const { data } = await getGPUs()
-  GpuOptions.value = data.map((g: any) => ({ 
-    label: g.ten || g.Label || g.label, 
-    value: g.ten || g.Label || g.label 
+  GpuOptions.value = data.map((g: any) => ({
+    label: g.ten || g.Label || g.label,
+    value: g.ten || g.Label || g.label,
   }))
 }
 
 async function fetchRAM() {
   const { data } = await getRAMs()
-  RamOptions.value = data.map((r: any) => ({ 
-    label: r.ten || r.Label || r.label, 
-    value: r.ten || r.Label || r.label 
+  RamOptions.value = data.map((r: any) => ({
+    label: r.ten || r.Label || r.label,
+    value: r.ten || r.Label || r.label,
   }))
 }
 
 async function fetchHardDrive() {
   const { data } = await getHardDrives()
-  HardDriveOptions.value = data.map((h: any) => ({ 
-    label: h.ten || h.Label || h.label, 
-    value: h.ten || h.Label || h.label 
+  HardDriveOptions.value = data.map((h: any) => ({
+    label: h.ten || h.Label || h.label,
+    value: h.ten || h.Label || h.label,
   }))
 }
 
 async function fetchMaterial() {
   const { data } = await getMaterials()
-  MaterialOptions.value = data.map((m: any) => ({ 
-    label: m.ten || m.Label || m.label, 
-    value: m.ten || m.Label || m.label 
+  MaterialOptions.value = data.map((m: any) => ({
+    label: m.ten || m.Label || m.label,
+    value: m.ten || m.Label || m.label,
   }))
 }
 
@@ -895,21 +982,13 @@ watch(tienHang, async (newTienHang) => {
 })
 
 async function calculateShippingFee() {
-  if (
-    !isDeliveryEnabled.value
-    || !idHDS.value
-    || !provinceCode.value
-    || !districtCode.value
-    || !wardCode.value
-    || tienHang.value <= 0
-  ) {
+  if (!isDeliveryEnabled.value || !idHDS.value || !provinceCode.value || !districtCode.value || !wardCode.value || tienHang.value <= 0) {
     shippingFee.value = 0
     isFreeShipping.value = false
     calculateTotalAmounts()
     return
   }
 
-  // Miễn phí vận chuyển nếu đơn hàng trên 5 triệu
   if (tienHang.value > 5000000) {
     isFreeShipping.value = true
     shippingFee.value = 0
@@ -924,10 +1003,7 @@ async function calculateShippingFee() {
       from_district: FROM_DISTRICT_ID,
       to_district: districtCode.value,
     }
-    const availableServicesResponse = await getAvailableServices(
-      GHN_API_TOKEN,
-      availableServicesRequestBody,
-    )
+    const availableServicesResponse = await getAvailableServices(GHN_API_TOKEN, availableServicesRequestBody)
 
     if (!availableServicesResponse.data || !availableServicesResponse.data.length) {
       shippingFee.value = 0
@@ -969,273 +1045,241 @@ async function calculateShippingFee() {
   }
 }
 
-/**
- * Lấy danh sách màu sắc
- */
-async function fetchColor() {
+async function confirmBothPayment() {
+  bothPaymentLoading.value = true
   try {
-    const { data } = await getColors()
-    ColorOptions.value = data.map((c: any) => ({ label: c.ten || c.label, value: c.id }))
-  }
-  catch (e) {
-    console.error('Error fetching colors:', e)
-  }
-}
+    if (!idHDS.value)
+      throw new Error('Không có hóa đơn được chọn!')
+    if (amountPaid.value <= 0)
+      throw new Error('Vui lòng nhập số tiền hợp lệ!')
+    const remainingAmount = tongTien.value - tienKhachThanhToan.value - amountPaid.value
+    if (remainingAmount > 0) {
+      toast.info(`Còn ${formatCurrency(remainingAmount)} cần thanh toán qua QR.`)
+    }
+    else {
+      toast.success('Thanh toán đủ!')
+    }
 
-/**
- * Lấy danh sách CPU
- */
-async function fetchCPU() {
-  try {
-    const { data } = await getCPUs()
-    CpuOptions.value = data.map((c: any) => ({ label: c.ten || c.label, value: c.id }))
-  }
-  catch (e) {
-    console.error('Error fetching CPU:', e)
-  }
-}
+    const formData = new FormData()
+    formData.append('idHD', idHDS.value)
+    formData.append('tongTien', amountPaid.value.toString())
+    formData.append('phuongThuc', 'Cả hai')
+    await themPTTT(formData)
 
-/**
- * Lấy danh sách GPU
- */
-async function fetchGPU() {
-  try {
-    const { data } = await getGPUs()
-    GpuOptions.value = data.map((g: any) => ({ label: g.ten || g.label, value: g.id }))
+    toast.success('Xác nhận thanh toán cả hai phương thức thành công!')
+    await clickkActiveTab(activeTab.value, idHDS.value, loaiHD.value)
+    closeBothPaymentModal()
   }
-  catch (e) {
-    console.error('Error fetching GPU:', e)
+  catch (error: any) {
+    console.error('Error in confirmBothPayment:', error)
+    toast.error(error.message || 'Xác nhận thanh toán thất bại!')
+  }
+  finally {
+    bothPaymentLoading.value = false
   }
 }
 
-/**
- * Lấy danh sách RAM
- */
-async function fetchRAM() {
-  try {
-    const { data } = await getRAMs()
-    RamOptions.value = data.map((r: any) => ({ label: r.ten || r.label, value: r.id }))
-  }
-  catch (e) {
-    console.error('Error fetching RAM:', e)
-  }
-}
+watch([deliveryInfo.tinhThanhPho, deliveryInfo.quanHuyen, deliveryInfo.phuongXa], () => {
+  localStorage.setItem('deliveryInfoByInvoice', JSON.stringify(deliveryInfoByInvoice))
+})
 
-/**
- * Lấy danh sách ổ cứng
- */
-async function fetchHardDrive() {
-  try {
-    const { data } = await getHardDrives()
-    HardDriveOptions.value = data.map((h: any) => ({ label: h.ten || h.label, value: h.id }))
-  }
-  catch (e) {
-    console.error('Error fetching Hard Drive:', e)
-  }
-}
+watch(selectedDiscount, () => {
+  localStorage.setItem('selectedDiscount', JSON.stringify(selectedDiscount.value))
+  localStorage.setItem('isBestDiscountApplied', JSON.stringify(isBestDiscountApplied.value))
+})
 
-/**
- * Lấy danh sách chất liệu
- */
-async function fetchMaterial() {
-  try {
-    const { data } = await getMaterials()
-    MaterialOptions.value = data.map((m: any) => ({ label: m.ten || m.label, value: m.id }))
-  }
-  catch (e) {
-    console.error('Error fetching Material:', e)
-  }
-}
-
-// ==================== UTILITY FUNCTIONS ====================
-
-/**
- * Format số tiền sang VND
- * @param value - Số tiền cần format
- * @returns Chuỗi đã format
- */
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
-}
-
-/**
- * Format số tiền cho input
- * @param value - Số tiền cần format
- * @returns Chuỗi đã format
- */
-function formatCurrencyInput(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
-}
-
-/**
- * Parse chuỗi tiền tệ thành số
- * @param value - Chuỗi cần parse
- * @returns Số tiền
- */
-function parseCurrency(value: string) {
-  if (!value)
-    return 0
-  let str = String(value)
-    .replace(/[^0-9nghì triệu]/g, '')
-    .trim()
-    .toLowerCase()
-  let number = Number.parseInt(str.replace(/\D/g, '')) || 0
-
-  if (str.includes('nghìn')) {
-    number *= 1000
-  }
-  else if (str.includes('triệu')) {
-    number *= 1000000
-  }
-
-  return number
-}
-
-/**
- * Format tooltip cho slider khoảng giá
- * @param value - Giá trị cần format
- * @returns Chuỗi đã format
- */
-function formatTooltipRangePrice(value: number) {
-  return formatCurrency(value)
-}
-
-/**
- * Tạo mã hóa đơn tạm thời
- * @returns Mã hóa đơn tạm
- */
-function genTempMaHoaDon(): string {
-  return `HD-TMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
-}
-
-/**
- * Lấy địa chỉ đầy đủ từ thông tin giao hàng
- * @returns Chuỗi địa chỉ
- */
-function getFullAddress(): string {
-  const selectedProvince = provinces.value.find(p => p.code === deliveryInfo.tinhThanhPho)
-  const selectedDistrict = districts.value.find(d => d.code === deliveryInfo.quanHuyen)
-  const selectedWard = wards.value.find(w => w.code === deliveryInfo.phuongXa)
-
-  return `${deliveryInfo.diaChiCuThe}, ${selectedWard?.label || ''}, ${
-    selectedDistrict?.label || ''
-  }, ${selectedProvince?.label || ''}`
-}
-
-/**
- * Lấy tag type cho voucher
- * @param type - Loại voucher
- * @returns Type của tag
- */
-function getVoucherTagType(type: string) {
-  return type === 'PERCENTAGE' ? 'success' : 'warning'
-}
-
-/**
- * Lấy tag type cho suggestion
- * @param hieuQua - Hiệu quả (%)
- * @returns Type của tag
- */
-function getSuggestionTagType(hieuQua: number) {
-  if (hieuQua >= 50)
-    return 'error'
-  if (hieuQua >= 30)
-    return 'warning'
-  if (hieuQua >= 15)
-    return 'info'
-  return 'default'
-}
-
-/**
- * Tính tổng các khoản tiền
- */
-function calculateTotalAmounts() {
-  tienHang.value = state.gioHang.reduce((sum, item) => sum + (item.price || item.giaBan), 0)
-
-  if (selectedVoucher.value) {
-    giamGia.value = selectedVoucher.value.giamGiaThucTe
+function applyBestDiscount() {
+  if (state.discountList.length > 0) {
+    const bestDiscount = state.discountList.reduce((best, current) =>
+      (best.giaTriGiamThucTe || 0) > (current.giaTriGiamThucTe || 0) ? best : current,
+    )
+    selectedDiscount.value = bestDiscount
+    selectedDiscountCode.value = bestDiscount.ma
+    phieuNgon.value = bestDiscount.ma
+    giamGia.value = bestDiscount.giaTriGiamThucTe || 0
+    isBestDiscountApplied.value = true
   }
   else {
-    giamGia.value = selectedDiscount.value ? selectedDiscount.value.giaTriGiamThucTe || 0 : 0
+    selectedDiscount.value = null
+    selectedDiscountCode.value = ''
+    giamGia.value = 0
+    isBestDiscountApplied.value = false
   }
-
-  tongTienTruocGiam.value = tienHang.value
-  let currentTotal = tienHang.value - giamGia.value
-  if (currentTotal < 0)
-    currentTotal = 0
-
-  if (isDeliveryEnabled.value) {
-    currentTotal += shippingFee.value
-  }
-  tongTien.value = currentTotal
-  tienThieu.value = tongTien.value - tienKhachThanhToan.value
-}
-
-/**
- * Reset state discount
- */
-function resetDiscount() {
-  state.discountList = []
-  selectedDiscount.value = null
-  selectedVoucher.value = null
-  selectedDiscountCode.value = ''
-  giamGia.value = 0
-  state.autoVoucherResult = null
-  betterDiscountMessage.value = ''
   calculateTotalAmounts()
+  showDiscountModal.value = false
 }
 
-/**
- * Reset state tổng thể
- */
-function resetState() {
-  resetDiscount()
-  currentDeliveryInfo.value = null
-  isDeliveryEnabled.value = false
-  Object.assign(deliveryInfo, {
-    tenNguoiNhan: '',
-    sdtNguoiNhan: '',
-    diaChiCuThe: '',
-    tinhThanhPho: undefined,
-    quanHuyen: undefined,
-    phuongXa: undefined,
-  })
-  provinceCode.value = null
-  districtCode.value = null
-  wardCode.value = null
-  shippingFee.value = 0
-  isFreeShipping.value = false
-  state.gioHang = []
-  state.detailKhachHang = null
-  state.currentPaymentMethod = '0'
-  tongTien.value = 0
-  tongTienTruocGiam.value = 0
-  giamGia.value = 0
-  tienHang.value = 0
-  tienKhachThanhToan.value = 0
-  tienThieu.value = 0
+async function giaoHang(isDeliveryEnableds: boolean) {
+  isDeliveryEnabled.value = isDeliveryEnableds
+
+  if (isDeliveryEnabled.value && state.detailKhachHang) {
+    deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
+    deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
+    deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
+
+    if (!provinces.value.length) {
+      await fetchProvinces()
+    }
+
+    const tinhThanhPhoId = state.detailKhachHang.tinh
+    const quanHuyenId = state.detailKhachHang.huyen
+    const phuongXaId = state.detailKhachHang.xa
+
+    if (tinhThanhPhoId) {
+      const selectedProvince = provinces.value.find(p => p.code === tinhThanhPhoId.toString())
+      if (selectedProvince) {
+        deliveryInfo.tinhThanhPho = selectedProvince.value
+        provinceCode.value = Number.parseInt(tinhThanhPhoId)
+        await fetchDistricts(provinceCode.value)
+      }
+    }
+
+    if (quanHuyenId && provinceCode.value) {
+      const selectedDistrict = districts.value.find(d => d.code === quanHuyenId.toString())
+      if (selectedDistrict) {
+        deliveryInfo.quanHuyen = selectedDistrict.value
+        districtCode.value = Number.parseInt(quanHuyenId)
+        await fetchWards(districtCode.value)
+      }
+    }
+
+    if (phuongXaId && districtCode.value) {
+      const selectedWard = wards.value.find(w => w.code === phuongXaId)
+      if (selectedWard) {
+        deliveryInfo.phuongXa = selectedWard.value
+        wardCode.value = phuongXaId
+      }
+    }
+
+    await calculateShippingFee()
+
+    deliveryInfoByInvoice[idHDS.value] = {
+      tenNguoiNhan: deliveryInfo.tenNguoiNhan,
+      sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
+      diaChiCuThe: deliveryInfo.diaChiCuThe,
+      tinhThanhPho: deliveryInfo.tinhThanhPho,
+      quanHuyen: deliveryInfo.quanHuyen,
+      phuongXa: deliveryInfo.phuongXa,
+      provinceCode: provinceCode.value,
+      districtCode: districtCode.value,
+      wardCode: wardCode.value,
+      shippingFee: shippingFee.value,
+    }
+  }
+  else {
+    Object.assign(deliveryInfo, {
+      tenNguoiNhan: state.detailKhachHang?.ten || '',
+      sdtNguoiNhan: state.detailKhachHang?.sdt || '',
+      diaChiCuThe: state.detailKhachHang?.diaChi || '',
+      tinhThanhPho: undefined,
+      quanHuyen: undefined,
+      phuongXa: undefined,
+    })
+    provinceCode.value = null
+    districtCode.value = null
+    wardCode.value = null
+    shippingFee.value = 0
+    isFreeShipping.value = false
+    calculateTotalAmounts()
+
+    deliveryInfoByInvoice[idHDS.value] = {
+      tenNguoiNhan: state.detailKhachHang?.ten || '',
+      sdtNguoiNhan: state.detailKhachHang?.sdt || '',
+      diaChiCuThe: state.detailKhachHang?.diaChi || '',
+      tinhThanhPho: undefined,
+      quanHuyen: undefined,
+      phuongXa: undefined,
+      provinceCode: null,
+      districtCode: null,
+      wardCode: null,
+      shippingFee: 0,
+    }
+  }
+
+  await suaGiaoHang(idHDS.value)
+  await capNhatDanhSach()
 }
 
-/**
- * Cập nhật danh sách hóa đơn
- */
-async function capNhatDanhSach() {
-  const response = await GetHoaDons()
-  if (response && Array.isArray(response)) {
-    tabs.value = response.map((invoice, index) => ({
-      id: index + 1,
-      idHD: invoice.id,
-      ma: invoice.ma,
-      soLuong: invoice.soLuong,
-      loaiHoaDon: invoice.loaiHoaDon,
-      products: invoice.data?.products || [],
-    }))
+function selectDiscount(discount: PhieuGiamGiaResponse) {
+  selectedDiscount.value = discount
+  selectedDiscountCode.value = discount.ma
+  giamGia.value = discount.giaTriGiamThucTe || 0
+  toast.success(`Đã chọn phiếu giảm giá: ${discount.ma}`)
+  calculateTotalAmounts()
+  if (phieuNgon.value === discount.ma) {
+    isBestDiscountApplied.value = true
+  }
+  else {
+    isBestDiscountApplied.value = false
+  }
+  showDiscountModal.value = false
+}
+
+function handlePageChange(page: number) {
+  stateSP.paginationParams.page = page
+  fetchProducts()
+}
+
+function handlePageSizeChange(pageSize: number) {
+  stateSP.paginationParams.size = pageSize
+  stateSP.paginationParams.page = 1
+  fetchProducts()
+}
+
+function handleCustomerPageChange(page: number) {
+  state.paginationParams.page = page
+  fetchCustomers()
+}
+
+function handleCustomerPageSizeChange(pageSize: number) {
+  state.paginationParams.size = pageSize
+  state.paginationParams.page = 1
+  fetchCustomers()
+}
+
+function closeBothPaymentModal() {
+  isBothPaymentModalVisible.value = false
+  amountPaid.value = 0
+  bothPaymentLoading.value = false
+}
+
+async function themPTTT(formData: FormData) {
+  try {
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  catch (error) {
+    console.error('Failed to add payment method:', error)
+    throw error
   }
 }
 
-/**
- * Cập nhật trạng thái thanh toán
- */
+async function handlePaymentMethod(method: string) {
+  if (!idHDS.value) {
+    toast.error('Vui lòng chọn hoặc tạo hóa đơn trước khi chọn phương thức thanh toán!')
+    return
+  }
+
+  state.currentPaymentMethod = method
+
+  try {
+    if (method === '0') {
+      toast.success('Đã chọn phương thức thanh toán Tiền mặt.')
+    }
+    else if (method === '1') {
+      toast.success('Đã chọn phương thức thanh toán chuyển khoản.')
+      openQrModalVNPay()
+    }
+    else if (method === '2') {
+      toast.success('Đã chọn phương thức thanh toán vừa chuyển khoản vừa tiền mặt.')
+      openQrModalVNPayCaHai()
+    }
+  }
+  catch (error: any) {
+    console.error('Error in handlePaymentMethod:', error)
+    toast.error('Có lỗi khi chọn phương thức thanh toán!')
+  }
+}
+
 async function updatePaymentStatus() {
   if (idHDS.value) {
     const responsePTTT = await getPhuongThucThanhToan(idHDS.value)
@@ -1249,46 +1293,96 @@ async function updatePaymentStatus() {
   }
 }
 
-/**
- * Refresh giỏ hàng
- */
-async function refreshCart() {
-  if (idHDS.value) {
-    const response = await GetGioHang(idHDS.value)
-    state.gioHang = response
-    await fetchDiscounts(idHDS.value)
+async function fetchHoaDon() {
+  try {
+    await fetchProducts()
+    const response = await GetHoaDons()
+
+    if (response && Array.isArray(response)) {
+      tabs.value = response.map((invoice, index) => ({
+        id: index + 1,
+        idHD: invoice.id,
+        code: invoice.code,
+        soLuong: invoice.soLuong,
+        loaiHoaDon: invoice.loaiHoaDon,
+        products: invoice.data?.products || [],
+      }))
+
+      if (tabs.value.length > 0) {
+        activeTab.value = tabs.value[0].id
+        idHDS.value = tabs.value[0].idHD
+        loaiHD.value = tabs.value[0].loaiHoaDon
+
+        await clickkActiveTab(tabs.value[0].id, tabs.value[0].idHD, tabs.value[0].loaiHoaDon)
+      }
+      else {
+        resetDiscount()
+        currentDeliveryInfo.value = null
+        isDeliveryEnabled.value = false
+        Object.assign(deliveryInfo, {
+          tenNguoiNhan: '',
+          sdtNguoiNhan: '',
+          diaChiCuThe: '',
+          tinhThanhPho: undefined,
+          quanHuyen: undefined,
+          phuongXa: undefined,
+        })
+        provinceCode.value = null
+        districtCode.value = null
+        wardCode.value = null
+        shippingFee.value = 0
+        isFreeShipping.value = false
+        state.gioHang = []
+        state.detailKhachHang = null
+        state.currentPaymentMethod = '0'
+        tongTien.value = 0
+        tongTienTruocGiam.value = 0
+        giamGia.value = 0
+        tienHang.value = 0
+        tienKhachThanhToan.value = 0
+        tienThieu.value = 0
+      }
+    }
+  }
+  catch (error) {
+    console.error('Failed to fetch invoices:', error)
+    toast.error('Lấy danh sách hóa đơn thất bại!')
+    resetDiscount()
+    currentDeliveryInfo.value = null
+    isDeliveryEnabled.value = false
+    Object.assign(deliveryInfo, {
+      tenNguoiNhan: '',
+      sdtNguoiNhan: '',
+      diaChiCuThe: '',
+      tinhThanhPho: undefined,
+      quanHuyen: undefined,
+      phuongXa: undefined,
+    })
+    provinceCode.value = null
+    districtCode.value = null
+    wardCode.value = null
+    shippingFee.value = 0
+    isFreeShipping.value = false
   }
 }
 
-/**
- * Đặt phương thức thanh toán mặc định
- */
-function setDefaultPaymentMethod() {
-  state.currentPaymentMethod = '0'
+function resetDiscount() {
+  state.discountList = []
+  selectedDiscount.value = null
+  selectedDiscountCode.value = ''
+  giamGia.value = 0
+  calculateTotalAmounts()
 }
 
-// ==================== ACTION FUNCTIONS ====================
-
-/**
- * Debounced fetch customers
- */
-const debouncedFetchCustomers = debounce(async () => {
-  await fetchCustomers()
-}, 300)
-
-/**
- * Xử lý khi click vào tab hóa đơn
- * @param id - ID tab
- * @param hd - ID hóa đơn
- * @param loaiHoaDon - Loại hóa đơn
- */
 async function clickkActiveTab(id: number, hd: string, loaiHoaDon: string) {
   idHDS.value = hd
   activeTab.value = id
   loaiHD.value = loaiHoaDon
   isBestDiscountApplied.value = false
 
-  resetDiscount()
+  if (tienHang.value > 0) {
+    await fetchDiscounts(hd)
+  }
 
   try {
     Object.assign(deliveryInfo, {
@@ -1310,13 +1404,6 @@ async function clickkActiveTab(id: number, hd: string, loaiHoaDon: string) {
 
     const responseKH = await GeOneKhachHang(hd)
     state.detailKhachHang = responseKH.id ? responseKH : null
-
-    if (state.gioHang.length === 0) {
-      resetDiscount()
-    }
-    else if (tienHang.value > 0) {
-      await fetchDiscounts(hd)
-    }
 
     isDeliveryEnabled.value = loaiHoaDon === 'GIAO_HANG'
 
@@ -1359,258 +1446,633 @@ async function clickkActiveTab(id: number, hd: string, loaiHoaDon: string) {
         }
       }
 
+      if (deliveryInfoByInvoice[hd]) {
+        Object.assign(deliveryInfo, {
+          tenNguoiNhan: deliveryInfoByInvoice[hd].tenNguoiNhan,
+          sdtNguoiNhan: deliveryInfoByInvoice[hd].sdtNguoiNhan,
+          diaChiCuThe: deliveryInfoByInvoice[hd].diaChiCuThe,
+          tinhThanhPho: deliveryInfoByInvoice[hd].tinhThanhPho,
+          quanHuyen: deliveryInfoByInvoice[hd].quanHuyen,
+          phuongXa: deliveryInfoByInvoice[hd].phuongXa,
+        })
+        provinceCode.value = deliveryInfoByInvoice[hd].provinceCode
+        districtCode.value = deliveryInfoByInvoice[hd].districtCode
+        wardCode.value = deliveryInfoByInvoice[hd].wardCode
+        shippingFee.value = deliveryInfoByInvoice[hd].shippingFee
+      }
+
       await calculateShippingFee()
+    }
+    else if (state.detailKhachHang) {
+      deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
+      deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
+      deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
+    }
+
+    deliveryInfoByInvoice[hd] = {
+      tenNguoiNhan: deliveryInfo.tenNguoiNhan,
+      sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
+      diaChiCuThe: deliveryInfo.diaChiCuThe,
+      tinhThanhPho: deliveryInfo.tinhThanhPho,
+      quanHuyen: deliveryInfo.quanHuyen,
+      phuongXa: deliveryInfo.phuongXa,
+      provinceCode: provinceCode.value,
+      districtCode: districtCode.value,
+      wardCode: wardCode.value,
+      shippingFee: shippingFee.value,
     }
 
     calculateTotalAmounts()
+    await fetchDiscounts(hd)
     await updatePaymentStatus()
   }
   catch (error) {
     console.error('Failed to switch invoice:', error)
     toast.error('Chuyển hóa đơn thất bại!')
-    resetState()
+    resetDiscount()
+    isDeliveryEnabled.value = false
+    Object.assign(deliveryInfo, {
+      tenNguoiNhan: '',
+      sdtNguoiNhan: '',
+      diaChiCuThe: '',
+      tinhThanhPho: undefined,
+      quanHuyen: undefined,
+      phuongXa: undefined,
+    })
+    provinceCode.value = null
+    districtCode.value = null
+    wardCode.value = null
+    shippingFee.value = 0
+    isFreeShipping.value = false
+    calculateTotalAmounts()
   }
 }
 
-/**
- * Tạo hóa đơn mới
- */
-async function createInvoice() {
-  if (tabs.value.length >= 10) {
-    toast.warning('Chỉ được tạo tối đa 10 hóa đơn!', { autoClose: 3000 })
-    return
+watch(isDeliveryEnabled, async (newValue) => {
+  if (!newValue) {
+    currentDeliveryInfo.value = null
+    Object.assign(deliveryInfo, { tenNguoiNhan: '', sdtNguoiNhan: '', diaChiGiaoHang: '', tinhThanhPho: undefined, quanHuyen: undefined, phuongXa: undefined, diaChiCuThe: '' })
+    shippingFee.value = 0
+    provinceCode.value = null
+    districtCode.value = null
+    wardCode.value = null
+    calculateTotalAmounts()
   }
-
-  const tempMa = genTempMaHoaDon()
-  const newTabId = nextTabId++
-
-  tabs.value.push({
-    id: newTabId,
-    idHD: '',
-    code: tempMa,
-    soLuong: 0,
-    loaiHoaDon: 'TAI_QUAY',
-    products: [],
-    isTemp: true,
-  })
-
-  activeTab.value = newTabId
-  resetState()
-
-  try {
-    const formData = new FormData()
-    formData.append('idNV', idNV.userId)
-    formData.append('ma', tempMa)
-
-    const newInvoice = await getCreateHoaDon(formData)
-
-    const tab = tabs.value.find(t => t.id === newTabId)
-    if (tab) {
-      tab.idHD = newInvoice.data.id
-      tab.code = newInvoice.data.code
-      tab.loaiHoaDon = newInvoice.data.loaiHoaDon || 'OFFLINE'
-      tab.isTemp = false
-    }
-
-    idHDS.value = newInvoice.data.id
-    loaiHD.value = newInvoice.data.loaiHoaDon || 'OFFLINE'
-
-    await clickkActiveTab(newTabId, newInvoice.data.id, newInvoice.data.loaiHoaDon || 'OFFLINE')
-    toast.success('Tạo hóa đơn thành công!')
+  else {
+    await fetchProvinces()
   }
-  catch (error) {
-    console.error('Failed to create invoice:', error)
-    tabs.value = tabs.value.filter(t => t.id !== newTabId)
-    toast.error('Tạo hóa đơn thất bại!')
-  }
-}
+}, { immediate: true })
 
-/**
- * Hủy hóa đơn
- * @param idHD - ID hóa đơn cần hủy
- */
-async function huy(idHD: string) {
-  try {
-    const formData = new FormData()
-    formData.append('idNV', idNV.userId)
-    formData.append('idHD', idHD)
+const columnsKhachHang: DataTableColumns<KhachHangResponse> = [
+  {
+    title: 'STT',
+    key: 'stt',
+    width: 60,
+    align: 'center',
+    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
+  },
+  {
+    title: 'Tên khách hàng',
+    key: 'ten',
+    width: 150,
+    ellipsis: true,
+  },
+  {
+    title: 'Số điện thoại',
+    key: 'sdt',
+    width: 130,
+    align: 'center',
+  },
+  {
+    title: 'Thao tác',
+    key: 'operation',
+    width: 90,
+    align: 'center',
+    render: row => h(
+      NButton,
+      {
+        type: 'primary',
+        size: 'small',
+        secondary: true,
+        onClick: () => selectKhachHang(row.id),
+      },
+      { default: () => 'Chọn' },
+    ),
+  },
+]
 
-    const res = await huyHoaDon(formData)
-    toast.success(res.message)
+const columnsGiohang: DataTableColumns<any> = [
+  {
+    title: 'Serial đã chọn',
+    key: 'imel', // Đổi thành 'imei' nếu backend trả về 'imei'
+    width: 110,
+    render: (row) => {
+      // Kiểm tra xem row có field imel/imei không
+      if (row.imel) { // Hoặc row.imei tùy backend trả về
+        return h(NTag, {
+          type: 'success',
+          size: 'small',
+          onClick: () => {
+            toast.info(`IMEI: ${row.imel}`)
+          },
+        }, () => `${row.imel}`)
+      }
 
-    await fetchProducts()
-    await capNhatDanhSach()
-    await fetchHoaDon()
+      // Nếu không có imel trong row, kiểm tra trong state imeiDaChon
+      const imeiItem = imeiDaChon.value.find(
+        item => item.idHoaDonChiTiet === row.idHDCT, // Sử dụng idHDCT thay vì id
+      )
 
-    const indexToRemove = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
-    if (indexToRemove !== -1) {
-      tabs.value.splice(indexToRemove, 1)
-    }
+      if (imeiItem && imeiItem.danhSachImei.length > 0) {
+        return h(NTag, {
+          type: 'success',
+          size: 'small',
+          onClick: () => {
+            toast.info(`Đã chọn ${imeiItem.danhSachImei.length} IMEI: ${imeiItem.danhSachImei.join(', ')}`)
+          },
+        }, () => `${imeiItem.danhSachImei.length} IMEI`)
+      }
 
-    resetState()
-  }
-  catch (error: any) {
-    if (error?.response?.data?.message) {
-      toast.error(error.response.data.message)
-    }
-    else {
-      toast.error('Có lỗi xảy ra khi hủy hóa đơn!')
-      console.error('Lỗi khi hủy hóa đơn:', error)
-    }
-  }
-}
+      return h(NTag, {
+        type: 'warning',
+        size: 'small',
+      }, () => 'Chưa chọn IMEI')
+    },
+  },
+  {
+    title: 'Ảnh',
+    key: 'anh',
+    width: 80,
+    align: 'center',
+    render: (row) => {
+      return h(
+        NBadge,
+        {
+          value: row.percentage ? `-${row.percentage}%` : undefined,
+          type: 'error',
+          offset: [-5, 0],
+          style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
+        },
+        {
+          default: () => h(NImage, {
+            width: 100,
+            height: 70,
+            src: row.urlImage || row.anh,
+            objectFit: 'cover',
+            style: {
+              'border-radius': '4px',
+              'border': '1px solid #eee',
+            },
+          }),
+        },
+      )
+    },
+  },
+  {
+    title: 'Tên sản phẩm',
+    key: 'name',
+    width: 150,
+    ellipsis: {
+      tooltip: true,
+    },
+    render: row => h('div', { style: { fontWeight: 500 } }, row.name || row.ten),
+  },
+  {
+    title: 'Thông số kỹ thuật',
+    key: 'specifications',
+    width: 200,
+    ellipsis: {
+      tooltip: true,
+    },
+    render: row => h(NSpace, {
+      vertical: true,
+      size: 4,
+    }, () => [
+      // Dòng 1
+      h('div', {
+        style: {
+          display: 'flex',
+          gap: '6px',
+          flexWrap: 'wrap',
+          marginBottom: '4px',
+        },
+      }, [
+        row.cpu && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#1677ff',
+            'background': '#e6f4ff',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #91caff',
+          },
+        }, `CPU: ${row.cpu}`),
+        row.gpu && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#389e0d',
+            'background': '#f6ffed',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #b7eb8f',
+          },
+        }, `GPU: ${row.gpu}`),
+        row.ram && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#d46b08',
+            'background': '#fff7e6',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #ffd591',
+          },
+        }, `RAM: ${row.ram}`),
+      ]),
 
-/**
- * Mở modal chọn sản phẩm
- */
-async function openProductSelectionModal() {
-  if (!idHDS.value) {
-    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước khi chọn sản phẩm!')
-    return
-  }
-  await fetchProducts()
-  showProductModal.value = true
-}
+      // Dòng 2
+      h('div', {
+        style: {
+          display: 'flex',
+          gap: '6px',
+          flexWrap: 'wrap',
+        },
+      }, [
+        row.hardDrive && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#722ed1',
+            'background': '#f9f0ff',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #d3adf7',
+          },
+        }, `Ổ cứng: ${row.hardDrive}`),
+        row.color && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#13c2c2',
+            'background': '#e6fffb',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #87e8de',
+          },
+        }, `Màu: ${row.color}`),
+        row.material && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#eb2f96',
+            'background': '#fff0f6',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #ffadd2',
+          },
+        }, `Chất liệu: ${row.material}`),
+      ]),
+    ]),
+  },
 
-/**
- * Reset bộ lọc sản phẩm
- */
-function resetFilters() {
-  localSearchQuery.value = ''
-  localColor.value = null
-  localCPU.value = null
-  localGPU.value = null
-  localRAM.value = null
-  localHardDrive.value = null
-  localSelectedMaterial.value = null
-  stateSP.searchQuery = ''
-  stateSP.selectedMaterial = null
-  fetchProducts()
-}
+  {
+    title: 'Đơn giá',
+    key: 'price',
+    width: 110,
+    align: 'right',
+    render: row => h(NText, {
+      style: { fontWeight: 500 },
+    }, () => formatCurrency(row.giaGoc)),
+  },
+  {
+    title: 'Giá bán',
+    key: 'total',
+    width: 120,
+    align: 'right',
+    render: row => h(NText, {
+      type: 'primary',
+      strong: true,
+      style: { fontSize: '14px' },
+    }, () => formatCurrency((row.giaGoc) * (1 - row.percentage / 100))),
+  },
+  {
+    title: 'Thao tác',
+    key: 'operation',
+    width: 80,
+    align: 'center',
+    render: row => h(NTooltip, null, {
+      trigger: () => h(NButton, {
+        type: 'error',
+        size: 'small',
+        text: true,
+        circle: true,
+        onClick: () => deleteProduc(row.id, row.idHDCT),
+        style: { '--n-border-radius': '50%' },
+      }, {
+        icon: () => h(NIcon, null, () => h(TrashOutline)),
+      }),
+      default: () => 'Xóa sản phẩm',
+    }),
+  },
+]
 
-/**
- * Xử lý thay đổi trang (sản phẩm)
- * @param page - Số trang
- */
-function handlePageChange(page: number) {
-  stateSP.paginationParams.page = page
-  fetchProducts()
-}
+const columns: DataTableColumns<ADProductDetailResponse> = [
+  {
+    title: 'STT',
+    key: 'stt',
+    width: 60,
+    align: 'center',
+    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
+  },
 
-/**
- * Xử lý thay đổi kích thước trang (sản phẩm)
- * @param pageSize - Kích thước trang
- */
-function handlePageSizeChange(pageSize: number) {
-  stateSP.paginationParams.size = pageSize
-  stateSP.paginationParams.page = 1
-  fetchProducts()
-}
+  {
+    title: 'Ảnh chi tiết',
+    key: 'detailImages',
+    width: 120,
+    align: 'center',
+    render: (row) => {
+      const imageUrl = row.urlImage
+      const percentage = row.percentage
 
-/**
- * Xử lý thay đổi trang (khách hàng)
- * @param page - Số trang
- */
-function handleCustomerPageChange(page: number) {
-  state.paginationParams.page = page
-  fetchCustomers()
-}
+      if (!imageUrl || imageUrl.trim() === '') {
+        return h(NText, { depth: 3, size: 'small' }, () => 'Không có')
+      }
+      return h(
+        NBadge,
+        {
+          value: percentage ? `-${percentage}%` : undefined,
+          type: 'error',
+          offset: [-5, 5],
+        },
+        {
+          default: () => h(NImage, {
+            width: 100,
+            height: 80,
+            src: imageUrl,
+            objectFit: 'cover',
+            style: {
+              borderRadius: '4px',
+              border: '1px solid #f0f0f0',
+              cursor: 'pointer',
+            },
+            fallbackSrc: '/images/no-image.png',
+            previewSrc: imageUrl,
+            onError: (e) => {
+              console.error('Không thể tải ảnh:', imageUrl, e)
+            },
+          }),
+        },
+      )
+    },
+  },
+  {
+    title: 'Mã',
+    key: 'code',
+    width: 100,
+    ellipsis: true,
+    render: row => h(NText, { strong: true }, () => row.code),
+  },
 
-/**
- * Xử lý thay đổi kích thước trang (khách hàng)
- * @param pageSize - Kích thước trang
- */
-function handleCustomerPageSizeChange(pageSize: number) {
-  state.paginationParams.size = pageSize
-  state.paginationParams.page = 1
-  fetchCustomers()
-}
+  {
+    title: 'Số lượng',
+    key: 'quantity',
+    width: 90,
+    align: 'center',
+    render: row => h(NTag, {
+      type: row.quantity > 0 ? 'success' : 'error',
+      size: 'small',
+      round: true,
+    }, () => row.quantity),
+  },
+  {
+    title: 'Giá bán',
+    key: 'price',
+    width: 120,
+    align: 'center',
+    render: (row) => {
+      const originalPrice = row.price || 0
+      const percentage = row.percentage
 
-/**
- * Chọn sản phẩm để xem serial
- * @param product - Sản phẩm được chọn
- */
-async function selectProductForSerial(product: ADProductDetailResponse) {
-  selectedProductDetail.value = product
-  loadingSerials.value = true
-  selectedSerials.value = []
-  selectedSerialIds.value = []
-  await fetchSerialsByProduct(product.id)
-}
+      if (percentage && percentage > 0) {
+        const discountedPrice = originalPrice * (1 - percentage / 100)
 
-/**
- * Thêm serial vào giỏ hàng
- */
-async function addSerialToCart() {
-  if (selectedSerialIds.value.length === 0) {
-    toast.warning('Vui lòng chọn ít nhất 1 serial')
-    return
-  }
+        return h(NSpace, { vertical: true, size: 0, align: 'center', justify: 'center' }, () => [
+          h(
+            NText,
+            { delete: true, depth: 3, style: { fontSize: '12px', lineHeight: '1.2' } },
+            () => formatCurrency(originalPrice),
+          ),
+          h(
+            NText,
+            { type: 'primary', strong: true, style: { fontSize: '14px' } },
+            () => formatCurrency(discountedPrice),
+          ),
+        ])
+      }
+      return h(NText, { type: 'primary', strong: true }, () => formatCurrency(originalPrice))
+    },
+  },
+  {
+    title: 'Thông số kỹ thuật',
+    key: 'specifications',
+    width: 200,
+    ellipsis: {
+      tooltip: true,
+    },
+    render: row => h(NSpace, {
+      vertical: true,
+      size: 4,
+    }, () => [
+      // Dòng 1
+      h('div', {
+        style: {
+          display: 'flex',
+          gap: '6px',
+          flexWrap: 'wrap',
+          marginBottom: '4px',
+        },
+      }, [
+        row.cpu && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#1677ff',
+            'background': '#e6f4ff',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #91caff',
+          },
+        }, `CPU: ${row.cpu}`),
+        row.gpu && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#389e0d',
+            'background': '#f6ffed',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #b7eb8f',
+          },
+        }, `GPU: ${row.gpu}`),
+        row.ram && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#d46b08',
+            'background': '#fff7e6',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #ffd591',
+          },
+        }, `RAM: ${row.ram}`),
+      ]),
 
-  if (!idHDS.value) {
-    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!')
-    return
-  }
+      // Dòng 2
+      h('div', {
+        style: {
+          display: 'flex',
+          gap: '6px',
+          flexWrap: 'wrap',
+        },
+      }, [
+        row.hardDrive && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#722ed1',
+            'background': '#f9f0ff',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #d3adf7',
+          },
+        }, `Ổ cứng: ${row.hardDrive}`),
+        row.color && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#13c2c2',
+            'background': '#e6fffb',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #87e8de',
+          },
+        }, `Màu: ${row.color}`),
+        row.material && h('span', {
+          style: {
+            'font-size': '11px',
+            'color': '#eb2f96',
+            'background': '#fff0f6',
+            'padding': '1px 6px',
+            'border-radius': '3px',
+            'border': '1px solid #ffadd2',
+          },
+        }, `Chất liệu: ${row.material}`),
+      ]),
+    ]),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 100,
+    align: 'center',
+    render: row => h(NTag, {
+      type: row.status === 'ACTIVE' ? 'success' : 'error',
+      size: 'small',
+      round: true,
+    }, () => row.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'),
+  },
+  {
+    title: 'Thao tác',
+    key: 'operation',
+    width: 120,
+    align: 'center',
+    render: row => h(NSpace, { size: 8 }, () => [
+      h(NTooltip, null, {
+        trigger: () => h(NButton, {
+          type: 'primary',
+          size: 'small',
+          secondary: true,
+          onClick: () => selectProductForSerial(row),
+          disabled: row.status !== 'ACTIVE' || row.quantity <= 0,
+        }, { default: () => 'Chọn Serial' }),
+        default: () => row.status !== 'ACTIVE'
+          ? 'Sản phẩm không hoạt động'
+          : row.quantity <= 0 ? 'Hết hàng' : `Chọn serial từ ${row.quantity} sản phẩm có sẵn`,
+      }),
+    ]),
+  },
+]
 
-  if (!selectedProductDetail.value) {
-    toast.error('Không có thông tin sản phẩm!')
-    return
-  }
-
-  try {
-    const imeisDaChon = selectedSerials.value
-      .filter(s => selectedSerialIds.value.includes(s.id))
-      .map(s => ({
-        imeiCode: s.code,
-        imeiId: s.id,
-      }))
-
-    const payload = {
-      invoiceId: idHDS.value,
-      productDetailId: selectedProductDetail.value.id,
-      imeiIds: imeisDaChon.map(i => i.imeiId),
-    }
-
-    await themSanPham(payload)
-
-    const existingIndex = imeiDaChon.value.findIndex(
-      item => item.idHoaDonChiTiet === selectedProductDetail.value?.id,
-    )
-
-    if (existingIndex >= 0) {
-      imeiDaChon.value[existingIndex].danhSachImei = [
-        ...imeiDaChon.value[existingIndex].danhSachImei,
-        ...imeisDaChon.map(i => i.imeiCode),
-      ]
-    }
-    else {
-      imeiDaChon.value.push({
-        idHoaDonChiTiet: selectedProductDetail.value.id,
-        danhSachImei: imeisDaChon.map(i => i.imeiCode),
-      })
-    }
-
-    toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`)
-
-    showSerialModal.value = false
-    selectedSerialIds.value = []
-    selectedSerials.value = []
-
-    await refreshCart()
-    await fetchDiscounts(idHDS.value)
-    await fetchHoaDon()
-  }
-  catch (error) {
-    console.error('Failed to add serials to cart:', error)
-    toast.error('Thêm serial vào giỏ hàng thất bại!')
-  }
-}
-
-/**
- * Tăng số lượng sản phẩm trong giỏ
- * @param idHDCT - ID hóa đơn chi tiết
- * @param idSPS - ID sản phẩm
- */
+const serialColumns: DataTableColumns<ADPDImeiResponse> = [
+  {
+    title: 'Chọn',
+    key: 'select',
+    width: 60,
+    align: 'center',
+    render: row => h(NCheckbox, {
+      checked: selectedSerialIds.value.includes(row.id),
+      disabled: row.imeiStatus !== 'AVAILABLE',
+      onUpdateChecked: (checked) => {
+        if (checked) {
+          selectedSerialIds.value = [...selectedSerialIds.value, row.id]
+        }
+        else {
+          selectedSerialIds.value = selectedSerialIds.value.filter(id => id !== row.id)
+        }
+      },
+    }),
+  },
+  {
+    title: 'Serial/IMEI',
+    key: 'serialNumber',
+    width: 180,
+    render: row => h(NText, {
+      strong: true,
+      code: true,
+      style: {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+      },
+    }, () => row.code || '-'),
+  },
+  {
+    title: 'Tên',
+    key: 'name',
+    width: 120,
+    render: row => h(NText, () => row.name || '-'),
+  },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 100,
+    align: 'center',
+    render: (row) => {
+      const statusConfig: Record<string, { type: any, text: string }> = {
+        AVAILABLE: { type: 'success', text: 'Khả dụng' },
+        SOLD: { type: 'warning', text: 'Đã bán' },
+        DEFECTIVE: { type: 'error', text: 'Lỗi' },
+        RESERVED: { type: 'info', text: 'Đã đặt' },
+      }
+      const config = statusConfig[row.imeiStatus] || {
+        type: 'default',
+        text: row.imeiStatus || 'Không xác định',
+      }
+      return h(NTag, {
+        type: config.type,
+        size: 'small',
+        round: true,
+      }, () => config.text)
+    },
+  },
+  {
+    title: 'Trạng thái SP',
+    key: 'productStatus',
+    width: 100,
+    align: 'center',
+    render: (row) => {
+      const config = {
+        ACTIVE: { type: 'success', text: 'Hoạt động' },
+        INACTIVE: { type: 'default', text: 'Không HĐ' },
+      }[row.status] || { type: 'default', text: row.status || '-' }
+      return h(NTag, {
+        type: config.type,
+        size: 'small',
+        round: true,
+      }, () => config.text)
+    },
+  },
+]
 async function increaseQuantity(idHDCT: any, idSPS: any) {
   try {
     const formData = new FormData()
@@ -1624,8 +2086,14 @@ async function increaseQuantity(idHDCT: any, idSPS: any) {
       return
     }
 
+    if (res.message === 'Số lượng sản phẩm thêm vào nhiều hơn số lượng trong kho') {
+      toast.error(res.message)
+      return
+    }
+
     const response = await GetGioHang(idHDS.value)
     state.gioHang = response
+
     calculateTotalAmounts()
     await fetchDiscounts(idHDS.value)
     capNhatDanhSach()
@@ -1633,14 +2101,266 @@ async function increaseQuantity(idHDCT: any, idSPS: any) {
   catch (error) {
     console.error('Failed to increase quantity:', error)
     toast.error('Tăng số lượng thất bại!')
+    const updatedProduct = state.gioHang.find(item => item.id === idSPS)
+    if (updatedProduct) {
+      updatedProduct.soLuong = Math.max(0, updatedProduct.soLuong - 1)
+      calculateTotalAmounts()
+    }
   }
 }
 
-/**
- * Giảm số lượng sản phẩm trong giỏ
- * @param idHDCT - ID hóa đơn chi tiết
- * @param idSPS - ID sản phẩm
- */
+async function huy(idHD: string) {
+  try {
+    const formData = new FormData()
+    formData.append('idNV', idNV.userId)
+    formData.append('idHD', idHD)
+
+    const res = await huyHoaDon(formData)
+
+    toast.success(res.message)
+
+    await fetchProducts()
+    await capNhatDanhSach()
+
+    await fetchHoaDon()
+
+    const indexToRemove = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
+    if (indexToRemove !== -1) {
+      tabs.value.splice(indexToRemove, 1)
+    }
+
+    idHDS.value = ''
+    activeTab.value = 0
+    state.gioHang = []
+    state.detailKhachHang = null
+    state.phuongThuThanhToan = []
+    state.tongTien = null
+    tongTien.value = 0
+    tongTienTruocGiam.value = 0
+    giamGia.value = 0
+    tienHang.value = 0
+    soTien.value = 0
+    tienKhachThanhToan.value = 0
+    tienThieu.value = 0
+    state.currentPaymentMethod = '0'
+    resetDiscount()
+    isDeliveryEnabled.value = false
+    currentDeliveryInfo.value = null
+    Object.assign(deliveryInfo, { tenNguoiNhan: '', sdtNguoiNhan: '', diaChiGiaoHang: '', tinhThanhPho: undefined, quanHuyen: undefined, phuongXa: undefined, diaChiCuThe: '' })
+    shippingFee.value = 0
+    provinceCode.value = null
+    districtCode.value = null
+    wardCode.value = null
+  }
+  catch (error: any) {
+    if (error?.response?.data?.message) {
+      toast.error(error.response.data.message)
+    }
+    else {
+      toast.error('Có lỗi xảy ra khi xác nhận thanh toán!')
+      console.error('Lỗi khi xác nhận thanh toán:', error)
+    }
+  }
+}
+
+async function xacNhan(check: number) {
+  console.log('=== DEBUG XÁC NHẬN THANH TOÁN ===')
+  console.log('Giỏ hàng:', state.gioHang)
+  console.log('IMEI đã chọn:', imeiDaChon.value)
+
+  // Kiểm tra từng sản phẩm
+  state.gioHang.forEach((item, index) => {
+    console.log(`Sản phẩm ${index + 1}:`, {
+      ten: item.ten || item.name,
+      id: item.id,
+      idHDCT: item.idHDCT,
+      soLuong: item.soLuong,
+      sanPhamChiTiet: item.sanPhamChiTiet,
+      quanLyImei: item.sanPhamChiTiet?.quanLyImei,
+      hasImei: 'imel' in item ? item.imel : 'Không có field imel',
+    })
+  })
+
+  console.log('=== END DEBUG ===')
+  if (!idHDS.value) {
+    toast.error('Vui lòng chọn một hóa đơn để xác nhận thanh toán!')
+    console.error('Lỗi: idHDS.value là null khi xác nhận thanh toán.')
+    return
+  }
+
+  // KIỂM TRA GIỎ HÀNG TRỐNG
+  if (state.gioHang.length === 0) {
+    toast.error('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi thanh toán.')
+    return
+  }
+
+  // Kiểm tra thông tin giao hàng nếu là giao hàng
+  if (isDeliveryEnabled.value) {
+    if (!deliveryInfo.tenNguoiNhan || !deliveryInfo.sdtNguoiNhan || !deliveryInfo.diaChiCuThe
+      || !deliveryInfo.tinhThanhPho || !deliveryInfo.quanHuyen || !deliveryInfo.phuongXa) {
+      toast.error('Vui lòng nhập đầy đủ thông tin giao hàng!')
+      return
+    }
+    if (shippingFee.value < 0 && tienHang.value > 0) {
+      toast.error('Vui làm kiểm tra lại tiền giao hàng')
+      return
+    }
+  }
+
+  // Xác định loại hóa đơn
+  const loaiHoaDon = isDeliveryEnabled.value ? 'GIAO_HANG' : 'TAI_QUAY'
+
+  // LẤY DANH SÁCH IMEI ĐÃ CHỌN từ state
+  const danhSachImeiChon = imeiDaChon.value // Sử dụng state đã lưu
+
+  // Kiểm tra IMEI nếu có sản phẩm quản lý IMEI
+  const coSanPhamImei = state.gioHang.some(item => item.sanPhamChiTiet?.quanLyImei)
+  if (coSanPhamImei && danhSachImeiChon.length === 0) {
+    toast.error('Vui lòng chọn IMEI cho sản phẩm laptop!')
+    return
+  }
+
+  // Kiểm tra số lượng IMEI có khớp không
+  let hasError = false
+  for (const item of state.gioHang) {
+    if (item.sanPhamChiTiet?.quanLyImei) {
+      const imeiItem = danhSachImeiChon.find(i => i.idHoaDonChiTiet === item.idHoaDonChiTiet)
+      if (!imeiItem) {
+        toast.error(`Chưa chọn IMEI cho sản phẩm ${item.tenSanPham}!`)
+        hasError = true
+        break
+      }
+      if (imeiItem.danhSachImei.length !== item.soLuong) {
+        toast.error(`Số lượng IMEI cho sản phẩm ${item.tenSanPham} không khớp! Cần ${item.soLuong}, đã chọn ${imeiItem.danhSachImei.length}`)
+        hasError = true
+        break
+      }
+    }
+  }
+
+  if (hasError)
+    return
+
+  const selectedProvince = provinces.value.find(p => p.code === deliveryInfo.tinhThanhPho)
+  const selectedDistrict = districts.value.find(d => d.code === deliveryInfo.quanHuyen)
+  const selectedWard = wards.value.find(w => w.code === deliveryInfo.phuongXa)
+
+  try {
+    // Tạo request object (JSON)
+    const requestData: ParamsThanhCong = {
+      idHD: idHDS.value,
+      idNV: idNV.userId,
+      tienHang: tienHang.value,
+      tongTien: tongTien.value.toString(),
+      ten: deliveryInfo.tenNguoiNhan,
+      sdt: deliveryInfo.sdtNguoiNhan,
+      diaChi: isDeliveryEnabled.value
+        ? `${deliveryInfo.diaChiCuThe}, ${selectedWard?.label}, ${selectedDistrict?.label}, ${selectedProvince?.label}`
+        : '',
+      tienShip: shippingFee.value,
+      giamGia: giamGia.value,
+      phuongThucThanhToan: state.currentPaymentMethod, // '0', '1', '2'
+      idPGG: selectedDiscount.value?.id,
+      check: isDeliveryEnabled.value ? 1 : 0,
+
+      // THÊM FIELD IMEI (quan trọng)
+      loaiHoaDon,
+      danhSachImei: danhSachImeiChon,
+      daXacNhanImei: true,
+    }
+
+    console.log('Gửi request thanh toán:', requestData)
+
+    // Gửi request với JSON
+    const res = await thanhToanThanhCong(requestData)
+
+    // Xử lý response
+    if (res.message != null) {
+      if (res.message.startsWith('Số')) {
+        toast.error(res.message)
+        return
+      }
+
+      if (res.message.startsWith('Phiếu')) {
+        toast.error(res.message)
+        await fetchDiscounts(idHDS.value)
+        return
+      }
+
+      if (res.message.startsWith('Đã')) {
+        showDeliveryModal.value = true
+        await fetchDiscounts(idHDS.value)
+        return
+      }
+    }
+
+    // Thành công
+    if (isDeliveryEnabled.value) {
+      toast.success('Đã chuyển trạng thái giao hang!')
+    }
+    else {
+      toast.success('Thanh toán thành công!')
+    }
+
+    // Reset các state (bao gồm IMEI)
+    await resetAfterPayment()
+  }
+  catch (error: any) {
+    if (error?.response?.data?.message) {
+      toast.error(error.response.data.message)
+    }
+    else {
+      toast.error('Có lỗi xảy ra khi xác nhận thanh toán!')
+      console.error('Lỗi khi xác nhận thanh toán:', error)
+    }
+  }
+}
+
+// Hàm reset sau thanh toán
+async function resetAfterPayment() {
+  await fetchProducts()
+  await capNhatDanhSach()
+
+  const indexToRemove = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
+  if (indexToRemove !== -1) {
+    tabs.value.splice(indexToRemove, 1)
+  }
+
+  idHDS.value = ''
+  activeTab.value = 0
+  state.gioHang = []
+  state.detailKhachHang = null
+  state.phuongThuThanhToan = []
+  state.tongTien = null
+  tongTien.value = 0
+  tongTienTruocGiam.value = 0
+  giamGia.value = 0
+  tienHang.value = 0
+  soTien.value = 0
+  tienKhachThanhToan.value = 0
+  tienThieu.value = 0
+  state.currentPaymentMethod = '0'
+  resetDiscount()
+  isDeliveryEnabled.value = false
+  currentDeliveryInfo.value = null
+  Object.assign(deliveryInfo, {
+    tenNguoiNhan: '',
+    sdtNguoiNhan: '',
+    diaChiGiaoHang: '',
+    tinhThanhPho: undefined,
+    quanHuyen: undefined,
+    phuongXa: undefined,
+    diaChiCuThe: '',
+  })
+  shippingFee.value = 0
+  provinceCode.value = null
+  districtCode.value = null
+  wardCode.value = null
+
+  // Reset danh sách IMEI đã chọn
+  imeiDaChon.value = []
+}
+
 async function decreaseQuantity(idHDCT: any, idSPS: any) {
   try {
     const formData = new FormData()
@@ -1650,6 +2370,7 @@ async function decreaseQuantity(idHDCT: any, idSPS: any) {
 
     const response = await GetGioHang(idHDS.value)
     state.gioHang = response
+
     calculateTotalAmounts()
     await fetchDiscounts(idHDS.value)
     capNhatDanhSach()
@@ -1657,47 +2378,149 @@ async function decreaseQuantity(idHDCT: any, idSPS: any) {
   catch (error) {
     console.error('Failed to decrease quantity:', error)
     toast.error('Giảm số lượng thất bại!')
+    const updatedProduct = state.gioHang.find(item => item.id === idSPS)
+    if (updatedProduct) {
+      updatedProduct.soLuong = Math.min(updatedProduct.soLuong + 1, 1)
+      calculateTotalAmounts()
+    }
   }
 }
 
-/**
- * Xóa sản phẩm khỏi giỏ hàng
- * @param idSPS - ID sản phẩm
- * @param idHDCT - ID hóa đơn chi tiết
- */
-async function deleteProduc(idSPS: any, idHDCT: string) {
-  try {
-    const formData = new FormData()
-    formData.append('idHD', idHDS.value)
-    formData.append('idSP', idSPS)
-    formData.append('idHDCT', idHDCT)
-    await xoaSP(formData)
-
-    const response = await GetGioHang(idHDS.value)
-    state.gioHang = response
-
-    if (state.gioHang.length === 0) {
-      resetDiscount()
-      state.autoVoucherResult = null
-      betterDiscountMessage.value = ''
-    }
-    else {
+watch(
+  () => tienHang.value,
+  async () => {
+    if (idHDS.value) {
       await fetchDiscounts(idHDS.value)
     }
+  },
+)
 
-    toast.success('Xóa sản phẩm thành công!')
-    await capNhatDanhSach()
+watch(
+  () => [deliveryInfo.tinhThanhPho, deliveryInfo.quanHuyen, deliveryInfo.phuongXa],
+  async () => {
+    if (isDeliveryEnabled.value) {
+      await calculateShippingFee()
+    }
+  },
+)
+
+async function openProductSelectionModal() {
+  if (!idHDS.value) {
+    toast.error('Vui lòng tạo hoặc chọn hóa đơn trước khi chọn sản phẩm!')
+    return
+  }
+  await fetchProducts()
+  showProductModal.value = true
+}
+
+async function createInvoice() {
+  if (tabs.value.length >= 10) {
+    toast.warning('Chỉ được tạo tối đa 10 hóa đơn!', { autoClose: 3000 })
+    return
+  }
+
+  // Tạo tab tạm ngay
+  const tempMa = genTempMaHoaDon()
+  const newTabId = nextTabId++
+
+  tabs.value.push({
+    id: newTabId,
+    idHD: '', // Chưa có DB id
+    code: tempMa, // Mã tạm
+    soLuong: 0,
+    loaiHoaDon: 'TAI_QUAY',
+    products: [],
+    isTemp: true,
+  })
+
+  activeTab.value = newTabId
+
+  // Reset state
+  idHDS.value = ''
+  loaiHD.value = 'TAI_QUAY'
+
+  state.gioHang = []
+  state.detailKhachHang = null
+  resetDiscount()
+  isDeliveryEnabled.value = false
+  currentDeliveryInfo.value = null
+
+  Object.assign(deliveryInfo, {
+    tenNguoiNhan: '',
+    sdtNguoiNhan: '',
+    diaChiCuThe: '',
+    tinhThanhPho: undefined,
+    quanHuyen: undefined,
+    phuongXa: undefined,
+  })
+
+  provinceCode.value = null
+  districtCode.value = null
+  wardCode.value = null
+  shippingFee.value = 0
+  isFreeShipping.value = false
+  state.currentPaymentMethod = '0'
+  tienHang.value = 0
+  tongTien.value = 0
+  tongTienTruocGiam.value = 0
+  tienKhachThanhToan.value = 0
+  tienThieu.value = 0
+
+  // Gọi API tạo hóa đơn thật
+  try {
+    const formData = new FormData()
+    formData.append('idNV', idNV.userId)
+    formData.append('ma', tempMa)
+
+    const newInvoice = await getCreateHoaDon(formData)
+
+    // Update lại tab
+    const tab = tabs.value.find(t => t.id === newTabId)
+    if (tab) {
+      tab.idHD = newInvoice.data.id
+      tab.code = newInvoice.data.code
+      tab.loaiHoaDon = newInvoice.data.loaiHoaDon || 'OFFLINE'
+      tab.isTemp = false
+    }
+
+    idHDS.value = newInvoice.data.id
+    loaiHD.value = newInvoice.data.loaiHoaDon || 'OFFLINE'
+
+    await clickkActiveTab(
+      newTabId,
+      newInvoice.data.id,
+      newInvoice.data.loaiHoaDon || 'OFFLINE',
+
+    )
+
+    toast.success('Tạo hóa đơn thành công!')
   }
   catch (error) {
-    console.error('Failed to delete product:', error)
-    toast.error('Xóa sản phẩm thất bại!')
+    console.error('Failed to create invoice:', error)
+
+    // Nếu API lỗi → xóa tab tạm
+    tabs.value = tabs.value.filter(t => t.id !== newTabId)
+
+    toast.error('Tạo hóa đơn thất bại!')
   }
 }
 
-/**
- * Chọn khách hàng
- * @param getIdKH - ID khách hàng được chọn
- */
+function genTempMaHoaDon(): string {
+  return `HD-TMP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`
+}
+
+function closeModalP() {
+  showDeliveryModal.value = false
+  xacNhan(0)
+}
+
+const showKhachHangModal = ref(false)
+const showProductModal = ref(false)
+
+function setDefaultPaymentMethod() {
+  state.currentPaymentMethod = '0'
+}
+
 async function selectKhachHang(getIdKH: any) {
   try {
     const formData = new FormData()
@@ -1724,6 +2547,67 @@ async function selectKhachHang(getIdKH: any) {
       deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
       deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
       deliveryInfo.diaChiCuThe = state.detailKhachHang.diaChi || ''
+
+      if (loaiHD.value === 'GIAO_HANG') {
+        const tinhThanhPhoId = state.detailKhachHang.tinh
+        const quanHuyenId = state.detailKhachHang.huyen
+        const phuongXaId = state.detailKhachHang.xa
+
+        if (!provinces.value.length) {
+          await fetchProvinces()
+        }
+
+        if (tinhThanhPhoId) {
+          const selectedProvince = provinces.value.find(p => p.code === tinhThanhPhoId.toString())
+          if (selectedProvince) {
+            deliveryInfo.tinhThanhPho = selectedProvince.value
+            provinceCode.value = Number.parseInt(tinhThanhPhoId)
+            await fetchDistricts(provinceCode.value)
+          }
+        }
+
+        if (quanHuyenId && provinceCode.value) {
+          const selectedDistrict = districts.value.find(d => d.code === quanHuyenId.toString())
+          if (selectedDistrict) {
+            deliveryInfo.quanHuyen = selectedDistrict.value
+            districtCode.value = Number.parseInt(quanHuyenId)
+            await fetchWards(districtCode.value)
+          }
+        }
+
+        if (phuongXaId && districtCode.value) {
+          const selectedWard = wards.value.find(w => w.code === phuongXaId)
+          if (selectedWard) {
+            deliveryInfo.phuongXa = selectedWard.value
+            wardCode.value = phuongXaId
+          }
+        }
+
+        if (tinhThanhPhoId && quanHuyenId && phuongXaId) {
+          isDeliveryEnabled.value = true
+          await calculateShippingFee()
+        }
+        else {
+          isDeliveryEnabled.value = false
+          toast.info('Thông tin địa chỉ khách hàng không đầy đủ, vui lòng nhập thủ công.')
+        }
+      }
+      else {
+        isDeliveryEnabled.value = false
+      }
+
+      deliveryInfoByInvoice[idHDS.value] = {
+        tenNguoiNhan: deliveryInfo.tenNguoiNhan,
+        sdtNguoiNhan: deliveryInfo.sdtNguoiNhan,
+        diaChiCuThe: deliveryInfo.diaChiCuThe,
+        tinhThanhPho: deliveryInfo.tinhThanhPho,
+        quanHuyen: deliveryInfo.quanHuyen,
+        phuongXa: deliveryInfo.phuongXa,
+        provinceCode: provinceCode.value,
+        districtCode: districtCode.value,
+        wardCode: wardCode.value,
+        shippingFee: shippingFee.value,
+      }
     }
 
     await fetchDiscounts(idHDS.value)
@@ -1764,14 +2648,14 @@ async function fetchProducts() {
   try {
     const params: ADProductDetailRequest = {
       page: 1,
-      size: 9999, 
+      size: 9999,
     }
     const response = await getProductDetails(params)
     stateSP.products = response.data?.data || []
     state.products = response.data?.data || []
     stateSP.totalItems = response.data?.totalElements || 0
     state.totalItems = response.data?.totalElements || 0
-    calculateMinMaxPrice(stateSP.products) 
+    calculateMinMaxPrice(stateSP.products)
   }
   catch (error) {
     console.error('Failed to fetch products:', error)
@@ -1968,6 +2852,8 @@ async function addCustomer() {
     const response = await themMoiKhachHang(formData)
     const newCustomerId = response.data
 
+    console.log(`New Khách hàng: ${newCustomerId}`)
+
     const selectFormData = new FormData()
     selectFormData.append('idHD', idHDS.value)
     selectFormData.append('idKH', newCustomerId)
@@ -1990,1179 +2876,46 @@ async function addCustomer() {
   }
 }
 
-/**
- * Bỏ chọn khách hàng
- */
-async function removeCustomer() {
-  if (!idHDS.value) {
-    toast.error('Không có hóa đơn được chọn!')
-    return
-  }
-
-  try {
-    await xoaKhachHang(idHDS.value)
-    state.detailKhachHang = null
-    toast.success('Đã bỏ chọn khách hàng!')
-
-    // Reset thông tin giao hàng
-    Object.assign(deliveryInfo, {
-      tenNguoiNhan: '',
-      sdtNguoiNhan: '',
-      diaChiCuThe: '',
-      tinhThanhPho: undefined,
-      quanHuyen: undefined,
-      phuongXa: undefined,
-    })
-
-    // Cập nhật lại voucher (nếu có)
-    if (state.gioHang.length > 0) {
-      await fetchDiscounts(idHDS.value)
-    }
-  }
-  catch (error) {
-    console.error('Failed to remove customer:', error)
-    toast.error('Bỏ chọn khách hàng thất bại!')
-  }
-}
-
-/**
- * Xử lý bật/tắt giao hàng
- * @param isDeliveryEnableds - Trạng thái giao hàng
- */
-async function giaoHang(isDeliveryEnableds: boolean) {
-  isDeliveryEnabled.value = isDeliveryEnableds
-  await suaGiaoHang(idHDS.value)
-  await capNhatDanhSach()
-}
-
-/**
- * Xử lý thay đổi tỉnh/thành phố
- * @param value - Giá trị tỉnh/thành phố
- */
-async function onProvinceChange(value: string) {
-  deliveryInfo.tinhThanhPho = value
-  const selectedProvince = provinces.value.find(p => p.value === value)
-  provinceCode.value = selectedProvince ? Number.parseInt(selectedProvince.code) : null
-  if (provinceCode.value) {
-    await fetchDistricts(provinceCode.value)
-    deliveryInfo.quanHuyen = null
-    deliveryInfo.phuongXa = null
-    districtCode.value = null
-    wardCode.value = null
-    await calculateShippingFee()
-  }
-  else {
-    districts.value = []
-    wards.value = []
-    shippingFee.value = 0
-    calculateTotalAmounts()
-  }
-}
-
-/**
- * Xử lý thay đổi quận/huyện
- * @param value - Giá trị quận/huyện
- */
-async function onDistrictChange(value: string) {
-  deliveryInfo.quanHuyen = value
-  const selectedDistrict = districts.value.find(d => d.value === value)
-  districtCode.value = selectedDistrict ? Number.parseInt(selectedDistrict.code) : null
-  if (districtCode.value) {
-    await fetchWards(districtCode.value)
-    deliveryInfo.phuongXa = null
-    wardCode.value = null
-    await calculateShippingFee()
-  }
-  else {
-    wards.value = []
-    shippingFee.value = 0
-    calculateTotalAmounts()
-  }
-}
-
-/**
- * Xử lý thay đổi phường/xã
- * @param value - Giá trị phường/xã
- */
-async function onWardChange(value: string) {
-  deliveryInfo.phuongXa = value
-  const selectedWard = wards.value.find(w => w.value === value)
-  wardCode.value = selectedWard ? selectedWard.code : null
-  await calculateShippingFee()
-}
-
-/**
- * Trigger tự động áp dụng voucher
- */
-async function triggerAutoApplyVoucher() {
-  if (!idHDS.value || tienHang.value <= 0) {
-    toast.error('Vui lòng có sản phẩm trong giỏ hàng trước!')
-    return
-  }
-
-  if (state.gioHang.length === 0) {
-    toast.info('Chưa có sản phẩm trong hóa đơn, không thể gợi ý voucher')
-    return
-  }
-
-  autoApplying.value = true
-  try {
-    const params = {
-      invoiceId: idHDS.value,
-      tongTien: tienHang.value,
-      customerId: state.detailKhachHang?.id ?? null,
-    }
-
-    const response = await getMaGiamGia(params)
-
-    if (response) {
-      state.autoVoucherResult = response
-
-      if (!selectedVoucher.value && response.voucherApDung?.length > 0) {
-        const bestVoucher = response.voucherApDung.reduce((best, current) =>
-          (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
-        )
-        await selectVoucher(bestVoucher)
-      }
-
-      toast.success(`Tìm thấy ${response.voucherApDung?.length || 0} voucher phù hợp`)
-    }
-  }
-  catch (error) {
-    console.error('Auto apply voucher failed:', error)
-    toast.error('Lỗi khi tìm voucher phù hợp')
-  }
-  finally {
-    autoApplying.value = false
-  }
-}
-
-/**
- * Chọn voucher
- * @param voucher - Voucher được chọn
- */
-async function selectVoucher(voucher: any) {
-  applyingVoucher.value = voucher.voucherId
-
-  try {
-    selectedVoucher.value = voucher
-    selectedDiscountCode.value = voucher.code
-    giamGia.value = voucher.giamGiaThucTe
-
-    selectedDiscount.value = {
-      id: voucher.voucherId,
-      ma: voucher.code,
-      giaTriGiamThucTe: voucher.giamGiaThucTe,
-      typeVoucher: voucher.typeVoucher,
-      discountValue: voucher.discountValue,
-      maxValue: voucher.maxValue,
-      dieuKien: voucher.dieuKien,
-    } as any
-
-    calculateTotalAmounts()
-    toast.success(`Đã áp dụng voucher ${voucher.code}`)
-  }
-  catch (error) {
-    console.error('Select voucher failed:', error)
-    toast.error('Lỗi khi áp dụng voucher')
-  }
-  finally {
-    applyingVoucher.value = null
-  }
-}
-
-/**
- * Bỏ chọn voucher
- */
-function removeVoucher() {
-  selectedVoucher.value = null
-  selectedDiscount.value = null
-  selectedDiscountCode.value = ''
-  giamGia.value = 0
-  calculateTotalAmounts()
-  toast.info('Đã bỏ chọn voucher')
-}
-
-/**
- * Hiển thị chi tiết suggestion
- * @param suggestion - Suggestion được chọn
- */
-function showSuggestionDetail(suggestion: any) {
-  selectedSuggestion.value = suggestion
-  showSuggestionDetailModal.value = true
-}
-
-/**
- * Xử lý phương thức thanh toán
- * @param method - Phương thức thanh toán (0: Tiền mặt, 1: Chuyển khoản, 2: Kết hợp)
- */
-async function handlePaymentMethod(method: string) {
-  if (!idHDS.value) {
-    toast.error('Vui lòng chọn hoặc tạo hóa đơn trước khi chọn phương thức thanh toán!')
-    return
-  }
-
-  if (state.gioHang.length === 0) {
-    toast.error('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi chọn phương thức thanh toán.')
-    return
-  }
-
-  state.currentPaymentMethod = method
-
-  try {
-    if (method === '0') {
-      toast.success('Đã chọn phương thức thanh toán Tiền mặt.')
-    }
-    else if (method === '1') {
-      toast.success('Đã chọn phương thức thanh toán Chuyển khoản.')
-      openQrModalVNPay()
-    }
-    else if (method === '2') {
-      toast.success('Đã chọn phương thức thanh toán kết hợp (Tiền mặt + Chuyển khoản).')
-      openBothPaymentModal()
-    }
-  }
-  catch (error: any) {
-    console.error('Error in handlePaymentMethod:', error)
-    toast.error('Có lỗi khi chọn phương thức thanh toán!')
-  }
-}
-
-/**
- * Mở modal thanh toán kết hợp
- */
-function openBothPaymentModal() {
-  amountPaid.value = 0
-  bothPaymentMethod.value = 'CASH_FIRST'
-
-  const remainingAmount = tongTien.value - tienKhachThanhToan.value
-
-  if (remainingAmount <= 0) {
-    toast.info('Hóa đơn đã được thanh toán đủ!')
-    return
-  }
-
-  isBothPaymentModalVisible.value = true
-}
-
-/**
- * Đóng modal thanh toán kết hợp
- */
-function closeBothPaymentModal() {
-  isBothPaymentModalVisible.value = false
-  amountPaid.value = 0
-  bothPaymentLoading.value = false
-}
-
-/**
- * Xác nhận thanh toán kết hợp
- */
-async function confirmBothPayment() {
-  bothPaymentLoading.value = true
-
-  try {
-    if (!idHDS.value) {
-      throw new Error('Không có hóa đơn được chọn!')
-    }
-
-    if (state.gioHang.length === 0) {
-      throw new Error('Giỏ hàng trống!')
-    }
-
-    if (amountPaid.value <= 0) {
-      throw new Error('Vui lòng nhập số tiền mặt khách đưa!')
-    }
-
-    const totalAmount = tongTien.value
-    const paidAmount = tienKhachThanhToan.value
-    const cashAmount = amountPaid.value
-    const remainingAmount = totalAmount - paidAmount - cashAmount
-
-    if (cashAmount > totalAmount - paidAmount) {
-      throw new Error('Số tiền mặt không được lớn hơn số tiền cần thanh toán!')
-    }
-
-    if (remainingAmount > 0) {
-      toast.info(
-        `Đã nhận ${formatCurrency(cashAmount)} tiền mặt. `
-        + `Vui lòng thanh toán ${formatCurrency(remainingAmount)} qua chuyển khoản.`,
-      )
-
-      setTimeout(() => {
-        openQrModalVNPay()
-      }, 1500)
-    }
-    else {
-      toast.success('Thanh toán thành công bằng tiền mặt!')
-    }
-
-    const requestData = {
-      idHD: idHDS.value,
-      idNV: idNV.userId,
-      tienHang: tienHang.value,
-      tongTien: tongTien.value.toString(),
-      tienMat: cashAmount,
-      chuyenKhoan: remainingAmount > 0 ? remainingAmount : 0,
-      phuongThucThanhToan: '2',
-      giamGia: giamGia.value,
-      bothPaymentMethod: bothPaymentMethod.value,
-    }
-
-    // await thanhToanThanhCong(requestData)
-
-    await clickkActiveTab(activeTab.value, idHDS.value, loaiHD.value)
-    closeBothPaymentModal()
-
-    if (remainingAmount === 0) {
-      toast.success('Xác nhận thanh toán kết hợp thành công!')
-    }
-  }
-  catch (error: any) {
-    console.error('Error in confirmBothPayment:', error)
-    toast.error(error.message || 'Xác nhận thanh toán thất bại!')
-  }
-  finally {
-    bothPaymentLoading.value = false
-  }
-}
-
-/**
- * Mở modal QR VNPay
- */
-function openQrModalVNPay() {
-  isQrVNpayModalVisible.value = true
-}
-
-/**
- * Đóng modal QR VNPay
- */
-function closeQrModalVnPay() {
-  isQrVNpayModalVisible.value = false
-}
-
-/**
- * Xác nhận thanh toán
- * @param check - Loại xác nhận (0: thanh toán, 1: khác)
- */
-async function xacNhan(check: number) {
-  if (!idHDS.value) {
-    toast.error('Vui lòng chọn một hóa đơn để xác nhận thanh toán!')
-    return
-  }
-
-  if (state.gioHang.length === 0) {
-    toast.error('Giỏ hàng trống! Vui lòng thêm sản phẩm trước khi thanh toán.')
-    return
-  }
-
-  if (isDeliveryEnabled.value) {
-    if (
-      !deliveryInfo.tenNguoiNhan
-      || !deliveryInfo.sdtNguoiNhan
-      || !deliveryInfo.diaChiCuThe
-      || !deliveryInfo.tinhThanhPho
-      || !deliveryInfo.quanHuyen
-      || !deliveryInfo.phuongXa
-    ) {
-      toast.error('Vui lòng nhập đầy đủ thông tin giao hàng!')
-      return
-    }
-  }
-
-  try {
-    const loaiHoaDon = isDeliveryEnabled.value ? 'GIAO_HANG' : 'TAI_QUAY'
-
-    const requestData = {
-      idHD: idHDS.value,
-      idNV: idNV.userId,
-      tienHang: tienHang.value,
-      tongTien: tongTien.value.toString(),
-      ten: deliveryInfo.tenNguoiNhan,
-      sdt: deliveryInfo.sdtNguoiNhan,
-      diaChi: isDeliveryEnabled.value ? getFullAddress() : '',
-      tienShip: shippingFee.value,
-      giamGia: giamGia.value,
-      phuongThucThanhToan: state.currentPaymentMethod,
-      idPGG: selectedDiscount.value?.id,
-      check: isDeliveryEnabled.value ? 1 : 0,
-      loaiHoaDon,
-    }
-
-    const res = await thanhToanThanhCong(requestData)
-
-    if (res.message) {
-      if (res.message.startsWith('Số') || res.message.startsWith('Phiếu')) {
-        toast.error(res.message)
-        await fetchDiscounts(idHDS.value)
-        return
-      }
-    }
-
-    toast.success('Thanh toán thành công!')
-    await resetAfterPayment()
-  }
-  catch (error: any) {
-    if (error?.response?.data?.message) {
-      toast.error(error.response.data.message)
-    }
-    else {
-      toast.error('Có lỗi xảy ra khi xác nhận thanh toán!')
-      console.error('Lỗi khi xác nhận thanh toán:', error)
-    }
-  }
-}
-
-/**
- * Reset sau khi thanh toán
- */
-async function resetAfterPayment() {
-  await fetchProducts()
-  await capNhatDanhSach()
-
-  const indexToRemove = tabs.value.findIndex(tab => tab.idHD === idHDS.value)
-  if (indexToRemove !== -1) {
-    tabs.value.splice(indexToRemove, 1)
-  }
-
-  resetState()
-  imeiDaChon.value = []
-}
-
-// ==================== COLUMNS DEFINITIONS ====================
-
-/**
- * Cột cho bảng khách hàng
- */
-const columnsKhachHang: DataTableColumns<KhachHangResponse> = [
-  {
-    title: 'STT',
-    key: 'stt',
-    width: 60,
-    align: 'center',
-    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
-  },
-  {
-    title: 'Tên khách hàng',
-    key: 'ten',
-    width: 150,
-    ellipsis: true,
-  },
-  {
-    title: 'Số điện thoại',
-    key: 'sdt',
-    width: 130,
-    align: 'center',
-  },
-  {
-    title: 'Thao tác',
-    key: 'operation',
-    width: 90,
-    align: 'center',
-    render: row =>
-      h(
-        NButton,
-        {
-          type: 'primary',
-          size: 'small',
-          secondary: true,
-          onClick: () => selectKhachHang(row.id),
-        },
-        { default: () => 'Chọn' },
-      ),
-  },
-]
-
-/**
- * Cột cho bảng giỏ hàng
- */
-const columnsGiohang: DataTableColumns<any> = [
-  {
-    title: 'Serial đã chọn',
-    key: 'imel',
-    width: 110,
-    render: (row) => {
-      if (row.imel) {
-        return h(
-          NTag,
-          {
-            type: 'success',
-            size: 'small',
-            onClick: () => {
-              toast.info(`IMEI: ${row.imel}`)
-            },
-          },
-          () => `${row.imel}`,
-        )
-      }
-
-      const imeiItem = imeiDaChon.value.find(item => item.idHoaDonChiTiet === row.idHDCT)
-
-      if (imeiItem && imeiItem.danhSachImei.length > 0) {
-        return h(
-          NTag,
-          {
-            type: 'success',
-            size: 'small',
-            onClick: () => {
-              toast.info(
-                `Đã chọn ${imeiItem.danhSachImei.length} IMEI: ${imeiItem.danhSachImei.join(', ')}`,
-              )
-            },
-          },
-          () => `${imeiItem.danhSachImei.length} IMEI`,
-        )
-      }
-
-      return h(
-        NTag,
-        {
-          type: 'warning',
-          size: 'small',
-        },
-        () => 'Chưa chọn IMEI',
-      )
-    },
-  },
-  {
-    title: 'Ảnh',
-    key: 'anh',
-    width: 80,
-    align: 'center',
-    render: (row) => {
-      return h(
-        NBadge,
-        {
-          value: row.percentage ? `-${row.percentage}%` : undefined,
-          type: 'error',
-          offset: [-5, 0],
-          style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
-        },
-        {
-          default: () =>
-            h(NImage, {
-              width: 100,
-              height: 70,
-              src: row.urlImage || row.anh,
-              objectFit: 'cover',
-              style: {
-                'border-radius': '4px',
-                'border': '1px solid #eee',
-              },
-            }),
-        },
-      )
-    },
-  },
-  {
-    title: 'Tên sản phẩm',
-    key: 'name',
-    width: 150,
-    ellipsis: {
-      tooltip: true,
-    },
-    render: row => h('div', { style: { fontWeight: 500 } }, row.name || row.ten),
-  },
-  {
-    title: 'Thông số kỹ thuật',
-    key: 'specifications',
-    width: 200,
-    ellipsis: {
-      tooltip: true,
-    },
-    render: row =>
-      h(
-        NSpace,
-        {
-          vertical: true,
-          size: 4,
-        },
-        () => [
-          h(
-            'div',
-            {
-              style: {
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-                marginBottom: '4px',
-              },
-            },
-            [
-              row.cpu
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#1677ff',
-                    'background': '#e6f4ff',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #91caff',
-                  },
-                },
-                `CPU: ${row.cpu}`,
-              ),
-              row.gpu
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#389e0d',
-                    'background': '#f6ffed',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #b7eb8f',
-                  },
-                },
-                `GPU: ${row.gpu}`,
-              ),
-              row.ram
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#d46b08',
-                    'background': '#fff7e6',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #ffd591',
-                  },
-                },
-                `RAM: ${row.ram}`,
-              ),
-            ],
-          ),
-          h(
-            'div',
-            {
-              style: {
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-              },
-            },
-            [
-              row.hardDrive
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#722ed1',
-                    'background': '#f9f0ff',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #d3adf7',
-                  },
-                },
-                `Ổ cứng: ${row.hardDrive}`,
-              ),
-              row.color
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#13c2c2',
-                    'background': '#e6fffb',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #87e8de',
-                  },
-                },
-                `Màu: ${row.color}`,
-              ),
-              row.material
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#eb2f96',
-                    'background': '#fff0f6',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #ffadd2',
-                  },
-                },
-                `Chất liệu: ${row.material}`,
-              ),
-            ],
-          ),
-        ],
-      ),
-  },
-  {
-    title: 'Đơn giá',
-    key: 'price',
-    width: 110,
-    align: 'right',
-    render: row =>
-      h(
-        NText,
-        {
-          style: { fontWeight: 500 },
-        },
-        () => formatCurrency(row.giaGoc),
-      ),
-  },
-  {
-    title: 'Giá bán',
-    key: 'total',
-    width: 120,
-    align: 'right',
-    render: row =>
-      h(
-        NText,
-        {
-          type: 'primary',
-          strong: true,
-          style: { fontSize: '14px' },
-        },
-        () => formatCurrency(row.giaGoc * (1 - row.percentage / 100)),
-      ),
-  },
-  {
-    title: 'Thao tác',
-    key: 'operation',
-    width: 80,
-    align: 'center',
-    render: row =>
-      h(NTooltip, null, {
-        trigger: () =>
-          h(
-            NButton,
-            {
-              type: 'error',
-              size: 'small',
-              text: true,
-              circle: true,
-              onClick: () => deleteProduc(row.id, row.idHDCT),
-              style: { '--n-border-radius': '50%' },
-            },
-            {
-              icon: () => h(NIcon, null, () => h(TrashOutline)),
-            },
-          ),
-        default: () => 'Xóa sản phẩm',
-      }),
-  },
-]
-
-/**
- * Cột cho bảng sản phẩm
- */
-const columns: DataTableColumns<ADProductDetailResponse> = [
-  {
-    title: 'STT',
-    key: 'stt',
-    width: 60,
-    align: 'center',
-    render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`),
-  },
-  {
-    title: 'Ảnh chi tiết',
-    key: 'detailImages',
-    width: 120,
-    align: 'center',
-    render: (row) => {
-      const imageUrl = row.urlImage
-      const percentage = row.percentage
-
-      if (!imageUrl || imageUrl.trim() === '') {
-        return h(NText, { depth: 3, size: 'small' }, () => 'Không có')
-      }
-      return h(
-        NBadge,
-        {
-          value: percentage ? `-${percentage}%` : undefined,
-          type: 'error',
-          offset: [-5, 5],
-        },
-        {
-          default: () =>
-            h(NImage, {
-              width: 100,
-              height: 80,
-              src: imageUrl,
-              objectFit: 'cover',
-              style: {
-                borderRadius: '4px',
-                border: '1px solid #f0f0f0',
-                cursor: 'pointer',
-              },
-              fallbackSrc: '/images/no-image.png',
-              previewSrc: imageUrl,
-            }),
-        },
-      )
-    },
-  },
-  {
-    title: 'Mã',
-    key: 'code',
-    width: 100,
-    ellipsis: true,
-    render: row => h(NText, { strong: true }, () => row.code),
-  },
-  {
-    title: 'Số lượng',
-    key: 'quantity',
-    width: 90,
-    align: 'center',
-    render: row =>
-      h(
-        NTag,
-        {
-          type: row.quantity > 0 ? 'success' : 'error',
-          size: 'small',
-          round: true,
-        },
-        () => row.quantity,
-      ),
-  },
-  {
-    title: 'Giá bán',
-    key: 'price',
-    width: 120,
-    align: 'center',
-    render: (row) => {
-      const originalPrice = row.price || 0
-      const percentage = row.percentage
-
-      if (percentage && percentage > 0) {
-        const discountedPrice = originalPrice * (1 - percentage / 100)
-
-        return h(
-          NSpace,
-          { vertical: true, size: 0, align: 'center', justify: 'center' },
-          () => [
-            h(
-              NText,
-              { delete: true, depth: 3, style: { fontSize: '12px', lineHeight: '1.2' } },
-              () => formatCurrency(originalPrice),
-            ),
-            h(
-              NText,
-              { type: 'primary', strong: true, style: { fontSize: '14px' } },
-              () => formatCurrency(discountedPrice),
-            ),
-          ],
-        )
-      }
-      return h(NText, { type: 'primary', strong: true }, () => formatCurrency(originalPrice))
-    },
-  },
-  {
-    title: 'Thông số kỹ thuật',
-    key: 'specifications',
-    width: 200,
-    ellipsis: {
-      tooltip: true,
-    },
-    render: row =>
-      h(
-        NSpace,
-        {
-          vertical: true,
-          size: 4,
-        },
-        () => [
-          h(
-            'div',
-            {
-              style: {
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-                marginBottom: '4px',
-              },
-            },
-            [
-              row.cpu
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#1677ff',
-                    'background': '#e6f4ff',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #91caff',
-                  },
-                },
-                `CPU: ${row.cpu}`,
-              ),
-              row.gpu
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#389e0d',
-                    'background': '#f6ffed',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #b7eb8f',
-                  },
-                },
-                `GPU: ${row.gpu}`,
-              ),
-              row.ram
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#d46b08',
-                    'background': '#fff7e6',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #ffd591',
-                  },
-                },
-                `RAM: ${row.ram}`,
-              ),
-            ],
-          ),
-          h(
-            'div',
-            {
-              style: {
-                display: 'flex',
-                gap: '6px',
-                flexWrap: 'wrap',
-              },
-            },
-            [
-              row.hardDrive
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#722ed1',
-                    'background': '#f9f0ff',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #d3adf7',
-                  },
-                },
-                `Ổ cứng: ${row.hardDrive}`,
-              ),
-              row.color
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#13c2c2',
-                    'background': '#e6fffb',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #87e8de',
-                  },
-                },
-                `Màu: ${row.color}`,
-              ),
-              row.material
-              && h(
-                'span',
-                {
-                  style: {
-                    'font-size': '11px',
-                    'color': '#eb2f96',
-                    'background': '#fff0f6',
-                    'padding': '1px 6px',
-                    'border-radius': '3px',
-                    'border': '1px solid #ffadd2',
-                  },
-                },
-                `Chất liệu: ${row.material}`,
-              ),
-            ],
-          ),
-        ],
-      ),
-  },
-  {
-    title: 'Trạng thái',
-    key: 'status',
-    width: 100,
-    align: 'center',
-    render: row =>
-      h(
-        NTag,
-        {
-          type: row.status === 'ACTIVE' ? 'success' : 'error',
-          size: 'small',
-          round: true,
-        },
-        () => (row.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'),
-      ),
-  },
-  {
-    title: 'Thao tác',
-    key: 'operation',
-    width: 120,
-    align: 'center',
-    render: row =>
-      h(NSpace, { size: 8 }, () => [
-        h(NTooltip, null, {
-          trigger: () =>
-            h(
-              NButton,
-              {
-                type: 'primary',
-                size: 'small',
-                secondary: true,
-                onClick: () => selectProductForSerial(row),
-                disabled: row.status !== 'ACTIVE' || row.quantity <= 0,
-              },
-              { default: () => 'Chọn Serial' },
-            ),
-          default: () =>
-            row.status !== 'ACTIVE'
-              ? 'Sản phẩm không hoạt động'
-              : row.quantity <= 0
-                ? 'Hết hàng'
-                : `Chọn serial từ ${row.quantity} sản phẩm có sẵn`,
-        }),
-      ]),
-  },
-]
-
-/**
- * Cột cho bảng serial
- */
-const serialColumns: DataTableColumns<ADPDImeiResponse> = [
-  {
-    title: 'Chọn',
-    key: 'select',
-    width: 60,
-    align: 'center',
-    render: row =>
-      h(NCheckbox, {
-        checked: selectedSerialIds.value.includes(row.id),
-        disabled: row.imeiStatus !== 'AVAILABLE',
-        onUpdateChecked: (checked) => {
-          if (checked) {
-            selectedSerialIds.value = [...selectedSerialIds.value, row.id]
-          }
-          else {
-            selectedSerialIds.value = selectedSerialIds.value.filter(id => id !== row.id)
-          }
-        },
-      }),
-  },
-  {
-    title: 'Serial/IMEI',
-    key: 'serialNumber',
-    width: 180,
-    render: row =>
-      h(
-        NText,
-        {
-          strong: true,
-          code: true,
-          style: {
-            fontFamily: 'monospace',
-            fontSize: '12px',
-          },
-        },
-        () => row.code || '-',
-      ),
-  },
-  {
-    title: 'Tên',
-    key: 'name',
-    width: 120,
-    render: row => h(NText, () => row.name || '-'),
-  },
-  {
-    title: 'Trạng thái',
-    key: 'status',
-    width: 100,
-    align: 'center',
-    render: (row) => {
-      const statusConfig: Record<string, { type: any, text: string }> = {
-        AVAILABLE: { type: 'success', text: 'Khả dụng' },
-        SOLD: { type: 'warning', text: 'Đã bán' },
-        DEFECTIVE: { type: 'error', text: 'Lỗi' },
-        RESERVED: { type: 'info', text: 'Đã đặt' },
-      }
-      const config = statusConfig[row.imeiStatus] || {
-        type: 'default',
-        text: row.imeiStatus || 'Không xác định',
-      }
-      return h(
-        NTag,
-        {
-          type: config.type,
-          size: 'small',
-          round: true,
-        },
-        () => config.text,
-      )
-    },
-  },
-  {
-    title: 'Trạng thái SP',
-    key: 'productStatus',
-    width: 100,
-    align: 'center',
-    render: (row) => {
-      const config = {
-        ACTIVE: { type: 'success', text: 'Hoạt động' },
-        INACTIVE: { type: 'default', text: 'Không HĐ' },
-      }[row.status] || { type: 'default', text: row.status || '-' }
-      return h(
-        NTag,
-        {
-          type: config.type,
-          size: 'small',
-          round: true,
-        },
-        () => config.text,
-      )
-    },
-  },
-]
-
-// ==================== LIFECYCLE HOOKS ====================
-
 onMounted(async () => {
-  // Lấy dữ liệu cho bộ lọc
-  await fetchColor()
-  await fetchCPU()
-  await fetchGPU()
-  await fetchRAM()
-  await fetchHardDrive()
-  await fetchMaterial()
-
-  // Lấy danh sách hóa đơn và tỉnh/thành phố
+  const storedDiscount = localStorage.getItem('selectedDiscount')
+  const storedBestDiscount = localStorage.getItem('isBestDiscountApplied')
+  if (storedDiscount) {
+    selectedDiscount.value = JSON.parse(storedDiscount)
+  }
+  if (storedBestDiscount) {
+    isBestDiscountApplied.value = JSON.parse(storedBestDiscount)
+  }
+  const storedDeliveryInfo = localStorage.getItem('deliveryInfoByInvoice')
+  if (storedDeliveryInfo) {
+    Object.assign(deliveryInfoByInvoice, JSON.parse(storedDeliveryInfo))
+  }
+  await fetchCustomers()
   await fetchHoaDon()
+  if (idHDS.value) {
+    await fetchDiscounts(idHDS.value)
+  }
+  setDefaultPaymentMethod()
   await fetchProvinces()
 
-  // Thiết lập phương thức thanh toán mặc định
-  setDefaultPaymentMethod()
-
-  // Lấy voucher nếu có
   if (idHDS.value && state.gioHang.length > 0) {
     await fetchDiscounts(idHDS.value)
   }
+})
+// code tâm thêm
+// Tự động tìm voucher giảm nhiều tiền nhất
+const bestSuggestion = computed(() => {
+  const suggestions = state.autoVoucherResult?.voucherTotHon || []
+  if (suggestions.length === 0)
+    return null
+
+  // Sắp xếp giảm dần theo số tiền được giảm thêm  và lấy cái đầu tiên
+  return [...suggestions].sort((a, b) => b.giamThem - a.giamThem)[0]
 })
 </script>
 
 <template>
   <div class="main-layout">
-    <!-- ==================== CỘT TRÁI ==================== -->
     <div class="left-column">
-      <!-- Card: Danh sách hóa đơn chờ -->
       <NCard class="card" size="small">
         <template #header>
           <NText type="primary" strong>
@@ -3171,14 +2924,11 @@ onMounted(async () => {
         </template>
 
         <template #header-extra>
-          <NButton
-            type="primary"
-            size="small"
-            class="btn-create-new-invoice"
-            @click="createInvoice"
-          >
+          <NButton type="primary" size="small" class="btn-create-new-invoice" @click="createInvoice">
             <template #icon>
-              <NIcon><AddCircleOutline /></NIcon>
+              <NIcon>
+                <AddCircleOutline />
+              </NIcon>
             </template>
             Tạo hóa đơn mới
           </NButton>
@@ -3188,12 +2938,9 @@ onMounted(async () => {
           <NScrollbar x-scrollable>
             <div class="pending-invoices-wrapper">
               <NSpace :wrap="false">
-                <!-- Danh sách tab hóa đơn -->
                 <div
-                  v-for="tab in tabs"
-                  :key="tab.id"
-                  class="pending-invoice-card"
-                  :class="{ active: activeTab === tab.id }"
+                  v-for="tab in tabs" :key="tab.id"
+                  class="pending-invoice-card" :class="[{ active: activeTab === tab.id }]"
                   @click="clickkActiveTab(tab.id, tab.idHD, tab.loaiHoaDon)"
                 >
                   <div class="invoice-header">
@@ -3201,7 +2948,6 @@ onMounted(async () => {
                       {{ tab.code }}
                     </NText>
 
-                    <!-- Nút hủy hóa đơn (có popconfirm nếu có sản phẩm) -->
                     <NPopconfirm
                       v-if="tab.soLuong > 0"
                       :show-icon="false"
@@ -3215,7 +2961,7 @@ onMounted(async () => {
                         </NButton>
                       </template>
                       <div class="popconfirm-content">
-                        <NText strong style="display: block; margin-bottom: 8px">
+                        <NText strong style="display: block; margin-bottom: 8px;">
                           Xác nhận hủy
                         </NText>
                         <NText depth="3">
@@ -3224,7 +2970,6 @@ onMounted(async () => {
                       </div>
                     </NPopconfirm>
 
-                    <!-- Nút hủy hóa đơn (không popconfirm) -->
                     <NButton
                       v-else
                       text
@@ -3251,114 +2996,80 @@ onMounted(async () => {
         </div>
       </NCard>
 
-      <!-- Card: Giỏ hàng -->
       <NCard class="card" size="small">
         <template #header>
           <NText type="primary" strong>
             Giỏ hàng
           </NText>
         </template>
-
         <template #header-extra>
           <NSpace>
             <NButton type="primary" size="small" @click="openProductSelectionModal">
               Chọn sản phẩm
             </NButton>
+            <!-- <n-button type="primary" size="small" @click="openQrModal">
+              <template #icon>
+                <n-icon>
+                  <QrCodeOutline />
+                </n-icon>
+              </template>
+  Quét QR
+  </n-button> -->
           </NSpace>
         </template>
-
-        <!-- Hiển thị giỏ hàng -->
         <div v-if="state.gioHang.length > 0">
           <NDataTable
-            :columns="columnsGiohang"
-            :data="state.gioHang"
-            :max-height="280"
-            size="small"
+            :columns="columnsGiohang" :data="state.gioHang" :max-height="280" size="small"
             :pagination="{ pageSize: 5 }"
           />
         </div>
         <NEmpty v-else description="Không có sản phẩm nào trong giỏ hàng" size="small" />
       </NCard>
 
-      <!-- Card: Thông tin giao hàng (chỉ hiển thị khi bật giao hàng) -->
       <NCard v-if="isDeliveryEnabled" class="card" size="small">
         <template #header>
           <NText type="primary" strong>
             Thông tin người nhận
           </NText>
         </template>
-
         <NForm ref="deliveryForm" :model="deliveryInfo" label-placement="left" :label-width="140">
           <NGrid :cols="12" :x-gap="12" :y-gap="12">
-            <!-- Tên người nhận -->
             <NFormItemGi :span="6" path="tenNguoiNhan" label="Tên người nhận" required>
-              <NInput
-                v-model:value="deliveryInfo.tenNguoiNhan"
-                placeholder="Nhập tên người nhận"
-                clearable
-              />
+              <NInput v-model:value="deliveryInfo.tenNguoiNhan" placeholder="Nhập tên người nhận" clearable />
             </NFormItemGi>
 
-            <!-- Số điện thoại -->
             <NFormItemGi :span="6" path="sdtNguoiNhan" label="Số điện thoại" required>
-              <NInput
-                v-model:value="deliveryInfo.sdtNguoiNhan"
-                placeholder="Nhập số điện thoại"
-                clearable
-              />
+              <NInput v-model:value="deliveryInfo.sdtNguoiNhan" placeholder="Nhập số điện thoại" clearable />
             </NFormItemGi>
 
-            <!-- Tỉnh/Thành phố -->
             <NFormItemGi :span="4" path="tinhThanhPho" label="Tỉnh/Thành phố" required>
               <NSelect
-                v-model:value="deliveryInfo.tinhThanhPho"
-                placeholder="Chọn tỉnh/thành phố"
-                :options="provinces"
-                filterable
-                clearable
-                @update:value="onProvinceChange"
+                v-model:value="deliveryInfo.tinhThanhPho" placeholder="Chọn tỉnh/thành phố" :options="provinces"
+                filterable clearable @update:value="onProvinceChange"
               />
             </NFormItemGi>
 
-            <!-- Quận/Huyện -->
             <NFormItemGi :span="4" path="quanHuyen" label="Quận/Huyện" required>
               <NSelect
-                v-model:value="deliveryInfo.quanHuyen"
-                placeholder="Chọn quận/huyện"
-                :options="districts"
-                filterable
-                clearable
-                @update:value="onDistrictChange"
+                v-model:value="deliveryInfo.quanHuyen" placeholder="Chọn quận/huyện" :options="districts"
+                filterable clearable @update:value="onDistrictChange"
               />
             </NFormItemGi>
 
-            <!-- Phường/Xã -->
             <NFormItemGi :span="4" path="phuongXa" label="Phường/Xã" required>
               <NSelect
-                v-model:value="deliveryInfo.phuongXa"
-                placeholder="Chọn phường/xã"
-                :options="wards"
-                filterable
-                clearable
-                @update:value="onWardChange"
+                v-model:value="deliveryInfo.phuongXa" placeholder="Chọn phường/xã" :options="wards"
+                filterable clearable @update:value="onWardChange"
               />
             </NFormItemGi>
 
-            <!-- Địa chỉ cụ thể -->
             <NFormItemGi :span="12" path="diaChiCuThe" label="Địa chỉ cụ thể" required>
-              <NInput
-                v-model:value="deliveryInfo.diaChiCuThe"
-                placeholder="Nhập số nhà, tên đường..."
-                clearable
-              />
+              <NInput v-model:value="deliveryInfo.diaChiCuThe" placeholder="Nhập số nhà, tên đường..." clearable />
             </NFormItemGi>
 
-            <!-- Ghi chú -->
             <NFormItemGi :span="12" path="ghiChu" label="Ghi chú">
               <NInput
-                v-model:value="deliveryInfo.ghiChu"
-                type="textarea"
-                placeholder="Nhập ghi chú (nếu có)"
+                v-model:value="deliveryInfo.ghiChu" type="textarea" placeholder="Nhập ghi chú (nếu có)"
                 :rows="3"
               />
             </NFormItemGi>
@@ -3367,32 +3078,13 @@ onMounted(async () => {
       </NCard>
     </div>
 
-    <!-- ==================== CỘT PHẢI ==================== -->
     <div class="right-column">
-      <!-- Card: Thông tin khách hàng -->
       <NCard class="card" size="small">
         <template #header>
-          <NSpace justify="space-between" align="center">
-            <NText type="primary" strong>
-              Khách hàng
-            </NText>
-            <!-- Nút bỏ chọn khách hàng -->
-            <NButton
-              v-if="state.detailKhachHang"
-              type="error"
-              size="tiny"
-              text
-              @click="removeCustomer"
-            >
-              <template #icon>
-                <NIcon><CloseOutline /></NIcon>
-              </template>
-              Bỏ chọn
-            </NButton>
-          </NSpace>
+          <NText type="primary" strong>
+            Khách hàng
+          </NText>
         </template>
-
-        <!-- Hiển thị thông tin khách hàng đã chọn -->
         <div v-if="state.detailKhachHang">
           <NSpace vertical :size="16">
             <div>
@@ -3409,55 +3101,37 @@ onMounted(async () => {
             </div>
           </NSpace>
         </div>
-
-        <!-- Form thêm khách hàng mới -->
         <div v-else>
           <NSpace vertical :size="16">
             <div>
               <NText depth="3">
                 Tên khách hàng
               </NText>
-              <NInput
-                v-model:value="newCustomer.ten"
-                placeholder="Tên khách hàng"
-                class="mt-1"
-              />
+              <NInput v-model:value="newCustomer.ten" placeholder="Tên khách hàng" class="mt-1" />
             </div>
             <div>
               <NText depth="3">
                 Số điện thoại
               </NText>
-              <NInput
-                v-model:value="newCustomer.sdt"
-                placeholder="Số điện thoại"
-                class="mt-1"
-              />
+              <NInput v-model:value="newCustomer.sdt" placeholder="Số điện thoại" class="mt-1" />
             </div>
           </NSpace>
         </div>
-
         <template #footer>
           <NSpace>
             <NButton type="primary" secondary @click="showKhachHangModal = true">
               Chọn khách hàng
             </NButton>
-            <NButton
-              type="primary"
-              :loading="addCustomerLoading"
-              secondary
-              @click="addCustomer"
-            >
+            <NButton type="primary" :loading="addCustomerLoading" secondary @click="addCustomer">
               Thêm khách hàng
             </NButton>
           </NSpace>
         </template>
       </NCard>
 
-      <!-- Card: Danh sách voucher khả dụng -->
       <NCard
-        v-if="idHDS && state.gioHang.length > 0 && state.autoVoucherResult?.voucherApDung?.length > 0"
-        class="card"
-        size="small"
+        v-if="idHDS && state.autoVoucherResult?.voucherApDung?.length > 0"
+        class="card" size="small"
         :segmented="{ content: true }"
       >
         <template #header>
@@ -3481,10 +3155,7 @@ onMounted(async () => {
                   {{ selectedVoucher.code }}
                 </NText>
                 <NTag type="success" size="small">
-                  {{
-                    selectedVoucher.typeVoucher === 'PERCENTAGE'
-                      ? `${selectedVoucher.discountValue}%`
-                      : 'Giảm cố định'
+                  {{ selectedVoucher.typeVoucher === 'PERCENTAGE' ? `${selectedVoucher.discountValue}%` : 'Giảm cố định'
                   }}
                 </NTag>
               </NSpace>
@@ -3508,22 +3179,17 @@ onMounted(async () => {
           </NAlert>
         </div>
 
-        <!-- Danh sách voucher -->
+        <!-- Danh sách voucher có thể áp dụng -->
         <NScrollbar style="max-height: 200px;">
           <NList size="small" bordered>
             <NListItem
-              v-for="voucher in state.autoVoucherResult.voucherApDung"
-              :key="voucher.voucherId"
+              v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId"
               :class="{ 'active-voucher': selectedVoucher?.voucherId === voucher.voucherId }"
             >
               <NThing :title="voucher.code">
                 <template #avatar>
                   <NTag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
-                    {{
-                      voucher.typeVoucher === 'PERCENTAGE'
-                        ? `${voucher.discountValue}%`
-                        : 'Cố định'
-                    }}
+                    {{ voucher.typeVoucher === 'PERCENTAGE' ? `${voucher.discountValue}%` : 'Cố định' }}
                   </NTag>
                 </template>
                 <template #description>
@@ -3544,14 +3210,20 @@ onMounted(async () => {
                         {{ formatCurrency(voucher.dieuKien) }}
                       </NText>
                     </NSpace>
+                    <NSpace v-if="voucher.maxValue" justify="space-between">
+                      <NText depth="3" size="small">
+                        Tối đa:
+                      </NText>
+                      <NText depth="3" size="small">
+                        {{ formatCurrency(voucher.maxValue) }}
+                      </NText>
+                    </NSpace>
                   </NSpace>
                 </template>
               </NThing>
               <template #suffix>
                 <NButton
-                  type="primary"
-                  size="small"
-                  :disabled="selectedVoucher?.voucherId === voucher.voucherId"
+                  type="primary" size="small" :disabled="selectedVoucher?.voucherId === voucher.voucherId"
                   :loading="applyingVoucher === voucher.voucherId"
                   @click="selectVoucher(voucher)"
                 >
@@ -3561,13 +3233,23 @@ onMounted(async () => {
             </NListItem>
           </NList>
         </NScrollbar>
+
+        <template #footer>
+          <NSpace justify="space-between" align="center" style="width: 100%">
+            <NText depth="3" size="small">
+              Tự động chọn voucher tốt nhất
+            </NText>
+            <NButton v-if="selectedVoucher" type="error" size="tiny" text @click="removeVoucher">
+              Bỏ chọn
+            </NButton>
+          </NSpace>
+        </template>
       </NCard>
 
-      <!-- Card: Gợi ý mua thêm để được voucher tốt hơn -->
+      <!-- CARD GỢI Ý MUA THÊM (THÊM MỚI) -->
       <NCard
-        v-if="idHDS && state.gioHang.length > 0 && state.autoVoucherResult?.voucherTotHon?.length > 0"
-        class="card"
-        size="small"
+        v-if="idHDS && state.autoVoucherResult?.voucherTotHon?.length > 0"
+        class="card" size="small"
         :segmented="{ content: true }"
       >
         <template #header>
@@ -3586,8 +3268,7 @@ onMounted(async () => {
           <NList size="small" bordered>
             <NListItem
               v-for="(suggestion, index) in state.autoVoucherResult.voucherTotHon"
-              :key="suggestion.voucherId"
-              :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }"
+              :key="suggestion.voucherId" :class="{ 'active-suggestion': index === 0 && suggestion.hieuQua >= 50 }"
             >
               <NThing :title="suggestion.code">
                 <template #avatar>
@@ -3613,25 +3294,51 @@ onMounted(async () => {
                         +{{ formatCurrency(suggestion.giamThem) }}
                       </NText>
                     </NSpace>
+                    <NSpace justify="space-between">
+                      <NText depth="3" size="small">
+                        Tổng giảm mới:
+                      </NText>
+                      <NText strong class="text-success" size="small">
+                        {{ formatCurrency(suggestion.giamGiaMoi) }}
+                      </NText>
+                    </NSpace>
+                    <NSpace justify="space-between">
+                      <NText depth="3" size="small">
+                        Điều kiện:
+                      </NText>
+                      <NText depth="3" size="small">
+                        {{ formatCurrency(suggestion.dieuKien) }}
+                      </NText>
+                    </NSpace>
                   </NSpace>
                 </template>
               </NThing>
               <template #suffix>
-                <NButton
-                  type="warning"
-                  size="small"
-                  :loading="applyingBetterVoucher === suggestion.voucherId"
-                  @click="showSuggestionDetail(suggestion)"
-                >
-                  Chi tiết
-                </NButton>
+                <NSpace vertical :size="4" style="align-items: flex-end;">
+                  <NButton
+                    type="warning" size="small" :loading="applyingBetterVoucher === suggestion.voucherId"
+                    @click="showSuggestionDetail(suggestion)"
+                  >
+                    Chi tiết
+                  </NButton>
+                  <NText v-if="suggestion.hieuQua >= 50" type="error" size="tiny" strong>
+                    Rất hiệu quả!
+                  </NText>
+                </NSpace>
               </template>
             </NListItem>
           </NList>
         </NScrollbar>
+
+        <template #footer>
+          <NText depth="3" size="small">
+            <NIcon :component="InformationCircleOutline" style="margin-right: 4px;" />
+            Hiệu quả: % giảm thêm trên số tiền mua thêm
+          </NText>
+        </template>
       </NCard>
 
-      <!-- Card: Thông tin đơn hàng và thanh toán -->
+      <!-- CARD THÔNG TIN ĐƠN HÀNG (CẬP NHẬT) -->
       <NCard class="card" size="small">
         <template #header>
           <NSpace justify="space-between" align="center" style="width: 100%">
@@ -3642,22 +3349,15 @@ onMounted(async () => {
               <NText depth="3">
                 Giao hàng
               </NText>
-              <NSwitch
-                v-model:value="isDeliveryEnabled"
-                size="small"
-                @update:value="giaoHang"
-              />
+              <NSwitch v-model:value="isDeliveryEnabled" size="small" @update:value="giaoHang" />
               <NButton
-                v-if="state.gioHang.length > 0"
-                type="primary"
-                size="small"
-                :loading="autoApplying"
-                secondary
-                circle
+                type="primary" size="small" :loading="autoApplying" secondary circle
                 @click="triggerAutoApplyVoucher"
               >
                 <template #icon>
-                  <NIcon><RocketOutline /></NIcon>
+                  <NIcon>
+                    <RocketOutline />
+                  </NIcon>
                 </template>
               </NButton>
             </NSpace>
@@ -3665,39 +3365,46 @@ onMounted(async () => {
         </template>
 
         <NSpace vertical :size="16">
-          <!-- Mã giảm giá đã chọn -->
-          <div v-if="idHDS && state.gioHang.length > 0">
+          <!-- Phần chọn voucher -->
+          <div v-if="idHDS">
             <NText depth="3">
               Mã giảm giá
             </NText>
             <NSpace align="center" class="mt-1">
-              <NInput
-                v-model:value="selectedDiscountCode"
-                placeholder="Chọn mã giảm giá"
-                readonly
-                style="flex: 1"
-              >
+              <NInput v-model:value="selectedDiscountCode" placeholder="Chọn mã giảm giá" readonly style="flex: 1">
                 <template #prefix>
                   <NIcon :component="TicketOutline" />
                 </template>
               </NInput>
-              <NButton
-                v-if="selectedVoucher"
-                type="error"
-                size="small"
-                secondary
-                @click="removeVoucher"
-              >
+              <NButton v-if="selectedVoucher" type="error" size="small" secondary @click="removeVoucher">
                 Bỏ chọn
               </NButton>
             </NSpace>
+
+            <!-- Tâm thêm -->
+            <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2" />
           </div>
+
+          <!-- Code của toàn -->
+          <!-- <div v-if="hasBetterVoucherSuggestion" class="better-voucher-alert mt-2">
+              <NAlert type="warning" size="small" :show-icon="true">
+                <template #icon>
+                  <NIcon>
+                    <AlertCircleOutline />
+                  </NIcon>
+                </template>
+                Có voucher tốt hơn!
+                <NButton text type="primary" size="tiny" @click="applyBestSuggestion">
+                  Xem ngay
+                </NButton>
+              </NAlert>
+            </div>
+          </div> -->
 
           <NDivider style="margin: 8px 0" />
 
-          <!-- Chi tiết tổng tiền -->
+          <!-- Tổng tiền chi tiết -->
           <NSpace vertical :size="12">
-            <!-- Tổng tiền hàng -->
             <NSpace justify="space-between">
               <NText depth="3">
                 Tổng tiền hàng:
@@ -3707,8 +3414,16 @@ onMounted(async () => {
               </NText>
             </NSpace>
 
-            <!-- Giảm giá -->
-            <NSpace v-if="giamGia > 0 && tienHang > 0" justify="space-between">
+            <NSpace v-if="giamGia > 0" justify="space-between">
+              <NText depth="3">
+                Đợt giảm giá:
+              </NText>
+              <NText type="success">
+                -{{ formatCurrency(giamGia) }}
+              </NText>
+            </NSpace>
+
+            <NSpace v-if="giamGia > 0" justify="space-between">
               <NText depth="3">
                 Giảm giá:
               </NText>
@@ -3725,13 +3440,8 @@ onMounted(async () => {
                 </NText>
                 <NSpace align="center">
                   <NInputNumber
-                    v-model:value="shippingFee"
-                    :min="0"
-                    :formatter="formatCurrencyInput"
-                    :parser="parseCurrency"
-                    :disabled="isFreeShipping"
-                    size="small"
-                    style="width: 120px"
+                    v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
+                    :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 120px"
                   />
                   <img src="/images/ghn-logo.webp" alt="GHN Logo" style="height: 20px">
                 </NSpace>
@@ -3743,7 +3453,7 @@ onMounted(async () => {
 
             <NDivider style="margin: 8px 0" />
 
-            <!-- Tổng thanh toán -->
+            <!-- Tổng cuối cùng -->
             <NSpace justify="space-between">
               <NText strong size="large">
                 Tổng thanh toán:
@@ -3753,8 +3463,8 @@ onMounted(async () => {
               </NText>
             </NSpace>
 
-            <!-- Thông báo tiết kiệm -->
-            <NAlert v-if="giamGia > 0 && tienHang > 0" type="success" size="small" show-icon>
+            <!-- Tiết kiệm được -->
+            <NAlert v-if="giamGia > 0" type="success" size="small" show-icon>
               <NSpace justify="space-between" align="center">
                 <span>Bạn tiết kiệm được:</span>
                 <NText strong type="success">
@@ -3767,54 +3477,28 @@ onMounted(async () => {
           <NDivider style="margin: 12px 0" />
 
           <!-- Phương thức thanh toán -->
-          <NSpace v-if="state.gioHang.length > 0" vertical :size="8">
+          <NSpace vertical :size="8">
             <NText depth="3">
               Phương thức thanh toán:
             </NText>
             <NSpace>
               <NButton
-                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'"
-                size="small"
-                secondary
-                @click="handlePaymentMethod('0')"
+                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'" size="small"
+                secondary @click="handlePaymentMethod('0')"
               >
-                <template #icon>
-                  <NIcon><MoonOutline /></NIcon>
-                </template>
                 Tiền mặt
               </NButton>
               <NButton
-                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'"
-                size="small"
-                secondary
-                @click="handlePaymentMethod('1')"
+                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'" size="small"
+                secondary @click="handlePaymentMethod('1')"
               >
-                <template #icon>
-                  <NIcon><QrCodeOutline /></NIcon>
-                </template>
                 Chuyển khoản
-              </NButton>
-              <NButton
-                :type="state.currentPaymentMethod === '2' ? 'primary' : 'default'"
-                size="small"
-                secondary
-                @click="handlePaymentMethod('2')"
-              >
-                <template #icon>
-                  <NIcon><WalletOutline /></NIcon>
-                </template>
-                Tiền mặt + CK
               </NButton>
             </NSpace>
           </NSpace>
 
           <!-- Nút xác nhận thanh toán -->
-          <NPopconfirm
-            v-if="state.gioHang.length > 0"
-            positive-text="Đồng ý"
-            negative-text="Hủy"
-            @positive-click="xacNhan(0)"
-          >
+          <NPopconfirm positive-text="Đồng ý" negative-text="Hủy" @positive-click="xacNhan(0)">
             <template #trigger>
               <NButton type="primary" size="large" style="width: 100%; margin-top: 8px">
                 Xác nhận thanh toán
@@ -3824,353 +3508,233 @@ onMounted(async () => {
               Bạn có chắc chắn muốn xác nhận thanh toán hóa đơn này?
             </NText>
           </NPopconfirm>
-          <NButton
-            v-else
-            type="primary"
-            size="large"
-            style="width: 100%; margin-top: 8px"
-            disabled
-          >
-            Xác nhận thanh toán
-          </NButton>
         </NSpace>
       </NCard>
     </div>
 
-    <!-- ==================== MODAL ==================== -->
-
-    <!-- Modal thanh toán kết hợp (Tiền mặt + Chuyển khoản) -->
+    <!-- MODAL CHI TIẾT GỢI Ý (THÊM MỚI) -->
     <NModal
-      v-model:show="isBothPaymentModalVisible"
-      preset="dialog"
-      title="Thanh toán kết hợp"
+      v-model:show="showSuggestionDetailModal" preset="dialog" title="Chi tiết voucher tốt hơn"
       style="width: 500px"
+    >
+      <NCard v-if="selectedSuggestion" size="small">
+        <NSpace vertical :size="16">
+          <NSpace justify="space-between" align="center">
+            <NText strong size="large">
+              {{ selectedSuggestion.code }}
+            </NText>
+            <NTag :type="getSuggestionTagType(selectedSuggestion.hieuQua)" size="medium">
+              Hiệu quả: {{ selectedSuggestion.hieuQua }}%
+            </NTag>
+          </NSpace>
+
+          <NDivider />
+
+          <NSpace vertical :size="12">
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Tổng tiền hiện tại:
+              </NText>
+              <NText strong>
+                {{ formatCurrency(tienHang) }}
+              </NText>
+            </NSpace>
+
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Cần đạt tổng:
+              </NText>
+              <NText strong class="text-primary">
+                {{ formatCurrency(selectedSuggestion.dieuKien) }}
+              </NText>
+            </NSpace>
+
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Cần mua thêm:
+              </NText>
+              <NText strong class="text-warning">
+                {{ formatCurrency(selectedSuggestion.canMuaThem) }}
+              </NText>
+            </NSpace>
+
+            <NDivider />
+
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Giảm giá hiện tại:
+              </NText>
+              <NText depth="3">
+                {{ formatCurrency(giamGia) }}
+              </NText>
+            </NSpace>
+
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Giảm giá mới:
+              </NText>
+              <NText strong class="text-success">
+                {{ formatCurrency(selectedSuggestion.giamGiaMoi) }}
+              </NText>
+            </NSpace>
+
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Được thêm:
+              </NText>
+              <NText strong class="text-success">
+                +{{ formatCurrency(selectedSuggestion.giamThem) }}
+              </NText>
+            </NSpace>
+          </NSpace>
+
+          <NDivider />
+
+          <NSpace justify="space-between" align="center">
+            <NText depth="3" size="small">
+              Mua thêm <strong>{{ formatCurrency(selectedSuggestion.canMuaThem) }}</strong>
+              để được giảm thêm <strong>{{ formatCurrency(selectedSuggestion.giamThem) }}</strong>
+            </NText>
+            <NButton type="primary" @click="applySuggestionVoucher">
+              Áp dụng khi đủ điều kiện
+            </NButton>
+          </NSpace>
+        </NSpace>
+      </NCard>
+    </NModal>
+
+    <!-- MODAL CHỌN VOUCHER (CẬP NHẬT) -->
+    <NModal
+      v-model:show="showDiscountModal" preset="dialog" title="Chọn mã giảm giá" style="width: 700px"
       :mask-closable="false"
     >
       <NCard size="small" :bordered="false">
-        <NSpace vertical :size="20">
-          <!-- Thông tin đơn hàng -->
-          <NCard size="small" :bordered="true" embedded>
-            <NSpace vertical :size="12">
-              <NSpace justify="space-between">
-                <NText depth="3">
-                  Tổng tiền hàng:
-                </NText>
-                <NText strong>
-                  {{ formatCurrency(tienHang) }}
-                </NText>
-              </NSpace>
+        <n-tabs v-model:value="discountTab" type="segment">
+          <n-tab-pane name="auto" tab="Voucher khả dụng">
+            <div v-if="state.autoVoucherResult?.voucherApDung?.length > 0">
+              <NScrollbar style="max-height: 400px;">
+                <NList bordered class="discount-list">
+                  <NListItem v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId">
+                    <NThing :title="voucher.code">
+                      <template #avatar>
+                        <NTag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
+                          {{ voucher.typeVoucher === 'PERCENTAGE' ? `${voucher.discountValue}%` : 'Cố định' }}
+                        </NTag>
+                      </template>
+                      <template #description>
+                        <NSpace vertical :size="3" style="margin-top: 4px">
+                          <NText depth="3" size="small">
+                            Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
+                          </NText>
+                          <NText v-if="voucher.dieuKien > 0" depth="3" size="small">
+                            Điều kiện: {{ formatCurrency(voucher.dieuKien) }}
+                          </NText>
+                          <NText v-if="voucher.maxValue" depth="3" size="small">
+                            Tối đa: {{ formatCurrency(voucher.maxValue) }}
+                          </NText>
+                        </NSpace>
+                      </template>
+                    </NThing>
+                    <template #suffix>
+                      <NButton
+                        type="primary" size="small" :disabled="selectedVoucher?.voucherId === voucher.voucherId"
+                        @click="selectVoucher(voucher)"
+                      >
+                        {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
+                      </NButton>
+                    </template>
+                  </NListItem>
+                </NList>
+              </NScrollbar>
+            </div>
+            <NEmpty v-else description="Không có voucher nào phù hợp" />
+          </n-tab-pane>
 
-              <NSpace v-if="giamGia > 0" justify="space-between">
-                <NText depth="3">
-                  Giảm giá:
-                </NText>
-                <NText type="success">
-                  -{{ formatCurrency(giamGia) }}
-                </NText>
-              </NSpace>
-
-              <NSpace v-if="shippingFee > 0" justify="space-between">
-                <NText depth="3">
-                  Phí vận chuyển:
-                </NText>
-                <NText>{{ formatCurrency(shippingFee) }}</NText>
-              </NSpace>
-
-              <NDivider style="margin: 4px 0" />
-
-              <NSpace justify="space-between">
-                <NText strong>
-                  Tổng thanh toán:
-                </NText>
-                <NText strong type="primary" style="font-size: 18px">
-                  {{ formatCurrency(tongTien) }}
-                </NText>
-              </NSpace>
-
-              <NSpace v-if="tienKhachThanhToan > 0" justify="space-between">
-                <NText depth="3">
-                  Đã thanh toán:
-                </NText>
-                <NText type="success">
-                  {{ formatCurrency(tienKhachThanhToan) }}
-                </NText>
-              </NSpace>
-
-              <NSpace justify="space-between">
-                <NText depth="3">
-                  Còn lại:
-                </NText>
-                <NText type="error" strong>
-                  {{ formatCurrency(tongTien - tienKhachThanhToan) }}
-                </NText>
-              </NSpace>
-            </NSpace>
-          </NCard>
-
-          <!-- Form nhập tiền mặt -->
-          <NForm>
-            <NFormItem label="Số tiền mặt khách đưa" required>
-              <NInputNumber
-                v-model:value="amountPaid"
-                placeholder="Nhập số tiền mặt"
-                style="width: 100%"
-                :min="0"
-                :max="tongTien - tienKhachThanhToan"
-                :formatter="formatCurrencyInput"
-                :parser="parseCurrency"
-              >
-                <template #prefix>
-                  <NIcon><MoonOutline /></NIcon>
-                </template>
-              </NInputNumber>
-            </NFormItem>
-          </NForm>
-
-          <!-- Thông tin thanh toán -->
-          <NAlert type="info" :show-icon="true">
-            <template #icon>
-              <NIcon><InformationCircleOutline /></NIcon>
-            </template>
-            <NSpace vertical :size="8">
-              <div>
-                <NText>
-                  Tiền mặt: <strong>{{ formatCurrency(amountPaid || 0) }}</strong>
-                </NText>
-              </div>
-              <div>
-                <NText>
-                  Chuyển khoản:
-                  <strong class="text-primary">
-                    {{
-                      formatCurrency(
-                        Math.max(0, tongTien - tienKhachThanhToan - (amountPaid || 0)),
-                      )
-                    }}
-                  </strong>
-                </NText>
-              </div>
-            </NSpace>
-          </NAlert>
-
-          <!-- Chọn thứ tự thanh toán -->
-          <NCard size="small" :bordered="true">
-            <template #header>
-              <NText strong>
-                Thứ tự thanh toán
-              </NText>
-            </template>
-            <NSpace vertical :size="12">
-              <NRadioGroup v-model:value="bothPaymentMethod">
-                <NSpace vertical>
-                  <NRadio value="CASH_FIRST">
-                    <NSpace align="center">
-                      <NIcon><MoonOutline /></NIcon>
-                      <span>Tiền mặt trước, chuyển khoản sau</span>
-                    </NSpace>
-                  </NRadio>
-                  <NRadio value="BANKING_FIRST">
-                    <NSpace align="center">
-                      <NIcon><QrCodeOutline /></NIcon>
-                      <span>Chuyển khoản trước, tiền mặt sau</span>
-                    </NSpace>
-                  </NRadio>
-                </NSpace>
-              </NRadioGroup>
-            </NSpace>
-          </NCard>
-
-          <!-- QR Code nếu chọn chuyển khoản trước -->
-          <div v-if="bothPaymentMethod === 'BANKING_FIRST'" class="text-center">
-            <NDivider>Quét mã QR để chuyển khoản</NDivider>
-            <NImage
-              :src="qrCodeUrl"
-              width="200"
-              height="200"
-              object-fit="contain"
-              preview-disabled
-              class="mx-auto"
-            />
-            <NText depth="3" size="small" style="display: block; margin-top: 8px">
-              Số tiền cần chuyển:
-              {{
-                formatCurrency(Math.max(0, tongTien - tienKhachThanhToan - (amountPaid || 0)))
-              }}
-            </NText>
-          </div>
-        </NSpace>
+          <n-tab-pane v-if="state.autoVoucherResult?.voucherTotHon?.length > 0" name="suggestions" tab="Gợi ý mua thêm">
+            <NScrollbar style="max-height: 400px;">
+              <NList bordered class="discount-list">
+                <NListItem v-for="suggestion in state.autoVoucherResult.voucherTotHon" :key="suggestion.voucherId">
+                  <NThing :title="suggestion.code">
+                    <template #avatar>
+                      <NTag :type="getSuggestionTagType(suggestion.hieuQua)" size="small" round>
+                        {{ suggestion.hieuQua }}%
+                      </NTag>
+                    </template>
+                    <template #description>
+                      <NSpace vertical :size="3" style="margin-top: 4px">
+                        <NText depth="3" size="small">
+                          Cần mua thêm: {{ formatCurrency(suggestion.canMuaThem)
+                          }}
+                        </NText>
+                        <NText depth="3" size="small">
+                          Giảm thêm: +{{ formatCurrency(suggestion.giamThem) }}
+                        </NText>
+                        <NText depth="3" size="small">
+                          Điều kiện: {{ formatCurrency(suggestion.dieuKien) }}
+                        </NText>
+                      </NSpace>
+                    </template>
+                  </NThing>
+                  <template #suffix>
+                    <NButton type="warning" size="small" @click="showSuggestionDetail(suggestion)">
+                      Chi tiết
+                    </NButton>
+                  </template>
+                </NListItem>
+              </NList>
+            </NScrollbar>
+          </n-tab-pane>
+        </n-tabs>
       </NCard>
-
       <template #action>
         <NSpace justify="end">
-          <NButton @click="closeBothPaymentModal">
-            Hủy
+          <NButton v-if="selectedVoucher" @click="removeVoucher">
+            Bỏ chọn
           </NButton>
-          <NButton
-            type="primary"
-            :loading="bothPaymentLoading"
-            :disabled="amountPaid <= 0"
-            @click="confirmBothPayment"
-          >
-            <template #icon>
-              <NIcon><CheckmarkOutline /></NIcon>
-            </template>
-            Xác nhận thanh toán
+          <NButton type="primary" :loading="autoApplying" @click="triggerAutoApplyVoucher">
+            Tìm lại voucher
+          </NButton>
+          <NButton @click="showDiscountModal = false">
+            Đóng
           </NButton>
         </NSpace>
       </template>
     </NModal>
+  </div>
 
-    <!-- Modal chọn khách hàng -->
-    <NModal
-      v-model:show="showKhachHangModal"
-      preset="dialog"
-      title="Chọn khách hàng"
-      style="width: 90%; max-width: 1000px"
-      :mask-closable="false"
-    >
-      <NCard size="small" :bordered="false">
-        <NSpace vertical :size="16">
-          <!-- Ô tìm kiếm -->
-          <NInput
-            v-model:value="customerSearchQuery"
-            placeholder="Tìm kiếm theo tên hoặc số điện thoại..."
-            clearable
-          >
-            <template #prefix>
-              <NIcon><SearchOutline /></NIcon>
-            </template>
-          </NInput>
+  <!-- Modals -->
+  <NModal
+    v-model:show="showProductModal" preset="dialog" title="Chọn sản phẩm" style="width: 90%; max-width: 1400px"
+    :mask-closable="false"
+  >
+    <NCard size="small" :bordered="false">
+      <template #header>
+        <NSpace vertical :size="12">
+          <!-- Hàng 1: Tìm kiếm và khoảng giá -->
+          <NGrid :cols="24" :x-gap="12" :y-gap="12">
+            <!-- Ô tìm kiếm -->
+            <NGi :span="12">
+              <NInput v-model:value="localSearchQuery" placeholder="Tìm kiếm sản phẩm..." clearable />
+            </NGi>
 
-          <!-- Bảng danh sách khách hàng -->
-          <NDataTable
-            :columns="columnsKhachHang"
-            :data="state.khachHang"
-            :max-height="400"
-            size="small"
-            :pagination="{
-              page: state.paginationParams.page,
-              pageSize: state.paginationParams.size,
-              pageCount: Math.ceil(state.totalItemsKH / state.paginationParams.size),
-              showSizePicker: true,
-              pageSizes: [10, 20, 30, 40, 50],
-            }"
-            @update:page="handleCustomerPageChange"
-            @update:page-size="handleCustomerPageSizeChange"
-          />
-        </NSpace>
-      </NCard>
-    </NModal>
-
-    <!-- Modal chọn sản phẩm -->
-    <NModal
-      v-model:show="showProductModal"
-      preset="dialog"
-      title="Chọn sản phẩm"
-      style="width: 90%; max-width: 1400px"
-      :mask-closable="false"
-    >
-      <NCard size="small" :bordered="false">
-        <template #header>
-          <NSpace vertical :size="12">
-            <!-- Hàng 1: Tìm kiếm và khoảng giá -->
-            <NGrid :cols="24" :x-gap="12" :y-gap="12">
-              <NGi :span="12">
-                <NInput
-                  v-model:value="localSearchQuery"
-                  placeholder="Tìm kiếm sản phẩm..."
-                  clearable
-                />
-              </NGi>
-              <NGi :span="12">
-                <NFormItem label="Khoảng giá" label-placement="left">
-                  <NSpace vertical :size="12" style="width: 100%">
-                    <n-slider
-                      v-model:value="priceRange"
-                      range
-                      :step="100000"
-                      :min="stateMinMaxPrice.priceMin"
-                      :max="stateMinMaxPrice.priceMax"
-                      :format-tooltip="formatTooltipRangePrice"
-                      style="width: 100%"
-                    />
-                    <NSpace justify="space-between" style="width: 100%">
-                      <NText depth="3">
-                        {{ formatCurrency(priceRange[0]) }}
-                      </NText>
-                      <NText depth="3">
-                        {{ formatCurrency(priceRange[1]) }}
-                      </NText>
-                    </NSpace>
+            <!-- Khoảng giá với slider -->
+            <NGi :span="12">
+              <NFormItem label="Khoảng giá" label-placement="left">
+                <NSpace vertical :size="12" style="width: 100%">
+                  <n-slider
+                    v-model:value="priceRange" range :step="100000" :min="stateMinMaxPrice.priceMin"
+                    :max="stateMinMaxPrice.priceMax" :format-tooltip="formatTooltipRangePrice" style="width: 100%"
+                  />
+                  <NSpace justify="space-between" style="width: 100%">
+                    <NText depth="3">
+                      {{ formatCurrency(priceRange[0]) }}
+                    </NText>
+                    <NText depth="3">
+                      {{ formatCurrency(priceRange[1]) }}
+                    </NText>
                   </NSpace>
-                </NFormItem>
-              </NGi>
-            </NGrid>
-
-            <!-- Hàng 2: Bộ lọc thông số -->
-            <NGrid :cols="24" :x-gap="12" :y-gap="12">
-              <NGi :span="4">
-                <NSelect
-                  v-model:value="localColor"
-                  :options="ColorOptions"
-                  placeholder="Màu sắc"
-                  clearable
-                />
-              </NGi>
-              <NGi :span="4">
-                <NSelect
-                  v-model:value="localCPU"
-                  :options="CpuOptions"
-                  placeholder="CPU"
-                  clearable
-                />
-              </NGi>
-              <NGi :span="4">
-                <NSelect
-                  v-model:value="localGPU"
-                  :options="GpuOptions"
-                  placeholder="GPU"
-                  clearable
-                />
-              </NGi>
-              <NGi :span="4">
-                <NSelect
-                  v-model:value="localRAM"
-                  :options="RamOptions"
-                  placeholder="RAM"
-                  clearable
-                />
-              </NGi>
-              <NGi :span="4">
-                <NSelect
-                  v-model:value="localHardDrive"
-                  :options="HardDriveOptions"
-                  placeholder="Ổ cứng"
-                  clearable
-                />
-              </NGi>
-              <NGi :span="4">
-                <NSelect
-                  v-model:value="localSelectedMaterial"
-                  :options="MaterialOptions"
-                  placeholder="Chất liệu"
-                  clearable
-                />
-              </NGi>
-            </NGrid>
-
-            <!-- Hàng 3: Nút đặt lại bộ lọc -->
-            <NGrid :cols="24" :x-gap="12">
-              <NGi :span="24">
-                <NSpace justify="end">
-                  <NButton type="default" size="small" secondary @click="resetFilters">
-                    <template #icon>
-                      <NIcon><ReloadOutline /></NIcon>
-                    </template>
-                    Đặt lại bộ lọc
-                  </NButton>
                 </NSpace>
-
+              </NFormItem>
             </NGi>
           </NGrid>
 
@@ -4226,17 +3790,17 @@ onMounted(async () => {
         }" @update:page="handlePageChange" @update:page-size="handlePageSizeChange"
       /> -->
 
-        <NDataTable
-          :columns="columns"
-          :data="filteredProducts"
-          :max-height="400"
-          size="small"
-          :pagination="{
-            pageSize: 10,
-            showSizePicker: true,
-            pageSizes: [10, 20, 50],
-          }"
-         />  
+      <NDataTable
+        :columns="columns"
+        :data="filteredProducts"
+        :max-height="400"
+        size="small"
+        :pagination="{
+          pageSize: 10,
+          showSizePicker: true,
+          pageSizes: [10, 20, 50],
+        }"
+      />
     </NCard>
   </NModal>
 
@@ -4266,15 +3830,15 @@ onMounted(async () => {
           </div>
         </NSpace>
         <NInput
-            v-model:value="serialSearchQuery"
-            placeholder="Tìm theo số serial/IMEI..."
-            clearable
-            style="margin-top: 12px"
-            @clear="serialSearchQuery = ''"
-          >
-            <template #prefix>
-              <NIcon><SearchOutline /></NIcon>
-            </template>
+          v-model:value="serialSearchQuery"
+          placeholder="Tìm theo số serial/IMEI..."
+          clearable
+          style="margin-top: 12px"
+          @clear="serialSearchQuery = ''"
+        >
+          <template #prefix>
+            <NIcon><SearchOutline /></NIcon>
+          </template>
         </NInput>
       </template>
 
@@ -4309,128 +3873,154 @@ onMounted(async () => {
               Thêm {{ selectedSerialIds.length }} serial vào giỏ
             </NButton>
           </NSpace>
-        </template>
+        </NSpace>
+      </template>
+    </NCard>
+  </NModal>
 
-        <!-- Bảng danh sách sản phẩm -->
+  <NModal
+    v-model:show="showKhachHangModal" preset="dialog" title="Chọn khách hàng"
+    style="width: 90%; max-width: 1000px" :mask-closable="false"
+  >
+    <NCard size="small" :bordered="false">
+      <NSpace vertical :size="16">
+        <NInput v-model:value="customerSearchQuery" placeholder="Tìm kiếm theo tên hoặc số điện thoại..." clearable>
+          <template #prefix>
+            <NIcon>
+              <SearchOutline />
+            </NIcon>
+          </template>
+        </NInput>
+
         <NDataTable
-          :columns="columns"
-          :data="stateSP.products"
-          :max-height="400"
-          size="small"
-          :pagination="{
-            page: stateSP.paginationParams.page,
-            pageSize: stateSP.paginationParams.size,
-            pageCount: Math.ceil(stateSP.totalItems / stateSP.paginationParams.size),
+          :columns="columnsKhachHang" :data="state.khachHang" :max-height="400" size="small" :pagination="{
+            page: state.paginationParams.page,
+            pageSize: state.paginationParams.size,
+            pageCount: Math.ceil(state.totalItemsKH / state.paginationParams.size),
             showSizePicker: true,
             pageSizes: [10, 20, 30, 40, 50],
-          }"
-          @update:page="handlePageChange"
-          @update:page-size="handlePageSizeChange"
-        />
-      </NCard>
-    </NModal>
-
-    <!-- Modal chọn serial IMEI -->
-    <NModal
-      v-model:show="showSerialModal"
-      preset="dialog"
-      title="Chọn Serial Sản Phẩm"
-      style="width: 90%; max-width: 1200px"
-      :mask-closable="false"
-    >
-      <NCard size="small" :bordered="false">
-        <template #header>
-          <NSpace align="center" justify="space-between" class="serial-modal-header">
-            <div>
-              <NText strong>
-                {{ selectedProductDetail?.name }} - {{ selectedProductDetail?.code }}
-              </NText>
-              <NText depth="3" size="small" style="display: block; margin-top: 4px">
-                Giá: {{ formatCurrency(selectedProductDetail?.price || 0) }}
-              </NText>
-            </div>
-            <div style="text-align: right">
-              <NText type="primary" strong>
-                Còn {{ availableSerialsCount }} serial khả dụng
-              </NText>
-              <NText depth="3" size="small" style="display: block; margin-top: 4px">
-                Tổng: {{ selectedSerials.length }} serial
-              </NText>
-            </div>
-          </NSpace>
-        </template>
-
-        <!-- Loading -->
-        <div v-if="loadingSerials" style="text-align: center; padding: 40px">
-          <n-spin size="large">
-            <template #description>
-              Đang tải danh sách serial...
-            </template>
-          </n-spin>
-        </div>
-
-        <!-- Bảng danh sách serial -->
-        <NDataTable
-          v-else
-          :columns="serialColumns"
-          :data="selectedSerials"
-          :max-height="400"
-          size="small"
-          :pagination="{ pageSize: 10 }"
-          :loading="loadingSerials"
-          :bordered="false"
-        />
-
-        <template #footer>
-          <NSpace justify="space-between" align="center" style="width: 100%">
-            <NText depth="3">
-              Đã chọn {{ selectedSerialIds.length }} serial
-            </NText>
-            <NSpace>
-              <NButton @click="showSerialModal = false">
-                Hủy
-              </NButton>
-              <NButton
-                type="primary"
-                :disabled="selectedSerialIds.length === 0 || loadingSerials"
-                :loading="loadingSerials"
-                @click="addSerialToCart"
-              >
-                Thêm {{ selectedSerialIds.length }} serial vào giỏ
-              </NButton>
-            </NSpace>
-          </NSpace>
-        </template>
-      </NCard>
-    </NModal>
-
-    <!-- Modal QR VNPay -->
-    <NModal
-      v-model:show="isQrVNpayModalVisible"
-      preset="dialog"
-      title="Quét QR thanh toán"
-      positive-text="Đã thanh toán"
-      :mask-closable="false"
-      @positive-click="closeQrModalVnPay"
-    >
-      <NSpace vertical align="center" :size="16">
-        <NText depth="3">
-          Quét mã QR để thanh toán qua VNPay
-        </NText>
-        <NImage
-          src="/images/qr.png"
-          width="200"
-          height="200"
-          object-fit="contain"
-          preview-disabled
+          }" @update:page="handleCustomerPageChange" @update:page-size="handleCustomerPageSizeChange"
         />
       </NSpace>
-    </NModal>
-  </div>
+    </NCard>
+  </NModal>
+
+  <NModal
+    v-model:show="isBothPaymentModalVisible" preset="dialog" title="Thanh toán kết hợp" positive-text="Xác nhận"
+    negative-text="Hủy" :loading="bothPaymentLoading" @positive-click="confirmBothPayment"
+    @negative-click="closeBothPaymentModal"
+  >
+    <NSpace vertical :size="16">
+      <NText depth="3">
+        Quét QR để thanh toán phần còn lại
+      </NText>
+      <NImage src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
+      <NForm :model="paymentForm">
+        <NFormItem label="Số tiền khách đưa (VND)" path="amountPaid">
+          <NInputNumber v-model:value="amountPaid" placeholder="Nhập số tiền" style="width: 100%" :min="0" />
+        </NFormItem>
+      </NForm>
+      <NSpace vertical :size="8">
+        <NSpace justify="space-between">
+          <NText depth="3">
+            Tổng tiền khách đã trả:
+          </NText>
+          <NText strong>
+            {{ formatCurrency(tienKhachThanhToan + (amountPaid || 0)) }}
+          </NText>
+        </NSpace>
+        <NSpace justify="space-between">
+          <NText depth="3">
+            Tiền còn thiếu:
+          </NText>
+          <NText type="error" strong>
+            {{ formatCurrency(Math.max(0, tongTien - (tienKhachThanhToan + (amountPaid || 0)))) }}
+          </NText>
+        </NSpace>
+      </NSpace>
+    </NSpace>
+  </NModal>
+
+  <NModal
+    v-model:show="isQrVNpayModalVisible" preset="dialog" title="Quét QR thanh toán" positive-text="Đã thanh toán"
+    :mask-closable="false" @positive-click="closeQrModalVnPay"
+  >
+    <NSpace vertical align="center" :size="16">
+      <NText depth="3">
+        Quét mã QR để thanh toán qua VNPay
+      </NText>
+      <NImage src="/images/qr.png" width="200" height="200" object-fit="contain" preview-disabled />
+    </NSpace>
+  </NModal>
+
+  <NModal
+    v-model:show="showDeliveryModal" preset="dialog" title="Áp dụng phiếu giảm giá tốt hơn"
+    positive-text="Áp dụng" negative-text="Không" :mask-closable="false" @positive-click="confirmQuantityP"
+    @negative-click="closeModalP"
+  >
+    <NSpace vertical align="center" :size="16">
+      <NText>Đang có một phiếu giảm giá tốt hơn</NText>
+      <NText type="primary" strong>
+        {{ phieuNgon }}
+      </NText>
+      <NText depth="3">
+        Bạn có muốn áp dụng không?
+      </NText>
+    </NSpace>
+  </NModal>
+
+  <NModal
+    v-model:show="isQrModalVisible" preset="dialog" title="Quét mã QR sản phẩm" :mask-closable="false"
+    @after-leave="stopQrScanning"
+  >
+    <NCard size="small" :bordered="false">
+      <div id="reader" style="width: 100%; max-width: 400px; margin: 0 auto;" />
+      <NAlert v-if="!hasCamera" type="error" title="Lỗi camera" class="mt-2">
+        Không tìm thấy camera hoặc không có quyền truy cập camera.
+      </NAlert>
+    </NCard>
+  </NModal>
+
+  <NModal
+    v-model:show="showDiscountModal" preset="dialog" title="Chọn mã giảm giá" style="width: 600px"
+    :mask-closable="false"
+  >
+    <NCard size="small" :bordered="false">
+      <NList v-if="state.discountList.length > 0" class="discount-list">
+        <NListItem v-for="item in state.discountList" :key="item.id">
+          <NThing :title="item.ma" :description="item.ten">
+            <template #avatar>
+              <NTag type="success" size="small">
+                {{ formatCurrency(item.giaTriGiamThucTe) }}
+              </NTag>
+            </template>
+          </NThing>
+          <template #suffix>
+            <NButton
+              type="primary" size="small" :disabled="!!selectedDiscount && selectedDiscount.id === item.id"
+              @click="selectDiscount(item)"
+            >
+              {{ selectedDiscount?.id === item.id ? 'Đã chọn' : 'Chọn' }}
+            </NButton>
+          </template>
+        </NListItem>
+      </NList>
+      <NEmpty v-else description="Không có mã giảm giá nào phù hợp" />
+    </NCard>
+    <template #action>
+      <NSpace justify="end">
+        <NButton v-if="selectedDiscount" @click="resetDiscount">
+          Bỏ chọn
+        </NButton>
+        <NButton @click="showDiscountModal = false">
+          Đóng
+        </NButton>
+      </NSpace>
+    </template>
+  </NModal>
 </template>
 
 <style scoped>
-/* ==================== LAYOUT STYLES ==================== */
 .main-layout {
   display: flex;
   gap: 16px;
@@ -4454,7 +4044,10 @@ onMounted(async () => {
   gap: 16px;
 }
 
-/* ==================== PENDING INVOICE STYLES ==================== */
+.top-header {
+  margin-bottom: 8px;
+}
+
 .pending-invoices-container {
   width: 100%;
 }
@@ -4490,48 +4083,32 @@ onMounted(async () => {
   margin-bottom: 8px;
 }
 
-/* ==================== UTILITY STYLES ==================== */
+.delete-invoice-btn {
+  margin-left: 4px;
+}
+
+.discount-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 .mt-1 {
   margin-top: 4px;
 }
 
-.mt-2 {
-  margin-top: 8px;
+.filter-price-range {
+  background: #f5f5f5;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid #e0e0e0;
 }
 
-.mb-3 {
-  margin-bottom: 12px;
-}
-
-.text-primary {
-  color: #18a058;
-}
-
-.text-warning {
-  color: #f0a020;
-}
-
-.text-success {
-  color: #18a058;
-}
-
-.text-center {
-  text-align: center;
-}
-
-.mx-auto {
-  margin-left: auto;
-  margin-right: auto;
-}
-
-/* ==================== MODAL STYLES ==================== */
 .serial-modal-header {
   border-bottom: 1px solid #f0f0f0;
   padding-bottom: 12px;
   margin-bottom: 16px;
 }
 
-/* ==================== RESPONSIVE STYLES ==================== */
 @media (max-width: 1200px) {
   .main-layout {
     flex-direction: column;
@@ -4554,8 +4131,19 @@ onMounted(async () => {
   }
 }
 
-/* ==================== NAIVE UI OVERRIDES ==================== */
+/* Style cho checkbox trong bảng serial */
 :deep(.n-checkbox) {
   margin-right: 0;
+}
+
+/* Responsive cho bảng */
+@media (max-width: 768px) {
+  .main-layout {
+    padding: 8px;
+  }
+
+  .n-card {
+    margin-bottom: 12px;
+  }
 }
 </style>
