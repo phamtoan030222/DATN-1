@@ -61,6 +61,19 @@ export interface HoaDonResponse {
   countByStatus: Record<string, number>
 }
 
+// ==================== IMEI INTERFACES ====================
+
+export interface IMEIItem {
+  id: string
+  code: string
+  imeiCode?: string
+  status: number
+  statusText: string
+  assignedAt?: string
+  orderType?: string
+  source?: string
+}
+
 // ==================== CHI TIẾT HÓA ĐƠN ====================
 
 export interface ParamsGetHoaDonCT extends PaginationParams {
@@ -71,7 +84,7 @@ export interface LichSuTrangThaiItem {
   id: number
   trangThai: number
   tenTrangThai: string
-  thoiGian: string // ISO string
+  thoiGian: string
   ghiChu: string
   nhanVien: string | null
   maNhanVien: string | null
@@ -92,7 +105,7 @@ export interface HoaDonChiTietItem {
   phuongThucThanhToan: string | null
   tenNhanVien: string | null
 
-  // Thông tin sản phẩm (có thể null nếu hóa đơn không có sản phẩm)
+  // Thông tin sản phẩm
   maHoaDonChiTiet: string | null
   tenSanPham: string | null
   anhSanPham: string | null
@@ -103,6 +116,12 @@ export interface HoaDonChiTietItem {
   giaBan: number | null
   thanhTien: number | null
   tongTien: number | null
+
+  // THÔNG TIN IMEI - QUAN TRỌNG
+  danhSachImei?: string | string[] | null
+  soLuongImei?: number | null
+  productDetailId?: string | null
+  invoiceId?: string | null
 
   // Thông tin khách hàng
   tenKhachHang: string | null
@@ -119,7 +138,7 @@ export interface HoaDonChiTietItem {
   tenVoucher: string | null
 
   // Lịch sử trạng thái
-  lichSuTrangThai: string // JSON string, cần parse
+  lichSuTrangThai: string
 
   // Các trường khác
   thoiGian: string | null
@@ -127,70 +146,8 @@ export interface HoaDonChiTietItem {
   xuatSu: string | null
   hoanPhi: number | null
   thanhTienSP: number | null
-
-  danhSachImei?: string | null
-  soLuongImei?: number | null
-  productDetailId?: string | null
-  invoiceId?: string | null
 }
 
-// Thêm interface cho IMEI
-export interface IMEIItem {
-  id: string
-  code: string
-  imeiCode: string
-  status: number
-  statusText: string
-}
-
-export function parseIMEIList(data: any): IMEIItem[] {
-  try {
-    if (!data)
-      return []
-
-    // Trường hợp 1: data là string JSON
-    if (typeof data === 'string') {
-      // Xử lý string có thể bị escape
-      let jsonString = data
-      if (jsonString.startsWith('"') && jsonString.endsWith('"')) {
-        jsonString = jsonString.slice(1, -1)
-      }
-
-      // Có thể là array JSON hoặc string chứa array JSON
-      if (jsonString.startsWith('[') && jsonString.endsWith(']')) {
-        return JSON.parse(jsonString) as IMEIItem[]
-      }
-
-      // Thử parse lại
-      const parsed = JSON.parse(jsonString)
-      return Array.isArray(parsed) ? parsed : []
-    }
-
-    // Trường hợp 2: data là array của string JSON
-    if (Array.isArray(data) && data.length > 0) {
-      // data[0] là string JSON chứa array IMEI
-      const firstItem = data[0]
-      if (typeof firstItem === 'string') {
-        let jsonString = firstItem
-        if (jsonString.startsWith('"') && jsonString.endsWith('"')) {
-          jsonString = jsonString.slice(1, -1)
-        }
-        return JSON.parse(jsonString) as IMEIItem[]
-      }
-    }
-
-    // Trường hợp 3: data đã là array của object
-    if (Array.isArray(data)) {
-      return data as IMEIItem[]
-    }
-
-    return []
-  }
-  catch (error) {
-    console.error('Error parsing IMEI list:', error, data)
-    return []
-  }
-}
 export interface HoaDonChiTietResponse {
   content: HoaDonChiTietItem[]
   pageable: {
@@ -360,6 +317,131 @@ export async function getHoaDonChiTiets(params: ParamsGetHoaDonCT): Promise<Defa
   }
 }
 
+// ==================== IMEI PARSING FUNCTIONS ====================
+
+/**
+ * Parse danh sách IMEI từ dữ liệu API
+ * Xử lý được nhiều định dạng:
+ * - string JSON: "[{\"id\":\"...\",\"code\":\"...\"}]"
+ * - array of strings: ["[{\"id\":\"...\",\"code\":\"...\"}]"]
+ * - array of objects: [{id: "...", code: "..."}]
+ * - object: {id: "...", code: "..."}
+ */
+export function parseIMEIList(data: any): IMEIItem[] {
+  try {
+    if (!data)
+      return []
+
+    console.log('parseIMEIList input:', data, typeof data)
+
+    // Trường hợp 1: data là mảng
+    if (Array.isArray(data)) {
+      // Kiểm tra nếu phần tử đầu là string (có thể là JSON string)
+      if (data.length > 0 && typeof data[0] === 'string') {
+        try {
+          const result: IMEIItem[] = []
+          for (const item of data) {
+            if (typeof item === 'string') {
+              // Xử lý string có thể bị escape
+              let jsonString = item
+
+              // Bỏ dấu nháy kép ở đầu và cuối nếu có
+              if (jsonString.startsWith('"') && jsonString.endsWith('"')) {
+                jsonString = jsonString.slice(1, -1)
+              }
+
+              // Giải mã các ký tự escape
+              jsonString = jsonString.replace(/\\"/g, '"')
+
+              // Parse JSON
+              const parsed = JSON.parse(jsonString)
+
+              if (Array.isArray(parsed)) {
+                result.push(...parsed)
+              }
+              else if (typeof parsed === 'object' && parsed !== null) {
+                result.push(parsed)
+              }
+            }
+          }
+          return result
+        }
+        catch (e) {
+          console.warn('Error parsing IMEI string array:', e)
+          return []
+        }
+      }
+      // Đã là mảng objects
+      return data as IMEIItem[]
+    }
+
+    // Trường hợp 2: data là string JSON
+    if (typeof data === 'string') {
+      // Xử lý string có thể bị escape
+      let jsonString = data
+
+      // Bỏ dấu nháy kép ở đầu và cuối nếu có
+      if (jsonString.startsWith('"') && jsonString.endsWith('"')) {
+        jsonString = jsonString.slice(1, -1)
+      }
+
+      // Giải mã các ký tự escape
+      jsonString = jsonString.replace(/\\"/g, '"')
+
+      // Parse JSON
+      const parsed = JSON.parse(jsonString)
+
+      // Nếu parsed là array, trả về trực tiếp
+      if (Array.isArray(parsed)) {
+        return parsed as IMEIItem[]
+      }
+
+      // Nếu parsed là object, bọc trong array
+      if (typeof parsed === 'object' && parsed !== null) {
+        return [parsed as IMEIItem]
+      }
+
+      return []
+    }
+
+    // Trường hợp 3: data là object
+    if (typeof data === 'object' && data !== null) {
+      return [data as IMEIItem]
+    }
+
+    return []
+  }
+  catch (error) {
+    console.error('Error parsing IMEI list:', error, data)
+    return []
+  }
+}
+
+/**
+ * Debug function để kiểm tra dữ liệu IMEI
+ */
+export function debugIMEIData(item: HoaDonChiTietItem): void {
+  console.log('=== DEBUG IMEI DATA ===')
+  console.log('Product:', item.tenSanPham)
+  console.log('danhSachImei raw:', item.danhSachImei)
+  console.log('danhSachImei type:', typeof item.danhSachImei)
+  if (Array.isArray(item.danhSachImei)) {
+    console.log('danhSachImei is array, length:', item.danhSachImei.length)
+    item.danhSachImei.forEach((val, idx) => {
+      console.log(`  [${idx}]:`, val, typeof val)
+    })
+  }
+  console.log('soLuongImei:', item.soLuongImei)
+
+  const parsed = parseIMEIList(item.danhSachImei)
+  console.log('parsed IMEI list:', parsed)
+  console.log('parsed length:', parsed.length)
+  parsed.forEach((imei, idx) => {
+    console.log(`  parsed[${idx}]:`, imei)
+  })
+  console.log('=== END DEBUG ===')
+}
+
 // ==================== HELPER FUNCTIONS ====================
 
 /**
@@ -450,6 +532,8 @@ export interface SanPhamTrongHoaDon {
   giaBan: number
   thanhTien: number
   tongTien: number
+  danhSachImei?: IMEIItem[]
+  soLuongImei?: number
 }
 
 export function extractSanPhamList(items: HoaDonChiTietItem[]): SanPhamTrongHoaDon[] {
@@ -466,6 +550,8 @@ export function extractSanPhamList(items: HoaDonChiTietItem[]): SanPhamTrongHoaD
       giaBan: item.giaBan || 0,
       thanhTien: item.thanhTien || 0,
       tongTien: item.tongTien || 0,
+      danhSachImei: parseIMEIList(item.danhSachImei),
+      soLuongImei: item.soLuongImei || 0,
     }))
 }
 
@@ -473,9 +559,9 @@ export function extractSanPhamList(items: HoaDonChiTietItem[]): SanPhamTrongHoaD
 
 export interface ADChangeStatusRequest {
   maHoaDon: string
-  statusTrangThaiHoaDon: number // Số ordinal (0, 1, 2...)
+  statusTrangThaiHoaDon: number
   note?: string
-  idNhanVien?: string // Có thể để null
+  idNhanVien?: string
 }
 
 export interface ADChangeStatusResponse {
@@ -560,5 +646,3 @@ export function getTrangThaiText(trangThai: string | number): string {
 
   return statusMap[trangThai] || 'Không xác định'
 }
-
-// export function updateTrangThaiHoaDon()

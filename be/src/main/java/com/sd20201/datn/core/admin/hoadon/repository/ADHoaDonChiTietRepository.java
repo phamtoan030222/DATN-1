@@ -30,7 +30,7 @@ SELECT
 
     v.code AS maVoucher,
     v.name AS tenVoucher,
-    (hd.total_amount - hd.total_amount_after_decrease) AS giaTriVoucher,
+    COALESCE(hd.total_amount - hd.total_amount_after_decrease, 0) AS giaTriVoucher,
 
     s.name AS tenNhanVien,
 
@@ -39,25 +39,23 @@ SELECT
     spct.url_image AS anhSanPham,
     brand.name AS thuongHieu,
     color.name AS mauSac,
-    CONCAT(ram.name, 'GB - ', hard_drive.name, 'GB') AS size,
+    CONCAT(COALESCE(ram.name, ''), 'GB - ', COALESCE(hard_drive.name, ''), 'GB') AS size,
 
     hd.trang_thai_hoa_don AS trangThaiHoaDon,
     hd.created_date AS ngayTao,
-    hd.shipping_fee AS phiVanChuyen,
+    COALESCE(hd.shipping_fee, 0) AS phiVanChuyen,
     hd.description AS phuongThucThanhToan,
 
-    -- Tổng tiền hóa đơn
     (
-        SELECT SUM(hdsub.quantity * hdsub.price)
+        SELECT COALESCE(SUM(hdsub.quantity * hdsub.price),0)
         FROM invoice_detail hdsub
         WHERE hdsub.id_invoice = hd.id
     ) AS thanhTien,
 
-    -- Khách hàng
-    kh.name AS tenKhachHang,
-    kh.phone AS sdtKH,
-    kh.email AS email,
-    hd.address_receiver AS diaChi,
+    COALESCE(kh.name,'') AS tenKhachHang,
+    COALESCE(kh.phone,'') AS sdtKH,
+    COALESCE(kh.email,'') AS email,
+    COALESCE(hd.address_receiver,'') AS diaChi,
 
     -- ===== LỊCH SỬ TRẠNG THÁI =====
     (
@@ -76,8 +74,8 @@ SELECT
                         ELSE 'Không xác định'
                     END,
                 'thoiGian', lst.thoi_gian,
-                'ghiChu', lst.note,
-                'nhanVien', nv.name
+                'ghiChu', COALESCE(lst.note,''),
+                'nhanVien', COALESCE(nv.name,'')
             )
         )
         FROM lich_su_trang_thai_hoa_don lst
@@ -86,23 +84,29 @@ SELECT
     ) AS lichSuTrangThai,
 
     -- ===== DANH SÁCH IMEI =====
-    (
-        SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
-                'id', i.id,
-                'code', i.code,
-                'status', i.trang_thai_imei,
-                'statusText',
-                    CASE i.trang_thai_imei
-                        WHEN 1 THEN 'Đã đặt'
-                        WHEN 2 THEN 'Đã bán'
-                        WHEN 4 THEN 'Đang bảo hành'
-                        ELSE 'Không xác định'
-                    END
+    COALESCE(
+        (
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'id', i.id,
+                    'code', i.code,
+                    'status', i.trang_thai_imei,
+                    'statusText',
+                        CASE i.trang_thai_imei
+                            WHEN 0 THEN 'Khả dụng'
+                            WHEN 1 THEN 'Đã đặt'
+                            WHEN 2 THEN 'Đã bán'
+                            WHEN 3 THEN 'Lỗi'
+                            WHEN 4 THEN 'Đang bảo hành'
+                            ELSE 'Không xác định'
+                        END,
+                    'assignedAt', i.created_date
+                )
             )
-        )
-        FROM imei i
-        WHERE i.id_invoice_detail = hdct.id
+            FROM imei i
+            WHERE i.id_invoice_detail = hdct.id
+        ),
+        JSON_ARRAY()
     ) AS danhSachImei,
 
     -- ===== SỐ LƯỢNG IMEI =====
@@ -113,40 +117,20 @@ SELECT
     ) AS soLuongImei
 
 FROM invoice hd
-
-LEFT JOIN invoice_detail hdct 
-       ON hdct.id_invoice = hd.id
-
-LEFT JOIN product_detail spct 
-       ON hdct.id_product_detail = spct.id
-
-LEFT JOIN product sp 
-       ON spct.id_product = sp.id
-
-LEFT JOIN brand brand 
-       ON sp.id_brand = brand.id
-
-LEFT JOIN color color 
-       ON spct.id_color = color.id
-
-LEFT JOIN ram ram 
-       ON spct.id_ram = ram.id
-
-LEFT JOIN hard_drive hard_drive 
-       ON spct.id_hard_drive = hard_drive.id
-
-LEFT JOIN customer kh 
-       ON hd.id_customer = kh.id
-
-LEFT JOIN voucher v 
-       ON hd.id_voucher = v.id
-
-LEFT JOIN staff s 
-       ON hd.id_staff = s.id
+INNER JOIN invoice_detail hdct ON hdct.id_invoice = hd.id
+LEFT JOIN product_detail spct ON hdct.id_product_detail = spct.id
+LEFT JOIN product sp ON spct.id_product = sp.id
+LEFT JOIN brand brand ON sp.id_brand = brand.id
+LEFT JOIN color color ON spct.id_color = color.id
+LEFT JOIN ram ram ON spct.id_ram = ram.id
+LEFT JOIN hard_drive hard_drive ON spct.id_hard_drive = hard_drive.id
+LEFT JOIN customer kh ON hd.id_customer = kh.id
+LEFT JOIN voucher v ON hd.id_voucher = v.id
+LEFT JOIN staff s ON hd.id_staff = s.id
 
 WHERE hd.code = :maHoaDon
 
-ORDER BY hd.created_date DESC, hdct.created_date
+ORDER BY hdct.created_date ASC
 """,
             countQuery = """
 SELECT COUNT(*)

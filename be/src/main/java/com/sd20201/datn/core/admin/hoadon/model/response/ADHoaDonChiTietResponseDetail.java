@@ -9,7 +9,6 @@ public interface ADHoaDonChiTietResponseDetail {
     String getMaHoaDon();
     String getTenHoaDon();
     String getMaHoaDonChiTiet();
-
     String getInvoiceId();
 
     // Thông tin sản phẩm
@@ -20,11 +19,12 @@ public interface ADHoaDonChiTietResponseDetail {
     String getMauSac();
     String getSize();
     Integer getSoLuong();
-    BigDecimal getGiaBan(); // Thay Double bằng BigDecimal
+    BigDecimal getGiaBan();
 
     // Thông tin giá trị
-    BigDecimal getThanhTienSP(); // Thay Double bằng BigDecimal
-    BigDecimal getThanhTien(); // Thay Double bằng BigDecimal
+    BigDecimal getThanhTienSP();
+    BigDecimal getThanhTien();
+    BigDecimal getTongTien(); // Thêm field này
 
     // Thông tin khách hàng (từ invoice)
     String getTenKhachHang();
@@ -39,36 +39,35 @@ public interface ADHoaDonChiTietResponseDetail {
     String getDiaChi2();
 
     // Thông tin hóa đơn
-    String getLoaiHoaDon(); // TypeInvoice enum
-    String getTrangThaiHoaDon(); // EntityTrangThaiHoaDon enum
+    String getLoaiHoaDon();
+    String getTrangThaiHoaDon();
     LocalDateTime getThoiGian();
     Long getNgayTao();
-    BigDecimal getPhiVanChuyen(); // Thay Double bằng BigDecimal
+    BigDecimal getPhiVanChuyen();
 
     // Thông tin voucher
     String getMaVoucher();
     String getTenVoucher();
-    BigDecimal getGiaTriVoucher(); // Thay Double bằng BigDecimal
-    BigDecimal getTongTienSauGiam(); // Thay Double bằng BigDecimal
-    BigDecimal getTongTien(); // Thay Double bằng BigDecimal
+    BigDecimal getGiaTriVoucher();
+    BigDecimal getTongTienSauGiam();
 
-    // Thông tin thanh toán (không có trong entity Invoice)
-    String getPhuongThucThanhToan(); // Cần bổ sung vào entity
+    // Thông tin thanh toán
+    String getPhuongThucThanhToan();
 
-    // Thông tin nợ và hoàn phí (từ LichSuThanhToan)
-    BigDecimal getDuNo(); // Thay Double bằng BigDecimal
-    BigDecimal getHoanPhi(); // Thay Double bằng BigDecimal
+    // Thông tin nợ và hoàn phí
+    BigDecimal getDuNo();
+    BigDecimal getHoanPhi();
 
-    // Thêm các field mới
-    String getLichSuTrangThai(); // JSON string
+    // Lịch sử và trạng thái
+    String getLichSuTrangThai();
     String getTrangThaiText();
     LocalDateTime getThoiGianCapNhatCuoi();
 
-    List<String> getDanhSachImei();
-
+    // IMEI
+    String getDanhSachImei();  // Đổi từ List<String> thành String vì là JSON string
     Integer getSoLuongImei();
 
+    // Các trường khác
     String getProductDetailId();
     String getTenNhanVien();
-
 }

@@ -1578,7 +1578,7 @@ onMounted(async () => {
                 Tên sản phẩm
               </th>
               <th style="padding: 10px 8px; text-align: center; width: 140px;">
-                IMEI / Serial
+                Serial
               </th>
               <th style="padding: 10px 8px; text-align: right; width: 110px;">
                 Đơn giá (đ)
