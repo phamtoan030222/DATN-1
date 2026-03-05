@@ -217,6 +217,13 @@ const showStatusModal = ref(false)
 const selectedStatus = ref<number | null>(null)
 const statusNote = ref('')
 
+// Product IMEI modal
+const showProductImeiModal = ref(false)
+const selectedProductForModal = ref<DisplayProduct | null>(null)
+const imeiInputValue = ref('')
+const imeiSuggestions = ref<string[]>([])
+const showImeiSuggestions = ref(false)
+
 // Serial modal
 const showSerialModal = ref(false)
 const selectedProductItem = ref<HoaDonChiTietItem | null>(null)
@@ -233,8 +240,10 @@ const invoiceCode = computed(() => route.params.id as string || 'N/A')
 
 const requiredQuantity = computed(() => selectedProductItem.value?.soLuong || 0)
 
-const availableSerialsCount = computed(() => {
-  return selectedSerials.value.filter(s => s.imeiStatus === 'AVAILABLE').length
+const currentProductImeiList = computed(() => {
+  if (!selectedProductForModal.value) return []
+  const item = invoiceItems.value.find(i => i.id === selectedProductForModal.value!.id)
+  return item ? parseIMEIList(item.danhSachImei) : []
 })
 
 const hoaDonData = computed(() => {
@@ -250,13 +259,12 @@ const currentStatus = computed(() => Number(hoaDonData.value?.trangThaiHoaDon ||
 const isCompleted = computed(() => currentStatus.value === 4)
 const isCancelled = computed(() => currentStatus.value === 5)
 
-// Kiểm tra có hiển thị nút hủy đơn hàng không
+// Cho phép thay đổi IMEI: chỉ khi là đơn online VÀ đang ở trạng thái chờ xác nhận (0)
+const canChangeImei = computed(() => isOnlineInvoice.value && currentStatus.value === 0)
+
 const showCancelButton = computed(() => {
-  // Nếu đã hoàn thành hoặc đã hủy thì không hiển thị
   if (isCompleted.value || isCancelled.value)
     return false
-
-  // Chỉ hiển thị khi đơn hàng đang ở trạng thái chờ xác nhận (0)
   return currentStatus.value === 0
 })
 
@@ -480,7 +488,7 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
     }),
   },
   {
-    title: 'Serial/IMEI',
+    title: 'Serial',
     key: 'serialNumber',
     width: 180,
     render: row => h(NText, {
@@ -523,6 +531,51 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
   },
 ]
 
+// ==================== Product IMEI Modal Handlers ====================
+// [FIX] Đặt trước productColumns vì productColumns gọi các hàm này
+
+function openProductImeiModal(row: DisplayProduct) {
+  let targetItem: HoaDonChiTietItem | undefined
+
+  if (row.isImeiRow) {
+    const searchId = row.originalProductId ?? row.id
+    targetItem = invoiceItems.value.find(i => i.id === searchId)
+  }
+  else {
+    targetItem = invoiceItems.value.find(i => i.id === row.id)
+  }
+
+  if (!targetItem) {
+    message.error('Không tìm thấy thông tin sản phẩm')
+    return
+  }
+
+  selectedProductForModal.value = { ...targetItem, stt: row.stt, isImeiRow: false }
+  imeiInputValue.value = ''
+  imeiSuggestions.value = []
+  showImeiSuggestions.value = false
+  showProductImeiModal.value = true
+}
+
+function handleImeiInput(val: string) {
+  imeiInputValue.value = val
+  if (!val.trim()) {
+    showImeiSuggestions.value = false
+    imeiSuggestions.value = []
+    return
+  }
+  const existing = currentProductImeiList.value.map(i => i.code || i.imeiCode).filter(Boolean)
+  imeiSuggestions.value = existing.filter(code =>
+    code?.toLowerCase().includes(val.toLowerCase()),
+  )
+  showImeiSuggestions.value = imeiSuggestions.value.length > 0
+}
+
+function selectImeiSuggestion(code: string) {
+  imeiInputValue.value = code
+  showImeiSuggestions.value = false
+}
+
 // ==================== Product Columns ====================
 const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
   const baseColumns: DataTableColumns<DisplayProduct> = [
@@ -540,15 +593,17 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
       render: (row) => {
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
+        const isMainRow = !row.isImeiRow
 
-        const indentClass = row.isImeiRow ? 'ml-6' : ''
-
-        return h('div', { class: 'flex items-center gap-3' }, [
+        return h('div', {
+          class: `flex items-center gap-3 ${isMainRow ? 'cursor-pointer hover:opacity-80' : ''}`,
+          onClick: isMainRow ? () => openProductImeiModal(row) : undefined,
+        }, [
           h(NAvatar, {
             src: row.anhSanPham,
             size: row.isImeiRow ? 'small' : 'medium',
             round: false,
-            class: `border ${indentClass}`,
+            class: 'border',
             fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
           }),
           h('div', { class: 'flex-1 min-w-0' }, [
@@ -560,6 +615,7 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
               row.mauSac && h(NTag, { size: 'tiny', type: 'default', bordered: false }, { default: () => row.mauSac }),
             ]),
             h('div', { class: 'text-xs text-gray-500 mt-1 truncate' }, row.size || ''),
+            isMainRow && h('div', { class: 'text-xs text-purple-500 mt-1' }, '📋 Xem chi tiết SERIAL'),
           ]),
         ])
       },
@@ -573,11 +629,18 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
         if (!row.imeiCode) {
           return h('div', { class: 'text-center text-gray-400 italic text-sm' }, 'Không có Serial')
         }
-        return h('div', { class: 'space-y-1' }, [
-          h('div', {
-            class: 'font-mono font-bold text-center text-gray-800 text-sm p-1 bg-gray-50 rounded',
-          }, row.imeiCode),
-        ])
+
+        if (isCounterOrDelivery.value) {
+          return h('div', {
+            class: 'font-mono font-bold text-center text-purple-700 text-sm p-1 bg-purple-50 rounded cursor-pointer hover:bg-purple-100 transition-colors border border-purple-200',
+            onClick: () => openProductImeiModal(row),
+            title: 'Click để xem thông tin SERIAL',
+          }, row.imeiCode)
+        }
+
+        return h('div', {
+          class: 'font-mono font-bold text-center text-gray-800 text-sm p-1 bg-gray-50 rounded',
+        }, row.imeiCode)
       },
     },
     {
@@ -599,37 +662,89 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
       width: 120,
       align: 'center',
       render: (row) => {
-        if (row.isImeiRow)
-          return h('span', { class: 'text-gray-400 text-sm' }, 'Serial')
+        // Với isImeiRow: chỉ hiện nút ở hàng đầu tiên của nhóm (tránh hiện trùng)
+        // Xác định bằng cách check xem row này có phải IMEI đầu tiên của sản phẩm không
+        if (row.isImeiRow) {
+          const parentId = row.originalProductId ?? row.id
+          const parentItem = invoiceItems.value.find(i => i.id === parentId)
+          if (!parentItem)
+            return h('span', '')
 
+          const imeiList = parseIMEIList(parentItem.danhSachImei)
+          // Chỉ hiện nút ở hàng IMEI đầu tiên của sản phẩm
+          const firstImeiCode = imeiList[0]?.code || imeiList[0]?.imeiCode
+          if (row.imeiCode !== firstImeiCode)
+            return h('span', '')
+
+          const isFullySerialized = imeiList.length >= parentItem.soLuong
+
+          let btnLabel: string
+          let btnType: 'success' | 'warning' | 'primary' | 'default'
+          let tooltipText: string
+
+          if (isFullySerialized && canChangeImei.value) {
+            btnLabel = 'Thay đổi Serial'
+            btnType = 'warning'
+            tooltipText = 'Đơn chờ xác nhận — có thể thay đổi serial'
+          }
+          else {
+            btnLabel = 'Xem Serial'
+            btnType = 'success'
+            tooltipText = 'Xem danh sách serial đã gán'
+          }
+
+          return h(NSpace, { size: 8 }, () => [
+            h(NTooltip, null, {
+              trigger: () => h(NButton, {
+                type: btnType,
+                size: 'small',
+                secondary: true,
+                onClick: () => openProductImeiModal(row),
+              }, { default: () => btnLabel }),
+              default: () => tooltipText,
+            }),
+          ])
+        }
+
+        // Hàng sản phẩm chính (chưa có IMEI)
         const imeiList = parseIMEIList(row.danhSachImei)
         const hasImei = imeiList.length > 0
         const isFullySerialized = hasImei && imeiList.length >= row.soLuong
 
+        let btnLabel: string
+        let btnType: 'success' | 'warning' | 'primary' | 'default'
+        let tooltipText: string
+
+        if (!hasImei) {
+          btnLabel = 'Chọn Serial'
+          btnType = 'primary'
+          tooltipText = `Chọn serial cho sản phẩm (cần ${row.soLuong} serial)`
+        }
+        else if (isFullySerialized && canChangeImei.value) {
+          btnLabel = 'Thay đổi Serial'
+          btnType = 'warning'
+          tooltipText = 'Đơn chờ xác nhận — có thể thay đổi serial'
+        }
+        else if (isFullySerialized) {
+          btnLabel = 'Xem Serial'
+          btnType = 'success'
+          tooltipText = 'Xem danh sách serial đã gán'
+        }
+        else {
+          btnLabel = `Đã có ${imeiList.length}/${row.soLuong} Serial`
+          btnType = 'warning'
+          tooltipText = `Cần thêm ${row.soLuong - imeiList.length} serial nữa`
+        }
+
         return h(NSpace, { size: 8 }, () => [
           h(NTooltip, null, {
             trigger: () => h(NButton, {
-              type: isFullySerialized ? 'success' : hasImei ? 'warning' : 'primary',
+              type: btnType,
               size: 'small',
               secondary: true,
-              onClick: () => selectProductForSerial(row),
-              disabled: isFullySerialized,
-            }, {
-              default: () => {
-                if (isFullySerialized)
-                  return 'Đã có Serial'
-                if (hasImei)
-                  return `Đã có ${imeiList.length}/${row.soLuong} Serial`
-                return 'Chọn Serial'
-              },
-            }),
-            default: () => {
-              if (row.soLuong <= 0)
-                return 'Hết hàng'
-              if (isFullySerialized)
-                return 'Sản phẩm đã có đủ serial'
-              return `Chọn serial cho sản phẩm (cần ${row.soLuong} serial)`
-            },
+              onClick: () => openProductImeiModal(row),
+            }, { default: () => btnLabel }),
+            default: () => tooltipText,
           }),
         ])
       },
@@ -691,6 +806,11 @@ function formatTime(timestamp: number | undefined): string {
   catch {
     return 'N/A'
   }
+}
+
+// [FIX] Wrapper cho @blur thay vì gọi setTimeout trực tiếp trong template
+function hideImeiSuggestions() {
+  setTimeout(() => { showImeiSuggestions.value = false }, 150)
 }
 
 function formatDateTimeFromString(dateString: string | undefined): string {
@@ -1074,19 +1194,6 @@ function handleStepClick(stepKey: string): void {
   if (!isStepSelectable(stepKey))
     return
   selectedStatus.value = Number(stepKey)
-  showStatusModal.value = true
-}
-
-function handleComplete(): void {
-  if (isCompleted.value) {
-    message.warning('Đơn hàng đã hoàn thành')
-    return
-  }
-  selectedStatus.value = 4
-  showStatusModal.value = true
-}
-
-function handleUpdateStatus(): void {
   showStatusModal.value = true
 }
 
@@ -1485,7 +1592,6 @@ onMounted(async () => {
           <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.thoiGianCapNhatCuoi || hoaDonData?.ngayTao) }}</span>
         </div>
 
-        <!-- Nút hủy đơn hàng - Chỉ hiển thị khi đơn hàng ở trạng thái chờ xác nhận (0) và chưa hoàn thành -->
         <NButton
           v-if="showCancelButton"
           type="error"
@@ -1728,7 +1834,7 @@ onMounted(async () => {
                   {{ productCount }} sản phẩm
                 </p>
                 <p class="text-xs text-gray-500 mt-1">
-                  {{ imeiProductsCount }} IMEI
+                  {{ imeiProductsCount }} SERIAL
                 </p>
               </div>
               <div v-else>
@@ -2152,6 +2258,196 @@ onMounted(async () => {
           </div>
         </div>
       </div>
+    </NModal>
+
+    <!-- Product IMEI Info Modal -->
+    <NModal
+      v-model:show="showProductImeiModal"
+      preset="card"
+      title="Thông tin sản phẩm và SERIAL"
+      style="width: 480px; max-width: 95vw; border-radius: 16px;"
+      :bordered="false"
+      class="no-print"
+    >
+      <div v-if="selectedProductForModal" class="space-y-4">
+        <!-- Thông tin sản phẩm -->
+        <div class="flex items-center gap-4 p-4 bg-purple-50 rounded-xl border border-purple-100">
+          <NAvatar
+            :src="selectedProductForModal.anhSanPham"
+            :size="64"
+            :round="false"
+            class="border-2 border-purple-200 rounded-lg flex-shrink-0"
+            fallback-src="https://via.placeholder.com/64?text=No+Image"
+          />
+          <div class="flex-1 min-w-0">
+            <p class="font-bold text-gray-900 text-base truncate">
+              {{ selectedProductForModal.tenSanPham }}
+            </p>
+            <div class="flex flex-wrap gap-1 mt-1">
+              <NTag v-if="selectedProductForModal.size" size="tiny" type="default" :bordered="false">
+                {{ selectedProductForModal.size }}
+              </NTag>
+              <NTag v-if="selectedProductForModal.mauSac" size="tiny" type="default" :bordered="false">
+                {{ selectedProductForModal.mauSac }}
+              </NTag>
+              <NTag v-if="selectedProductForModal.thuongHieu" size="tiny" type="info" :bordered="false">
+                {{ selectedProductForModal.thuongHieu }}
+              </NTag>
+            </div>
+            <p class="text-orange-500 font-bold text-lg mt-2">
+              {{ formatCurrency(selectedProductForModal.giaBan) }}
+            </p>
+          </div>
+        </div>
+
+        <NDivider class="my-2" />
+
+        <!-- CÓ IMEI RỒI: Hiển thị danh sách -->
+        <template v-if="currentProductImeiList.length > 0">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <p class="text-sm font-semibold text-gray-700">
+                Mã SERIAL đã gán
+                <NTag size="tiny" type="success" class="ml-2">
+                  {{ currentProductImeiList.length }} SERIAL
+                </NTag>
+              </p>
+              <!-- Chỉ online + chờ xác nhận mới cho thay đổi -->
+              <NTag v-if="canChangeImei" size="tiny" type="warning">
+                Có thể thay đổi
+              </NTag>
+            </div>
+
+            <div class="space-y-2">
+              <div
+                v-for="(imei, idx) in currentProductImeiList"
+                :key="imei.id || idx"
+                class="flex items-center justify-between px-4 py-2 bg-gray-50 rounded-lg border border-gray-200"
+              >
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-gray-400 w-5">{{ idx + 1 }}.</span>
+                  <span class="font-mono font-semibold text-gray-800 text-sm tracking-wider">
+                    {{ imei.code || imei.imeiCode || '---' }}
+                  </span>
+                </div>
+                <NTag
+                  :type="IMEI_STATUS_CONFIG[imei.status]?.type || 'default'"
+                  size="small"
+                  round
+                >
+                  {{ IMEI_STATUS_CONFIG[imei.status]?.text || imei.status }}
+                </NTag>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- CHƯA CÓ IMEI: Cho chọn -->
+        <template v-else>
+          <div>
+            <p class="text-sm font-semibold text-gray-700 mb-3">
+              Mã SERIAL
+              <NTag size="tiny" type="info" class="ml-2">
+                Cần {{ selectedProductForModal.soLuong }} SERIAL
+              </NTag>
+            </p>
+
+            <!-- Input IMEI -->
+            <div class="relative">
+              <div class="flex gap-2">
+                <div class="flex-1 relative">
+                  <NInput
+                    :value="imeiInputValue"
+                    placeholder="Nhập SERIAL..."
+                    clearable
+                    @input="handleImeiInput"
+                    @focus="showImeiSuggestions = imeiSuggestions.length > 0"
+                    @blur="hideImeiSuggestions"
+                  >
+                    <template #prefix>
+                      <NIcon size="16" color="#9333ea">
+                        <CardOutline />
+                      </NIcon>
+                    </template>
+                  </NInput>
+
+                  <!-- Dropdown gợi ý IMEI -->
+                  <div
+                    v-if="showImeiSuggestions && imeiSuggestions.length > 0"
+                    class="absolute z-50 left-0 right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+                  >
+                    <div
+                      v-for="suggestion in imeiSuggestions"
+                      :key="suggestion"
+                      class="px-4 py-2 hover:bg-purple-50 cursor-pointer font-mono text-sm text-gray-700 border-b border-gray-50 last:border-0"
+                      @mousedown="selectImeiSuggestion(suggestion)"
+                    >
+                      {{ suggestion }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Nút scan -->
+                <NButton type="primary" secondary style="background: #ede9fe; border-color: #9333ea;">
+                  <template #icon>
+                    <NIcon color="#9333ea">
+                      <RefreshOutline />
+                    </NIcon>
+                  </template>
+                </NButton>
+
+                <!-- Nút chọn từ danh sách -->
+                <NButton
+                  type="primary"
+                  style="background: #9333ea; border-color: #9333ea;"
+                  @click="() => { showProductImeiModal = false; selectProductForSerial(selectedProductForModal!) }"
+                >
+                  <template #icon>
+                    <NIcon color="white">
+                      <ListOutline />
+                    </NIcon>
+                  </template>
+                </NButton>
+              </div>
+            </div>
+
+            <div class="mt-3 p-3 bg-yellow-50 rounded-lg border border-yellow-100 text-sm text-yellow-700">
+              ⚠️ Chưa có SERIAL nào được gán. Nhập hoặc chọn từ danh sách.
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <!-- Nút thay đổi IMEI: chỉ hiện khi online + chờ xác nhận + đã có IMEI -->
+          <NButton
+            v-if="canChangeImei && selectedProductForModal && currentProductImeiList.length > 0"
+            type="warning"
+            @click="() => { showProductImeiModal = false; selectProductForSerial(selectedProductForModal!) }"
+          >
+            <template #icon>
+              <NIcon><RefreshOutline /></NIcon>
+            </template>
+            Thay đổi SERIAL
+          </NButton>
+          <!-- Nút chọn IMEI: chỉ hiện khi chưa có IMEI -->
+          <NButton
+            v-else-if="selectedProductForModal && currentProductImeiList.length === 0"
+            type="primary"
+            style="background: #9333ea; border-color: #9333ea;"
+            @click="() => { showProductImeiModal = false; selectProductForSerial(selectedProductForModal!) }"
+          >
+            <template #icon>
+              <NIcon><ListOutline /></NIcon>
+            </template>
+            Chọn SERIAL từ danh sách
+          </NButton>
+          <NButton @click="showProductImeiModal = false">
+            Đóng
+          </NButton>
+        </div>
+      </template>
     </NModal>
   </div>
 </template>
