@@ -38,11 +38,10 @@ import {
 } from '@/service/api/client/product/productDetail.api'
 
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
-import { CartStore } from '@/utils/cartStore'
+import { themSanPham } from '@/service/api/client/banhang.api'
 import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
 import { getVouchers } from '@/service/api/client/discount/api.voucher'
 import { localStorageAction } from '@/utils'
-import { themSanPham } from '@/service/api/client/banhang.api'
 
 // --- CONFIG ---
 const route = useRoute()
@@ -106,7 +105,7 @@ async function addToCartAction(isBuyNow: boolean) {
 
   if (isBuyNow) {
     message.success('Đang chuyển đến thanh toán...')
-    router.push('/checkout')
+    await router.push({ name: 'Checkout'})
   }
   else {
     notification.success({
@@ -120,7 +119,7 @@ async function addToCartAction(isBuyNow: boolean) {
           {
             text: true,
             type: 'primary',
-            onClick: () => router.push('/cart'),
+            onClick: () => router.push({ name: 'Cart' }),
           },
           { default: () => 'Xem giỏ hàng ngay' },
         ),

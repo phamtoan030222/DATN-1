@@ -339,6 +339,10 @@ async function handleCheckout() {
       CartStore.clearCart()
       router.push('/order-success')
     }
+
+    if (!cartId.value) {
+      localStorageAction.remove(CUSTOMER_CART_ID)
+    }
     else {
       message.error(res.message || 'Đặt hàng thất bại')
     }
