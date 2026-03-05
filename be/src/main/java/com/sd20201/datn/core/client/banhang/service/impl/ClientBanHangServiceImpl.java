@@ -158,14 +158,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 
                 detail = invoiceDetailRepository.saveAndFlush(detail);
-
-                List<String> imeiIds = imeiRepository.findIdsAvailableImei(
-                        item.getProductDetailId(),
-                        ImeiStatus.AVAILABLE,
-                        PageRequest.of(0, item.getQuantity())
-                );
-
-                imeiRepository.updateImeiStatusIdIn(imeiIds, ImeiStatus.RESERVED, detail.getId());
             }
 
             // 3. Ghi log lịch sử trạng thái
