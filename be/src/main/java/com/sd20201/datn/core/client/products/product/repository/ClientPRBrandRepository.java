@@ -13,6 +13,7 @@ public interface ClientPRBrandRepository extends BrandRepository {
         b.id as value
         , b.name as label
     FROM Brand b
+    WHERE b.status = 0
     ORDER BY b.createdDate desc
     """)
     List<ClientPRPropertyComboboxResponse> getBrandComboboxResponse();

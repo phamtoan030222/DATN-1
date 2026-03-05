@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import type { FormInst, UploadFileInfo } from 'naive-ui'
 import {
   createDiscreteApi,
@@ -65,20 +65,19 @@ const FORM_RULES = {
   customerBirthdayStr: { required: true, message: 'Chưa chọn ngày sinh', trigger: ['blur', 'change'] },
 }
 
-// Validation cho địa chỉ (Đã bỏ district bắt buộc vì API v2 không có)
 const ADDRESS_FORM_RULES = {
   provinceCity: { required: true, message: 'Chọn Tỉnh/Thành phố', trigger: ['change'] },
   wardCommune: { required: true, message: 'Chọn Phường/Xã', trigger: ['change'] },
   addressDetail: { required: true, message: 'Nhập địa chỉ chi tiết', trigger: 'blur' },
 }
 
-// Interfaces (Cập nhật cho API v2)
+// Interfaces
 interface Province {
   name: string
   name_with_type: string
   code: number
   codename: string
-  wards: any[] // API v2: Tỉnh chứa trực tiếp Wards
+  wards: any[]
 }
 
 interface CustomerForm { customerName: string, customerPhone: string, customerEmail: string, customerGender: string | null, customerBirthdayStr: string | null, customerAvatar: string }
@@ -119,8 +118,13 @@ const avatarSrc = computed(() =>
 
 const submitButtonText = computed(() => isEditMode.value ? 'Cập nhật' : 'Thêm mới')
 
+// 1. CẬP NHẬT TRỌNG TÂM: Đổi value của Option thành TÊN TIẾNG VIỆT thay vì CODENAME
 const provinceOptions = computed(() =>
-  addressData.value.map(province => ({ label: province.name_with_type || province.name, value: province.codename })),
+  addressData.value.map(province => ({
+    label: province.name_with_type || province.name,
+    value: province.name_with_type || province.name, // LƯU VALUE LÀ TÊN
+    codename: province.codename, // Giữ lại codename để call API xã
+  })),
 )
 
 // Helper Functions
@@ -145,17 +149,17 @@ function buildCustomerPayload(): Customer {
   }
 }
 
-// Hàm hỗ trợ fetch Phường/Xã độc lập, không làm reset data
-async function fetchWardsIfNeeded(codename: string) {
-  if (!codename)
+// 2. Cập nhật hàm fetchWards: Nhận vào provinceName thay vì codename
+async function fetchWardsIfNeeded(provinceName: string) {
+  if (!provinceName)
     return
-  const index = addressData.value.findIndex(x => x.codename === codename)
+  // Tìm Tỉnh trong danh sách dựa vào Tên tiếng việt
+  const index = addressData.value.findIndex(x => (x.name_with_type || x.name) === provinceName)
   if (index === -1)
     return
 
   const province = addressData.value[index]
 
-  // Nếu Tỉnh này đã có danh sách Xã rồi thì không gọi API nữa
   if (province.wards && province.wards.length > 0)
     return
 
@@ -163,17 +167,15 @@ async function fetchWardsIfNeeded(codename: string) {
     const res = await fetch(`https://provinces.open-api.vn/api/v2/p/${province.code}?depth=2`)
     if (res.ok) {
       const data = await res.json()
-      // Gán wards vào và trigger reactivity cho Vue
       addressData.value[index] = { ...province, wards: data.wards || [] }
       addressData.value = [...addressData.value]
     }
   }
   catch (error) {
-    console.error('Lỗi tải danh sách xã cho tỉnh:', codename, error)
+    console.error('Lỗi tải danh sách xã cho tỉnh:', provinceName, error)
   }
 }
 
-// --- UPLOAD LOGIC ---
 async function handleUploadChange({ file }: { file: UploadFileInfo }) {
   const rawFile = file?.file as File | undefined
   if (!rawFile || file.status === 'removed')
@@ -213,15 +215,12 @@ function triggerUpload() {
     fileInput.click()
 }
 
-// --- ADDRESS LOGIC (Dành riêng cho API v2) ---
-
 // 1. Load danh sách Tỉnh
 async function loadAddressData() {
   if (addressData.value.length > 0)
     return
   try {
     addressDataLoading.value = true
-    // API v2: Lấy danh sách tỉnh
     const res = await fetch('https://provinces.open-api.vn/api/v2/p/?depth=1')
     if (!res.ok)
       throw new Error()
@@ -235,32 +234,30 @@ async function loadAddressData() {
   }
 }
 
-// 2. Logic khi chọn Tỉnh -> Tải luôn Wards (API v2 bỏ qua District)
-// Sửa lại hàm onProvinceChange
-async function onProvinceChange(a: ExtendedAddress, codename: any) {
-  a.wardCommune = null // Reset xã
-  a.district = null // Reset huyện (dù không dùng)
+// 3. Sự kiện khi Đổi tỉnh (Sử dụng tên)
+async function onProvinceChange(a: ExtendedAddress, provinceName: string | null) {
+  a.wardCommune = null
+  a.district = null
 
-  if (codename) {
+  if (provinceName) {
     addressDataLoading.value = true
-    await fetchWardsIfNeeded(codename)
+    await fetchWardsIfNeeded(provinceName)
     addressDataLoading.value = false
   }
 }
 
-// 3. Hàm lấy Options cho Phường/Xã (Lấy trực tiếp từ Tỉnh)
-function getWardOptions(provinceCodename?: string) {
-  if (!provinceCodename)
+// 4. Hàm lấy option Xã (Nhận tên tỉnh, gán value là tên Xã)
+function getWardOptions(provinceName?: string | null) {
+  if (!provinceName)
     return []
-  const province = addressData.value.find(x => x.codename === provinceCodename)
-  // Map trực tiếp từ province.wards (thêm ?. để an toàn)
+  const province = addressData.value.find(x => (x.name_with_type || x.name) === provinceName)
+
   return province?.wards?.map((w: any) => ({
     label: w.name,
-    value: w.codename,
+    value: w.name, // Đổi từ w.codename -> w.name
   })) || []
 }
 
-// === LOGIC Toggle Mặc định ===
 function onDefaultChange(targetAddress: ExtendedAddress, val: boolean) {
   if (val) {
     addresses.value.forEach((addr) => {
@@ -291,7 +288,6 @@ async function handleDeleteAddress(address: ExtendedAddress, index: number) {
   catch { message.error('Lỗi: Không xóa được địa chỉ') }
 }
 
-// --- SUBMIT LOGIC ---
 async function handleValidateAndSubmit() {
   if (isAvatarUploading.value)
     return message.warning('Vui lòng đợi ảnh tải lên hoàn tất')
@@ -365,9 +361,10 @@ async function syncAddressesToBackend(custId: string) {
   })
 
   for (const addr of sortedAddresses) {
+    // Đã lưu tên thay vì code nên payload đẩy lên là TÊN TEXT
     const payload: Address = {
       provinceCity: addr.provinceCity!,
-      district: addr.district || '', // Gửi chuỗi rỗng nếu không có district (để tránh lỗi backend nếu cần)
+      district: addr.district || '',
       wardCommune: addr.wardCommune!,
       addressDetail: addr.addressDetail!,
       isDefault: addr.isDefault,
@@ -388,6 +385,7 @@ function resetForm() {
     URL.revokeObjectURL(avatarState.preview)
   avatarState.preview = ''; avatarState.url = ''
 }
+
 function goBack() { router.push('/users/customer') }
 
 async function loadCustomer() {
@@ -409,7 +407,6 @@ async function loadCustomer() {
   catch (e) { message.error('Lỗi tải dữ liệu'); goBack() }
 }
 
-// Thay thế toàn bộ hàm loadAddresses bằng code này:
 async function loadAddresses() {
   if (!isEditMode.value)
     return
@@ -417,7 +414,6 @@ async function loadAddresses() {
     const response = await getAddressesByCustomer(customerId.value!)
     let data = response.data.data || []
 
-    // Xử lý mặc định (giữ nguyên logic cũ của bạn)
     const defaultItems = data.filter((a: any) => a.isDefault)
     if (defaultItems.length > 1) {
       let foundFirst = false
@@ -430,16 +426,13 @@ async function loadAddresses() {
       })
     }
 
-    // --- LOGIC MỚI FIX BUG ---
-    // Gọi API tải danh sách Phường/Xã cho các Tỉnh đã lưu TRƯỚC KHI render
-    // Dùng Promise.all để fetch song song cho nhanh nếu khách có nhiều địa chỉ ở nhiều tỉnh khác nhau
+    // Tải sẵn danh sách xã cho các tỉnh đã chọn
     const fetchPromises = data
       .filter((addr: any) => addr.provinceCity)
       .map((addr: any) => fetchWardsIfNeeded(addr.provinceCity))
 
     await Promise.all(fetchPromises)
 
-    // Sau khi danh sách xã đã có sẵn trong bộ nhớ, mới gán data cho UI render
     addresses.value = data
   }
   catch (error) {
@@ -460,35 +453,52 @@ onMounted(async () => {
       <div class="flex items-center gap-3">
         <NButton circle secondary type="default" size="medium" @click="goBack">
           <template #icon>
-            <NIcon><Icon icon="mdi:arrow-left" /></NIcon>
+            <NIcon>
+              <Icon icon="mdi:arrow-left" />
+            </NIcon>
           </template>
         </NButton>
         <div class="flex items-center gap-2">
           <NIcon size="28" class="text-green-600">
             <Icon icon="carbon:user-profile" />
           </NIcon>
-          <span class="font-bold text-xl md:text-2xl text-gray-800">{{ isEditMode ? 'Sửa khách hàng' : 'Thêm khách hàng' }}</span>
+          <span class="font-bold text-xl md:text-2xl text-gray-800">{{ isEditMode ? 'Sửa khách hàng' : 'Thêm khách hàng'
+          }}</span>
         </div>
       </div>
     </div>
 
     <NCard title="Thông tin chung" class="shadow-sm rounded-xl border border-gray-100" content-style="padding: 24px;">
-      <NForm ref="formRef" :rules="FORM_RULES" :model="form" :show-feedback="true" label-placement="top" class="text-base">
+      <NForm
+        ref="formRef" :rules="FORM_RULES" :model="form" :show-feedback="true" label-placement="top"
+        class="text-base"
+      >
         <NGrid x-gap="24" y-gap="16" cols="1 768:12">
           <NGridItem span="1 768:3">
             <div class="flex flex-col items-center">
               <div class="relative group">
-                <img :src="avatarSrc" class="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-lg cursor-pointer" @click="triggerUpload">
-                <div class="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer" @click="triggerUpload">
+                <img
+                  :src="avatarSrc"
+                  class="w-32 h-32 md:w-40 md:h-40 rounded-full object-cover border-4 border-white shadow-lg cursor-pointer"
+                  @click="triggerUpload"
+                >
+                <div
+                  class="absolute inset-0 bg-black bg-opacity-40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                  @click="triggerUpload"
+                >
                   <div class="text-center text-white">
-                    <Icon icon="mdi:camera" class="text-3xl mb-1" /><div class="text-xs font-medium">
+                    <Icon icon="mdi:camera" class="text-3xl mb-1" />
+                    <div class="text-xs font-medium">
                       Đổi ảnh
                     </div>
                   </div>
                 </div>
               </div>
               <div class="mt-4 flex flex-col items-center">
-                <NUpload ref="uploadRef" :key="uploadKey" :max="1" accept="image/*" :default-upload="false" :on-change="handleUploadChange" :show-file-list="false" style="display: none;" />
+                <NUpload
+                  ref="uploadRef" :key="uploadKey" :max="1" accept="image/*" :default-upload="false"
+                  :on-change="handleUploadChange" :show-file-list="false" style="display: none;"
+                />
                 <NButton secondary size="small" :loading="isAvatarUploading" @click="triggerUpload">
                   Chọn ảnh
                 </NButton>
@@ -509,7 +519,10 @@ onMounted(async () => {
                 <NInput v-model:value="form.customerEmail" placeholder="example@email.com" size="large" />
               </NFormItem>
               <NFormItem label="Ngày sinh" path="customerBirthdayStr">
-                <NDatePicker v-model:formatted-value="form.customerBirthdayStr" value-format="yyyy-MM-dd" type="date" class="w-full" size="large" placeholder="Chọn ngày sinh" />
+                <NDatePicker
+                  v-model:formatted-value="form.customerBirthdayStr" value-format="yyyy-MM-dd" type="date"
+                  class="w-full" size="large" placeholder="Chọn ngày sinh"
+                />
               </NFormItem>
 
               <NFormItem path="customerGender" label="Giới tính">
@@ -538,12 +551,18 @@ onMounted(async () => {
             class="border border-gray-200 rounded-xl p-4 md:p-6 bg-white relative transition-all hover:shadow-md"
             :class="{ 'ring-2 ring-green-500 ring-opacity-50 bg-green-50/30': address.isDefault }"
           >
-            <div v-if="address.isDefault" class="absolute top-0 right-0 bg-green-600 text-white text-[10px] md:text-xs px-3 py-1 rounded-bl-lg rounded-tr-lg font-bold shadow-sm z-10">
+            <div
+              v-if="address.isDefault"
+              class="absolute top-0 right-0 bg-green-600 text-white text-[10px] md:text-xs px-3 py-1 rounded-bl-lg rounded-tr-lg font-bold shadow-sm z-10"
+            >
               Mặc định
             </div>
 
             <div class="absolute top-3 right-3 z-10" :class="{ 'top-8': address.isDefault }">
-              <NPopconfirm positive-text="Xóa" negative-text="Hủy" @positive-click="handleDeleteAddress(address, index)">
+              <NPopconfirm
+                positive-text="Xóa" negative-text="Hủy"
+                @positive-click="handleDeleteAddress(address, index)"
+              >
                 <template #trigger>
                   <NButton text type="error" class="hover:bg-red-50 p-1 rounded-full transition-colors">
                     <NIcon size="20">
@@ -556,11 +575,8 @@ onMounted(async () => {
             </div>
 
             <NForm
-              :ref="(el) => { if (el) addressFormsRef[index] = el as FormInst }"
-              :rules="ADDRESS_FORM_RULES"
-              :model="address"
-              :show-feedback="false"
-              label-placement="top"
+              :ref="(el) => { if (el) addressFormsRef[index] = el as FormInst }" :rules="ADDRESS_FORM_RULES"
+              :model="address" :show-feedback="false" label-placement="top"
             >
               <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-12 font-bold text-gray-700 mb-1 flex items-center gap-2 border-b pb-2">
@@ -570,19 +586,29 @@ onMounted(async () => {
 
                 <div class="md:col-span-6">
                   <NFormItem path="provinceCity" label="Tỉnh/Thành phố">
-                    <NSelect v-model:value="address.provinceCity" :options="provinceOptions" filterable clearable :loading="addressDataLoading" placeholder="Chọn Tỉnh/Thành phố" @update:value="onProvinceChange(address, $event)" />
+                    <NSelect
+                      v-model:value="address.provinceCity" :options="provinceOptions" filterable clearable
+                      :loading="addressDataLoading" placeholder="Chọn Tỉnh/Thành phố"
+                      @update:value="onProvinceChange(address, $event)"
+                    />
                   </NFormItem>
                 </div>
 
                 <div class="md:col-span-6">
                   <NFormItem path="wardCommune" label="Phường/Xã/Thị trấn">
-                    <NSelect v-model:value="address.wardCommune" :options="getWardOptions(address.provinceCity)" filterable clearable :disabled="!address.provinceCity" placeholder="Chọn Phường/Xã" />
+                    <NSelect
+                      v-model:value="address.wardCommune" :options="getWardOptions(address.provinceCity)"
+                      filterable clearable :disabled="!address.provinceCity" placeholder="Chọn Phường/Xã"
+                    />
                   </NFormItem>
                 </div>
 
                 <div class="md:col-span-12">
                   <NFormItem path="addressDetail" label="Địa chỉ chi tiết">
-                    <NInput v-model:value="address.addressDetail" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }" placeholder="Số nhà, tên đường..." />
+                    <NInput
+                      v-model:value="address.addressDetail" type="textarea" :autosize="{ minRows: 2, maxRows: 3 }"
+                      placeholder="Số nhà, tên đường..."
+                    />
                   </NFormItem>
                 </div>
 
@@ -590,11 +616,11 @@ onMounted(async () => {
                   <div class="flex items-center gap-3">
                     <span class="text-gray-600 font-medium">Đặt làm mặc định:</span>
                     <NSwitch
-                      :value="address.isDefault"
-                      :disabled="address.isDefault"
+                      :value="address.isDefault" :disabled="address.isDefault"
                       @update:value="(val) => onDefaultChange(address, val)"
                     />
-                    <span v-if="address.isDefault" class="text-xs text-gray-400 italic">(Bật địa chỉ khác để thay thế)</span>
+                    <span v-if="address.isDefault" class="text-xs text-gray-400 italic">(Bật địa chỉ khác để thay
+                      thế)</span>
                   </div>
                 </div>
               </div>
@@ -615,7 +641,9 @@ onMounted(async () => {
         <div class="flex justify-center pt-2">
           <NButton type="primary" dashed class="w-full md:w-auto px-8" size="medium" @click="addNewAddress">
             <template #icon>
-              <NIcon><Icon icon="mdi:plus" /></NIcon>
+              <NIcon>
+                <Icon icon="mdi:plus" />
+              </NIcon>
             </template>
             Thêm địa chỉ mới
           </NButton>
@@ -623,11 +651,16 @@ onMounted(async () => {
       </div>
     </NCard>
 
-    <div class="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t p-4 mt-8 -mx-4 md:-mx-6 z-20 flex justify-end gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+    <div
+      class="sticky bottom-0 bg-white/90 backdrop-blur-sm border-t p-4 mt-8 -mx-4 md:-mx-6 z-20 flex justify-end gap-3 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"
+    >
       <NButton size="large" @click="goBack">
         Hủy bỏ
       </NButton>
-      <NButton type="primary" :loading="submitting" size="large" class="px-8 shadow-lg shadow-green-500/30" @click="handleValidateAndSubmit">
+      <NButton
+        type="primary" :loading="submitting" size="large" class="px-8 shadow-lg shadow-green-500/30"
+        @click="handleValidateAndSubmit"
+      >
         <template #icon>
           <Icon icon="carbon:save" />
         </template>

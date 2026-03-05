@@ -17,6 +17,8 @@ import {
   NSpin,
 } from 'naive-ui'
 
+import NovaIcon from '@/components/common/NovaIcon.vue'
+
 // Import API
 import {
   getCPUs,
@@ -51,18 +53,48 @@ const hardDriveOptions = ref<ADPRPropertiesComboboxResponse[]>([])
 const brandOptions = ref<ADPRPropertiesComboboxResponse[]>([])
 const screenOptions = ref<ADPRPropertiesComboboxResponse[]>([])
 
-const minMaxPriceLimit = ref<[number, number]>([0, 100000000])
+// --- MAP HIỂN THỊ HÃNG ---
+function normalizeBrandKey(label: string) {
+  return (label || '').trim().toLowerCase()
+}
 
+function brandVisual(label: string) {
+  const key = normalizeBrandKey(label)
+  if (key.includes('apple') || key.includes('mac')) {
+    return { type: 'icon' as const, icon: 'icon-park-outline:apple', textClass: 'text-black' }
+  }
+  const map: Record<string, string> = {
+    samsung: 'text-blue-700 font-black tracking-tighter',
+    xiaomi: 'text-orange-500 font-bold text-xl',
+    vivo: 'text-blue-500 font-bold text-xl',
+    oppo: 'text-green-600 font-bold text-xl',
+    asus: 'text-black font-black text-xl',
+    dell: 'text-blue-800 font-black text-xl',
+    hp: 'text-blue-500 font-bold text-xl',
+    lenovo: 'text-red-600 font-bold text-xl',
+    acer: 'text-green-600 font-bold text-xl',
+    msi: 'text-red-600 font-black text-xl',
+  }
+  for (const k of Object.keys(map)) {
+    if (key.includes(k))
+      return { type: 'text' as const, textClass: map[k] }
+  }
+  return { type: 'text' as const, textClass: 'text-gray-800 font-bold' }
+}
+
+const minMaxPriceLimit = ref<[number, number]>([0, 100000000])
 const selectedPriceDropdown = ref<string | null>(null)
 const priceOptions = [
   { label: 'Dưới 15 triệu', value: '0-15000000' },
   { label: 'Từ 15 - 20 triệu', value: '15000000-20000000' },
   { label: 'Từ 20 - 30 triệu', value: '20000000-30000000' },
-  { label: 'Trên 30 triệu', value: '30000000-100000000' },
+  { label: 'Từ 30 - 50 triệu', value: '30000000-50000000' },
+  { label: 'Trên 50 triệu', value: '50000000-1000000000' },
 ]
 
-// --- STATE BỘ LỌC CHUYỂN SANG MẢNG (ARRAY) ĐỂ CHỌN NHIỀU ---
+// --- BỘ LỌC TÌM KIẾM ---
 const filters = ref({
+  q: (route.query.q as string) || '',
   idBrand: null as string | null,
   idScreen: [] as string[],
   idRAM: [] as string[],
@@ -73,6 +105,16 @@ const filters = ref({
 })
 
 const pagination = ref({ page: 1, size: 12, totalPages: 1 })
+
+// --- THEO DÕI TOÀN BỘ QUERY URL ---
+watch(
+  () => route.query,
+  (newQuery) => {
+    filters.value.q = (newQuery.q as string) || ''
+    filters.value.idBrand = (newQuery.brand as string) || null
+  },
+  { immediate: true },
+)
 
 // --- HÀM LẤY OPTIONS ---
 async function fetchAllOptions() {
@@ -87,7 +129,6 @@ async function fetchAllOptions() {
       getScreens(),
       getMinMaxPrice(),
     ])
-
     if (rams.data)
       ramOptions.value = rams.data
     if (cpus.data)
@@ -100,7 +141,6 @@ async function fetchAllOptions() {
       brandOptions.value = brands.data
     if (screens.data)
       screenOptions.value = screens.data
-
     if (priceRange.data) {
       const { priceMin, priceMax } = priceRange.data
       minMaxPriceLimit.value = [priceMin, priceMax]
@@ -119,10 +159,10 @@ async function fetchAllOptions() {
 async function fetchProducts() {
   loading.value = true
   try {
-    // Chuyển mảng thành chuỗi cách nhau bởi dấu phẩy trước khi gửi cho BE
-    const params: ADProductDetailRequest & { idBrand?: string | null, idScreen?: string | null } = {
+    const params: ADProductDetailRequest = {
       page: pagination.value.page,
       size: pagination.value.size,
+      q: filters.value.q || undefined,
       idRAM: filters.value.idRAM.length > 0 ? filters.value.idRAM.join(',') : null,
       idCPU: filters.value.idCPU.length > 0 ? filters.value.idCPU.join(',') : null,
       idGPU: filters.value.idGPU.length > 0 ? filters.value.idGPU.join(',') : null,
@@ -153,12 +193,7 @@ async function fetchProducts() {
 }
 
 function toggleBrand(brandId: string) {
-  if (filters.value.idBrand === brandId) {
-    filters.value.idBrand = null
-  }
-  else {
-    filters.value.idBrand = brandId
-  }
+  filters.value.idBrand = filters.value.idBrand === brandId ? null : brandId
 }
 
 function handlePriceSelect(val: string | null) {
@@ -183,7 +218,11 @@ function formatCurrency(value: number) {
 
 function resetFilters() {
   selectedPriceDropdown.value = null
+  if (route.query.q || route.query.brand) {
+    router.replace({ path: '/san-pham' })
+  }
   filters.value = {
+    q: '',
     idBrand: null,
     idScreen: [],
     idRAM: [],
@@ -202,11 +241,6 @@ watch(() => filters.value, () => {
 
 onMounted(async () => {
   await fetchAllOptions()
-
-  if (route.query.brand) {
-    filters.value.idBrand = route.query.brand as string
-  }
-
   await fetchProducts()
 })
 
@@ -222,22 +256,23 @@ function handleClickProduct(id: string) {
         <span class="text-red-500 mr-2">|</span>CHỌN THEO HÃNG
       </h2>
       <NSpin :show="isFetchingOptions">
-        <div class="brand-list">
+        <div class="brand-grid">
           <button
-            v-for="b in brandOptions"
-            :key="b.value"
-            class="brand-btn"
-            :class="{ active: filters.idBrand === b.value }"
-            @click="toggleBrand(b.value as string)"
+            v-for="b in brandOptions" :key="b.value" class="brand-card"
+            :class="{ active: filters.idBrand === b.value }" @click="toggleBrand(b.value as string)"
           >
-            {{ b.label }}
+            <template v-if="brandVisual(b.label as string).type === 'icon'">
+              <NovaIcon :icon="brandVisual(b.label as string).icon" :size="26" class="text-black" />
+            </template>
+            <template v-else>
+              <span :class="brandVisual(b.label as string).textClass">{{ b.label }}</span>
+            </template>
           </button>
         </div>
       </NSpin>
     </div>
 
     <div class="main-content-layout">
-      <!-- FIX: đổi aside -> div để tránh CSS global đang target thẻ aside -->
       <div class="left-sidebar">
         <div class="sidebar-header">
           <h3 class="sidebar-title">
@@ -251,7 +286,10 @@ function handleClickProduct(id: string) {
         <NSpin :show="isFetchingOptions">
           <div class="filter-group">
             <label class="filter-label">Mức giá</label>
-            <NSelect v-model:value="selectedPriceDropdown" :options="priceOptions" placeholder="Chọn mức giá" clearable @update:value="handlePriceSelect" />
+            <NSelect
+              v-model:value="selectedPriceDropdown" :options="priceOptions" placeholder="Chọn mức giá" clearable
+              @update:value="handlePriceSelect"
+            />
           </div>
 
           <NDivider style="margin: 16px 0;" />
@@ -324,7 +362,11 @@ function handleClickProduct(id: string) {
       </div>
 
       <main class="product-list-section">
-        <div class="list-header">
+        <div class="list-header" style="justify-content: space-between; align-items: center;">
+          <h3 v-if="filters.q" style="margin: 0; font-size: 16px; color: #333;">
+            Kết quả cho: <span style="color: #049d14;">"{{ filters.q }}"</span>
+          </h3>
+          <div v-else />
           <span class="result-text">Tìm thấy <strong>{{ productDetails.length }}</strong> sản phẩm</span>
         </div>
 
@@ -340,19 +382,26 @@ function handleClickProduct(id: string) {
           <div v-else>
             <NGrid x-gap="16" y-gap="16" cols="1 s:2 m:3 lg:4" responsive="screen">
               <NGridItem v-for="item in productDetails" :key="item.id">
-                <NCard hoverable class="product-card" content-style="padding: 16px; display: flex; flex-direction: column; height: 100%;" @click="handleClickProduct(item.id)">
+                <NCard
+                  hoverable class="product-card"
+                  content-style="padding: 16px; display: flex; flex-direction: column; height: 100%;"
+                  @click="handleClickProduct(item.id)"
+                >
                   <div v-if="item.percentage" class="discount-badge">
                     -{{ item.percentage }}%
                   </div>
 
                   <div class="image-wrapper">
-                    <img :src="item.urlImage || 'https://via.placeholder.com/300'" :alt="item.name" class="product-image">
+                    <img
+                      :src="item.urlImage || 'https://via.placeholder.com/300'" :alt="item.name"
+                      class="product-image"
+                    >
                   </div>
 
                   <div class="product-info">
                     <h3 class="product-name">
                       <NEllipsis :line-clamp="2" :tooltip="{ placement: 'top', style: 'max-width: 300px' }">
-                        {{ item.name || item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
+                        {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
                       </NEllipsis>
                     </h3>
 
@@ -397,7 +446,10 @@ function handleClickProduct(id: string) {
             </NGrid>
 
             <div v-if="pagination.totalPages > 1" class="pagination-container">
-              <NPagination v-model:page="pagination.page" :page-count="pagination.totalPages" size="large" @update:page="handlePageChange" />
+              <NPagination
+                v-model:page="pagination.page" :page-count="pagination.totalPages" size="large"
+                @update:page="handlePageChange"
+              />
             </div>
           </div>
         </template>
@@ -415,68 +467,76 @@ function handleClickProduct(id: string) {
   margin: 0 auto;
 }
 
-/* --- HORIZONTAL BRANDS --- */
 .brand-horizontal-section {
   background: #fff;
   padding: 20px 24px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   margin-bottom: 24px;
 }
 
 .section-title {
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
   color: #333;
   margin: 0 0 16px 0;
 }
 
-.brand-list {
-  display: flex;
+.brand-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
   gap: 12px;
-  flex-wrap: wrap;
 }
 
-.brand-btn {
-  padding: 10px 24px;
-  background: #ffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-weight: 600;
-  color: #4b5563;
+@media (min-width: 640px) {
+  .brand-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .brand-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+.brand-card {
+  height: 56px;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 100px;
-  text-align: center;
+  padding: 0 12px;
 }
 
-.brand-btn:hover {
+.brand-card:hover {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+  border-color: #e5e7eb;
+}
+
+.brand-card.active {
   border-color: #00a651;
-  color: #00a651;
-  background: #f0fdf4;
+  box-shadow: 0 0 0 2px rgba(0, 166, 81, 0.12), 0 6px 16px rgba(0, 0, 0, 0.06);
 }
 
-.brand-btn.active {
-  border-color: #00a651;
-  background: #00a651;
-  color: #fff;
-}
-
-/* --- MAIN LAYOUT --- */
 .main-content-layout {
   display: flex;
   gap: 24px;
   align-items: flex-start;
 }
 
-/* --- LEFT SIDEBAR --- */
 .left-sidebar {
   width: 280px;
   flex-shrink: 0;
   background: #fff;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   height: fit-content;
   align-self: flex-start;
 }
@@ -508,7 +568,6 @@ function handleClickProduct(id: string) {
   text-transform: uppercase;
 }
 
-/* Giới hạn độ cao vùng checkbox nếu có quá nhiều lựa chọn */
 .checkbox-scroll-area {
   max-height: 200px;
   overflow-y: auto;
@@ -524,7 +583,6 @@ function handleClickProduct(id: string) {
   border-radius: 4px;
 }
 
-/* --- CHỈNH MÀU CHECKBOX SANG XANH LÁ THEO THEME --- */
 :deep(.n-checkbox.n-checkbox--checked .n-checkbox-box) {
   background-color: #00a651;
   border-color: #00a651;
@@ -534,7 +592,6 @@ function handleClickProduct(id: string) {
   border-color: #00a651;
 }
 
-/* --- PRODUCT GRID --- */
 .product-list-section {
   flex-grow: 1;
   min-width: 0;
@@ -694,7 +751,12 @@ function handleClickProduct(id: string) {
 }
 
 @media (max-width: 992px) {
-  .main-content-layout { flex-direction: column; }
-  .left-sidebar { width: 100%; }
+  .main-content-layout {
+    flex-direction: column;
+  }
+
+  .left-sidebar {
+    width: 100%;
+  }
 }
 </style>

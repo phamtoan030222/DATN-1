@@ -18,43 +18,43 @@ import {
   NIcon,
   NInput,
   NMenu,
+  useNotification,
 } from 'naive-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-// [QUAN TRỌNG] Import Store mới
 import { useAuthStore } from '@/store'
 import { CartStore } from '@/utils/cartStore'
 
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
-
-// --- LOGIC GIỎ HÀNG MỚI (CLIENT-SIDE) ---
-// 1. Tạo biến hứng số lượng
-const cartCount = ref(0)
 const notification = useNotification()
-// 2. Hàm cập nhật số lượng từ LocalStorage (Không gọi API)
+
+// --- LOGIC CUỘN TRANG ---
+const isScrolled = ref(false)
+
+function handleScroll() {
+  isScrolled.value = window.scrollY > 80
+}
+
+// --- LOGIC GIỎ HÀNG ---
+const cartCount = ref(0)
 async function updateCartBadge() {
-  // guest: đếm từ localStorage; login: lấy từ server
   cartCount.value = await CartStore.getTotalQuantity()
 }
 
-// 3. Lắng nghe sự kiện khi Component được load
 onMounted(() => {
-  // Cập nhật ngay lần đầu
   updateCartBadge()
-
-  // Đăng ký lắng nghe sự kiện 'cart-updated'
   window.addEventListener('cart-updated', updateCartBadge)
+  window.addEventListener('scroll', handleScroll)
 })
 
-// 4. Dọn dẹp sự kiện khi Component bị hủy (để tránh rò rỉ bộ nhớ)
 onUnmounted(() => {
   window.removeEventListener('cart-updated', updateCartBadge)
+  window.removeEventListener('scroll', handleScroll)
 })
 
-// --- CÁC LOGIC KHÁC GIỮ NGUYÊN ---
-
+// --- DATA MENU ---
 const menuOptions: MenuOption[] = [
   { label: 'TRANG CHỦ', key: 'home', href: '/' },
   { label: 'SẢN PHẨM', key: 'products', href: '/san-pham' },
@@ -63,7 +63,6 @@ const menuOptions: MenuOption[] = [
   { label: 'TRA CỨU ĐƠN HÀNG', key: 'tracking', href: '/tra-cuu' },
 ]
 
-// Xử lý thông tin user
 const userInfo = ref<any>()
 
 onMounted(() => {
@@ -71,11 +70,8 @@ onMounted(() => {
 })
 
 const userOptions = computed(() => {
-  // Kiểm tra xem có user info hay không
   if (userInfo.value) {
-    return [
-      { label: 'Đăng xuất', key: 'logout' },
-    ]
+    return [{ label: 'Đăng xuất', key: 'logout' }]
   }
   else {
     return [{ label: 'Đăng nhập', key: 'login' }]
@@ -86,13 +82,23 @@ const activeKey = ref<string | null>(null)
 const showDrawer = ref(false)
 const keyword = ref('')
 
-// Tự động cập nhật Menu Active
+// --- XỬ LÝ TÌM KIẾM ---
+function handleSearch() {
+  const searchText = keyword.value.trim()
+  if (searchText) {
+    router.push({ path: '/san-pham', query: { q: searchText } })
+  }
+  else {
+    router.push({ path: '/san-pham' })
+  }
+}
+
 watch(
   () => route.path,
   (currentPath) => {
     if (currentPath === '/' || currentPath === '/home')
       activeKey.value = 'home'
-    else if (currentPath.startsWith('/san-pham') || currentPath.startsWith('/product'))
+    else if (currentPath.startsWith('/san-pham'))
       activeKey.value = 'products'
     else if (currentPath.startsWith('/gioi-thieu'))
       activeKey.value = 'about'
@@ -101,8 +107,6 @@ watch(
     else if (currentPath.startsWith('/tra-cuu'))
       activeKey.value = 'tracking'
     else activeKey.value = null
-
-    // [FIX LỖI] Đã xóa dòng CartStore.updateCount() gây lỗi treo ở đây
   },
   { immediate: true },
 )
@@ -118,7 +122,6 @@ function handlerAccountDropdown(key: string) {
     router.push({ name: 'login' })
   }
   else if (key === 'logout') {
-    // Xử lý đăng xuất (ví dụ: xóa token)
     authStore.logout()
     userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
     router.push({ name: 'Home' })
@@ -140,15 +143,24 @@ function handleCartClick() {
         </NIcon>
       </button>
 
+      <button v-if="isScrolled" class="mobile-toggle d-none d-lg-flex" @click="showDrawer = true">
+        <NIcon size="32" color="#049d14">
+          <MenuIcon />
+        </NIcon>
+      </button>
+
       <a href="/" class="logo-area">
         <img src="/favicon.svg" alt="Logo" class="logo-img" onerror="this.style.display='none'">
         <div class="brand-info d-none d-sm-flex"><span class="brand-text">My Laptop</span></div>
       </a>
 
       <div class="search-area d-none d-sm-block">
-        <NInput v-model:value="keyword" placeholder="Bạn tìm laptop gì hôm nay?" round size="large">
+        <NInput
+          v-model:value="keyword" placeholder="Bạn tìm laptop gì hôm nay?" round size="large"
+          @keyup.enter="handleSearch"
+        >
           <template #suffix>
-            <NButton circle size="medium" color="#049d14" style="margin-right: -10px;">
+            <NButton circle size="medium" color="#049d14" style="margin-right: -10px;" @click="handleSearch">
               <template #icon>
                 <NIcon size="20" color="#fff">
                   <Search />
@@ -160,7 +172,7 @@ function handleCartClick() {
       </div>
 
       <div class="actions-area">
-        <div class="hotline-group d-none d-lg-flex">
+        <div v-if="!isScrolled" class="hotline-group d-none d-lg-flex">
           <div class="hotline-info">
             <span class="hotline-label">TƯ VẤN MIỄN PHÍ</span>
             <span class="hotline-number">0965.237.19</span>
@@ -192,7 +204,7 @@ function handleCartClick() {
       </div>
     </div>
 
-    <div class="nav-background d-none d-lg-block">
+    <div v-if="!isScrolled" class="nav-background d-none d-lg-block">
       <div class="container nav-wrapper">
         <NMenu
           v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
@@ -210,7 +222,6 @@ function handleCartClick() {
 </template>
 
 <style scoped>
-/* Giữ nguyên toàn bộ CSS cũ của bạn */
 .layout-container {
   display: flex;
   flex-direction: column;

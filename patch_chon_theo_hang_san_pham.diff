@@ -1,0 +1,164 @@
+diff --git a/FE/src/views/client/user/product/ProductListView.vue b/FE/src/views/client/user/product/ProductListView.vue
+index b1e9557..2773ae8 100644
+--- a/FE/src/views/client/user/product/ProductListView.vue
++++ b/FE/src/views/client/user/product/ProductListView.vue
+@@ -17,6 +17,8 @@ import {
+   NSpin,
+ } from 'naive-ui'
+ 
++import NovaIcon from '@/components/common/NovaIcon.vue'
++
+ // Import API
+ import {
+   getCPUs,
+@@ -51,6 +53,45 @@ const hardDriveOptions = ref<ADPRPropertiesComboboxResponse[]>([])
+ const brandOptions = ref<ADPRPropertiesComboboxResponse[]>([])
+ const screenOptions = ref<ADPRPropertiesComboboxResponse[]>([])
+ 
++// --- MAP HIỂN THỊ HÃNG (logo/icon/style) ---
++// Lưu ý: API hiện tại chỉ trả {value,label}. Nếu sau này BE có thêm logoUrl,
++// bạn chỉ cần map thêm ở đây là UI tự đổi.
++function normalizeBrandKey(label: string) {
++  return (label || '').trim().toLowerCase()
++}
++
++function brandVisual(label: string) {
++  const key = normalizeBrandKey(label)
++
++  // Ưu tiên icon cho Apple (giống Home)
++  if (key.includes('apple') || key.includes('mac')) {
++    return { type: 'icon' as const, icon: 'icon-park-outline:apple', textClass: 'text-black' }
++  }
++
++  // Text style theo hãng (bạn có thể chỉnh màu/font tùy ý)
++  const map: Record<string, string> = {
++    samsung: 'text-blue-700 font-black tracking-tighter',
++    xiaomi: 'text-orange-500 font-bold text-xl',
++    vivo: 'text-blue-500 font-bold text-xl',
++    oppo: 'text-green-600 font-bold text-xl',
++    asus: 'text-black font-black text-xl',
++    dell: 'text-blue-800 font-black text-xl',
++    hp: 'text-blue-500 font-bold text-xl',
++    lenovo: 'text-red-600 font-bold text-xl',
++    acer: 'text-green-600 font-bold text-xl',
++    msi: 'text-red-600 font-black text-xl',
++  }
++
++  // match theo từ khóa xuất hiện trong label
++  for (const k of Object.keys(map)) {
++    if (key.includes(k))
++      return { type: 'text' as const, textClass: map[k] }
++  }
++
++  // fallback
++  return { type: 'text' as const, textClass: 'text-gray-800 font-bold' }
++}
++
+ const minMaxPriceLimit = ref<[number, number]>([0, 100000000])
+ 
+ const selectedPriceDropdown = ref<string | null>(null)
+@@ -222,15 +263,20 @@ function handleClickProduct(id: string) {
+         <span class="text-red-500 mr-2">|</span>CHỌN THEO HÃNG
+       </h2>
+       <NSpin :show="isFetchingOptions">
+-        <div class="brand-list">
++        <div class="brand-grid">
+           <button
+             v-for="b in brandOptions"
+             :key="b.value"
+-            class="brand-btn"
++            class="brand-card"
+             :class="{ active: filters.idBrand === b.value }"
+             @click="toggleBrand(b.value as string)"
+           >
+-            {{ b.label }}
++            <template v-if="brandVisual(b.label as string).type === 'icon'">
++              <NovaIcon :icon="brandVisual(b.label as string).icon" :size="26" class="text-black" />
++            </template>
++            <template v-else>
++              <span :class="brandVisual(b.label as string).textClass">{{ b.label }}</span>
++            </template>
+           </button>
+         </div>
+       </NSpin>
+@@ -415,7 +461,7 @@ function handleClickProduct(id: string) {
+   margin: 0 auto;
+ }
+ 
+-/* --- HORIZONTAL BRANDS --- */
++/* --- BRANDS (GIỐNG HOME) --- */
+ .brand-horizontal-section {
+   background: #fff;
+   padding: 20px 24px;
+@@ -426,40 +472,51 @@ function handleClickProduct(id: string) {
+ 
+ .section-title {
+   font-size: 18px;
+-  font-weight: 700;
++  font-weight: 800;
+   color: #333;
+   margin: 0 0 16px 0;
+ }
+ 
+-.brand-list {
+-  display: flex;
++.brand-grid {
++  display: grid;
++  grid-template-columns: repeat(2, 1fr);
+   gap: 12px;
+-  flex-wrap: wrap;
+ }
+ 
+-.brand-btn {
+-  padding: 10px 24px;
+-  background: #ffff;
+-  border: 1px solid #e5e7eb;
+-  border-radius: 8px;
+-  font-weight: 600;
+-  color: #4b5563;
++@media (min-width: 640px) {
++  .brand-grid {
++    grid-template-columns: repeat(3, 1fr);
++  }
++}
++
++@media (min-width: 768px) {
++  .brand-grid {
++    grid-template-columns: repeat(5, 1fr);
++  }
++}
++
++.brand-card {
++  height: 56px;
++  background: #fff;
++  border-radius: 12px;
++  display: flex;
++  align-items: center;
++  justify-content: center;
++  border: 1px solid transparent;
++  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+   cursor: pointer;
+   transition: all 0.2s ease;
+-  min-width: 100px;
+-  text-align: center;
++  padding: 0 12px;
+ }
+ 
+-.brand-btn:hover {
+-  border-color: #00a651;
+-  color: #00a651;
+-  background: #f0fdf4;
++.brand-card:hover {
++  box-shadow: 0 6px 16px rgba(0,0,0,0.08);
++  border-color: #e5e7eb;
+ }
+ 
+-.brand-btn.active {
++.brand-card.active {
+   border-color: #00a651;
+-  background: #00a651;
+-  color: #fff;
++  box-shadow: 0 0 0 2px rgba(0,166,81,0.12), 0 6px 16px rgba(0,0,0,0.06);
+ }
+ 
+ /* --- MAIN LAYOUT --- */

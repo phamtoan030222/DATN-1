@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import {
+  AddOutline,
   CardOutline,
   CashOutline,
+  CheckmarkCircleOutline,
   LocationOutline,
   StorefrontOutline,
   TicketOutline,
@@ -9,17 +11,26 @@ import {
 import {
   NButton,
   NCard,
+  NCheckbox,
   NDivider,
+  NEmpty,
+  NForm,
+  NFormItem,
   NGi,
   NGrid,
   NIcon,
   NInput,
+  NModal,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
   NSelect,
+  NSpin,
+  NTag,
   useMessage,
 } from 'naive-ui'
-import { computed, onMounted, ref, watch } from 'vue'
+import type { FormInst } from 'naive-ui'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { useRouter } from 'vue-router'
 
@@ -27,7 +38,15 @@ import { useRouter } from 'vue-router'
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import type { CartItemResponse } from '@/service/api/client/banhang.api'
 import { createOrder, GetGioHang, getMaGiamGia, getProductDetailCart } from '@/service/api/client/banhang.api'
-import { getDefaultCustomerAddress } from '@/service/api/client/customer/address.api'
+
+import {
+  createAddress,
+  deleteAddress,
+  getAddressesByCustomer,
+  setDefaultAddress,
+  updateAddress,
+} from '@/service/api/client/customer/address.api'
+
 import { localStorageAction } from '@/utils'
 import { CartStore } from '@/utils/cartStore'
 
@@ -35,159 +54,335 @@ const router = useRouter()
 const message = useMessage()
 const processing = ref(false)
 
-// Data
-const cartItems = ref<CartItemResponse[]>([])
-const userInfo = ref<any>(null) // Dùng any tạm nếu chưa import interface UserInformation
+// --- Data Cart ---
+interface CartItemExt extends CartItemResponse {
+  originalPrice?: number
+  percentage?: number
+}
+const cartItems = ref<CartItemExt[]>([])
+const userInfo = ref<any>(null)
 
-// Form Info
+const STORE_ADDRESS = 'Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội'
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
-
-const customerInfo = ref({
-  ten: '',
-  sdt: '',
-  diaChi: '',
-  ghiChu: '',
-})
-
-const STORE_ADDRESS = 'Siêu thị My Laptop - 123 Nguyễn Văn Linh, Hải Châu, Đà Nẵng'
-
-function hydrateCustomerInfoFromProfile() {
-  const u = userInfo.value
-  if (!u)
-    return
-
-  if (!customerInfo.value.ten)
-    customerInfo.value.ten = u.fullName || ''
-  if (!customerInfo.value.sdt)
-    customerInfo.value.sdt = u.phone || ''
-}
-
 const cartId = ref<string | null>()
 
-// --- ĐỊA CHỈ (Combobox) ---
-interface Option {
-  label: string
-  value: number
-  codename: string
-}
-
-const provinceOptions = ref<Option[]>([])
-const wardOptions = ref<Option[]>([])
-
-const selectedProvinceCode = ref<number | null>(null)
-const selectedWardCode = ref<number | null>(null)
-const addressDetail = ref('')
-
-const selectedProvinceName = computed(() => provinceOptions.value.find(o => o.value === selectedProvinceCode.value)?.label || '')
-const selectedWardName = computed(() => wardOptions.value.find(o => o.value === selectedWardCode.value)?.label || '')
-
-const fullShippingAddress = computed(() => {
-  const parts = [
-    addressDetail.value?.trim(),
-    selectedWardName.value,
-    selectedProvinceName.value,
-  ].filter(Boolean)
-  return parts.join(', ')
+// ====================================================
+// FORM THANH TOÁN CHÍNH (ÁP DỤNG RULES NATIVE-UI)
+// ====================================================
+const checkoutFormRef = ref<FormInst | null>(null)
+const checkoutForm = reactive({
+  ten: '',
+  sdt: '',
+  ghiChu: '',
+  // Fields cho Khách Vãng Lai (chưa đăng nhập)
+  provinceName: null as string | null,
+  wardName: null as string | null,
+  addressDetail: '',
 })
 
-// Load Tỉnh/Thành từ API
+// Rules Validation: Tự động thay đổi điều kiện bắt buộc tùy vào loại khách
+const checkoutRules = computed(() => {
+  const rules: any = {
+    ten: { required: true, message: 'Vui lòng nhập họ và tên', trigger: ['blur', 'input'] },
+    sdt: [
+      { required: true, message: 'Vui lòng nhập số điện thoại', trigger: ['blur', 'input'] },
+      { pattern: /^(03|05|07|08|09)\d{8,9}$/, message: 'Số điện thoại không hợp lệ', trigger: ['blur', 'input'] },
+    ],
+  }
+
+  if (deliveryType.value === 'GIAO_HANG' && !userInfo.value) {
+    rules.provinceName = { required: true, message: 'Vui lòng chọn Tỉnh/Thành phố', trigger: 'change' }
+    rules.wardName = { required: true, message: 'Vui lòng chọn Phường/Xã', trigger: 'change' }
+    rules.addressDetail = { required: true, message: 'Vui lòng nhập số nhà, tên đường', trigger: ['blur', 'input'] }
+  }
+  return rules
+})
+
+function hydrateCustomerInfoFromProfile() {
+  if (userInfo.value) {
+    if (!checkoutForm.ten)
+      checkoutForm.ten = userInfo.value.fullName || ''
+    if (!checkoutForm.sdt)
+      checkoutForm.sdt = userInfo.value.phone || ''
+  }
+}
+
+// ====================================================
+// API ĐỊA CHỈ & COMBOBOX (CHUNG CHO CẢ MODAL VÀ KHÁCH)
+// ====================================================
+interface Option { label: string, value: string, code?: number }
+const provinceOptions = ref<Option[]>([])
+
 async function loadProvinces() {
   try {
     const res = await axios.get('https://provinces.open-api.vn/api/v2/p/')
-    provinceOptions.value = (res.data || []).map((p: any) => ({
-      label: p.name,
-      value: p.code,
-      codename: p.codename,
-    }))
+    provinceOptions.value = (res.data || []).map((p: any) => ({ label: p.name, value: p.name, code: p.code }))
   }
-  catch (error) {
-    console.error(error)
-  }
+  catch (e) { console.error(e) }
 }
 
-// Load Phường/Xã từ API
-async function loadWardsByProvince(provinceCode: number) {
+// Hàm gộp Phường/Xã của tất cả Quận/Huyện trong Tỉnh vào chung 1 danh sách
+async function fetchWardsFromAPI(provName: string): Promise<Option[]> {
+  const p = provinceOptions.value.find(x => x.value === provName)
+  if (!p || !p.code)
+    return []
+
   try {
-    const res = await axios.get(`https://provinces.open-api.vn/api/v2/p/${provinceCode}?depth=2`)
-    const wards = res.data?.wards || []
+    const res = await axios.get(`https://provinces.open-api.vn/api/v2/p/${p.code}?depth=2`)
+    const allWards: Option[] = []
 
-    wardOptions.value = wards.map((w: any) => ({
-      label: w.name,
-      value: w.code,
-      codename: w.codename,
-    }))
+    if (res.data.wards && Array.isArray(res.data.wards)) {
+      res.data.wards.forEach((w: any) => {
+        if (w && w.name) {
+          allWards.push({
+            label: w.name.trim(),
+            value: w.name.trim(),
+          })
+        }
+      })
+    }
+    else if (res.data.districts && Array.isArray(res.data.districts)) {
+      res.data.districts.forEach((d: any) => {
+        if (d.wards && Array.isArray(d.wards)) {
+          d.wards.forEach((w: any) => {
+            allWards.push({
+              label: `${w.name} (${d.name})`, // Gắn tên Huyện để không bị trùng Phường 1
+              value: w.name.trim(),
+            })
+          })
+        }
+      })
+    }
+    return allWards
   }
-  catch (error) {
-    console.error(error)
+  catch (e) {
+    console.error(e)
+    return []
   }
 }
 
-// Xử lý sự kiện người dùng tự chọn đổi Tỉnh/Thành
-async function handleProvinceChange(code: number | null) {
-  selectedWardCode.value = null // Reset Xã
-  wardOptions.value = [] // Clear list Xã cũ
-  if (code) {
-    await loadWardsByProvince(code)
+// Event Khách vãng lai chọn Tỉnh
+const guestWardOptions = ref<Option[]>([])
+async function onGuestProvinceChange(val: string | null) {
+  checkoutForm.wardName = null
+  guestWardOptions.value = []
+  if (val) {
+    guestWardOptions.value = await fetchWardsFromAPI(val)
   }
 }
 
-// Auto-fill từ Database
-async function tryFillDefaultAddressFromDB() {
+const guestFullAddress = computed(() => {
+  return [checkoutForm.addressDetail?.trim(), checkoutForm.wardName, checkoutForm.provinceName].filter(Boolean).join(', ')
+})
+
+// ====================================================
+// QUẢN LÝ SỔ ĐỊA CHỈ (MODAL CHO USER ĐÃ ĐĂNG NHẬP)
+// ====================================================
+const showAddressModal = ref(false)
+const showAddAddressForm = ref(false)
+const isFetchingAddresses = ref(false)
+const isSavingAddress = ref(false)
+const myAddresses = ref<any[]>([])
+
+const selectedAddressId = ref<string | null>(null)
+const editingAddressId = ref<string | null>(null)
+
+// Format chung
+function formatFullAddress(addr: any) {
+  if (!addr)
+    return ''
+  const p = addr.provinceCity || addr.province || ''
+  const w = addr.wardCommune || addr.ward || ''
+  const d = addr.addressDetail || addr.detail || ''
+  return [d, w, p].filter(Boolean).join(', ')
+}
+
+// Form Modal Địa chỉ & Validation
+const addressFormRef = ref<FormInst | null>(null)
+const newAddress = reactive({
+  provinceName: null as string | null,
+  wardName: null as string | null,
+  detail: '',
+  isDefault: false,
+})
+const modalWardOptions = ref<Option[]>([])
+
+const addressRules = {
+  provinceName: { required: true, message: 'Chọn Tỉnh/Thành phố', trigger: 'change' },
+  wardName: { required: true, message: 'Chọn Phường/Xã', trigger: 'change' },
+  detail: { required: true, message: 'Nhập số nhà, tên đường', trigger: ['blur', 'input'] },
+}
+
+async function onModalProvinceChange(val: string | null) {
+  newAddress.wardName = null
+  modalWardOptions.value = []
+  if (val) {
+    modalWardOptions.value = await fetchWardsFromAPI(val)
+  }
+}
+
+// Hàm trích xuất mảng triệt để
+function extractArrayFromResponse(res: any): any[] {
+  if (!res)
+    return []
+  if (Array.isArray(res))
+    return res
+  if (res.data && Array.isArray(res.data))
+    return res.data
+  if (res.data?.data && Array.isArray(res.data.data))
+    return res.data.data
+  if (res.data?.content && Array.isArray(res.data.content))
+    return res.data.content
+  if (res.content && Array.isArray(res.content))
+    return res.content
+  if (res.items && Array.isArray(res.items))
+    return res.items
+  return []
+}
+
+// LẤY DANH SÁCH ĐỊA CHỈ TỪ API
+async function fetchMyAddresses() {
   const customerId = userInfo.value?.userId
   if (!customerId)
     return
-
+  isFetchingAddresses.value = true
   try {
-    const res: any = await getDefaultCustomerAddress(customerId)
-    const adr = res?.data || res?.result || res
-    if (!adr)
-      return
+    const res: any = await getAddressesByCustomer(customerId)
+    const list = extractArrayFromResponse(res)
+    myAddresses.value = list
 
-    // Tùy thuộc cấu trúc Entity trả về từ BE, map đúng field name
-    // Dựa vào query SQL của bạn: có thể là provinceCity hoặc province, addressDetail hoặc detail
-    const dbProvince = adr.provinceCity || adr.province
-    const dbWard = adr.wardCommune
-    const dbDetail = adr.addressDetail || adr.detail
-
-    if (dbProvince) {
-      const matchedProvince = provinceOptions.value.find(p => p.codename === dbProvince)
-      if (matchedProvince) {
-        selectedProvinceCode.value = matchedProvince.value
-        await loadWardsByProvince(matchedProvince.value)
-
-        if (dbWard) {
-          const matchedWard = wardOptions.value.find(w => w.codename === dbWard)
-          if (matchedWard) {
-            selectedWardCode.value = matchedWard.value
-          }
-        }
+    // Đặt mặc định nếu chưa chọn
+    if (!selectedAddressId.value && myAddresses.value.length > 0) {
+      const defaultAddr = myAddresses.value.find((a: any) => String(a.status) === '1' || a.isDefault === true || a.isDefault === 1)
+      if (defaultAddr) {
+        selectedAddressId.value = defaultAddr.id
+      }
+      else {
+        selectedAddressId.value = myAddresses.value[0].id
       }
     }
-
-    if (dbDetail && !addressDetail.value) {
-      addressDetail.value = dbDetail
-    }
-
-    if (deliveryType.value === 'GIAO_HANG') {
-      customerInfo.value.diaChi = fullShippingAddress.value
-    }
   }
-  catch (e) {
-    console.warn('Không lấy được địa chỉ mặc định:', e)
+  catch (error) {
+    console.error('Lỗi khi fetch địa chỉ:', error)
+  }
+  finally {
+    isFetchingAddresses.value = false
   }
 }
 
-// Đồng bộ diaChi trong payload
-watch(fullShippingAddress, (val) => {
-  if (deliveryType.value === 'GIAO_HANG') {
-    customerInfo.value.diaChi = val
+async function openAddressModal() {
+  if (!userInfo.value)
+    return message.info('Vui lòng đăng nhập để quản lý sổ địa chỉ.')
+  showAddressModal.value = true
+  showAddAddressForm.value = false
+  await fetchMyAddresses()
+}
+
+function selectAddressFromModal(addr: any) {
+  selectedAddressId.value = addr.id
+  showAddressModal.value = false
+}
+
+function handleOpenAddForm() {
+  editingAddressId.value = null
+  Object.assign(newAddress, { provinceName: null, wardName: null, detail: '', isDefault: false })
+  showAddAddressForm.value = true
+}
+
+async function handleEditAddress(addr: any) {
+  editingAddressId.value = addr.id
+  const pName = addr.provinceCity || addr.province || null
+  const wName = addr.wardCommune || addr.ward || null
+
+  newAddress.provinceName = pName
+
+  if (pName) {
+    // 1. Tạo "mồi" dữ liệu giả để NSelect chấp nhận giá trị ngay lập tức
+    if (wName) {
+      modalWardOptions.value = [{ label: wName, value: wName }]
+    }
+    // 2. Gán giá trị vào v-model
+    newAddress.wardName = wName
+    // 3. Chạy ngầm API để load lại danh sách chuẩn đầy đủ
+    fetchWardsFromAPI(pName).then((options) => {
+      modalWardOptions.value = options
+    })
   }
-})
+  else {
+    newAddress.wardName = null
+  }
 
-watch(selectedProvinceCode, handleProvinceChange)
+  newAddress.detail = addr.addressDetail || addr.detail || ''
+  newAddress.isDefault = String(addr.status) === '1' || addr.isDefault === true || addr.isDefault === 1
+  showAddAddressForm.value = true
+}
 
-// Voucher
+async function saveNewAddress() {
+  try {
+    await addressFormRef.value?.validate()
+  }
+  catch {
+    return // Dừng nếu lỗi validate
+  }
+
+  isSavingAddress.value = true
+  try {
+    const payload = {
+      customerId: userInfo.value.userId,
+      provinceCity: newAddress.provinceName,
+      district: '', // Gửi rỗng để pass DTO bên backend
+      wardCommune: newAddress.wardName,
+      addressDetail: newAddress.detail,
+      isDefault: newAddress.isDefault,
+      status: newAddress.isDefault ? 1 : 0,
+    }
+
+    if (editingAddressId.value) {
+      // ĐÃ FIX: Truyền customerId vào API updateAddress theo file khai báo mới
+      await updateAddress(userInfo.value.userId, editingAddressId.value, payload)
+      message.success('Cập nhật địa chỉ thành công')
+    }
+    else {
+      await createAddress(userInfo.value.userId, payload)
+      message.success('Thêm địa chỉ thành công')
+    }
+
+    showAddAddressForm.value = false
+    await fetchMyAddresses()
+  }
+  catch (error: any) {
+    message.error(error.response?.data?.message || 'Lỗi lưu thông tin địa chỉ')
+  }
+  finally {
+    isSavingAddress.value = false
+  }
+}
+
+async function handleDeleteAddress(id: string) {
+  try {
+    // ĐÃ FIX: Truyền customerId vào API deleteAddress
+    await deleteAddress(userInfo.value.userId, id)
+    message.success('Đã xóa địa chỉ')
+    if (selectedAddressId.value === id)
+      selectedAddressId.value = null
+    await fetchMyAddresses()
+  }
+  catch (error) { message.error('Không thể xóa địa chỉ này') }
+}
+
+async function handleSetDefault(addrId: string) {
+  try {
+    await setDefaultAddress(userInfo.value.userId, addrId)
+    message.success('Đã thiết lập địa chỉ mặc định')
+    await fetchMyAddresses()
+  }
+  catch (error) { message.error('Lỗi khi cài đặt mặc định') }
+}
+
+// ====================================================
+// VOUCHER & CART & CHECKOUT
+// ====================================================
 const selectedVoucher = ref<string | null>(null)
 const availableVouchers = ref<any[]>([])
 const discountAmount = ref(0)
@@ -196,41 +391,41 @@ onMounted(async () => {
   userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
   hydrateCustomerInfoFromProfile()
   await loadProvinces()
-  await tryFillDefaultAddressFromDB()
+  if (userInfo.value) {
+    await fetchMyAddresses()
+  }
   loadCart()
 })
 
-watch(userInfo, () => {
-  hydrateCustomerInfoFromProfile()
-})
-
-watch(deliveryType, (type) => {
-  if (type === 'TAI_QUAY') {
-    customerInfo.value.diaChi = STORE_ADDRESS
-  }
-  else {
-    customerInfo.value.diaChi = fullShippingAddress.value
-  }
-}, { immediate: true })
+watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
 async function loadCart() {
   cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
   if (cartId.value) {
     const res = await GetGioHang(cartId.value as string)
-    cartItems.value = res.data
+    cartItems.value = (res.data || []).map((item: any) => {
+      const percentage = item.percentage || item.percentageDiscount || 0
+      const finalPrice = percentage > 0 ? item.price * (1 - percentage / 100) : item.price
+      return { ...item, originalPrice: item.price, price: finalPrice }
+    })
   }
   else {
     const cartItem = localStorageAction.get(CUSTOMER_CART_ITEM)
     if (!cartItem)
       return
-
     const res = await getProductDetailCart(Object.keys(cartItem))
-    cartItems.value = res.data.map(productDetail => ({
-      ...productDetail,
-      id: '',
-      productDetailId: productDetail.id,
-      quantity: cartItem[productDetail.id],
-    })) || []
+    cartItems.value = (res.data || []).map((productDetail: any) => {
+      const percentage = productDetail.percentage || productDetail.percentageDiscount || 0
+      const finalPrice = percentage > 0 ? productDetail.price * (1 - percentage / 100) : productDetail.price
+      return {
+        ...productDetail,
+        id: '',
+        productDetailId: productDetail.id,
+        quantity: cartItem[productDetail.id],
+        originalPrice: productDetail.price,
+        price: finalPrice,
+      }
+    })
   }
 
   if (cartItems.value.length === 0) {
@@ -242,12 +437,8 @@ async function loadCart() {
   }
 }
 
-const subTotal = computed(() => {
-  return cartItems.value.reduce((total, item) => total + (item.price * item.quantity), 0)
-})
-
+const subTotal = computed(() => cartItems.value.reduce((t, i) => t + (i.price * i.quantity), 0))
 const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 30000 : 0)
-
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -258,14 +449,8 @@ const formatCurrency = (val: number) => new Intl.NumberFormat('vi-VN', { style: 
 async function loadVouchers() {
   if (subTotal.value <= 0)
     return
-
   try {
-    const res: any = await getMaGiamGia({
-      invoiceId: '',
-      tongTien: subTotal.value,
-      customerId: userInfo?.value?.userId || null,
-    })
-
+    const res: any = await getMaGiamGia({ invoiceId: '', tongTien: subTotal.value, customerId: userInfo?.value?.userId || null })
     const data = res.data || res
     if (data && data.voucherApDung) {
       availableVouchers.value = data.voucherApDung
@@ -274,9 +459,7 @@ async function loadVouchers() {
       }
     }
   }
-  catch (e) {
-    console.error('Lỗi load voucher:', e)
-  }
+  catch (e) { console.error('Lỗi load voucher:', e) }
 }
 
 function handleSelectVoucher(voucherId: string | null) {
@@ -285,7 +468,6 @@ function handleSelectVoucher(voucherId: string | null) {
     discountAmount.value = 0
     return
   }
-
   const voucher = availableVouchers.value.find(v => v.voucherId === voucherId)
   if (voucher) {
     discountAmount.value = voucher.giamGiaThucTe || 0
@@ -293,17 +475,32 @@ function handleSelectVoucher(voucherId: string | null) {
   }
 }
 
-watch(subTotal, () => {
-  loadVouchers()
-})
+watch(subTotal, () => loadVouchers())
 
 async function handleCheckout() {
-  if (!customerInfo.value.ten || !customerInfo.value.sdt) {
-    return message.warning('Vui lòng nhập Họ tên và Số điện thoại')
+  try {
+    await checkoutFormRef.value?.validate()
   }
+  catch (errors) {
+    message.error('Vui lòng kiểm tra lại thông tin nhận hàng')
+    return
+  }
+
+  let finalAddressStr = STORE_ADDRESS
+
   if (deliveryType.value === 'GIAO_HANG') {
-    if (!selectedProvinceCode.value || !selectedWardCode.value || !addressDetail.value.trim())
-      return message.warning('Vui lòng chọn đủ Tỉnh/Thành - Phường/Xã và nhập Số nhà, tên đường')
+    if (userInfo.value) {
+      const selected = myAddresses.value.find(a => a.id === selectedAddressId.value)
+      if (!selected) {
+        message.warning('Vui lòng thêm và chọn địa chỉ giao hàng trong sổ địa chỉ')
+        openAddressModal()
+        return
+      }
+      finalAddressStr = formatFullAddress(selected)
+    }
+    else {
+      finalAddressStr = guestFullAddress.value
+    }
   }
 
   processing.value = true
@@ -315,38 +512,36 @@ async function handleCheckout() {
     }))
 
     const payload = {
-      ten: customerInfo.value.ten,
-      sdt: customerInfo.value.sdt,
-      diaChi: customerInfo.value.diaChi,
-      ghiChu: customerInfo.value.ghiChu,
-
+      ten: checkoutForm.ten,
+      sdt: checkoutForm.sdt,
+      diaChi: finalAddressStr,
+      ghiChu: checkoutForm.ghiChu,
       tongTien: finalTotal.value,
       tienHang: subTotal.value,
       tienShip: shippingFee.value,
       giamGia: discountAmount.value,
-
       phuongThucThanhToan: paymentMethod.value,
       loaiHoaDon: deliveryType.value,
       idPGG: selectedVoucher.value || null,
-
       products: productPayload,
     }
 
     const res: any = await createOrder(payload)
-
     if (res.status === 200 || res.status === 'OK' || res.data) {
       message.success('Đặt hàng thành công!')
       CartStore.clearCart()
       router.push('/order-success')
+    }
+
+    if (!cartId.value) {
+      localStorageAction.remove(CUSTOMER_CART_ID)
     }
     else {
       message.error(res.message || 'Đặt hàng thất bại')
     }
   }
   catch (error: any) {
-    console.error(error)
-    const msg = error.response?.data?.message || 'Có lỗi xảy ra'
-    message.error(msg)
+    message.error(error.response?.data?.message || 'Có lỗi xảy ra')
   }
   finally {
     processing.value = false
@@ -355,8 +550,8 @@ async function handleCheckout() {
 </script>
 
 <template>
-  <div class="py-8 font-sans">
-    <div class="container mx-auto px-4 max-w-6xl">
+  <div class="py-8 font-sans bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 max-w-[1100px]">
       <h1 class="text-2xl font-bold mb-6 text-gray-800 border-l-4 border-green-600 pl-3">
         Thanh toán đơn hàng
       </h1>
@@ -364,87 +559,157 @@ async function handleCheckout() {
       <NGrid x-gap="24" cols="1 l:3" responsive="screen">
         <NGi span="2">
           <div class="space-y-6">
-            <NCard title="1. Thông tin nhận hàng" size="small" class="shadow-sm">
-              <div class="flex gap-4 mb-4">
+            <NCard title="1. Hình thức nhận hàng" size="small" class="shadow-sm rounded-xl">
+              <div class="flex gap-4">
                 <div
-                  class="flex-1 p-3 border rounded cursor-pointer flex items-center justify-center gap-2 transition-all"
-                  :class="deliveryType === 'GIAO_HANG' ? 'border-green-600 bg-green-50 text-green-700 font-bold ring-1 ring-green-600' : 'hover:bg-gray-50'"
+                  class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  :class="deliveryType === 'GIAO_HANG' ? 'border-green-600 bg-green-50 text-green-700 font-bold ring-1 ring-green-600' : 'hover:bg-gray-50 border-gray-200'"
                   @click="deliveryType = 'GIAO_HANG'"
                 >
-                  <NIcon>
+                  <NIcon size="20">
                     <LocationOutline />
                   </NIcon> Giao tận nơi
                 </div>
                 <div
-                  class="flex-1 p-3 border rounded cursor-pointer flex items-center justify-center gap-2 transition-all"
-                  :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-gray-50'"
+                  class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
+                  :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-gray-50 border-gray-200'"
                   @click="deliveryType = 'TAI_QUAY'"
                 >
-                  <NIcon>
+                  <NIcon size="20">
                     <StorefrontOutline />
                   </NIcon> Nhận tại cửa hàng
                 </div>
               </div>
+            </NCard>
 
-              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <NInput v-model:value="customerInfo.ten" placeholder="Họ và tên người nhận (*)" />
-                <NInput v-model:value="customerInfo.sdt" placeholder="Số điện thoại (*)" />
+            <NCard title="2. Thông tin người nhận" size="small" class="shadow-sm rounded-xl">
+              <NForm ref="checkoutFormRef" :model="checkoutForm" :rules="checkoutRules" label-placement="top">
+                <div class="text-sm font-bold text-gray-700 mb-2 mt-2">
+                  THÔNG TIN LIÊN HỆ
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                  <NFormItem path="ten" label="Họ và tên người nhận">
+                    <NInput v-model:value="checkoutForm.ten" placeholder="Nhập họ và tên" size="large" />
+                  </NFormItem>
+                  <NFormItem path="sdt" label="Số điện thoại">
+                    <NInput v-model:value="checkoutForm.sdt" placeholder="Nhập số điện thoại" size="large" />
+                  </NFormItem>
+                </div>
 
-                <!-- ĐỊA CHỈ -->
+                <NDivider style="margin: 0 0 16px 0;" />
+
+                <div class="flex justify-between items-center mb-3">
+                  <div class="text-sm font-bold text-gray-700">
+                    ĐỊA CHỈ NHẬN HÀNG
+                  </div>
+                  <NButton
+                    v-if="deliveryType === 'GIAO_HANG' && userInfo" type="primary" text size="small"
+                    @click="openAddressModal"
+                  >
+                    <template #icon>
+                      <NIcon>
+                        <LocationOutline />
+                      </NIcon>
+                    </template>
+                    Sổ địa chỉ của bạn
+                  </NButton>
+                </div>
+
                 <template v-if="deliveryType === 'GIAO_HANG'">
-                  <NSelect
-                    v-model:value="selectedProvinceCode" :options="provinceOptions" filterable
-                    placeholder="Chọn Tỉnh/Thành phố (*)"
-                  />
-                  <NSelect
-                    v-model:value="selectedWardCode" :options="wardOptions" filterable
-                    placeholder="Chọn Phường/Xã (*)" :disabled="!selectedProvinceCode"
-                  />
-                  <NInput v-model:value="addressDetail" placeholder="Số nhà, tên đường... (*)" />
+                  <template v-if="userInfo">
+                    <div
+                      v-if="selectedAddressId"
+                      class="bg-green-50/50 p-4 border border-green-200 rounded-lg relative"
+                    >
+                      <NTag
+                        v-if="String(myAddresses.find(a => a.id === selectedAddressId)?.status) === '1' || myAddresses.find(a => a.id === selectedAddressId)?.isDefault"
+                        type="success" size="small" class="mb-2"
+                      >
+                        Mặc định
+                      </NTag>
+                      <div class="text-gray-800 font-medium leading-relaxed">
+                        {{ formatFullAddress(myAddresses.find(a => a.id === selectedAddressId)) }}
+                      </div>
+                    </div>
+                    <div v-else class="text-sm text-orange-600 bg-orange-50 p-3 rounded border border-orange-200">
+                      Vui lòng chọn địa chỉ giao hàng từ <span
+                        class="font-bold cursor-pointer underline"
+                        @click="openAddressModal"
+                      >Sổ địa chỉ</span>.
+                    </div>
+                  </template>
 
-                  <!-- field diaChi vẫn được giữ để submit payload, nhưng lấy từ fullShippingAddress -->
-                  <NInput
-                    v-model:value="customerInfo.diaChi" placeholder="Địa chỉ đầy đủ" readonly
-                    class="md:col-span-2"
-                  />
+                  <template v-else>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+                      <NFormItem path="provinceName" label="Tỉnh/Thành phố">
+                        <NSelect
+                          v-model:value="checkoutForm.provinceName" :options="provinceOptions" filterable
+                          placeholder="Chọn Tỉnh/Thành" size="large" @update:value="onGuestProvinceChange"
+                        />
+                      </NFormItem>
+                      <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
+                        <NSelect
+                          v-model:value="checkoutForm.wardName" :options="guestWardOptions" filterable
+                          placeholder="Chọn Phường/Xã" :disabled="!checkoutForm.provinceName" size="large"
+                        />
+                      </NFormItem>
+                      <div class="md:col-span-2">
+                        <NFormItem path="addressDetail" label="Địa chỉ chi tiết">
+                          <NInput
+                            v-model:value="checkoutForm.addressDetail"
+                            placeholder="Nhập Số nhà, tên đường, tòa nhà..." size="large"
+                          />
+                        </NFormItem>
+                      </div>
+                    </div>
+                  </template>
                 </template>
 
                 <template v-else>
-                  <div class="md:col-span-2">
-                    <div class="text-sm text-gray-600 mb-2">
-                      Địa chỉ cửa hàng nhận tại quầy
-                    </div>
-                    <div class="p-3 rounded border bg-gray-50 text-gray-800">
-                      {{ STORE_ADDRESS }}
-                    </div>
+                  <div class="p-4 rounded-lg border border-blue-200 bg-blue-50 text-blue-800 font-medium">
+                    Nhận máy trực tiếp tại: {{ STORE_ADDRESS }}
                   </div>
                 </template>
 
-                <NInput
-                  v-model:value="customerInfo.ghiChu" type="textarea" placeholder="Ghi chú đơn hàng"
-                  class="md:col-span-2"
-                />
-              </div>
+                <NDivider style="margin: 4px 0 16px 0;" />
+
+                <NFormItem path="ghiChu" label="Ghi chú thêm (Tùy chọn)">
+                  <NInput
+                    v-model:value="checkoutForm.ghiChu" type="textarea"
+                    placeholder="Giao hàng trong giờ hành chính..." :autosize="{ minRows: 2, maxRows: 4 }"
+                  />
+                </NFormItem>
+              </NForm>
             </NCard>
 
-            <NCard title="2. Phương thức thanh toán" size="small" class="shadow-sm">
+            <NCard title="3. Phương thức thanh toán" size="small" class="shadow-sm rounded-xl">
               <NRadioGroup v-model:value="paymentMethod" name="payment" class="w-full">
                 <div class="space-y-3">
-                  <div class="border rounded p-3 cursor-pointer hover:bg-gray-50" @click="paymentMethod = '0'">
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '0' }"
+                    @click="paymentMethod = '0'"
+                  >
                     <NRadio value="0" class="w-full">
-                      <div class="flex items-center gap-2">
-                        <NIcon color="#16a34a">
+                      <div class="flex items-center gap-3 font-medium text-gray-800">
+                        <NIcon color="#16a34a" size="24">
                           <CashOutline />
-                        </NIcon> Thanh toán khi nhận hàng (COD)
+                        </NIcon>
+                        Thanh toán khi nhận hàng (COD)
                       </div>
                     </NRadio>
                   </div>
-                  <div class="border rounded p-3 cursor-pointer hover:bg-gray-50" @click="paymentMethod = '1'">
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
+                    @click="paymentMethod = '1'"
+                  >
                     <NRadio value="1" class="w-full">
-                      <div class="flex items-center gap-2">
-                        <NIcon color="#2563eb">
+                      <div class="flex items-center gap-3 font-medium text-gray-800">
+                        <NIcon color="#2563eb" size="24">
                           <CardOutline />
-                        </NIcon> Chuyển khoản ngân hàng
+                        </NIcon>
+                        Chuyển khoản qua ngân hàng (Mã QR)
                       </div>
                     </NRadio>
                   </div>
@@ -455,76 +720,83 @@ async function handleCheckout() {
         </NGi>
 
         <NGi>
-          <div class="bg-white p-5 rounded-lg shadow-md border sticky top-4">
-            <h3 class="font-bold text-lg mb-4 pb-2 border-b">
+          <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 sticky top-4">
+            <h3 class="font-bold text-lg mb-4 pb-3 border-b text-gray-800">
               Đơn hàng ({{ cartItems.length }} sản phẩm)
             </h3>
 
-            <div class="space-y-3 mb-4 max-h-[300px] overflow-y-auto pr-1">
+            <div class="space-y-3 mb-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
               <div
                 v-for="item in cartItems" :key="item.productDetailId"
-                class="flex justify-between text-sm py-2 border-b border-dashed"
+                class="flex justify-between text-sm py-3 border-b border-dashed border-gray-200 last:border-0"
               >
-                <div class="flex-1 pr-2">
-                  <div class="font-medium line-clamp-2">
+                <div class="flex-1 pr-3">
+                  <div class="font-medium text-gray-800 leading-tight">
                     {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
                   </div>
-                  <div class="text-gray-500 text-xs mt-1">
-                    SL: <strong>x{{ item.quantity }}</strong>
+                  <div class="text-gray-500 text-xs mt-1.5">
+                    Số lượng: <strong class="text-gray-700">x{{ item.quantity }}</strong>
                   </div>
                 </div>
-                <div class="text-right">
-                  <div class="font-bold text-gray-800">
+                <div class="text-right flex flex-col items-end justify-center shrink-0">
+                  <div class="font-bold text-red-600 text-[15px]">
                     {{ formatCurrency(item.price * item.quantity) }}
+                  </div>
+                  <div
+                    v-if="(item.originalPrice ?? 0) > item.price"
+                    class="text-[11px] text-gray-400 line-through mt-0.5"
+                  >
+                    {{ formatCurrency((item.originalPrice ?? 0) * item.quantity) }}
                   </div>
                 </div>
               </div>
             </div>
 
-            <NDivider />
-
-            <div class="mb-4">
-              <div class="text-sm font-medium mb-1 flex items-center gap-1 text-gray-700">
-                <NIcon color="#d03050">
+            <div class="mb-5 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
+              <div class="text-sm font-semibold mb-2 flex items-center gap-2 text-gray-800">
+                <NIcon color="#d03050" size="18">
                   <TicketOutline />
-                </NIcon> Mã ưu đãi
+                </NIcon> Khuyến mãi
               </div>
               <NSelect
                 v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
-                value-field="voucherId" placeholder="Chọn mã giảm giá" clearable
+                value-field="voucherId" placeholder="Chọn mã giảm giá của shop" clearable
                 :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
                 @update:value="handleSelectVoucher"
               />
             </div>
 
-            <div class="space-y-2 text-sm text-gray-600 bg-gray-50 p-3 rounded">
+            <div class="space-y-3 text-[15px] text-gray-600">
               <div class="flex justify-between">
-                <span>Tạm tính:</span><span class="font-medium">{{ formatCurrency(subTotal) }}</span>
+                <span>Tạm tính:</span><span class="font-medium text-gray-800">{{ formatCurrency(subTotal) }}</span>
               </div>
               <div class="flex justify-between">
-                <span>Phí vận chuyển:</span><span class="font-medium">{{ formatCurrency(shippingFee) }}</span>
+                <span>Phí vận chuyển:</span><span class="font-medium text-gray-800">{{ formatCurrency(shippingFee)
+                }}</span>
               </div>
               <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
                 <span>Voucher giảm:</span><span>-{{ formatCurrency(discountAmount) }}</span>
               </div>
             </div>
 
-            <div class="flex justify-between items-center mt-4 pt-4 border-t">
-              <div>
-                <div class="font-bold text-lg text-gray-800">
-                  Tổng cộng
+            <div class="mt-5 pt-4 border-t border-gray-200">
+              <div class="flex justify-between items-end">
+                <div>
+                  <div class="font-bold text-lg text-gray-800">
+                    Tổng thanh toán
+                  </div>
+                  <div class="text-xs text-gray-400 font-normal mt-0.5">
+                    (Đã bao gồm VAT)
+                  </div>
                 </div>
-                <div class="text-xs text-gray-500 font-normal">
-                  (Đã bao gồm VAT)
-                </div>
+                <span class="font-black text-2xl text-red-600">{{ formatCurrency(finalTotal) }}</span>
               </div>
-              <span class="font-bold text-2xl text-green-600">{{ formatCurrency(finalTotal) }}</span>
             </div>
 
             <NButton
-              block type="primary" color="#049d14" size="large"
-              class="font-bold h-12 text-lg mt-4 shadow-lg shadow-green-200" :loading="processing"
-              @click="handleCheckout"
+              block type="primary" color="#d70018" size="large"
+              class="font-bold h-12 text-lg mt-6 shadow-md shadow-red-200 hover:-translate-y-0.5 transition-transform"
+              :loading="processing" @click="handleCheckout"
             >
               ĐẶT HÀNG NGAY
             </NButton>
@@ -532,5 +804,146 @@ async function handleCheckout() {
         </NGi>
       </NGrid>
     </div>
+
+    <NModal v-model:show="showAddressModal" preset="card" title="Sổ Địa Chỉ Của Bạn" style="width: 650px" size="huge">
+      <NSpin :show="isFetchingAddresses">
+        <div v-if="!showAddAddressForm">
+          <div class="flex justify-end mb-4">
+            <NButton type="primary" dashed @click="handleOpenAddForm">
+              <template #icon>
+                <NIcon>
+                  <AddOutline />
+                </NIcon>
+              </template>
+              Thêm địa chỉ mới
+            </NButton>
+          </div>
+
+          <div v-if="myAddresses.length === 0" class="py-10 text-center">
+            <NEmpty description="Bạn chưa có địa chỉ nào lưu sẵn." />
+          </div>
+
+          <div v-else class="space-y-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+            <div
+              v-for="addr in myAddresses" :key="addr.id"
+              class="border p-4 rounded-lg transition-all relative group bg-white"
+              :class="{ 'border-green-500 bg-green-50/30 ring-1 ring-green-200': selectedAddressId === addr.id, 'border-gray-200': selectedAddressId !== addr.id }"
+            >
+              <div class="flex justify-between items-start">
+                <div class="flex-1 pr-4">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-bold text-gray-800 text-[15px]">{{ userInfo?.fullName }}</span>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-gray-600">{{ userInfo?.phone }}</span>
+                    <NTag v-if="String(addr.status) === '1' || addr.isDefault" type="success" size="small" class="ml-2">
+                      Mặc định
+                    </NTag>
+                  </div>
+                  <div class="text-gray-600 text-sm mt-2 leading-relaxed">
+                    {{ formatFullAddress(addr) }}
+                  </div>
+                </div>
+
+                <div class="flex flex-col items-end gap-3 shrink-0">
+                  <div class="flex items-center gap-2 text-blue-600">
+                    <span
+                      class="cursor-pointer hover:underline text-sm font-medium"
+                      @click="handleEditAddress(addr)"
+                    >Sửa</span>
+                    <span v-if="!(String(addr.status) === '1' || addr.isDefault)" class="text-gray-300">|</span>
+                    <NPopconfirm
+                      v-if="!(String(addr.status) === '1' || addr.isDefault)" positive-text="Xóa"
+                      negative-text="Hủy" @positive-click="handleDeleteAddress(addr.id)"
+                    >
+                      <template #trigger>
+                        <span class="cursor-pointer text-red-500 hover:underline text-sm font-medium">Xóa</span>
+                      </template>
+                      Xóa địa chỉ này khỏi sổ của bạn?
+                    </NPopconfirm>
+                  </div>
+
+                  <NButton
+                    v-if="selectedAddressId !== addr.id" type="primary" ghost size="small"
+                    @click="selectAddressFromModal(addr)"
+                  >
+                    Giao đến địa chỉ này
+                  </NButton>
+
+                  <div
+                    v-else
+                    class="text-green-600 font-bold flex items-center gap-1 text-sm bg-green-100 px-2 py-1 rounded"
+                  >
+                    <NIcon size="16">
+                      <CheckmarkCircleOutline />
+                    </NIcon> Đang chọn
+                  </div>
+
+                  <NButton
+                    v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text type="primary"
+                    class="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="handleSetDefault(addr.id)"
+                  >
+                    Thiết lập mặc định
+                  </NButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else>
+          <h3 class="font-bold text-gray-800 mb-4 border-l-4 border-green-500 pl-2">
+            {{ editingAddressId ? 'Cập Nhật Địa Chỉ' : 'Thêm Địa Chỉ Mới' }}
+          </h3>
+
+          <NForm ref="addressFormRef" :model="newAddress" :rules="addressRules" label-placement="top">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              <NFormItem path="provinceName" label="Tỉnh/Thành phố">
+                <NSelect
+                  v-model:value="newAddress.provinceName" :options="provinceOptions" filterable
+                  placeholder="Chọn Tỉnh/Thành" @update:value="onModalProvinceChange"
+                />
+              </NFormItem>
+              <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
+                <NSelect
+                  v-model:value="newAddress.wardName" :options="modalWardOptions" filterable
+                  placeholder="Chọn Phường/Xã" :disabled="!newAddress.provinceName"
+                />
+              </NFormItem>
+            </div>
+
+            <NFormItem path="detail" label="Địa chỉ chi tiết">
+              <NInput v-model:value="newAddress.detail" placeholder="Số nhà, Tên đường, Tòa nhà..." />
+            </NFormItem>
+
+            <div class="pt-1">
+              <NCheckbox v-model:checked="newAddress.isDefault">
+                Đặt làm địa chỉ mặc định
+              </NCheckbox>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
+              <NButton @click="showAddAddressForm = false">
+                Trở lại
+              </NButton>
+              <NButton type="primary" :loading="isSavingAddress" @click="saveNewAddress">
+                Lưu địa chỉ
+              </NButton>
+            </div>
+          </NForm>
+        </div>
+      </NSpin>
+    </NModal>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 4px;
+}
+</style>
