@@ -5,6 +5,9 @@ import type { AxiosResponse } from 'axios'
 import type { SelectMixedOption } from 'naive-ui/es/select/src/interface'
 
 export type ADProductDetailRequest = PaginationParams & {
+  readonly q?: string | null // Thêm trường tìm kiếm
+  readonly idBrand?: string | null // Thêm trường hãng
+  readonly idScreen?: string | null // Thêm trường màn hình
   readonly idProduct?: string | null
   readonly idCPU?: string | null
   readonly idGPU?: string | null
