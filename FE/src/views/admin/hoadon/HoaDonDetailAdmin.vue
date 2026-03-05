@@ -132,15 +132,15 @@ interface HistoryItem {
   ghiChu: string
 }
 
-// ==================== Component Setup ====================
 const props = defineProps<{
   hoaDonData?: HoaDonData
 }>()
-
 const emit = defineEmits<{
   'update:customer': [customerData: CustomerForm]
 }>()
+// ==================== Component Setup ====================
 
+const selectedProduct = ref<DisplayProduct | null>(null)
 // ==================== Constants ====================
 const STATUS_MAP: Record<number, { label: string, type: string, icon: any }> = {
   0: { label: 'Chờ xác nhận', type: 'warning', icon: TimeOutline },
@@ -235,13 +235,17 @@ const isAddingSerials = ref(false)
 // History modal
 const showHistoryModal = ref(false)
 
+// Product selection for serial management
+const selectedProductForSerial = ref<HoaDonChiTietItem | null>(null)
+
 // ==================== Computed Properties ====================
 const invoiceCode = computed(() => route.params.id as string || 'N/A')
 
 const requiredQuantity = computed(() => selectedProductItem.value?.soLuong || 0)
 
 const currentProductImeiList = computed(() => {
-  if (!selectedProductForModal.value) return []
+  if (!selectedProductForModal.value)
+    return []
   const item = invoiceItems.value.find(i => i.id === selectedProductForModal.value!.id)
   return item ? parseIMEIList(item.danhSachImei) : []
 })
@@ -265,7 +269,12 @@ const canChangeImei = computed(() => isOnlineInvoice.value && currentStatus.valu
 const showCancelButton = computed(() => {
   if (isCompleted.value || isCancelled.value)
     return false
-  return currentStatus.value === 0
+  // Chỉ hiển thị nút hủy cho hóa đơn online và giao hàng khi ở trạng thái chờ xác nhận
+  if (isOnlineInvoice.value || isDeliveryInvoice.value) {
+    return currentStatus.value === 0
+  }
+  // Hóa đơn tại quầy có thể hủy bất kỳ lúc nào trừ khi đã hoàn thành hoặc đã hủy
+  return !isCompleted.value && !isCancelled.value
 })
 
 const productCount = computed(() => {
@@ -438,7 +447,7 @@ const availableStatusOptions = computed<SelectOption[]>(() => {
   }
 
   const options: SelectOption[] = []
-  for (let i = currentStatus.value; i <= 5; i++) {
+  for (let i = currentStatus.value; i <= 4; i++) {
     options.push({
       value: i,
       label: STATUS_MAP[i].label,
@@ -451,6 +460,10 @@ const availableStatusOptions = computed<SelectOption[]>(() => {
 const filteredSteps = computed(() => {
   if (isCounterInvoice.value) {
     return TIMELINE_STEPS.filter(step => step.key === '4')
+  }
+  // Không hiển thị trạng thái hủy (key '5') trong timeline cho hóa đơn online và giao hàng
+  if (isOnlineInvoice.value || isDeliveryInvoice.value) {
+    return TIMELINE_STEPS.filter(step => step.key !== '5')
   }
   return TIMELINE_STEPS
 })
@@ -465,6 +478,14 @@ const historyList = computed<HistoryItem[]>(() => {
   catch {
     return []
   }
+})
+
+// Product select options for serial management
+const productSelectOptions = computed(() => {
+  return invoiceItems.value.map(item => ({
+    label: `${item.tenSanPham} (${item.soLuong} SP - ${parseIMEIList(item.danhSachImei).length}/${item.soLuong} Serial)`,
+    value: item,
+  }))
 })
 
 // ==================== Serial Columns ====================
@@ -532,8 +553,6 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
 ]
 
 // ==================== Product IMEI Modal Handlers ====================
-// [FIX] Đặt trước productColumns vì productColumns gọi các hàm này
-
 function openProductImeiModal(row: DisplayProduct) {
   let targetItem: HoaDonChiTietItem | undefined
 
@@ -628,14 +647,6 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
       render: (row) => {
         if (!row.imeiCode) {
           return h('div', { class: 'text-center text-gray-400 italic text-sm' }, 'Không có Serial')
-        }
-
-        if (isCounterOrDelivery.value) {
-          return h('div', {
-            class: 'font-mono font-bold text-center text-purple-700 text-sm p-1 bg-purple-50 rounded cursor-pointer hover:bg-purple-100 transition-colors border border-purple-200',
-            onClick: () => openProductImeiModal(row),
-            title: 'Click để xem thông tin SERIAL',
-          }, row.imeiCode)
         }
 
         return h('div', {
@@ -1022,6 +1033,14 @@ async function fetchInvoiceDetails(): Promise<void> {
   }
 }
 
+function rowProps(row: DisplayProduct) {
+  return {
+    onClick: () => {
+      selectedProduct.value = row
+    },
+  }
+}
+
 async function generateQRCode(): Promise<void> {
   if (!hoaDonData.value)
     return
@@ -1078,20 +1097,21 @@ function saveCustomerInfo() {
 }
 
 // Serial handlers
-async function selectProductForSerial(productItem: HoaDonChiTietItem) {
-  if (!isOnlineInvoice.value)
-    return
-
-  const existingImeis = parseIMEIList(productItem.danhSachImei)
-  if (existingImeis.length >= productItem.soLuong) {
-    dialog.info({
-      title: 'Thông báo',
-      content: `Sản phẩm này đã có đủ ${existingImeis.length} serial.`,
-      positiveText: 'Đóng',
-      closable: true,
-    })
+function openSerialManagementModal() {
+  if (!selectedProductForSerial.value) {
+    message.warning('Vui lòng chọn sản phẩm để quản lý serial')
     return
   }
+  selectProductForSerial(selectedProductForSerial.value)
+}
+
+async function selectProductForSerial(productItem: HoaDonChiTietItem) {
+  // if (!isOnlineInvoice.value) {
+  //   message.info('Chức năng quản lý serial chỉ áp dụng cho hóa đơn online')
+  //   return
+  // }
+
+  const existingImeis = parseIMEIList(productItem.danhSachImei)
 
   selectedProductItem.value = productItem
   loadingSerials.value = true
@@ -1175,6 +1195,8 @@ async function addSerialsToInvoice() {
       message.success(`Đã thêm ${selectedSerialIds.value.length} serial vào sản phẩm`)
       showSerialModal.value = false
       await fetchInvoiceDetails()
+      // Reset selected product after successful update
+      selectedProductForSerial.value = null
     }
     else {
       message.error(response.message || 'Thêm serial thất bại')
@@ -1278,29 +1300,18 @@ async function handlePrint() {
   }
 
   const printStyles = `
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Roboto', sans-serif; background: white; color: black; padding: 20px; font-size: 12px; }
-      .invoice-paper { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; }
-      .qr-code-container img { border: 1px solid #e5e7eb; border-radius: 8px; padding: 4px; }
-      .qr-code-small img { border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px; }
-      .text-gray-900 { color: #111827; } .text-gray-600 { color: #4b5563; } .text-indigo-700 { color: #4338ca; }
-      .text-green-600 { color: #16a34a; } .text-orange-600 { color: #ea580c; }
-      .bg-gray-50 { background-color: #f9fafb; } .border-dashed { border-style: dashed; }
-      .font-bold { font-weight: 700; } .font-semibold { font-weight: 600; }
-      .text-xs { font-size: 12px; } .text-sm { font-size: 14px; } .text-lg { font-size: 18px; }
-      .text-xl { font-size: 20px; } .text-2xl { font-size: 24px; }
-      .mb-4 { margin-bottom: 16px; } .mb-6 { margin-bottom: 24px; } .mb-10 { margin-bottom: 40px; }
-      .mt-16 { margin-top: 64px; } .p-4 { padding: 16px; } .p-8 { padding: 32px; }
-      .flex { display: flex; } .justify-between { justify-content: space-between; } .items-center { align-items: center; }
-      .grid { display: grid; } .grid-cols-2 { grid-template-columns: repeat(2, 1fr); } .gap-8 { gap: 32px; }
-      table { width: 100%; border-collapse: collapse; }
-      th { background: #f9fafb; border-top: 1px solid #e5e7eb; border-bottom: 1px solid #e5e7eb; color: #6b7280; font-size: 12px; text-transform: uppercase; padding: 12px 8px; }
-      td { padding: 16px 8px; border-bottom: 1px solid #f3f4f6; }
-      hr { border: none; border-top: 1px dashed #e5e7eb; margin: 24px 0; }
-      @media print { body { padding: 0; } .invoice-paper { box-shadow: none; } }
-    </style>
-  `
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: white; color: #1a1a1a; padding: 24px; }
+    table { width: 100%; border-collapse: collapse; }
+    th { background-color: #16a34a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr:nth-child(even) td { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @media print {
+      body { padding: 0; }
+      th { background-color: #16a34a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+`
 
   printWindow.document.write(`
     <!DOCTYPE html>
@@ -1407,176 +1418,165 @@ onMounted(async () => {
 
     <!-- Invoice Content (Hidden) -->
     <div id="invoice-content" class="hidden">
-      <div class="invoice-paper bg-white text-black p-8 md:p-12">
-        <!-- Header with QR -->
-        <div class="flex justify-between items-start mb-10">
-          <div>
-            <div class="flex items-center gap-2 mb-2">
-              <img src="@/assets/svg-icons/logo.svg" style="width: 100px; height: 100px" alt="logo">
-              <span class="text-2xl font-bold tracking-widest text-gray-900">My Laptop</span>
-            </div>
-            <div class="text-xs text-gray-500 space-y-1">
-              <p>123 Đại Cồ Việt, Hai Bà Trưng, Hà Nội</p>
-              <p>Website: mylaptop.vn | Hotline: 1900.8888</p>
-            </div>
-          </div>
-
-          <div class="text-right flex items-start gap-4">
-            <div v-if="qrCodeDataUrl" class="qr-code-container">
-              <img :src="qrCodeDataUrl" alt="QR Code" style="width: 100px; height: 100px">
-              <p class="text-[8px] text-gray-400 mt-1">
-                Quét mã để xem chi tiết
-              </p>
-            </div>
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; background: #fff; padding: 32px; color: #1a1a1a;">
+        <!-- HEADER -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <img src="@/assets/svg-icons/logo.svg" style="width: 64px; height: 64px;" alt="logo">
             <div>
-              <h2 class="text-xl font-bold uppercase text-gray-800">
-                Hóa Đơn
-              </h2>
-              <p class="text-sm font-bold text-gray-600 mt-1">
-                Mã: {{ hoaDonData?.maHoaDon || invoiceCode }}
-              </p>
-              <p class="text-sm text-gray-500">
-                Ngày: {{ formatDateTime(hoaDonData?.ngayTao) }}
-              </p>
+              <div style="font-size: 22px; font-weight: 800; color: #16a34a; letter-spacing: 1px;">
+                My Laptop
+              </div>
+              <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
+                123 Đại Cồ Việt, Hai Bà Trưng, Hà Nội
+              </div>
+              <div style="font-size: 11px; color: #6b7280;">
+                SĐT: 1900.8888 | mylaptop.vn
+              </div>
+            </div>
+          </div>
+          <div style="text-align: right; display: flex; align-items: flex-start; gap: 16px;">
+            <div>
+              <div style="font-size: 20px; font-weight: 900; color: #16a34a; text-transform: uppercase; letter-spacing: 2px;">
+                Hóa Đơn Bán Hàng
+              </div>
+              <div style="font-size: 12px; color: #374151; margin-top: 6px;">
+                <span style="font-weight: 600;">Mã đơn hàng:</span> {{ hoaDonData?.maHoaDon || invoiceCode }}
+              </div>
+              <div style="font-size: 12px; color: #374151; margin-top: 2px;">
+                <span style="font-weight: 600;">Ngày đặt:</span> {{ formatDateTime(hoaDonData?.ngayTao) }}
+              </div>
+            </div>
+            <div v-if="qrCodeDataUrl" style="text-align: center;">
+              <img :src="qrCodeDataUrl" alt="QR" style="width: 80px; height: 80px; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px;">
+              <div style="font-size: 8px; color: #9ca3af; margin-top: 2px;">
+                Mã hóa đơn
+              </div>
             </div>
           </div>
         </div>
 
-        <NDivider class="border-dashed my-6" />
+        <div style="border-top: 3px solid #16a34a; margin-bottom: 20px;" />
 
-        <!-- Customer & Order Info -->
-        <div class="grid grid-cols-2 gap-8 mb-8 text-sm">
-          <div>
-            <h3 class="font-bold text-gray-400 uppercase text-[15px] mb-3 tracking-wider">
-              Khách hàng
-            </h3>
-            <p class="font-bold text-gray-900 text-base mb-1">
-              {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}
-            </p>
-            <p class="text-gray-600 mb-1">
-              {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}
-            </p>
-            <p class="text-gray-600 leading-relaxed">
-              {{ formatAddress(hoaDonData?.diaChi) || formatAddress(hoaDonData?.diaChi2) || 'Không có địa chỉ' }}
-            </p>
+        <!-- THÔNG TIN KH + ĐƠN -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+          <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 12px; font-weight: 700; color: #16a34a; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #d1fae5; padding-bottom: 6px;">
+              Thông tin khách hàng
+            </div>
+            <div style="font-size: 12px; line-height: 1.9; color: #374151;">
+              <div><span style="font-weight: 600;">Tên khách hàng:</span> {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}</div>
+              <div><span style="font-weight: 600;">Số điện thoại:</span> {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}</div>
+              <div><span style="font-weight: 600;">Địa chỉ:</span> {{ formatAddress(hoaDonData?.diaChi) || formatAddress(hoaDonData?.diaChi2) || 'Không có' }}</div>
+              <div><span style="font-weight: 600;">Email:</span> {{ hoaDonData?.email2 || hoaDonData?.email || 'Không có' }}</div>
+            </div>
           </div>
-
-          <div class="text-right">
-            <h3 class="font-bold text-gray-400 uppercase text-[15px] mb-3 tracking-wider">
+          <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
+            <div style="font-size: 12px; font-weight: 700; color: #16a34a; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #d1fae5; padding-bottom: 6px;">
               Thông tin đơn hàng
-            </h3>
-            <div class="space-y-1.5 text-gray-600">
-              <p>Nhân viên: <span class="text-gray-900 font-medium">{{ hoaDonData?.tenNhanVien || 'Không xác định' }}</span></p>
-              <p>Vận chuyển: <span class="text-gray-900 font-medium">{{ getShippingMethodText(hoaDonData?.phuongThucVanChuyen) }}</span></p>
-              <p>Thanh toán: <span class="text-gray-900 font-medium">{{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</span></p>
+            </div>
+            <div style="font-size: 12px; line-height: 1.9; color: #374151;">
+              <div><span style="font-weight: 600;">Loại đơn:</span> {{ getInvoiceTypeText(hoaDonData?.loaiHoaDon) }}</div>
+              <div><span style="font-weight: 600;">Thanh toán:</span> {{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</div>
+              <div v-if="hoaDonData?.maVoucher">
+                <span style="font-weight: 600;">Voucher:</span> {{ hoaDonData.maVoucher }}
+              </div>
+              <div><span style="font-weight: 600;">Nhân viên:</span> {{ hoaDonData?.tenNhanVien || 'Không xác định' }}</div>
             </div>
           </div>
         </div>
 
-        <!-- Products Table -->
-        <table class="w-full text-sm mb-6">
+        <!-- BẢNG SẢN PHẨM -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
           <thead>
-            <tr class="bg-gray-50 border-y border-gray-200 text-gray-500 text-xs uppercase">
-              <th class="py-3 text-left pl-2 font-semibold">
-                Sản phẩm
+            <tr style="background-color: #16a34a; color: #fff;">
+              <th style="padding: 10px 8px; text-align: center; width: 40px;">
+                STT
               </th>
-
-              <th class="py-3 text-right font-semibold w-28">
-                Đơn giá
+              <th style="padding: 10px 8px; text-align: left;">
+                Tên sản phẩm
               </th>
-              <th class="py-3 text-right font-semibold w-32 pr-2">
-                Thành tiền
+              <th style="padding: 10px 8px; text-align: center; width: 140px;">
+                IMEI / Serial
+              </th>
+              <th style="padding: 10px 8px; text-align: right; width: 110px;">
+                Đơn giá (đ)
+              </th>
+              <th style="padding: 10px 8px; text-align: right; width: 120px;">
+                Thành tiền (đ)
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-100">
-            <tr v-for="item in printProducts" :key="item.id + (item.imeiCode || '')">
-              <td class="py-4 pl-2 align-top">
-                <p class="font-bold text-gray-800 text-[15px]">
-                  {{ item.tenSanPham }}
-                </p>
-                <p class="text-[11px] text-gray-500 mt-1 italic">
-                  <span v-if="item.thuongHieu">{{ item.thuongHieu }} | </span>
-                  <span v-if="item.mauSac">{{ item.mauSac }} | </span>
-                  <span v-if="item.imeiCode">Serial: {{ item.imeiCode }}</span>
-                  <span v-else-if="!item.imeiCode && parseIMEIList(item.danhSachImei).length === 0">Không có Serial</span>
-                </p>
+          <tbody>
+            <tr
+              v-for="(item, idx) in printProducts"
+              :key="item.id + (item.imeiCode || '')"
+              :style="{ backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff' }"
+            >
+              <td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
+                {{ idx + 1 }}
               </td>
-
-              <td class="py-4 text-right align-top text-gray-600">
+              <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb;">
+                <div style="font-weight: 700; color: #111827;">
+                  {{ item.tenSanPham }}
+                </div>
+                <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
+                  <span v-if="item.thuongHieu">{{ item.thuongHieu }}</span>
+                  <span v-if="item.mauSac"> | {{ item.mauSac }}</span>
+                  <span v-if="item.size"> | {{ item.size }}</span>
+                </div>
+              </td>
+              <td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-family: monospace; font-weight: 600; color: #374151;">
+                {{ item.imeiCode || '—' }}
+              </td>
+              <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #374151;">
                 {{ formatCurrency(item.giaBanImei || item.giaBan) }}
               </td>
-              <td class="py-4 text-right align-top font-bold text-gray-900 pr-2">
+              <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 700;">
                 {{ formatCurrency(item.tongTienImei || item.tongTien) }}
               </td>
             </tr>
           </tbody>
         </table>
 
-        <!-- Payment Summary -->
-        <div class="flex justify-end">
-          <div class="w-2/3 md:w-1/2 space-y-2 text-right">
-            <div class="flex justify-between text-sm text-gray-600">
-              <span>Tổng tiền hàng:</span>
-              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+        <!-- TỔNG TIỀN -->
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+          <div style="width: 280px; font-size: 13px;">
+            <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
+              <span>Tổng tiền hàng:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(totalAmount) }}</span>
             </div>
-
-            <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between text-sm text-gray-600">
-              <span>Phí vận chuyển:</span>
-              <span>+ {{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+            <div v-if="hoaDonData?.phiVanChuyen" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
+              <span>Phí vận chuyển:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
             </div>
-
-            <div v-if="hoaDonData?.giaTriVoucher" class="py-2 my-1 border-y border-dashed border-gray-100">
-              <div class="flex justify-between text-sm text-green-600 mb-1">
-                <span>Ưu đãi ({{ hoaDonData?.tenVoucher || 'Voucher' }}):</span>
-                <span>- {{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
-              </div>
-              <div v-if="hoaDonData?.maVoucher" class="flex justify-between text-xs text-gray-400 italic">
-                <span>Mã áp dụng:</span>
-                <span>{{ hoaDonData.maVoucher }}</span>
-              </div>
+            <div v-if="hoaDonData?.giaTriVoucher" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #16a34a;">
+              <span>Giảm giá ({{ hoaDonData.maVoucher || 'Voucher' }}):</span>
+              <span style="font-weight: 700;">-{{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
             </div>
-
-            <div class="flex justify-between text-sm text-gray-600">
-              <span>Thuế (VAT 0%):</span>
-              <span>{{ formatCurrency(0) }}</span>
+            <div v-if="hoaDonData?.duNo" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #d97706;">
+              <span>Còn nợ:</span><span style="font-weight: 700;">{{ formatCurrency(hoaDonData.duNo) }}</span>
             </div>
-
-            <NDivider class="my-3 bg-gray-800" />
-
-            <div class="flex justify-between items-center">
-              <span class="font-bold text-gray-800 uppercase text-sm">Tổng thanh toán:</span>
-              <span class="text-2xl font-extrabold text-indigo-700">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
-            </div>
-
-            <div v-if="hoaDonData?.duNo" class="flex justify-between text-sm text-orange-600 mt-2">
-              <span>Còn nợ:</span>
-              <span class="font-bold">{{ formatCurrency(hoaDonData.duNo) }}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin-top: 6px; background: #f0fdf4; border: 2px solid #16a34a; border-radius: 8px;">
+              <span style="font-weight: 800; font-size: 14px;">Thành tiền:</span>
+              <span style="font-weight: 900; font-size: 18px; color: #16a34a;">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
           </div>
         </div>
 
-        <!-- Notes -->
-        <div v-if="hoaDonData?.ghiChu" class="mt-6 p-4 bg-gray-50 rounded-lg">
-          <p class="text-sm text-gray-600">
-            <span class="font-bold">Ghi chú:</span> {{ hoaDonData.ghiChu }}
-          </p>
+        <!-- GHI CHÚ -->
+        <div v-if="hoaDonData?.ghiChu" style="padding: 10px 14px; background: #f9fafb; border-left: 3px solid #16a34a; border-radius: 4px; margin-bottom: 20px; font-size: 12px; color: #374151;">
+          <span style="font-weight: 700;">Ghi chú:</span> {{ hoaDonData.ghiChu }}
         </div>
 
-        <!-- Footer -->
-        <div class="mt-16 pt-8 text-center border-t border-gray-100">
-          <div class="flex justify-between items-start">
-            <div class="text-left">
-              <p class="font-bold text-gray-800">
-                Cảm ơn quý khách đã tin tưởng My Laptop Store!
-              </p>
-              <p class="text-[10px] text-gray-400 mt-1">
-                Sản phẩm được bảo hành chính hãng. Vui lòng giữ lại hóa đơn này để bảo hành.
-              </p>
-              <p class="text-[10px] text-gray-400 mt-1">
-                Hóa đơn được tạo lúc {{ formatTime(hoaDonData?.ngayTao) }}
-              </p>
-            </div>
+        <!-- FOOTER -->
+        <div style="border-top: 1px solid #e5e7eb; padding-top: 14px; text-align: center;">
+          <div style="font-size: 13px; font-weight: 700; color: #16a34a; margin-bottom: 4px;">
+            Cảm ơn quý khách đã tin tưởng My Laptop Store!
+          </div>
+          <div style="font-size: 10px; color: #9ca3af;">
+            Sản phẩm được bảo hành chính hãng. Vui lòng giữ lại hóa đơn này để được hỗ trợ bảo hành.
+          </div>
+          <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">
+            Hóa đơn được xuất lúc {{ formatTime(hoaDonData?.ngayTao) }}
           </div>
         </div>
       </div>
@@ -1963,6 +1963,7 @@ onMounted(async () => {
     <NCard class="shadow-sm border-0 rounded-xl overflow-hidden no-print">
       <template #header>
         <div class="flex items-center justify-between">
+          <!-- Left -->
           <div class="flex items-center gap-2">
             <NIcon size="20" color="#4b5563">
               <CubeOutline />
@@ -1971,103 +1972,47 @@ onMounted(async () => {
               Danh sách sản phẩm
             </h3>
           </div>
+
+          <!-- Right - Serial Management Section -->
           <div class="flex items-center gap-4">
-            <span class="text-sm text-gray-500">{{ productCount }} sản phẩm</span>
-            <span class="text-sm text-gray-500">{{ totalQuantity }} số lượng</span>
-            <NTag v-if="imeiProductsCount > 0" type="info" size="small">
-              {{ imeiProductsCount }} Serial
-            </NTag>
+            <NSelect
+              v-model:value="selectedProductForSerial"
+              :options="productSelectOptions"
+              placeholder="Chọn sản phẩm..."
+              size="small"
+              style="width: 300px"
+              clearable
+              filterable
+            />
+            <NButton
+              size="small"
+              type="primary"
+              secondary
+              strong
+              round
+              @click="openSerialManagementModal"
+            >
+              <template #icon>
+                <NIcon><ListOutline /></NIcon>
+              </template>
+              Quản lý Serial
+            </NButton>
           </div>
         </div>
       </template>
 
       <div class="overflow-x-auto">
         <NDataTable
-          :columns="productColumns" :data="displayProducts" :pagination="false" striped
-          class="min-w-full" :row-class-name="rowClassName"
+          :columns="productColumns"
+          :data="displayProducts"
+          :pagination="false"
+          striped
+          class="min-w-full"
+          :row-class-name="rowClassName"
+          :row-props="rowProps"
         />
       </div>
-
-      <!-- Summary -->
-      <div class="border-t border-gray-200">
-        <div class="p-6">
-          <div class="max-w-md ml-auto space-y-3">
-            <div class="flex justify-between items-center">
-              <span class="text-gray-600">Tạm tính:</span>
-              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
-            </div>
-
-            <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center">
-              <span class="text-gray-600">Phí vận chuyển:</span>
-              <span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
-            </div>
-
-            <div v-if="hoaDonData?.giaTriVoucher" class="flex justify-between items-center">
-              <span class="text-gray-600">Giảm giá voucher:</span>
-              <span class="font-medium text-green-600">-{{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
-            </div>
-
-            <div class="flex justify-between items-center pt-3 border-t border-gray-200">
-              <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
-              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
     </NCard>
-
-    <!-- Notes & Actions -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
-      <!-- System Information -->
-      <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <NIcon size="20" color="#4b5563">
-              <InformationCircleOutline />
-            </NIcon>
-            <h3 class="text-lg font-semibold text-gray-900">
-              Thông tin hệ thống
-            </h3>
-          </div>
-        </template>
-
-        <div class="space-y-3 text-sm">
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Mã hóa đơn:</span>
-            <span class="font-medium font-mono">{{ hoaDonData?.maHoaDon }}</span>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Loại hóa đơn:</span>
-            <NTag size="small" :type="getInvoiceTypeTagType(hoaDonData?.loaiHoaDon)">
-              {{ getInvoiceTypeText(hoaDonData?.loaiHoaDon) }}
-            </NTag>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Ngày tạo:</span>
-            <span class="font-medium">{{ formatDateTime(hoaDonData?.ngayTao) }}</span>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Trạng thái:</span>
-            <NTag :type="getStatusTagType(currentStatus)" size="small">
-              {{ getStatusText(currentStatus) }}
-            </NTag>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Phí vận chuyển:</span>
-            <span class="font-medium">{{ formatCurrency(hoaDonData?.phiVanChuyen || 0) }}</span>
-          </div>
-
-          <div v-if="hoaDonData?.thoiGianCapNhatCuoi" class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Cập nhật lần cuối:</span>
-            <span class="font-medium">{{ formatDateTimeFromString(hoaDonData.thoiGianCapNhatCuoi) }}</span>
-          </div>
-        </div>
-      </NCard>
-    </div>
 
     <!-- Status Update Modal -->
     <NModal v-model:show="showStatusModal" preset="dialog" title="Cập nhật trạng thái hóa đơn" class="no-print">
