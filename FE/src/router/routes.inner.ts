@@ -16,16 +16,6 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/client/user/home/HomeView.vue'),
         meta: { title: 'Trang chủ' },
       },
-
-      // 2. SẢN PHẨM (Khớp với href: '/san-pham')
-      {
-        path: 'san-pham',
-        name: 'Products',
-        // Lưu ý: Bạn cần tạo file ProductListView.vue
-        component: () => import('@/views/client/user/product/ProductListView.vue'),
-        meta: { title: 'Danh sách sản phẩm' },
-      },
-
       // 3. CHI TIẾT SẢN PHẨM (Dùng khi bấm vào 1 sản phẩm cụ thể)
       {
         path: 'product-detail/:id',
@@ -59,24 +49,11 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/client/user/tracking/TrackingView.vue'),
         meta: { title: 'Tra cứu đơn hàng' },
       },
-
-      {
-        path: 'home',
-        name: 'Home',
-        component: () => import('@/views/client/user/home/HomeView.vue'),
-        meta: { title: 'Trang chủ' },
-      },
       {
         path: 'san-pham',
         name: 'Products',
         component: () => import('@/views/client/user/product/ProductListView.vue'),
         meta: { title: 'Sản phẩm' },
-      },
-      {
-        path: 'product-detail/:id',
-        name: 'ProductDetail',
-        component: () => import('@/views/client/user/product/ProductDetailView.vue'),
-        meta: { title: 'Chi tiết sản phẩm' },
       },
       // --- GIỎ HÀNG & THANH TOÁN ---
       {
@@ -96,13 +73,6 @@ export const routes: RouteRecordRaw[] = [
         name: 'OrderSuccess',
         component: () => import('@/views/client/user/order/OrderSuccess.vue'),
         meta: { title: 'Đặt hàng thành công' },
-      },
-      // Thêm route cho Cart
-      {
-        path: 'cart',
-        name: 'Cart',
-        component: () => import('@/views/client/user/cart/CartView.vue'),
-        meta: { title: 'Giỏ hàng' },
       },
     ],
   },

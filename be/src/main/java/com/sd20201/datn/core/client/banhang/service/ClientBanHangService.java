@@ -62,4 +62,6 @@ public interface ClientBanHangService {
     ResponseObject<?> giamSoLuongSanPham(String idHDCT);
 
     ResponseObject<?> getProductDetailCart(List<String> ids);
+
+    ResponseObject<?> getQuantityProductDetail(List<String> ids);
 }

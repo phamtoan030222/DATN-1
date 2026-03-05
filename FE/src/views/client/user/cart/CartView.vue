@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
 import type { CartItemResponse } from '@/service/api/client/banhang.api'
-import { GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
+import { GetGioHang, getProductDetailCart, getQuantityProdudtDetail, themSanPham } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
 import {
   AddOutline,
@@ -98,6 +98,11 @@ async function handleIncrease(cartItem: CartItemResponse) {
         quantity: cartItem.quantity + 1
       })
     } else {
+      const quantityProductDetailsResponse = await getQuantityProdudtDetail([cartItem.productDetailId])
+      if (quantityProductDetailsResponse.data.length > 0 && quantityProductDetailsResponse.data[0].quantity < cartItem.quantity + 1) {
+        message.error('Đã vượt quá số lượng sản phẩm')
+        return
+      }
       updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity + 1)
     }
 
