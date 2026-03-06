@@ -4,6 +4,7 @@ import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherCreate
 import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.admin.voucher.voucher.service.impl.VoucherExportService;
 import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
+import com.sd20201.datn.core.client.voucher.service.ClientVoucherService;
 import com.sd20201.datn.core.client.voucher.service.impl.ClientVoucherServiceImpl;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Customer;
@@ -38,7 +39,7 @@ import java.util.Map;
 @RequestMapping(MappingConstants.API_PREFIX_ORDER_ONLINE_VOUCHER)
 public class ClientVoucherController {
     @Autowired
-    private ClientVoucherServiceImpl voucherService;
+    private ClientVoucherService voucherService;
 
     @Autowired
     private ClientVoucherRepository voucherRepository;
@@ -106,36 +107,5 @@ public class ClientVoucherController {
         );
     }
 
-    @PatchMapping("/{id}/start")
-    public ResponseEntity<?> startVoucher(@PathVariable String id) {
-        return Helper.createResponseEntity(voucherService.changeStatusVoucherToStart(id));
-    }
-
-    @PatchMapping("/{id}/end")
-    public ResponseEntity<?> endVoucher(@PathVariable String id) {
-        return Helper.createResponseEntity(voucherService.changeStatusVoucherToEnd(id));
-    }
-
-    @GetMapping("/export")
-    public void exportToExcel(HttpServletResponse response,
-                              @ModelAttribute AdVoucherRequest filter) { // Nhận filter từ URL
-        try {
-            // Cấu hình Header trả về file
-            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-
-            // Format tên file theo ngày giờ
-            String currentDateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-            String headerKey = "Content-Disposition";
-            String headerValue = "attachment; filename=Vouchers_" + currentDateTime + ".xlsx";
-            response.setHeader(headerKey, headerValue);
-
-            // Gọi service
-            exportService.exportVouchersToExcel(response, filter);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            // Xử lý lỗi nếu cần
-        }
-    }
 
 }

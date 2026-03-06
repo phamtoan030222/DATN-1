@@ -33,7 +33,6 @@ import type { ADChangeStatusRequest, HoaDonChiTietItem } from '@/service/api/adm
 import {
   changeOrderStatus,
   getHoaDonChiTiets,
-  parseIMEIList,
 } from '@/service/api/admin/hoadon.api'
 import {
   getImeiProductDetail,
@@ -57,6 +56,7 @@ import {
   CloseOutline,
   CreateOutline,
   CubeOutline,
+  GlobeOutline,
   InformationCircleOutline,
   ListOutline,
   MailOutline,
@@ -64,8 +64,10 @@ import {
   PersonOutline,
   PricetagOutline,
   PrintOutline,
+  QrCodeOutline,
   ReceiptOutline,
   RefreshOutline,
+  ScanOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
 
@@ -132,6 +134,16 @@ interface HistoryItem {
   ghiChu: string
 }
 
+interface IMEIItem {
+  id: string
+  code: string
+  status: string
+  statusText: string
+  orderType?: string
+  source?: string
+  assignedAt?: number
+}
+
 // ==================== Component Setup ====================
 const props = defineProps<{
   hoaDonData?: HoaDonData
@@ -193,6 +205,46 @@ const message = useMessage()
 const dialog = useDialog()
 const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
 
+// ==================== Helper Functions ====================
+function parseIMEIList(imeiData: any): IMEIItem[] {
+  if (!imeiData)
+    return []
+
+  try {
+    // Nếu là mảng các chuỗi JSON
+    if (Array.isArray(imeiData)) {
+      return imeiData.map((item) => {
+        if (typeof item === 'string') {
+          try {
+            const parsed = JSON.parse(item)
+            return parsed
+          }
+          catch {
+            return null
+          }
+        }
+        return item
+      }).filter(item => item !== null)
+    }
+
+    // Nếu là chuỗi JSON
+    if (typeof imeiData === 'string') {
+      const parsed = JSON.parse(imeiData)
+      return Array.isArray(parsed) ? parsed : []
+    }
+
+    // Nếu đã là mảng object
+    if (Array.isArray(imeiData)) {
+      return imeiData
+    }
+
+    return []
+  }
+  catch {
+    return []
+  }
+}
+
 // ==================== Refs & State ====================
 // Customer modal
 const showCustomerModal = ref(false)
@@ -224,16 +276,28 @@ const imeiInputValue = ref('')
 const imeiSuggestions = ref<string[]>([])
 const showImeiSuggestions = ref(false)
 
-// Serial modal
+// Serial modal - Dành cho đơn online
 const showSerialModal = ref(false)
 const selectedProductItem = ref<HoaDonChiTietItem | null>(null)
 const selectedSerials = ref<ADPDImeiResponse[]>([])
 const selectedSerialIds = ref<string[]>([])
 const loadingSerials = ref(false)
 const isAddingSerials = ref(false)
+const scanMode = ref(false)
+const scannedSerial = ref('')
+const scanInputRef = ref<HTMLInputElement | null>(null)
+
+// Serial Info modal - Dành cho đơn tại quầy/giao hàng
+const showSerialInfoModal = ref(false)
+const selectedSerialInfoProduct = ref<HoaDonChiTietItem | null>(null)
 
 // History modal
 const showHistoryModal = ref(false)
+
+// Serial Summary modal
+const showSerialSummaryModal = ref(false)
+const selectedSerialSummaryProduct = ref<HoaDonChiTietItem | null>(null)
+const selectedSummaryImeiRow = ref<DisplayProduct | null>(null)
 
 // ==================== Computed Properties ====================
 const invoiceCode = computed(() => route.params.id as string || 'N/A')
@@ -241,9 +305,16 @@ const invoiceCode = computed(() => route.params.id as string || 'N/A')
 const requiredQuantity = computed(() => selectedProductItem.value?.soLuong || 0)
 
 const currentProductImeiList = computed(() => {
-  if (!selectedProductForModal.value) return []
+  if (!selectedProductForModal.value)
+    return []
   const item = invoiceItems.value.find(i => i.id === selectedProductForModal.value!.id)
   return item ? parseIMEIList(item.danhSachImei) : []
+})
+
+const currentProductSerialInfo = computed(() => {
+  if (!selectedSerialInfoProduct.value)
+    return []
+  return parseIMEIList(selectedSerialInfoProduct.value.danhSachImei)
 })
 
 const hoaDonData = computed(() => {
@@ -467,6 +538,36 @@ const historyList = computed<HistoryItem[]>(() => {
   }
 })
 
+// Serial Summary data
+const serialSummaryData = computed(() => {
+  if (!selectedSerialSummaryProduct.value)
+    return { product: null, counterSerials: [], deliverySerials: [], onlineSerials: [] }
+
+  const product = selectedSerialSummaryProduct.value
+  const imeiList = parseIMEIList(product.danhSachImei)
+
+  // Phân loại serial theo loại đơn hàng
+  const counterSerials = imeiList.filter(imei =>
+    imei.orderType === 'COUNTER' || imei.source === 'COUNTER',
+  )
+
+  const deliverySerials = imeiList.filter(imei =>
+    imei.orderType === 'DELIVERY' || imei.source === 'DELIVERY',
+  )
+
+  const onlineSerials = imeiList.filter(imei =>
+    imei.orderType === 'ONLINE' || imei.source === 'ONLINE',
+  )
+
+  return {
+    product,
+    counterSerials,
+    deliverySerials,
+    onlineSerials,
+    totalSerials: imeiList.length,
+  }
+})
+
 // ==================== Serial Columns ====================
 const serialColumns: DataTableColumns<ADPDImeiResponse> = [
   {
@@ -479,7 +580,12 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
       disabled: row.imeiStatus !== 'AVAILABLE',
       onUpdateChecked: (checked) => {
         if (checked) {
-          selectedSerialIds.value = [...selectedSerialIds.value, row.id]
+          if (selectedSerialIds.value.length < requiredQuantity.value) {
+            selectedSerialIds.value = [...selectedSerialIds.value, row.id]
+          }
+          else {
+            message.warning(`Chỉ được chọn tối đa ${requiredQuantity.value} serial`)
+          }
         }
         else {
           selectedSerialIds.value = selectedSerialIds.value.filter(id => id !== row.id)
@@ -516,65 +622,7 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
       return h(NTag, { type: config.type, size: 'small', round: true }, () => config.text)
     },
   },
-  {
-    title: 'Trạng thái SP',
-    key: 'productStatus',
-    width: 100,
-    align: 'center',
-    render: (row) => {
-      const config = {
-        ACTIVE: { type: 'success', text: 'Hoạt động' },
-        INACTIVE: { type: 'default', text: 'Không HĐ' },
-      }[row.status] || { type: 'default', text: row.status || '-' }
-      return h(NTag, { type: config.type, size: 'small', round: true }, () => config.text)
-    },
-  },
 ]
-
-// ==================== Product IMEI Modal Handlers ====================
-// [FIX] Đặt trước productColumns vì productColumns gọi các hàm này
-
-function openProductImeiModal(row: DisplayProduct) {
-  let targetItem: HoaDonChiTietItem | undefined
-
-  if (row.isImeiRow) {
-    const searchId = row.originalProductId ?? row.id
-    targetItem = invoiceItems.value.find(i => i.id === searchId)
-  }
-  else {
-    targetItem = invoiceItems.value.find(i => i.id === row.id)
-  }
-
-  if (!targetItem) {
-    message.error('Không tìm thấy thông tin sản phẩm')
-    return
-  }
-
-  selectedProductForModal.value = { ...targetItem, stt: row.stt, isImeiRow: false }
-  imeiInputValue.value = ''
-  imeiSuggestions.value = []
-  showImeiSuggestions.value = false
-  showProductImeiModal.value = true
-}
-
-function handleImeiInput(val: string) {
-  imeiInputValue.value = val
-  if (!val.trim()) {
-    showImeiSuggestions.value = false
-    imeiSuggestions.value = []
-    return
-  }
-  const existing = currentProductImeiList.value.map(i => i.code || i.imeiCode).filter(Boolean)
-  imeiSuggestions.value = existing.filter(code =>
-    code?.toLowerCase().includes(val.toLowerCase()),
-  )
-  showImeiSuggestions.value = imeiSuggestions.value.length > 0
-}
-
-function selectImeiSuggestion(code: string) {
-  imeiInputValue.value = code
-  showImeiSuggestions.value = false
-}
 
 // ==================== Product Columns ====================
 const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
@@ -589,15 +637,14 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
     {
       title: 'Sản phẩm',
       key: 'productInfo',
-      width: 250,
+      width: 350,
       render: (row) => {
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
         const isMainRow = !row.isImeiRow
 
         return h('div', {
-          class: `flex items-center gap-3 ${isMainRow ? 'cursor-pointer hover:opacity-80' : ''}`,
-          onClick: isMainRow ? () => openProductImeiModal(row) : undefined,
+          class: `flex items-center gap-3`,
         }, [
           h(NAvatar, {
             src: row.anhSanPham,
@@ -615,7 +662,6 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
               row.mauSac && h(NTag, { size: 'tiny', type: 'default', bordered: false }, { default: () => row.mauSac }),
             ]),
             h('div', { class: 'text-xs text-gray-500 mt-1 truncate' }, row.size || ''),
-            isMainRow && h('div', { class: 'text-xs text-purple-500 mt-1' }, '📋 Xem chi tiết SERIAL'),
           ]),
         ])
       },
@@ -627,19 +673,11 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
       align: 'center',
       render: (row) => {
         if (!row.imeiCode) {
-          return h('div', { class: 'text-center text-gray-400 italic text-sm' }, 'Không có Serial')
-        }
-
-        if (isCounterOrDelivery.value) {
-          return h('div', {
-            class: 'font-mono font-bold text-center text-purple-700 text-sm p-1 bg-purple-50 rounded cursor-pointer hover:bg-purple-100 transition-colors border border-purple-200',
-            onClick: () => openProductImeiModal(row),
-            title: 'Click để xem thông tin SERIAL',
-          }, row.imeiCode)
+          return h('div', { class: 'text-center text-gray-400 italic text-sm' }, 'Chưa có Serial')
         }
 
         return h('div', {
-          class: 'font-mono font-bold text-center text-gray-800 text-sm p-1 bg-gray-50 rounded',
+          class: 'font-mono font-bold text-center text-purple-700 text-sm p-1 bg-purple-50 rounded border border-purple-200',
         }, row.imeiCode)
       },
     },
@@ -653,17 +691,42 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
         return h('div', { class: 'font-semibold' }, formatCurrency(price))
       },
     },
-  ]
-
-  if (isOnlineInvoice.value) {
-    baseColumns.push({
+    {
       title: 'Thao tác',
-      key: 'operation',
+      key: 'action',
       width: 120,
       align: 'center',
       render: (row) => {
-        // Với isImeiRow: chỉ hiện nút ở hàng đầu tiên của nhóm (tránh hiện trùng)
-        // Xác định bằng cách check xem row này có phải IMEI đầu tiên của sản phẩm không
+        // Đơn online - hiển thị nút Chọn Serial
+        if (isOnlineInvoice.value) {
+          if (row.isImeiRow) {
+            const parentId = row.originalProductId ?? row.id
+            const parentItem = invoiceItems.value.find(i => i.id === parentId)
+            if (!parentItem)
+              return h('span', '')
+
+            const imeiList = parseIMEIList(parentItem.danhSachImei)
+            const firstImeiCode = imeiList[0]?.code || imeiList[0]?.imeiCode
+            if (row.imeiCode !== firstImeiCode)
+              return h('span', '')
+
+            return h(NButton, {
+              size: 'tiny',
+              type: 'info',
+              secondary: true,
+              onClick: () => openSerialSelectionModal(parentItem),
+            }, { default: () => 'Chọn Serial' })
+          }
+
+          return h(NButton, {
+            size: 'tiny',
+            type: 'info',
+            secondary: true,
+            onClick: () => openSerialSelectionModal(row),
+          }, { default: () => 'Chọn Serial' })
+        }
+
+        // Đơn tại quầy/giao hàng - hiển thị nút Xem Serial
         if (row.isImeiRow) {
           const parentId = row.originalProductId ?? row.id
           const parentItem = invoiceItems.value.find(i => i.id === parentId)
@@ -671,85 +734,27 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
             return h('span', '')
 
           const imeiList = parseIMEIList(parentItem.danhSachImei)
-          // Chỉ hiện nút ở hàng IMEI đầu tiên của sản phẩm
           const firstImeiCode = imeiList[0]?.code || imeiList[0]?.imeiCode
           if (row.imeiCode !== firstImeiCode)
             return h('span', '')
 
-          const isFullySerialized = imeiList.length >= parentItem.soLuong
-
-          let btnLabel: string
-          let btnType: 'success' | 'warning' | 'primary' | 'default'
-          let tooltipText: string
-
-          if (isFullySerialized && canChangeImei.value) {
-            btnLabel = 'Thay đổi Serial'
-            btnType = 'warning'
-            tooltipText = 'Đơn chờ xác nhận — có thể thay đổi serial'
-          }
-          else {
-            btnLabel = 'Xem Serial'
-            btnType = 'success'
-            tooltipText = 'Xem danh sách serial đã gán'
-          }
-
-          return h(NSpace, { size: 8 }, () => [
-            h(NTooltip, null, {
-              trigger: () => h(NButton, {
-                type: btnType,
-                size: 'small',
-                secondary: true,
-                onClick: () => openProductImeiModal(row),
-              }, { default: () => btnLabel }),
-              default: () => tooltipText,
-            }),
-          ])
+          return h(NButton, {
+            size: 'tiny',
+            type: 'success',
+            secondary: true,
+            onClick: () => openSerialInfoModal(parentItem),
+          }, { default: () => 'Xem Serial' })
         }
 
-        // Hàng sản phẩm chính (chưa có IMEI)
-        const imeiList = parseIMEIList(row.danhSachImei)
-        const hasImei = imeiList.length > 0
-        const isFullySerialized = hasImei && imeiList.length >= row.soLuong
-
-        let btnLabel: string
-        let btnType: 'success' | 'warning' | 'primary' | 'default'
-        let tooltipText: string
-
-        if (!hasImei) {
-          btnLabel = 'Chọn Serial'
-          btnType = 'primary'
-          tooltipText = `Chọn serial cho sản phẩm (cần ${row.soLuong} serial)`
-        }
-        else if (isFullySerialized && canChangeImei.value) {
-          btnLabel = 'Thay đổi Serial'
-          btnType = 'warning'
-          tooltipText = 'Đơn chờ xác nhận — có thể thay đổi serial'
-        }
-        else if (isFullySerialized) {
-          btnLabel = 'Xem Serial'
-          btnType = 'success'
-          tooltipText = 'Xem danh sách serial đã gán'
-        }
-        else {
-          btnLabel = `Đã có ${imeiList.length}/${row.soLuong} Serial`
-          btnType = 'warning'
-          tooltipText = `Cần thêm ${row.soLuong - imeiList.length} serial nữa`
-        }
-
-        return h(NSpace, { size: 8 }, () => [
-          h(NTooltip, null, {
-            trigger: () => h(NButton, {
-              type: btnType,
-              size: 'small',
-              secondary: true,
-              onClick: () => openProductImeiModal(row),
-            }, { default: () => btnLabel }),
-            default: () => tooltipText,
-          }),
-        ])
+        return h(NButton, {
+          size: 'tiny',
+          type: 'success',
+          secondary: true,
+          onClick: () => openSerialInfoModal(row),
+        }, { default: () => 'Xem Serial' })
       },
-    })
-  }
+    },
+  ]
 
   return baseColumns
 })
@@ -808,7 +813,6 @@ function formatTime(timestamp: number | undefined): string {
   }
 }
 
-// [FIX] Wrapper cho @blur thay vì gọi setTimeout trực tiếp trong template
 function hideImeiSuggestions() {
   setTimeout(() => { showImeiSuggestions.value = false }, 150)
 }
@@ -986,6 +990,217 @@ function rowClassName(row: DisplayProduct) {
   return row.isImeiRow ? 'imei-row bg-blue-50 hover:bg-blue-100' : 'product-row hover:bg-gray-50'
 }
 
+// ==================== Modal Handlers ====================
+// Mở modal chọn serial (cho đơn online)
+async function openSerialSelectionModal(product: HoaDonChiTietItem) {
+  if (!isOnlineInvoice.value)
+    return
+
+  const existingImeis = parseIMEIList(product.danhSachImei)
+  if (existingImeis.length >= product.soLuong && !canChangeImei.value) {
+    dialog.info({
+      title: 'Thông báo',
+      content: `Sản phẩm này đã có đủ ${existingImeis.length} serial.`,
+      positiveText: 'Đóng',
+    })
+    return
+  }
+
+  selectedProductItem.value = product
+  loadingSerials.value = true
+  selectedSerials.value = []
+  selectedSerialIds.value = []
+  scanMode.value = false
+  scannedSerial.value = ''
+
+  try {
+    if (product.productDetailId) {
+      const response = await getImeiProductDetail(product.productDetailId)
+      if (response.success && response.data) {
+        const availableSerials = response.data.filter(s =>
+          s.imeiStatus === 'AVAILABLE'
+          || (s.imeiStatus === 'RESERVED' && existingImeis.some(imei => imei.id === s.id)),
+        )
+
+        selectedSerials.value = availableSerials
+
+        existingImeis.forEach((imei) => {
+          if (availableSerials.some(s => s.id === imei.id)) {
+            selectedSerialIds.value.push(imei.id)
+          }
+        })
+
+        showSerialModal.value = true
+      }
+      else {
+        message.error(response.message || 'Không thể tải danh sách serial')
+      }
+    }
+    else {
+      message.error('Không tìm thấy thông tin sản phẩm chi tiết')
+    }
+  }
+  catch (error) {
+    console.error('Error fetching serials:', error)
+    message.error('Đã xảy ra lỗi khi tải danh sách serial')
+  }
+  finally {
+    loadingSerials.value = false
+  }
+}
+
+// Mở modal xem thông tin serial (cho đơn tại quầy/giao hàng)
+function openSerialInfoModal(product: HoaDonChiTietItem) {
+  selectedSerialInfoProduct.value = product
+  showSerialInfoModal.value = true
+}
+
+// Mở modal tổng hợp serial
+function openSerialSummaryModal() {
+  if (invoiceItems.value.length === 0) {
+    message.warning('Không có sản phẩm nào')
+    return
+  }
+
+  // Tạo sản phẩm tổng hợp từ tất cả sản phẩm
+  const allImeis: any[] = []
+  invoiceItems.value.forEach((item) => {
+    const imeis = parseIMEIList(item.danhSachImei)
+    allImeis.push(...imeis)
+  })
+
+  const combinedProduct: HoaDonChiTietItem = {
+    ...invoiceItems.value[0],
+    id: 'all-products',
+    tenSanPham: '📊 TẤT CẢ SẢN PHẨM',
+    soLuong: totalQuantity.value,
+    danhSachImei: JSON.stringify(allImeis),
+  }
+
+  selectedSerialSummaryProduct.value = combinedProduct
+  selectedSummaryImeiRow.value = null
+  showSerialSummaryModal.value = true
+}
+
+// Xử lý quét serial
+function startScanMode() {
+  scanMode.value = true
+  setTimeout(() => {
+    scanInputRef.value?.focus()
+  }, 100)
+}
+
+function handleScanInput() {
+  if (scannedSerial.value) {
+    // Tìm serial trong danh sách
+    const matchedSerial = selectedSerials.value.find(s =>
+      s.code?.toLowerCase() === scannedSerial.value.toLowerCase()
+      && s.imeiStatus === 'AVAILABLE',
+    )
+
+    if (matchedSerial) {
+      if (!selectedSerialIds.value.includes(matchedSerial.id)) {
+        if (selectedSerialIds.value.length < requiredQuantity.value) {
+          selectedSerialIds.value = [...selectedSerialIds.value, matchedSerial.id]
+          message.success(`Đã chọn serial ${matchedSerial.code}`)
+        }
+        else {
+          message.warning(`Đã chọn đủ ${requiredQuantity.value} serial`)
+        }
+      }
+      else {
+        message.warning('Serial này đã được chọn')
+      }
+    }
+    else {
+      message.error('Không tìm thấy serial khả dụng')
+    }
+    scannedSerial.value = ''
+  }
+}
+
+// Thêm serial vào đơn hàng
+async function addSerialsToInvoice() {
+  if (!selectedProductItem.value || !hoaDonData.value || selectedSerialIds.value.length === 0) {
+    message.error('Vui lòng chọn ít nhất một serial')
+    return
+  }
+
+  const requiredQuantity = selectedProductItem.value.soLuong || 0
+  if (selectedSerialIds.value.length !== requiredQuantity) {
+    message.error(`Sản phẩm cần ${requiredQuantity} serial. Vui lòng chọn đủ số lượng!`)
+    return
+  }
+
+  isAddingSerials.value = true
+  try {
+    const response = await themSanPham({
+      invoiceId: selectedProductItem.value.invoiceId,
+      productDetailId: selectedProductItem.value.productDetailId,
+      imeiIds: selectedSerialIds.value,
+      hoaDonChiTietId: selectedProductItem.value.id,
+    })
+
+    if (response.success) {
+      message.success(`Đã thêm ${selectedSerialIds.value.length} serial vào sản phẩm`)
+      showSerialModal.value = false
+      await fetchInvoiceDetails()
+    }
+    else {
+      message.error(response.message || 'Thêm serial thất bại')
+    }
+  }
+  catch (error: any) {
+    console.error('Error adding serials:', error)
+    message.error(error.message || 'Đã xảy ra lỗi khi thêm serial')
+  }
+  finally {
+    isAddingSerials.value = false
+  }
+}
+
+function openProductImeiModal(row: DisplayProduct) {
+  let targetItem: HoaDonChiTietItem | undefined
+
+  if (row.isImeiRow) {
+    const searchId = row.originalProductId ?? row.id
+    targetItem = invoiceItems.value.find(i => i.id === searchId)
+  }
+  else {
+    targetItem = invoiceItems.value.find(i => i.id === row.id)
+  }
+
+  if (!targetItem) {
+    message.error('Không tìm thấy thông tin sản phẩm')
+    return
+  }
+
+  selectedProductForModal.value = { ...targetItem, stt: row.stt, isImeiRow: false }
+  imeiInputValue.value = ''
+  imeiSuggestions.value = []
+  showImeiSuggestions.value = false
+  showProductImeiModal.value = true
+}
+
+function handleImeiInput(val: string) {
+  imeiInputValue.value = val
+  if (!val.trim()) {
+    showImeiSuggestions.value = false
+    imeiSuggestions.value = []
+    return
+  }
+  const existing = currentProductImeiList.value.map(i => i.code || i.imeiCode).filter(Boolean)
+  imeiSuggestions.value = existing.filter(code =>
+    code?.toLowerCase().includes(val.toLowerCase()),
+  )
+  showImeiSuggestions.value = imeiSuggestions.value.length > 0
+}
+
+function selectImeiSuggestion(code: string) {
+  imeiInputValue.value = code
+  showImeiSuggestions.value = false
+}
+
 // ==================== API Functions ====================
 async function fetchInvoiceDetails(): Promise<void> {
   try {
@@ -1075,118 +1290,6 @@ function saveCustomerInfo() {
       }, 500)
     }
   })
-}
-
-// Serial handlers
-async function selectProductForSerial(productItem: HoaDonChiTietItem) {
-  if (!isOnlineInvoice.value)
-    return
-
-  const existingImeis = parseIMEIList(productItem.danhSachImei)
-  if (existingImeis.length >= productItem.soLuong) {
-    dialog.info({
-      title: 'Thông báo',
-      content: `Sản phẩm này đã có đủ ${existingImeis.length} serial.`,
-      positiveText: 'Đóng',
-      closable: true,
-    })
-    return
-  }
-
-  selectedProductItem.value = productItem
-  loadingSerials.value = true
-  selectedSerials.value = []
-  selectedSerialIds.value = []
-
-  try {
-    if (productItem.productDetailId) {
-      const response = await getImeiProductDetail(productItem.productDetailId)
-      if (response.success && response.data) {
-        const availableSerials = response.data.filter(s =>
-          s.imeiStatus === 'AVAILABLE'
-          || (s.imeiStatus === 'RESERVED' && existingImeis.some(imei => imei.id === s.id)),
-        )
-
-        selectedSerials.value = availableSerials
-
-        existingImeis.forEach((imei) => {
-          if (availableSerials.some(s => s.id === imei.id)) {
-            selectedSerialIds.value.push(imei.id)
-          }
-        })
-
-        const remainingNeeded = productItem.soLuong - existingImeis.length
-        if (availableSerials.length - existingImeis.length < remainingNeeded) {
-          message.warning(`Chỉ có ${availableSerials.length - existingImeis.length} serial khả dụng, còn thiếu ${remainingNeeded - (availableSerials.length - existingImeis.length)} serial`)
-        }
-
-        showSerialModal.value = true
-      }
-      else {
-        message.error(response.message || 'Không thể tải danh sách serial')
-      }
-    }
-    else {
-      message.error('Không tìm thấy thông tin sản phẩm chi tiết')
-    }
-  }
-  catch (error) {
-    console.error('Error fetching serials:', error)
-    message.error('Đã xảy ra lỗi khi tải danh sách serial')
-  }
-  finally {
-    loadingSerials.value = false
-  }
-}
-
-async function addSerialsToInvoice() {
-  if (!selectedProductItem.value || !hoaDonData.value || selectedSerialIds.value.length === 0) {
-    message.error('Vui lòng chọn ít nhất một serial')
-    return
-  }
-
-  const requiredQuantity = selectedProductItem.value.soLuong || 0
-  if (selectedSerialIds.value.length !== requiredQuantity) {
-    message.error(`Sản phẩm cần ${requiredQuantity} serial. Vui lòng chọn đủ số lượng!`)
-    return
-  }
-
-  const existingImeis = parseIMEIList(selectedProductItem.value.danhSachImei)
-  const newSerialIds = selectedSerialIds.value.filter(id =>
-    !existingImeis.some(imei => imei.id === id),
-  )
-
-  if (newSerialIds.length === 0 && existingImeis.length === requiredQuantity) {
-    message.info('Sản phẩm đã có đủ serial')
-    showSerialModal.value = false
-    return
-  }
-
-  isAddingSerials.value = true
-  try {
-    const response = await themSanPham({
-      invoiceId: selectedProductItem.value.invoiceId,
-      productDetailId: selectedProductItem.value.productDetailId,
-      imeiIds: selectedSerialIds.value,
-      hoaDonChiTietId: selectedProductItem.value.id,
-    })
-
-    if (response.success) {
-      message.success(`Đã thêm ${selectedSerialIds.value.length} serial vào sản phẩm`)
-      showSerialModal.value = false
-      await fetchInvoiceDetails()
-    }
-    else {
-      message.error(response.message || 'Thêm serial thất bại')
-    }
-  }
-  catch (error: any) {
-    console.error('Error adding serials:', error)
-    message.error(error.message || 'Đã xảy ra lỗi khi thêm serial')
-  }
-  finally {
-    isAddingSerials.value = false
-  }
 }
 
 // Status handlers
@@ -1395,132 +1498,172 @@ onMounted(async () => {
     </div>
 
     <!-- Invoice Content (Hidden) -->
-<div id="invoice-content" class="hidden">
-  <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; background: #fff; padding: 32px; color: #1a1a1a;">
-
-    <!-- HEADER -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <img src="@/assets/svg-icons/logo.svg" style="width: 64px; height: 64px;" alt="logo">
-        <div>
-          <div style="font-size: 22px; font-weight: 800; color: #16a34a; letter-spacing: 1px;">My Laptop</div>
-          <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">123 Đại Cồ Việt, Hai Bà Trưng, Hà Nội</div>
-          <div style="font-size: 11px; color: #6b7280;">SĐT: 1900.8888 | mylaptop.vn</div>
-        </div>
-      </div>
-      <div style="text-align: right; display: flex; align-items: flex-start; gap: 16px;">
-        <div>
-          <div style="font-size: 20px; font-weight: 900; color: #16a34a; text-transform: uppercase; letter-spacing: 2px;">Hóa Đơn Bán Hàng</div>
-          <div style="font-size: 12px; color: #374151; margin-top: 6px;"><span style="font-weight: 600;">Mã đơn hàng:</span> {{ hoaDonData?.maHoaDon || invoiceCode }}</div>
-          <div style="font-size: 12px; color: #374151; margin-top: 2px;"><span style="font-weight: 600;">Ngày đặt:</span> {{ formatDateTime(hoaDonData?.ngayTao) }}</div>
-        </div>
-        <div v-if="qrCodeDataUrl" style="text-align: center;">
-          <img :src="qrCodeDataUrl" alt="QR" style="width: 80px; height: 80px; border: 1px solid #e5e7eb; border-radius: 4px; padding: 2px;">
-          <div style="font-size: 8px; color: #9ca3af; margin-top: 2px;">Mã hóa đơn</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="border-top: 3px solid #16a34a; margin-bottom: 20px;" />
-
-    <!-- THÔNG TIN KH + ĐƠN -->
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
-      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
-        <div style="font-size: 12px; font-weight: 700; color: #16a34a; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #d1fae5; padding-bottom: 6px;">Thông tin khách hàng</div>
-        <div style="font-size: 12px; line-height: 1.9; color: #374151;">
-          <div><span style="font-weight: 600;">Tên khách hàng:</span> {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}</div>
-          <div><span style="font-weight: 600;">Số điện thoại:</span> {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}</div>
-          <div><span style="font-weight: 600;">Địa chỉ:</span> {{ formatAddress(hoaDonData?.diaChi) || formatAddress(hoaDonData?.diaChi2) || 'Không có' }}</div>
-          <div><span style="font-weight: 600;">Email:</span> {{ hoaDonData?.email2 || hoaDonData?.email || 'Không có' }}</div>
-        </div>
-      </div>
-      <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
-        <div style="font-size: 12px; font-weight: 700; color: #16a34a; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #d1fae5; padding-bottom: 6px;">Thông tin đơn hàng</div>
-        <div style="font-size: 12px; line-height: 1.9; color: #374151;">
-          <div><span style="font-weight: 600;">Loại đơn:</span> {{ getInvoiceTypeText(hoaDonData?.loaiHoaDon) }}</div>
-          <div><span style="font-weight: 600;">Thanh toán:</span> {{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</div>
-          <div v-if="hoaDonData?.maVoucher"><span style="font-weight: 600;">Voucher:</span> {{ hoaDonData.maVoucher }}</div>
-          <div><span style="font-weight: 600;">Nhân viên:</span> {{ hoaDonData?.tenNhanVien || 'Không xác định' }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- BẢNG SẢN PHẨM -->
-    <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
-      <thead>
-        <tr style="background-color: #16a34a; color: #fff;">
-          <th style="padding: 10px 8px; text-align: center; width: 40px;">STT</th>
-          <th style="padding: 10px 8px; text-align: left;">Tên sản phẩm</th>
-          <th style="padding: 10px 8px; text-align: center; width: 140px;">IMEI / Serial</th>
-          <th style="padding: 10px 8px; text-align: right; width: 110px;">Đơn giá (đ)</th>
-          <th style="padding: 10px 8px; text-align: right; width: 120px;">Thành tiền (đ)</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr
-          v-for="(item, idx) in printProducts"
-          :key="item.id + (item.imeiCode || '')"
-          :style="{ backgroundColor: idx % 2 === 0 ? '#f9fafb' : '#ffffff' }"
-        >
-          <td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; color: #6b7280;">{{ idx + 1 }}</td>
-          <td style="padding: 10px 8px; border-bottom: 1px solid #e5e7eb;">
-            <div style="font-weight: 700; color: #111827;">{{ item.tenSanPham }}</div>
-            <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">
-              <span v-if="item.thuongHieu">{{ item.thuongHieu }}</span>
-              <span v-if="item.mauSac"> | {{ item.mauSac }}</span>
-              <span v-if="item.size"> | {{ item.size }}</span>
+ <div id="invoice-content" class="hidden">
+      <div class="invoice-paper bg-white text-black p-8 md:p-12">
+        <div class="flex justify-between items-start mb-10">
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <img src="@/assets/svg-icons/logo.svg" class="w-8 h-8" alt="logo">
+              <span class="text-2xl font-bold tracking-widest text-gray-900">My Laptop</span>
             </div>
-          </td>
-          <td style="padding: 10px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-family: monospace; font-weight: 600; color: #374151;">
-            {{ item.imeiCode || '—' }}
-          </td>
-          <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #374151;">
-            {{ formatCurrency(item.giaBanImei || item.giaBan) }}
-          </td>
-          <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 700;">
-            {{ formatCurrency(item.tongTienImei || item.tongTien) }}
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <div class="text-xs text-gray-500 space-y-1">
+              <p>123 Đại Cồ Việt, Hai Bà Trưng, Hà Nội</p>
+              <p>Website: mylaptop.vn | Hotline: 1900.8888</p>
+            </div>
+          </div>
+          <div class="text-right">
+            <h2 class="text-xl font-bold uppercase text-gray-800">
+              Hóa Đơn
+            </h2>
+            <p class="text-sm font-bold text-gray-600 mt-1">
+              Mã: {{ hoaDonData?.maHoaDon || invoiceCode }}
+            </p>
+            <p class="text-sm text-gray-500">
+              Ngày: {{ formatDateTime(hoaDonData?.ngayTao) }}
+            </p>
+          </div>
+        </div>
 
-    <!-- TỔNG TIỀN -->
-    <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
-      <div style="width: 280px; font-size: 13px;">
-        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
-          <span>Tổng tiền hàng:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(totalAmount) }}</span>
+        <NDivider class="border-dashed my-6" />
+
+        <!-- Thông tin khách hàng và đơn hàng -->
+        <div class="grid grid-cols-2 gap-8 mb-8 text-sm">
+          <div>
+            <h3 class="font-bold text-gray-400 uppercase text-[15px] mb-3 tracking-wider">
+              Khách hàng
+            </h3>
+            <p class="font-bold text-gray-900 text-base mb-1">
+              {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}
+            </p>
+            <p class="text-gray-600 mb-1">
+              {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}
+            </p>
+            <p class="text-gray-600 leading-relaxed">
+              {{ formatAddressCustomer(hoaDonData?.diaChi) || formatAddressCustomer(hoaDonData?.diaChi2) || 'Không có địa chỉ' }}
+            </p>
+          </div>
+
+          <div class="text-right">
+            <h3 class="font-bold text-gray-400 uppercase text-[15px] mb-3 tracking-wider">
+              Thông tin đơn hàng
+            </h3>
+            <div class="space-y-1.5 text-gray-600">
+              <p>Nhân viên: <span class="text-gray-900 font-medium">{{ hoaDonData?.tenNhanVien || 'Không xác định' }}</span></p>
+              <p>Vận chuyển: <span class="text-gray-900 font-medium">{{ getShippingMethodText(hoaDonData?.phuongThucVanChuyen) }}</span></p>
+              <p>Thanh toán: <span class="text-gray-900 font-medium">{{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</span></p>
+            </div>
+          </div>
         </div>
-        <div v-if="hoaDonData?.phiVanChuyen" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
-          <span>Phí vận chuyển:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+
+        <!-- Bảng sản phẩm -->
+        <table class="w-full text-sm mb-6">
+          <thead>
+            <tr class="bg-gray-50 border-y border-gray-200 text-gray-500 text-xs uppercase">
+              <th class="py-3 text-left pl-2 font-semibold">
+                Sản phẩm
+              </th>
+              <th class="py-3 text-center font-semibold w-16">
+                SL
+              </th>
+              <th class="py-3 text-right font-semibold w-28">
+                Đơn giá
+              </th>
+              <th class="py-3 text-right font-semibold w-32 pr-2">
+                Thành tiền
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            <tr v-for="item in printProducts" :key="item.id + (item.imeiCode || '')">
+              <td class="py-4 pl-2 align-top">
+                <p class="font-bold text-gray-800 text-[15px]">
+                  {{ item.tenSanPham }}
+                </p>
+                <p class="text-[11px] text-gray-500 mt-1 italic">
+                  <span v-if="item.thuongHieu">{{ item.thuongHieu }} | </span>
+                  <span v-if="item.mauSac">{{ item.mauSac }} | </span>
+                  <span v-if="item.imeiCode">Serial: {{ item.imeiCode }}</span>
+                  <span v-else-if="!item.imeiCode && item.danhSachImei && parseIMEIList(item.danhSachImei).length === 0">Không có Serial</span>
+                </p>
+              </td>
+              <td class="py-4 text-center align-top text-gray-600 font-medium">
+                {{ item.soLuongImei || item.soLuong }}
+              </td>
+              <td class="py-4 text-right align-top text-gray-600">
+                {{ formatCurrency(item.giaBanImei || item.giaBan) }}
+              </td>
+              <td class="py-4 text-right align-top font-bold text-gray-900 pr-2">
+                {{ formatCurrency(item.tongTienImei || item.tongTien) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Tổng hợp thanh toán -->
+        <div class="flex justify-end">
+          <div class="w-2/3 md:w-1/2 space-y-2 text-right">
+            <div class="flex justify-between text-sm text-gray-600">
+              <span>Tổng tiền hàng:</span>
+              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+            </div>
+
+            <div v-if="hoaDonData?.phiVanChuyen && hoaDonData.phiVanChuyen > 0" class="flex justify-between text-sm text-gray-600">
+              <span>Phí vận chuyển:</span>
+              <span>+ {{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+            </div>
+
+            <div v-if="hoaDonData?.giaTriVoucher && hoaDonData.giaTriVoucher > 0" class="py-2 my-1 border-y border-dashed border-gray-100">
+              <div class="flex justify-between text-sm text-green-600 mb-1">
+                <span>Ưu đãi ({{ hoaDonData?.tenVoucher || 'Voucher' }}):</span>
+                <span>- {{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
+              </div>
+              <div v-if="hoaDonData?.maVoucher" class="flex justify-between text-xs text-gray-400 italic">
+                <span>Mã áp dụng:</span>
+                <span>{{ hoaDonData.maVoucher }}</span>
+              </div>
+            </div>
+
+            <div class="flex justify-between text-sm text-gray-600">
+              <span>Thuế (VAT 0%):</span>
+              <span>{{ formatCurrency(0) }}</span>
+            </div>
+
+            <NDivider class="my-3 bg-gray-800" />
+
+            <div class="flex justify-between items-center">
+              <span class="font-bold text-gray-800 uppercase text-sm">Tổng thanh toán:</span>
+              <span class="text-2xl font-extrabold text-indigo-700">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+            </div>
+
+            <div v-if="hoaDonData?.duNo && hoaDonData.duNo > 0" class="flex justify-between text-sm text-orange-600 mt-2">
+              <span>Còn nợ:</span>
+              <span class="font-bold">{{ formatCurrency(hoaDonData.duNo) }}</span>
+            </div>
+          </div>
         </div>
-        <div v-if="hoaDonData?.giaTriVoucher" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #16a34a;">
-          <span>Giảm giá ({{ hoaDonData.maVoucher || 'Voucher' }}):</span>
-          <span style="font-weight: 700;">-{{ formatCurrency(hoaDonData.giaTriVoucher) }}</span>
+
+        <!-- Ghi chú -->
+        <div v-if="hoaDonData?.ghiChu" class="mt-6 p-4 bg-gray-50 rounded-lg">
+          <p class="text-sm text-gray-600">
+            <span class="font-bold">Ghi chú:</span> {{ hoaDonData.ghiChu }}
+          </p>
         </div>
-        <div v-if="hoaDonData?.duNo" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #d97706;">
-          <span>Còn nợ:</span><span style="font-weight: 700;">{{ formatCurrency(hoaDonData.duNo) }}</span>
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin-top: 6px; background: #f0fdf4; border: 2px solid #16a34a; border-radius: 8px;">
-          <span style="font-weight: 800; font-size: 14px;">Thành tiền:</span>
-          <span style="font-weight: 900; font-size: 18px; color: #16a34a;">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+
+        <!-- Footer -->
+        <div class="mt-16 pt-8 text-center border-t border-gray-100">
+          <p class="font-bold text-gray-800">
+            Cảm ơn quý khách đã tin tưởng My Laptop Store!
+          </p>
+          <p class="text-[10px] text-gray-400 mt-1">
+            Sản phẩm được bảo hành chính hãng. Vui lòng giữ lại hóa đơn này để bảo hành.
+          </p>
+          <p class="text-[10px] text-gray-400 mt-1">
+            Hóa đơn được tạo lúc {{ formatTime(hoaDonData?.ngayTao) }}
+          </p>
         </div>
       </div>
     </div>
 
-    <!-- GHI CHÚ -->
-    <div v-if="hoaDonData?.ghiChu" style="padding: 10px 14px; background: #f9fafb; border-left: 3px solid #16a34a; border-radius: 4px; margin-bottom: 20px; font-size: 12px; color: #374151;">
-      <span style="font-weight: 700;">Ghi chú:</span> {{ hoaDonData.ghiChu }}
-    </div>
-
-    <!-- FOOTER -->
-    <div style="border-top: 1px solid #e5e7eb; padding-top: 14px; text-align: center;">
-      <div style="font-size: 13px; font-weight: 700; color: #16a34a; margin-bottom: 4px;">Cảm ơn quý khách đã tin tưởng My Laptop Store!</div>
-      <div style="font-size: 10px; color: #9ca3af;">Sản phẩm được bảo hành chính hãng. Vui lòng giữ lại hóa đơn này để được hỗ trợ bảo hành.</div>
-      <div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Hóa đơn được xuất lúc {{ formatTime(hoaDonData?.ngayTao) }}</div>
-    </div>
-
-  </div>
-</div>
 
     <!-- Progress Timeline -->
     <NCard class="shadow-sm border-0 rounded-xl no-print" content-class="p-6">
@@ -1917,6 +2060,19 @@ onMounted(async () => {
             <NTag v-if="imeiProductsCount > 0" type="info" size="small">
               {{ imeiProductsCount }} Serial
             </NTag>
+
+            <!-- Nút xem tổng hợp serial -->
+            <NButton
+              type="info"
+              secondary
+              size="small"
+              @click="openSerialSummaryModal"
+            >
+              <template #icon>
+                <NIcon><GlobeOutline /></NIcon>
+              </template>
+              Xem tổng hợp SERIAL
+            </NButton>
           </div>
         </div>
       </template>
@@ -1955,59 +2111,6 @@ onMounted(async () => {
         </div>
       </div>
     </NCard>
-
-    <!-- Notes & Actions -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 no-print">
-      <!-- System Information -->
-      <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
-        <template #header>
-          <div class="flex items-center gap-2">
-            <NIcon size="20" color="#4b5563">
-              <InformationCircleOutline />
-            </NIcon>
-            <h3 class="text-lg font-semibold text-gray-900">
-              Thông tin hệ thống
-            </h3>
-          </div>
-        </template>
-
-        <div class="space-y-3 text-sm">
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Mã hóa đơn:</span>
-            <span class="font-medium font-mono">{{ hoaDonData?.maHoaDon }}</span>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Loại hóa đơn:</span>
-            <NTag size="small" :type="getInvoiceTypeTagType(hoaDonData?.loaiHoaDon)">
-              {{ getInvoiceTypeText(hoaDonData?.loaiHoaDon) }}
-            </NTag>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Ngày tạo:</span>
-            <span class="font-medium">{{ formatDateTime(hoaDonData?.ngayTao) }}</span>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Trạng thái:</span>
-            <NTag :type="getStatusTagType(currentStatus)" size="small">
-              {{ getStatusText(currentStatus) }}
-            </NTag>
-          </div>
-
-          <div class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Phí vận chuyển:</span>
-            <span class="font-medium">{{ formatCurrency(hoaDonData?.phiVanChuyen || 0) }}</span>
-          </div>
-
-          <div v-if="hoaDonData?.thoiGianCapNhatCuoi" class="flex justify-between items-center py-1">
-            <span class="text-gray-600">Cập nhật lần cuối:</span>
-            <span class="font-medium">{{ formatDateTimeFromString(hoaDonData.thoiGianCapNhatCuoi) }}</span>
-          </div>
-        </div>
-      </NCard>
-    </div>
 
     <!-- Status Update Modal -->
     <NModal v-model:show="showStatusModal" preset="dialog" title="Cập nhật trạng thái hóa đơn" class="no-print">
@@ -2072,71 +2175,162 @@ onMounted(async () => {
       </template>
     </NModal>
 
-    <!-- Serial Selection Modal -->
+    <!-- Serial Selection Modal - Dành cho đơn online -->
     <NModal
-      v-model:show="showSerialModal" preset="dialog" title="Chọn Serial Sản Phẩm"
-      style="width: 90%; max-width: 1200px" :mask-closable="false" class="no-print"
+      v-model:show="showSerialModal"
+      preset="card"
+      :title="`Chọn Serial - ${selectedProductItem?.tenSanPham || ''}`"
+      style="width: 90%; max-width: 1000px"
+      :bordered="false"
+      class="no-print"
     >
-      <NCard size="small" :bordered="false">
-        <template #header>
-          <NSpace align="center" justify="space-between" class="serial-modal-header">
-            <div>
-              <NText strong>
-                {{ selectedProductItem?.tenSanPham }} - {{ selectedProductItem?.maSanPham }}
-              </NText>
-              <NText depth="3" size="small" style="display: block; margin-top: 4px">
-                Giá: {{ formatCurrency(selectedProductItem?.giaBan || 0) }}
-              </NText>
+      <div class="space-y-4">
+        <!-- Thông tin sản phẩm -->
+        <div v-if="selectedProductItem" class="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+          <NAvatar
+            :src="selectedProductItem.anhSanPham"
+            size="medium"
+            round
+            fallback-src="https://via.placeholder.com/40"
+          />
+          <div class="flex-1">
+            <div class="font-semibold">
+              {{ selectedProductItem.tenSanPham }}
             </div>
-            <div style="text-align: right">
-              <NText type="primary" strong>
-                Cần chọn: {{ requiredQuantity }} serial
-              </NText>
-              <NText depth="3" size="small" style="display: block; margin-top: 4px">
-                Đã chọn: {{ selectedSerialIds.length }}/{{ requiredQuantity }} serial
-              </NText>
+            <div class="text-sm text-gray-600">
+              Cần chọn: {{ selectedProductItem.soLuong }} serial |
+              Đã chọn: {{ selectedSerialIds.length }}/{{ selectedProductItem.soLuong }}
             </div>
-          </NSpace>
-        </template>
+          </div>
 
-        <div v-if="loadingSerials" style="text-align: center; padding: 40px">
-          <NSpin size="large">
-            <template #description>
-              Đang tải danh sách serial...
+          <!-- Nút quét serial -->
+          <NButton type="primary" secondary @click="startScanMode">
+            <template #icon>
+              <NIcon><QrCodeOutline /></NIcon>
             </template>
-          </NSpin>
+            Quét Serial
+          </NButton>
+        </div>
+
+        <!-- Chế độ quét -->
+        <div v-if="scanMode" class="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div class="flex items-center gap-3">
+            <NInput
+              ref="scanInputRef"
+              v-model:value="scannedSerial"
+              placeholder="Quét hoặc nhập serial..."
+              @keyup.enter="handleScanInput"
+            >
+              <template #prefix>
+                <NIcon><QrCodeOutline /></NIcon>
+              </template>
+            </NInput>
+            <NButton type="primary" @click="handleScanInput">
+              Thêm
+            </NButton>
+            <NButton @click="scanMode = false">
+              Hủy
+            </NButton>
+          </div>
+          <div class="text-xs text-gray-500 mt-2">
+            Quét mã QR hoặc nhập serial và nhấn Enter để thêm nhanh
+          </div>
+        </div>
+
+        <!-- Danh sách serial -->
+        <div v-if="loadingSerials" class="text-center py-8">
+          <NSpin size="large" />
         </div>
 
         <NDataTable
-          v-else :columns="serialColumns" :data="selectedSerials" :max-height="400" size="small"
-          :pagination="{ pageSize: 10 }" :loading="loadingSerials" :bordered="false"
+          v-else
+          :columns="serialColumns"
+          :data="selectedSerials"
+          :max-height="400"
+          :pagination="{ pageSize: 10 }"
+          :bordered="false"
         />
 
-        <template #footer>
-          <NSpace justify="space-between" align="center" style="width: 100%">
-            <div class="flex flex-col">
-              <NText depth="3">
-                Đã chọn {{ selectedSerialIds.length }} serial
-              </NText>
-              <NText v-if="selectedProductItem" :type="selectedSerialIds.length === requiredQuantity ? 'success' : 'warning'" size="small">
-                Cần chọn đúng {{ requiredQuantity }} serial
-              </NText>
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 pt-4 border-t">
+          <NButton @click="showSerialModal = false">
+            Hủy
+          </NButton>
+          <NButton
+            type="primary"
+            :disabled="selectedSerialIds.length !== requiredQuantity"
+            :loading="isAddingSerials"
+            @click="addSerialsToInvoice"
+          >
+            Xác nhận ({{ selectedSerialIds.length }}/{{ requiredQuantity }})
+          </NButton>
+        </div>
+      </div>
+    </NModal>
+
+    <!-- Serial Info Modal - Dành cho đơn tại quầy/giao hàng -->
+    <NModal
+      v-model:show="showSerialInfoModal"
+      preset="card"
+      :title="`Thông tin Serial - ${selectedSerialInfoProduct?.tenSanPham || ''}`"
+      style="width: 500px"
+      :bordered="false"
+      class="no-print"
+    >
+      <div v-if="selectedSerialInfoProduct" class="space-y-4">
+        <!-- Thông tin sản phẩm -->
+        <div class="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
+          <NAvatar
+            :src="selectedSerialInfoProduct.anhSanPham"
+            size="medium"
+            round
+            fallback-src="https://via.placeholder.com/40"
+          />
+          <div>
+            <div class="font-semibold">
+              {{ selectedSerialInfoProduct.tenSanPham }}
             </div>
-            <NSpace>
-              <NButton @click="showSerialModal = false">
-                Hủy
-              </NButton>
-              <NButton
-                type="primary" :disabled="selectedSerialIds.length !== requiredQuantity || loadingSerials"
-                :loading="isAddingSerials" @click="addSerialsToInvoice"
-              >
-                Thêm {{ selectedSerialIds.length }} serial
-                <span v-if="selectedProductItem">({{ selectedSerialIds.length }}/{{ requiredQuantity }})</span>
-              </NButton>
-            </NSpace>
-          </NSpace>
-        </template>
-      </NCard>
+            <div class="text-sm text-gray-600">
+              Số lượng: {{ selectedSerialInfoProduct.soLuong }} |
+              Giá: {{ formatCurrency(selectedSerialInfoProduct.giaBan) }}
+            </div>
+          </div>
+        </div>
+
+        <NDivider />
+
+        <!-- Danh sách serial -->
+        <div v-if="currentProductSerialInfo.length === 0" class="text-center py-8 text-gray-400">
+          <NIcon size="48" class="mb-2">
+            <CubeOutline />
+          </NIcon>
+          <p>Sản phẩm chưa có serial nào được gán</p>
+        </div>
+
+        <div v-else class="space-y-2 max-h-96 overflow-y-auto">
+          <div
+            v-for="(imei, index) in currentProductSerialInfo"
+            :key="imei.id || index"
+            class="flex items-center justify-between p-3 bg-gray-50 rounded-lg border"
+          >
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-gray-400">{{ index + 1 }}.</span>
+              <span class="font-mono font-semibold">{{ imei.code || imei.imeiCode }}</span>
+            </div>
+            <NTag :type="IMEI_STATUS_CONFIG[imei.status]?.type || 'default'" size="small" round>
+              {{ IMEI_STATUS_CONFIG[imei.status]?.text || imei.status }}
+            </NTag>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end">
+          <NButton type="primary" @click="showSerialInfoModal = false">
+            Đóng
+          </NButton>
+        </div>
+      </template>
     </NModal>
 
     <!-- History Modal -->
@@ -2326,10 +2520,10 @@ onMounted(async () => {
                 </div>
 
                 <!-- Nút scan -->
-                <NButton type="primary" secondary style="background: #ede9fe; border-color: #9333ea;">
+                <NButton type="primary" secondary style="background: #ede9fe; border-color: #9333ea;" @click="startScanMode">
                   <template #icon>
                     <NIcon color="#9333ea">
-                      <RefreshOutline />
+                      <QrCodeOutline />
                     </NIcon>
                   </template>
                 </NButton>
@@ -2337,7 +2531,7 @@ onMounted(async () => {
                 <NButton
                   type="primary"
                   style="background: #9333ea; border-color: #9333ea;"
-                  @click="() => { showProductImeiModal = false; selectProductForSerial(selectedProductForModal!) }"
+                  @click="() => { showProductImeiModal = false; openSerialSelectionModal(selectedProductForModal!) }"
                 >
                   <template #icon>
                     <NIcon color="white">
@@ -2360,7 +2554,7 @@ onMounted(async () => {
           <NButton
             v-if="canChangeImei && selectedProductForModal && currentProductImeiList.length > 0"
             type="warning"
-            @click="() => { showProductImeiModal = false; selectProductForSerial(selectedProductForModal!) }"
+            @click="() => { showProductImeiModal = false; openSerialSelectionModal(selectedProductForModal!) }"
           >
             <template #icon>
               <NIcon><RefreshOutline /></NIcon>
@@ -2371,7 +2565,7 @@ onMounted(async () => {
             v-else-if="selectedProductForModal && currentProductImeiList.length === 0"
             type="primary"
             style="background: #9333ea; border-color: #9333ea;"
-            @click="() => { showProductImeiModal = false; selectProductForSerial(selectedProductForModal!) }"
+            @click="() => { showProductImeiModal = false; openSerialSelectionModal(selectedProductForModal!) }"
           >
             <template #icon>
               <NIcon><ListOutline /></NIcon>
@@ -2379,6 +2573,191 @@ onMounted(async () => {
             Chọn SERIAL từ danh sách
           </NButton>
           <NButton @click="showProductImeiModal = false">
+            Đóng
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- Serial Summary Modal - Hiển thị tổng hợp SERIAL theo loại đơn hàng -->
+    <NModal
+      v-model:show="showSerialSummaryModal"
+      preset="card"
+      title="Thông tin SERIAL tổng hợp"
+      style="width: 800px; max-width: 95vw; border-radius: 16px;"
+      :bordered="false"
+      class="no-print"
+    >
+      <div v-if="serialSummaryData.product" class="space-y-6">
+        <!-- Thông tin sản phẩm -->
+        <div class="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
+          <NAvatar
+            :src="serialSummaryData.product.anhSanPham"
+            :size="80"
+            :round="false"
+            class="border-2 border-blue-200 rounded-lg flex-shrink-0"
+            fallback-src="https://via.placeholder.com/80?text=No+Image"
+          />
+          <div class="flex-1">
+            <p class="font-bold text-gray-900 text-lg">
+              {{ serialSummaryData.product.tenSanPham }}
+            </p>
+            <div class="flex flex-wrap gap-2 mt-2">
+              <NTag v-if="serialSummaryData.product.maSanPham" size="small" type="info" :bordered="false">
+                Mã: {{ serialSummaryData.product.maSanPham }}
+              </NTag>
+              <NTag v-if="serialSummaryData.product.size" size="small" type="default" :bordered="false">
+                Size: {{ serialSummaryData.product.size }}
+              </NTag>
+              <NTag v-if="serialSummaryData.product.mauSac" size="small" type="default" :bordered="false">
+                Màu: {{ serialSummaryData.product.mauSac }}
+              </NTag>
+            </div>
+            <div class="flex items-center gap-4 mt-3">
+              <p class="text-sm text-gray-600">
+                Số lượng: <span class="font-bold text-gray-900">{{ serialSummaryData.product.soLuong }}</span>
+              </p>
+              <p class="text-sm text-gray-600">
+                SERIAL: <span class="font-bold text-blue-600">{{ serialSummaryData.totalSerials }}</span>
+              </p>
+              <p class="text-sm text-gray-600">
+                Đã gán: <span class="font-bold" :class="serialSummaryData.totalSerials >= serialSummaryData.product.soLuong ? 'text-green-600' : 'text-orange-600'">
+                  {{ Math.min(serialSummaryData.totalSerials, serialSummaryData.product.soLuong) }}/{{ serialSummaryData.product.soLuong }}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabs phân loại SERIAL -->
+        <div class="space-y-6">
+          <!-- SERIAL tại quầy -->
+          <div v-if="serialSummaryData.counterSerials.length > 0" class="border border-green-200 rounded-xl overflow-hidden">
+            <div class="bg-green-50 px-4 py-3 border-b border-green-200 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <NIcon size="20" color="#16a34a">
+                  <CartOutline />
+                </NIcon>
+                <span class="font-bold text-green-700">SERIAL bán tại quầy</span>
+              </div>
+              <NTag type="success" size="small" round>
+                {{ serialSummaryData.counterSerials.length }} SERIAL
+              </NTag>
+            </div>
+            <div class="p-4 bg-white">
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div
+                  v-for="(imei, idx) in serialSummaryData.counterSerials"
+                  :key="imei.id || idx"
+                  class="flex items-center justify-between p-3 bg-green-50/50 rounded-lg border border-green-100"
+                >
+                  <div>
+                    <span class="font-mono font-bold text-gray-800 text-sm">
+                      {{ imei.code || imei.imeiCode }}
+                    </span>
+                  </div>
+                  <NTag size="tiny" type="success" round>
+                    {{ imei.statusText || 'Đã bán' }}
+                  </NTag>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SERIAL giao hàng -->
+          <div v-if="serialSummaryData.deliverySerials.length > 0" class="border border-blue-200 rounded-xl overflow-hidden">
+            <div class="bg-blue-50 px-4 py-3 border-b border-blue-200 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <NIcon size="20" color="#2563eb">
+                  <CubeOutline />
+                </NIcon>
+                <span class="font-bold text-blue-700">SERIAL giao hàng</span>
+              </div>
+              <NTag type="info" size="small" round>
+                {{ serialSummaryData.deliverySerials.length }} SERIAL
+              </NTag>
+            </div>
+            <div class="p-4 bg-white">
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div
+                  v-for="(imei, idx) in serialSummaryData.deliverySerials"
+                  :key="imei.id || idx"
+                  class="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-100"
+                >
+                  <div>
+                    <span class="font-mono font-bold text-gray-800 text-sm">
+                      {{ imei.code || imei.imeiCode }}
+                    </span>
+                  </div>
+                  <NTag size="tiny" type="info" round>
+                    {{ imei.statusText || 'Đã gán' }}
+                  </NTag>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SERIAL online -->
+          <div v-if="serialSummaryData.onlineSerials.length > 0" class="border border-purple-200 rounded-xl overflow-hidden">
+            <div class="bg-purple-50 px-4 py-3 border-b border-purple-200 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <NIcon size="20" color="#9333ea">
+                  <GlobeOutline />
+                </NIcon>
+                <span class="font-bold text-purple-700">SERIAL đơn online</span>
+              </div>
+              <NTag type="primary" size="small" round>
+                {{ serialSummaryData.onlineSerials.length }} SERIAL
+              </NTag>
+            </div>
+            <div class="p-4 bg-white">
+              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <div
+                  v-for="(imei, idx) in serialSummaryData.onlineSerials"
+                  :key="imei.id || idx"
+                  class="flex items-center justify-between p-3 bg-purple-50/50 rounded-lg border border-purple-100"
+                >
+                  <div>
+                    <span class="font-mono font-bold text-gray-800 text-sm">
+                      {{ imei.code || imei.imeiCode }}
+                    </span>
+                  </div>
+                  <NTag size="tiny" type="primary" round>
+                    {{ imei.statusText || 'Đã đặt' }}
+                  </NTag>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Không có SERIAL -->
+          <div v-if="serialSummaryData.totalSerials === 0" class="text-center py-12 bg-gray-50 rounded-xl">
+            <NIcon size="48" class="text-gray-300 mb-3">
+              <CubeOutline />
+            </NIcon>
+            <p class="text-gray-500 font-medium">
+              Không có SERIAL nào được gán
+            </p>
+          </div>
+        </div>
+
+        <!-- Thông tin bổ sung -->
+        <div v-if="selectedSummaryImeiRow" class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+          <div class="flex items-center gap-2 text-sm text-yellow-700">
+            <NIcon size="18">
+              <InformationCircleOutline />
+            </NIcon>
+            <span>
+              Đang xem SERIAL của <strong>{{ selectedSummaryImeiRow.imeiCode }}</strong>
+              trong tổng số {{ serialSummaryData.totalSerials }} SERIAL
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <NButton type="primary" @click="showSerialSummaryModal = false">
             Đóng
           </NButton>
         </div>

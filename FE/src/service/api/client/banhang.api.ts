@@ -219,6 +219,11 @@ export interface ProductDetailCartItemResponse {
   name: string
 }
 
+export type ClientBHQuantityProductDetailsResponse = {
+  idProductDetail: string;
+  quantity: number;
+}
+
 export async function GetHoaDons(params: ParamsGetHoaDon) {
   const res = (await request({
     url: `${API_ORDER_ONLINE}/list-hoa-don`,
@@ -469,6 +474,16 @@ export async function getProductDetailCart(idProductDetail: Array<string>) {
     method: 'POST',
     data: idProductDetail,
   })) as AxiosResponse<DefaultResponse<Array<ProductDetailCartItemResponse>>>
+
+  return res.data
+}
+
+export async function getQuantityProdudtDetail(ids: Array<string>) {
+  const res = (await request({
+    url: `${API_ORDER_ONLINE}/quantity-product`,
+    method: 'POST',
+    data: ids,
+  })) as AxiosResponse<DefaultResponse<Array<ClientBHQuantityProductDetailsResponse>>>
 
   return res.data
 }

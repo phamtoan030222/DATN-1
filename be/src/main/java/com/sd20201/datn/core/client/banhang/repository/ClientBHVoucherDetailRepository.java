@@ -66,6 +66,7 @@ public interface ClientBHVoucherDetailRepository extends JpaRepository<VoucherDe
           AND v.remainingQuantity > 0
           AND v.startDate <= :now
           AND v.endDate >= :now
+          AND v.status = 0
     """)
     List<Voucher> findVoucherHopLe(
             @Param("target") TargetType target,

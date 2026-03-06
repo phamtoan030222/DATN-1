@@ -38,11 +38,10 @@ import {
 } from '@/service/api/client/product/productDetail.api'
 
 import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
-import { CartStore } from '@/utils/cartStore'
+import { themSanPham } from '@/service/api/client/banhang.api'
 import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
 import { getVouchers } from '@/service/api/client/discount/api.voucher'
 import { localStorageAction } from '@/utils'
-import { themSanPham } from '@/service/api/client/banhang.api'
 
 // --- CONFIG ---
 const route = useRoute()
@@ -60,7 +59,7 @@ const allVariants = ref<any[]>([])
 const selectedImage = ref('')
 const quantity = ref(1)
 
-// Options Data
+// Options Data (Tất cả từ điển)
 const gpuOptions = ref<any[]>([])
 const cpuOptions = ref<any[]>([])
 const ramOptions = ref<any[]>([])
@@ -106,7 +105,7 @@ async function addToCartAction(isBuyNow: boolean) {
 
   if (isBuyNow) {
     message.success('Đang chuyển đến thanh toán...')
-    router.push('/checkout')
+    await router.push({ name: 'Checkout' })
   }
   else {
     notification.success({
@@ -120,7 +119,7 @@ async function addToCartAction(isBuyNow: boolean) {
           {
             text: true,
             type: 'primary',
-            onClick: () => router.push('/cart'),
+            onClick: () => router.push({ name: 'Cart' }),
           },
           { default: () => 'Xem giỏ hàng ngay' },
         ),
@@ -150,20 +149,20 @@ async function fetchData(id: string) {
       product.value = res.data
       selectedImage.value = product.value.urlImage || 'https://via.placeholder.com/500'
 
-      // Set options
+      // Set options mặc định theo sản phẩm đang xem
       selectedGpu.value = product.value.idGPU || null
       selectedCpu.value = product.value.idCPU || null
       selectedRam.value = product.value.idRAM || null
       selectedHardDrive.value = product.value.idHardDrive || null
       selectedColor.value = product.value.idColor || null
 
-      // Gọi đồng thời cả API lấy từ điển global và API lấy các biến thể của sản phẩm này
+      // Lấy tất cả các biến thể chung idProduct
       await Promise.all([
         loadGlobalOptions(),
-        loadAllVariants(product.value.productName || product.value.name),
+        loadAllVariants(product.value.idProduct),
       ])
 
-      // LOGIC MỚI: Chỉ giữ lại các tuỳ chọn thực sự TỒN TẠI trong dòng sản phẩm này
+      // Lọc các tuỳ chọn chỉ hiển thị nếu nó có tồn tại trong biến thể
       if (allVariants.value.length > 0) {
         gpuOptions.value = gpuOptions.value.filter(opt => allVariants.value.some((v: any) => v.idGPU === opt.value))
         cpuOptions.value = cpuOptions.value.filter(opt => allVariants.value.some((v: any) => v.idCPU === opt.value))
@@ -252,9 +251,13 @@ async function loadGlobalOptions() {
   }
 }
 
-async function loadAllVariants(productName: string) {
+// 1. CẬP NHẬT: Lấy danh sách biến thể theo idProduct thay vì tên sản phẩm
+async function loadAllVariants(idProduct: string) {
   try {
-    const res = await getProductDetails({ page: 1, size: 100, keyword: productName })
+    if (!idProduct)
+      return
+    // Vì backend yêu cầu mảng nên ta truyền [idProduct]
+    const res = await getProductDetails({ page: 1, size: 100, idProduct: [idProduct] })
     let list: any[] = []
     if (res?.data) {
       const svResponse = res.data
@@ -265,74 +268,56 @@ async function loadAllVariants(productName: string) {
       else if (Array.isArray(svResponse))
         list = svResponse
     }
-
-    allVariants.value = list.filter(
-      (x: any) => (x.productName || x.product || x.name) === productName,
-    )
+    allVariants.value = list
   }
   catch (e) {
-    console.error(e)
+    console.error('Lỗi tải variants', e)
   }
 }
 
-function isOptionDisabled(type: string, value: string) {
-  if (allVariants.value.length === 0)
-    return false
-  const criteria: any = {
-    idGPU: selectedGpu.value,
-    idCPU: selectedCpu.value,
-    idRAM: selectedRam.value,
-    idHardDrive: selectedHardDrive.value,
-    idColor: selectedColor.value,
-  }
-
+// 2. CẬP NHẬT: Logic click chọn bản linh hoạt
+async function selectVariantOption(type: string, val: string) {
+  // Gán tạm giá trị mới
   if (type === 'GPU')
-    delete criteria.idGPU
+    selectedGpu.value = val
   if (type === 'CPU')
-    delete criteria.idCPU
+    selectedCpu.value = val
   if (type === 'RAM')
-    delete criteria.idRAM
+    selectedRam.value = val
   if (type === 'HDD')
-    delete criteria.idHardDrive
+    selectedHardDrive.value = val
   if (type === 'COLOR')
-    delete criteria.idColor
+    selectedColor.value = val
 
-  if (type === 'GPU')
-    criteria.idGPU = value
-  if (type === 'CPU')
-    criteria.idCPU = value
-  if (type === 'RAM')
-    criteria.idRAM = value
-  if (type === 'HDD')
-    criteria.idHardDrive = value
-  if (type === 'COLOR')
-    criteria.idColor = value
-
-  const match = allVariants.value.find((v) => {
-    return (
-      (!criteria.idGPU || v.idGPU === criteria.idGPU)
-      && (!criteria.idCPU || v.idCPU === criteria.idCPU)
-      && (!criteria.idRAM || v.idRAM === criteria.idRAM)
-      && (!criteria.idHardDrive || v.idHardDrive === criteria.idHardDrive)
-      && (!criteria.idColor || v.idColor === criteria.idColor)
-    )
-  })
-  return !match
-}
-
-async function handleOptionClick() {
-  const exactMatch = allVariants.value.find(
-    v =>
-      (selectedGpu.value ? v.idGPU === selectedGpu.value : true)
-      && (selectedCpu.value ? v.idCPU === selectedCpu.value : true)
-      && (selectedRam.value ? v.idRAM === selectedRam.value : true)
-      && (selectedHardDrive.value ? v.idHardDrive === selectedHardDrive.value : true)
-      && (selectedColor.value ? v.idColor === selectedColor.value : true),
+  // Thử tìm máy khớp chính xác với tất cả tiêu chí đang chọn
+  let match = allVariants.value.find(v =>
+    (!selectedGpu.value || v.idGPU === selectedGpu.value)
+    && (!selectedCpu.value || v.idCPU === selectedCpu.value)
+    && (!selectedRam.value || v.idRAM === selectedRam.value)
+    && (!selectedHardDrive.value || v.idHardDrive === selectedHardDrive.value)
+    && (!selectedColor.value || v.idColor === selectedColor.value),
   )
 
-  // Nếu tìm thấy một sản phẩm khớp hoàn toàn với cấu hình đã chọn, chuyển hướng sang ID đó
-  if (exactMatch && exactMatch.id !== product.value.id) {
-    await router.replace({ params: { id: exactMatch.id } })
+  // Nếu không có cấu hình chính xác tuyệt đối, tìm 1 máy gần đúng có thuộc tính vừa chọn
+  if (!match) {
+    match = allVariants.value.find((v) => {
+      if (type === 'GPU')
+        return v.idGPU === val
+      if (type === 'CPU')
+        return v.idCPU === val
+      if (type === 'RAM')
+        return v.idRAM === val
+      if (type === 'HDD')
+        return v.idHardDrive === val
+      if (type === 'COLOR')
+        return v.idColor === val
+      return false
+    })
+  }
+
+  // Nếu tìm thấy và khác ID hiện tại -> chuyển URL
+  if (match && match.id !== product.value.id) {
+    await router.replace({ params: { id: match.id } })
   }
 }
 
@@ -342,7 +327,7 @@ function handleResetFilter() {
   selectedRam.value = null
   selectedHardDrive.value = null
   selectedColor.value = null
-  message.info('Đã làm mới bộ lọc')
+  message.info('Đã làm mới bộ lọc (Vui lòng chọn lại cấu hình mong muốn)')
 }
 
 // ==========================================
@@ -624,91 +609,80 @@ onUnmounted(() => {
               </div>
 
               <div class="grid gap-4">
-                <div v-if="gpuOptions.some((o) => !isOptionDisabled('GPU', o.value))">
+                <div v-if="gpuOptions.length > 0">
                   <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
                     GPU
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button
-                      v-for="opt in gpuOptions" :key="opt.value" class="chip" :class="{
-                        active: selectedGpu === opt.value,
-                        disabled: isOptionDisabled('GPU', opt.value),
-                      }" @click="
-                        !isOptionDisabled('GPU', opt.value)
-                          && ((selectedGpu = opt.value), handleOptionClick())
-                      "
+                      v-for="opt in gpuOptions" :key="opt.value"
+                      class="chip"
+                      :class="{ active: selectedGpu === opt.value }"
+                      @click="selectVariantOption('GPU', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-                <div v-if="cpuOptions.some((o) => !isOptionDisabled('CPU', o.value))">
+
+                <div v-if="cpuOptions.length > 0">
                   <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
                     CPU
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button
-                      v-for="opt in cpuOptions" :key="opt.value" class="chip" :class="{
-                        active: selectedCpu === opt.value,
-                        disabled: isOptionDisabled('CPU', opt.value),
-                      }" @click="
-                        !isOptionDisabled('CPU', opt.value)
-                          && ((selectedCpu = opt.value), handleOptionClick())
-                      "
+                      v-for="opt in cpuOptions" :key="opt.value"
+                      class="chip"
+                      :class="{ active: selectedCpu === opt.value }"
+                      @click="selectVariantOption('CPU', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-                <div v-if="ramOptions.some((o) => !isOptionDisabled('RAM', o.value))">
+
+                <div v-if="ramOptions.length > 0">
                   <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
                     RAM
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button
-                      v-for="opt in ramOptions" :key="opt.value" class="chip" :class="{
-                        active: selectedRam === opt.value,
-                        disabled: isOptionDisabled('RAM', opt.value),
-                      }" @click="
-                        !isOptionDisabled('RAM', opt.value)
-                          && ((selectedRam = opt.value), handleOptionClick())
-                      "
+                      v-for="opt in ramOptions" :key="opt.value"
+                      class="chip"
+                      :class="{ active: selectedRam === opt.value }"
+                      @click="selectVariantOption('RAM', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-                <div v-if="hardDriveOptions.some((o) => !isOptionDisabled('HDD', o.value))">
+
+                <div v-if="hardDriveOptions.length > 0">
                   <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
                     Ổ cứng
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button
-                      v-for="opt in hardDriveOptions" :key="opt.value" class="chip" :class="{
-                        active: selectedHardDrive === opt.value,
-                        disabled: isOptionDisabled('HDD', opt.value),
-                      }" @click="
-                        !isOptionDisabled('HDD', opt.value)
-                          && ((selectedHardDrive = opt.value), handleOptionClick())
-                      "
+                      v-for="opt in hardDriveOptions" :key="opt.value"
+                      class="chip"
+                      :class="{ active: selectedHardDrive === opt.value }"
+                      @click="selectVariantOption('HDD', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-                <div v-if="colorOptions.some((o) => !isOptionDisabled('COLOR', o.value))">
+
+                <div v-if="colorOptions.length > 0">
                   <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
                     Màu sắc
                   </div>
                   <div class="flex flex-wrap gap-2">
                     <button
-                      v-for="opt in colorOptions" :key="opt.value" class="chip" :class="{
-                        active: selectedColor === opt.value,
-                        disabled: isOptionDisabled('COLOR', opt.value),
-                      }" @click="
-                        !isOptionDisabled('COLOR', opt.value)
-                          && ((selectedColor = opt.value), handleOptionClick())
-                      "
+                      v-for="opt in colorOptions" :key="opt.value"
+                      class="chip"
+                      :class="{ active: selectedColor === opt.value }"
+                      @click="selectVariantOption('COLOR', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
@@ -908,15 +882,5 @@ onUnmounted(() => {
   background: #ecfdf5;
   color: #059669;
   font-weight: 600;
-}
-
-.chip.disabled {
-  opacity: 0.4;
-  background: #f3f4f6;
-  border-color: #e5e7eb;
-  color: #9ca3af;
-  cursor: not-allowed;
-  pointer-events: none;
-  text-decoration: line-through;
 }
 </style>

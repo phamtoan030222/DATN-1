@@ -157,15 +157,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 // Tính tổng tiền dòng này (để lưu DB cho chắc)
                 detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 
-                detail = invoiceDetailRepository.saveAndFlush(detail);
-
-                List<String> imeiIds = imeiRepository.findIdsAvailableImei(
-                        item.getProductDetailId(),
-                        ImeiStatus.AVAILABLE,
-                        PageRequest.of(0, item.getQuantity())
-                );
-
-                imeiRepository.updateImeiStatusIdIn(imeiIds, ImeiStatus.RESERVED, detail.getId());
+                invoiceDetailRepository.saveAndFlush(detail);
             }
 
             // 3. Ghi log lịch sử trạng thái
@@ -587,6 +579,14 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
         return ResponseObject.successForward(
                 productDetailRepository.findProductDetailCartResponseByIdIn(ids, currentTime),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getQuantityProductDetail(List<String> ids) {
+        return ResponseObject.successForward(
+                imeiRepository.getQuantityByProductDetails(ids),
                 "OKE"
         );
     }

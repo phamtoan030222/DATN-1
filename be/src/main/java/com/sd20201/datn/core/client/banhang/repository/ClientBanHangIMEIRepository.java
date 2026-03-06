@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.client.banhang.repository;
 
+import com.sd20201.datn.core.client.banhang.model.response.ClientBHQuantityProductDetailsResponse;
 import com.sd20201.datn.entity.IMEI;
 import com.sd20201.datn.entity.InvoiceDetail;
 import com.sd20201.datn.entity.ProductDetail;
@@ -50,4 +51,14 @@ public interface ClientBanHangIMEIRepository extends JpaRepository<IMEI, String>
     UPDATE IMEI i SET i.imeiStatus = :status, i.invoiceDetail.id = :idInvoiceDetail where i.id in :ids
     """)
     int updateImeiStatusIdIn(List<String> ids, ImeiStatus status, String idInvoiceDetail);
+
+    @Query("""
+    SELECT
+        pd.id as idProductDetail
+        , COUNT(i.id) as quantity
+     FROM IMEI i
+    LEFT JOIN ProductDetail pd on i.productDetail.id = pd.id
+    WHERE i.productDetail.id in :ids
+    """)
+    List<ClientBHQuantityProductDetailsResponse> getQuantityByProductDetails(List<String> ids);
 }

@@ -120,4 +120,9 @@ public class ClientBanHangController {
     public ResponseEntity<?> getSanPham(@RequestBody List<String> ids) {
         return Helper.createResponseEntity(adBanHangService.getProductDetailCart(ids));
     }
+
+    @PostMapping("/quantity-product")
+    public ResponseEntity<?> checkQuantityProduct(@RequestBody List<String> ids) {
+        return Helper.createResponseEntity(adBanHangService.getQuantityProductDetail(ids));
+    }
 }
