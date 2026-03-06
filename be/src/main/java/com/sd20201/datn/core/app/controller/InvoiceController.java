@@ -30,6 +30,4 @@ public class InvoiceController {
         return Helper.createResponseEntity(service.getAllHoaDonCT(request));
     }
 
-
-
 }
