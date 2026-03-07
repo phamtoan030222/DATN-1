@@ -22,9 +22,4 @@ public class ClientCustomerAddressController {
         return Helper.createResponseEntity(customerService.getAddressesByCustomer(idCustomer));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getAddress(@PathVariable String id) {
-        return Helper.createResponseEntity(customerService.getAddressById(id));
-    }
-
 }

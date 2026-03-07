@@ -107,7 +107,7 @@ export async function applyMultipleProducts(discountId: string, products: { prod
         description: product.description || 'Áp dụng sản phẩm',
       }
 
-      console.log('Applying product:', requestData)
+      console.warn('Applying product:', requestData)
       const result = await applySingleProductToDiscount(requestData)
       results.push(result)
     }
@@ -121,8 +121,8 @@ export async function applyMultipleProducts(discountId: string, products: { prod
 }
 
 export async function getAppliedProducts(discountId: string, params: PaginationParams) {
-  console.log('🚀 Fetching applied products for discount:', discountId)
-  console.log('📤 API params:', params)
+  console.warn('🚀 Fetching applied products for discount:', discountId)
+  console.warn('📤 API params:', params)
 
   const page = (params.page && params.page > 0) ? params.page - 1 : 0
   const size = params.size || 10
@@ -142,7 +142,7 @@ export async function getAppliedProducts(discountId: string, params: PaginationP
       `${API_PREFIX_ORDER_ONLINE_DISCOUNTS}/detail/applied-products`,
       { params: queryParams },
     )
-    console.log('📥 Applied products API response:', res.data)
+    console.warn('📥 Applied products API response:', res.data)
     const responseData = res.data.data
     if (!responseData) {
       console.warn('⚠️ No responseData found')
@@ -160,7 +160,7 @@ export async function getAppliedProducts(discountId: string, params: PaginationP
         ? responseData.content
         : Array.isArray(responseData) ? responseData : []
 
-    console.log('✅ Applied products items:', items)
+    console.warn('✅ Applied products items:', items)
 
     return {
       items,
@@ -176,8 +176,8 @@ export async function getAppliedProducts(discountId: string, params: PaginationP
 }
 
 export async function getUnappliedProducts(discountId: string, params: PaginationParams) {
-  console.log('🚀 Fetching unapplied products for discount:', discountId)
-  console.log('📤 API params:', params)
+  console.warn('🚀 Fetching unapplied products for discount:', discountId)
+  console.warn('📤 API params:', params)
 
   const page = (params.page && params.page > 0) ? params.page - 1 : 0
   const size = params.size || 10
@@ -198,7 +198,7 @@ export async function getUnappliedProducts(discountId: string, params: Paginatio
       { params: queryParams },
     )
 
-    console.log('📥 Unapplied products API response:', res.data)
+    console.warn('📥 Unapplied products API response:', res.data)
 
     const responseData = res.data.data
     if (!responseData) {
@@ -217,7 +217,7 @@ export async function getUnappliedProducts(discountId: string, params: Paginatio
         ? responseData.content
         : Array.isArray(responseData) ? responseData : []
 
-    console.log('✅ Unapplied products items:', items)
+    console.warn('✅ Unapplied products items:', items)
 
     return {
       items,

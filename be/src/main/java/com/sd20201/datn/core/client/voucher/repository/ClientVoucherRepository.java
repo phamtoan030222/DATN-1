@@ -114,12 +114,14 @@ public interface ClientVoucherRepository extends VoucherRepository {
                         FROM VoucherDetail vd
                         JOIN vd.customer c
                         WHERE vd.voucher.id = :voucherId
+                              AND vd.status = 0 and vd.voucher.status = 0
                     """,
             countQuery = """
                         SELECT count(c)
                         FROM VoucherDetail vd
                         JOIN vd.customer c
                         WHERE vd.voucher.id = :voucherId
+                              AND vd.status = 0 and vd.voucher.status = 0
                     """
     )
     Page<AdCustomerResponse> findAssignedCustomersByVoucherId(@Param("voucherId") String voucherId, Pageable pageable);
@@ -137,6 +139,7 @@ public interface ClientVoucherRepository extends VoucherRepository {
                         JOIN vd.customer c
                         WHERE vd.voucher.code = :code
                           AND vd.usageStatus = true
+                          AND vd.status = 0 and vd.voucher.status = 0
                     """,
             countQuery = """
                         SELECT count(c)
@@ -144,6 +147,7 @@ public interface ClientVoucherRepository extends VoucherRepository {
                         JOIN vd.customer c
                         WHERE vd.voucher.code = :code
                           AND vd.usageStatus = true
+                          AND vd.status = 0 and vd.voucher.status = 0
                     """
     )
     Page<AdCustomerResponse> findUsedCustomersByVoucherCode(@Param("code") String code, Pageable pageable);

@@ -5,24 +5,30 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Setter
 @Getter
 @NoArgsConstructor
 public class ClientPDProductDetailRequest extends PageableRequest {
 
-    private String idProduct;
+    private List<String> idProduct;
 
-    private String idCPU;
+    private List<String> idCPU;
 
-    private String idGPU;
+    private List<String> idGPU;
 
-    private String idColor;
+    private List<String> idColor;
 
-    private String idRAM;
+    private List<String> idRAM;
 
-    private String idHardDrive;
+    private List<String> idHardDrive;
 
-    private String idMaterial;
+    private List<String> idMaterial;
+
+    private List<String> idBrand;
+
+    private List<String> idScreen;
 
     private Integer minPrice;
 

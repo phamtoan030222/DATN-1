@@ -1058,24 +1058,24 @@ function closeBarcodeModal() {
 
 async function addSerialByCode(serialCode: string) {
   const code = serialCode.trim()
-  if (!/^\d{15,17}$/.test(code)) { toast.error('Mã IMEI không hợp lệ! IMEI phải là 15-17 chữ số.'); return }
+  if (!/^\d{15,17}$/.test(code)) { toast.error('Mã SERIAL không hợp lệ! SERIAL phải là 15-17 chữ số.'); return }
 
-  toast.info(`Đang tìm IMEI: ${code}...`)
+  toast.info(`Đang tìm SERIAL: ${code}...`)
   try {
     for (const product of stateSP.products) {
       const response = await getImeiProductDetail(product.id)
       const serial = response.data?.find((s: ADPDImeiResponse) => s.code === code)
       if (serial) {
-        if (serial.imeiStatus !== 'AVAILABLE') { toast.error(`IMEI ${code} không khả dụng`); return }
+        if (serial.imeiStatus !== 'AVAILABLE') { toast.error(`SERIAL ${code} không khả dụng`); return }
         selectedProductDetail.value = product; selectedSerials.value = [serial]; selectedSerialIds.value = [serial.id]
         await addSerialToCart()
-        toast.success(`Đã thêm IMEI ${code}`)
+        toast.success(`Đã thêm SERIAL ${code}`)
         return
       }
     }
-    toast.error(`Không tìm thấy IMEI: ${code}`)
+    toast.error(`Không tìm thấy SERIAL: ${code}`)
   }
-  catch (error) { toast.error('Thêm IMEI thất bại!') }
+  catch (error) { toast.error('Thêm SERIAL thất bại!') }
 }
 
 // ==================== CHECKOUT FUNCTION ====================
@@ -1102,11 +1102,11 @@ async function xacNhan(check: number) {
     if (item.sanPhamChiTiet?.quanLyImei && !item.imel) {
       const imeiItem = imeiDaChon.value.find(i => i.idHoaDonChiTiet === item.idHoaDonChiTiet)
       if (!imeiItem) {
-        toast.error(`Chưa chọn IMEI cho sản phẩm ${item.tenSanPham || item.name}!`)
+        toast.error(`Chưa chọn SERIAL cho sản phẩm ${item.tenSanPham || item.name}!`)
         return
       }
       if (imeiItem.danhSachImei.length !== item.soLuong) {
-        toast.error(`Số lượng IMEI cho sản phẩm ${item.tenSanPham || item.name} không khớp!`)
+        toast.error(`Số lượng SERIAL cho sản phẩm ${item.tenSanPham || item.name} không khớp!`)
         return
       }
     }
@@ -1273,9 +1273,9 @@ const columnsGiohang: DataTableColumns<any> = [
         return h(NTag, { type: 'success', size: 'small', onClick: () => toast.info(`IMEI: ${row.imel}`) }, () => `${row.imel}`)
       const imeiItem = imeiDaChon.value.find(item => item.idHoaDonChiTiet === row.idHDCT)
       if (imeiItem && imeiItem.danhSachImei.length > 0) {
-        return h(NTag, { type: 'success', size: 'small', onClick: () => toast.info(`Đã chọn ${imeiItem.danhSachImei.length} IMEI: ${imeiItem.danhSachImei.join(', ')}`) }, () => `${imeiItem.danhSachImei.length} IMEI`)
+        return h(NTag, { type: 'success', size: 'small', onClick: () => toast.info(`Đã chọn ${imeiItem.danhSachImei.length} SERIAL: ${imeiItem.danhSachImei.join(', ')}`) }, () => `${imeiItem.danhSachImei.length} SERIAL`)
       }
-      return h(NTag, { type: 'warning', size: 'small' }, () => 'Chưa chọn IMEI')
+      return h(NTag, { type: 'warning', size: 'small' }, () => 'Chưa chọn SERIAL')
     },
   },
   {
@@ -1327,7 +1327,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     },
   },
   { title: 'Tồn kho', key: 'quantity', width: 80, align: 'center', render: row => h(NTag, { type: row.quantity > 0 ? 'success' : 'error', size: 'small' }, () => row.quantity) },
-  { title: 'Thao tác', key: 'action', width: 100, align: 'center', render: row => h(NButton, { type: 'primary', size: 'small', secondary: true, disabled: row.status !== 'ACTIVE' || row.quantity <= 0, onClick: () => selectProductForSerial(row) }, () => 'Chọn IMEI') },
+  { title: 'Thao tác', key: 'action', width: 100, align: 'center', render: row => h(NButton, { type: 'primary', size: 'small', secondary: true, disabled: row.status !== 'ACTIVE' || row.quantity <= 0, onClick: () => selectProductForSerial(row) }, () => 'Chọn SERIAL') },
 ]
 
 const serialColumns: DataTableColumns<ADPDImeiResponse> = [
@@ -1343,7 +1343,7 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
     }),
   },
   { title: 'In', key: 'print', width: 80, align: 'center', render: row => h(NButton, { size: 'tiny', text: true, onClick: () => printSerialBarcode(row.code) }, { icon: () => h(NIcon, null, () => h(BarcodeOutline)) }) },
-  { title: 'IMEI', key: 'code', width: 180, render: row => h(NText, { code: true, style: { fontFamily: 'monospace' } }, () => row.code || '-') },
+  { title: 'SERIAL', key: 'code', width: 180, render: row => h(NText, { code: true, style: { fontFamily: 'monospace' } }, () => row.code || '-') },
   {
     title: 'Trạng thái',
     key: 'status',
@@ -1450,7 +1450,7 @@ function formatCurrencyInput(value: number) {
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
-              Quét IMEI
+              Quét SERIAL
             </NButton>
           </NSpace>
         </template>
@@ -2016,7 +2016,7 @@ function formatCurrencyInput(value: number) {
       </NCard>
     </NModal>
 
-    <NModal v-model:show="showSerialModal" preset="dialog" title="Chọn IMEI" style="width: 90%; max-width: 1200px">
+    <NModal v-model:show="showSerialModal" preset="dialog" title="Chọn SERIAL" style="width: 90%; max-width: 1200px">
       <NCard size="small" :bordered="false">
         <template #header>
           <div class="serial-modal-header">
@@ -2030,13 +2030,13 @@ function formatCurrencyInput(value: number) {
             </div>
             <div>
               <NText type="primary" strong>
-                Còn {{ availableSerialsCount }} IMEI
+                Còn {{ availableSerialsCount }} SERIAL
               </NText>
             </div>
           </div>
           <NInput
             v-model:value="serialSearchQuery"
-            placeholder="Tìm theo IMEI..."
+            placeholder="Tìm theo SERIAL..."
             clearable
             style="margin-top: 12px"
           >
@@ -2058,7 +2058,7 @@ function formatCurrencyInput(value: number) {
         <template #footer>
           <NSpace justify="space-between" align="center" style="width: 100%">
             <NText depth="3">
-              Đã chọn {{ selectedSerialIds.length }} IMEI
+              Đã chọn {{ selectedSerialIds.length }} SERIAL
             </NText>
             <NSpace>
               <NButton @click="showSerialModal = false">
@@ -2069,7 +2069,7 @@ function formatCurrencyInput(value: number) {
                 :disabled="selectedSerialIds.length === 0"
                 @click="addSerialToCart"
               >
-                Thêm {{ selectedSerialIds.length }} IMEI
+                Thêm {{ selectedSerialIds.length }} SERIAL
               </NButton>
             </NSpace>
           </NSpace>
@@ -2108,13 +2108,13 @@ function formatCurrencyInput(value: number) {
     <NModal
       v-model:show="isBarcodeModalVisible"
       preset="dialog"
-      title="Quét IMEI"
+      title="Quét SERIAL"
       :mask-closable="false"
       @update:show="(val) => { if (!val) closeBarcodeModal() }"
     >
       <NCard size="small" :bordered="false">
         <NAlert type="info" size="small" show-icon style="margin-bottom: 12px;">
-          Đặt mã IMEI (15-17 số) vào khung hình để quét.
+          Đặt mã SERIAL (15-17 số) vào khung hình để quét.
         </NAlert>
 
         <div id="reader" style="width: 100%; max-width: 440px; margin: 0 auto;" />
