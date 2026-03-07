@@ -203,4 +203,8 @@ public class ADBanHangController {
         return Helper.createResponseEntity(adBanHangService.getGPUs());
     }
 
+    @PutMapping("/bo-chon-khach-hang/{idHoaDon}")
+    public ResponseEntity<?> boChonKhachHang(@PathVariable String idHoaDon) {
+        return Helper.createResponseEntity(adBanHangService.boChonKhachHang(idHoaDon));
+    }
 }
