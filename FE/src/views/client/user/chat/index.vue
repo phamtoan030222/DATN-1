@@ -3,9 +3,12 @@ import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
+import { useAuthStore } from '@/store';
 
 
 const BACKEND_URL = 'http://localhost:2345'; 
+
+const {  userInfoDatn } = storeToRefs(useAuthStore());
 
 // --- STATE ---
 const isOpen = ref(false); 
@@ -14,6 +17,7 @@ const isLoading = ref(false);
 const messagesContainer = ref(null);
 const stompClient = ref(null);
 const showOptions = ref(true);
+const showSuggestions = ref(true);
 
 // 🔥 TRẠNG THÁI CHAT: 'AI' | 'WAITING' | 'STAFF'
 const chatMode = ref('AI'); 
@@ -31,6 +35,7 @@ const messages = ref([
     content: 'Xin chào! Cảm ơn bạn đã ghé thăm MyLaptop.\n📞 Hotline khẩn cấp: **0965.237.19**\n\nBạn muốn hệ thống hỗ trợ tự động hay kết nối trực tiếp với nhân viên tư vấn?' 
   }
 ]);
+
 
 const sessionId = ref(localStorage.getItem('chat_session_id') || 'session-' + Math.random().toString(36).substr(2, 9));
 localStorage.setItem('chat_session_id', sessionId.value);
@@ -130,6 +135,12 @@ const sendMessage = async () => {
   }
 };
 
+// Hàm gửi câu hỏi gợi ý
+const sendSuggested = async (text) => {
+  userMessage.value = text;
+  await sendMessage();
+};
+
 const toggleChat = () => {
   isOpen.value = !isOpen.value;
   if (isOpen.value) scrollToBottom();
@@ -177,6 +188,18 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
             <div class="bubble loading">
               <span>.</span><span>.</span><span>.</span>
             </div>
+          </div>
+        </div>
+
+      <div class="suggest-box" v-if="(chatMode === 'AI' || chatMode === 'WAITING') && showSuggestions">
+          <div class="suggest-header">
+            <div class="suggest-title">💡 Câu hỏi gợi ý:</div>
+            <button class="close-suggest-btn" @click="showSuggestions = false" title="Ẩn gợi ý">✕</button>
+          </div>
+          <div class="suggest-tags">
+            <button class="suggest-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">Làm thế nào để đặt hàng?</button>
+            <button class="suggest-tag" @click="sendSuggested('Chính sách đổi trả hàng?')">Chính sách đổi trả hàng?</button>
+            <button class="suggest-tag" @click="sendSuggested('Phí vận chuyển là bao nhiêu?')">Phí vận chuyển là bao nhiêu?</button>
           </div>
         </div>
 
@@ -260,4 +283,13 @@ input:focus { border-color: #049d14; }
   color: #d35400; /* Đổi màu cam khi di chuột vào */
   border-bottom: 1px solid #d35400;
 }
+/* --- CÂU HỎI GỢI Ý --- */
+.suggest-box { padding: 10px 16px; background-color: #fff; border-top: 1px solid var(--border-color); }
+.suggest-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.suggest-title { font-size: 12px; color: #6b7280; font-weight: 600; margin: 0; }
+.close-suggest-btn { background: none; border: none; color: #9ca3af; font-size: 14px; cursor: pointer; padding: 0 4px; transition: color 0.2s ease; line-height: 1; }
+.close-suggest-btn:hover { color: #ef4444; }
+.suggest-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.suggest-tag { padding: 6px 12px; border-radius: 20px; border: 1px solid #f87171; background-color: #fef2f2; color: #ef4444; font-size: 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+.suggest-tag:hover { background-color: #ef4444; color: white; transform: translateY(-1px); }
 </style>
