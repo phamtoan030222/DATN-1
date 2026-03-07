@@ -2355,9 +2355,6 @@ onMounted(async () => {
               <span class="text-xs text-gray-400">{{ index + 1 }}.</span>
               <span class="font-mono font-semibold">{{ imei.code || imei.imeiCode }}</span>
             </div>
-            <NTag :type="IMEI_STATUS_CONFIG[imei.status]?.type || 'default'" size="small" round>
-              {{ IMEI_STATUS_CONFIG[imei.status]?.text || imei.status }}
-            </NTag>
           </div>
         </div>
       </div>
@@ -2622,187 +2619,201 @@ onMounted(async () => {
       </template>
     </NModal>
 
-    <!-- Serial Summary Modal - Hiển thị tổng hợp SERIAL theo loại đơn hàng -->
+    <!-- Serial Summary Modal - Hiển thị tổng hợp SERIAL chi tiết theo từng sản phẩm -->
     <NModal
       v-model:show="showSerialSummaryModal"
       preset="card"
-      title="Thông tin SERIAL tổng hợp"
-      style="width: 800px; max-width: 95vw; border-radius: 16px;"
+      title=" BẢNG TỔNG HỢP SERIAL CHI TIẾT"
+      style="width: 900px; max-width: 95vw; border-radius: 16px;"
       :bordered="false"
       class="no-print"
     >
-      <div v-if="serialSummaryData.product" class="space-y-6">
-        <!-- Thông tin sản phẩm -->
-        <div class="flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl border border-blue-100">
-          <NAvatar
-            :src="serialSummaryData.product.anhSanPham"
-            :size="80"
-            :round="false"
-            class="border-2 border-blue-200 rounded-lg flex-shrink-0"
-            fallback-src="https://via.placeholder.com/80?text=No+Image"
-          />
-          <div class="flex-1">
-            <p class="font-bold text-gray-900 text-lg">
-              {{ serialSummaryData.product.tenSanPham }}
+      <div class="space-y-6 max-h-[70vh] overflow-y-auto px-1">
+        <!-- THỐNG KÊ TỔNG QUAN -->
+        <div class="grid grid-cols-4 gap-3">
+          <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200 text-center">
+            <p class="text-xs text-blue-600 uppercase font-semibold">
+              Tổng SP
             </p>
-            <div class="flex flex-wrap gap-2 mt-2">
-              <NTag v-if="serialSummaryData.product.maSanPham" size="small" type="info" :bordered="false">
-                Mã: {{ serialSummaryData.product.maSanPham }}
-              </NTag>
-              <NTag v-if="serialSummaryData.product.size" size="small" type="default" :bordered="false">
-                Size: {{ serialSummaryData.product.size }}
-              </NTag>
-              <NTag v-if="serialSummaryData.product.mauSac" size="small" type="default" :bordered="false">
-                Màu: {{ serialSummaryData.product.mauSac }}
-              </NTag>
-            </div>
-            <div class="flex items-center gap-4 mt-3">
-              <p class="text-sm text-gray-600">
-                Số lượng: <span class="font-bold text-gray-900">{{ serialSummaryData.product.soLuong }}</span>
-              </p>
-              <p class="text-sm text-gray-600">
-                SERIAL: <span class="font-bold text-blue-600">{{ serialSummaryData.totalSerials }}</span>
-              </p>
-              <p class="text-sm text-gray-600">
-                Đã gán: <span class="font-bold" :class="serialSummaryData.totalSerials >= serialSummaryData.product.soLuong ? 'text-green-600' : 'text-orange-600'">
-                  {{ Math.min(serialSummaryData.totalSerials, serialSummaryData.product.soLuong) }}/{{ serialSummaryData.product.soLuong }}
-                </span>
-              </p>
-            </div>
+            <p class="text-2xl font-bold text-blue-800">
+              {{ invoiceItems.length }}
+            </p>
           </div>
-        </div>
-
-        <!-- Tabs phân loại SERIAL -->
-        <div class="space-y-6">
-          <!-- SERIAL tại quầy -->
-          <div v-if="serialSummaryData.counterSerials.length > 0" class="border border-green-200 rounded-xl overflow-hidden">
-            <div class="bg-green-50 px-4 py-3 border-b border-green-200 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <NIcon size="20" color="#16a34a">
-                  <CartOutline />
-                </NIcon>
-                <span class="font-bold text-green-700">SERIAL bán tại quầy</span>
-              </div>
-              <NTag type="success" size="small" round>
-                {{ serialSummaryData.counterSerials.length }} SERIAL
-              </NTag>
-            </div>
-            <div class="p-4 bg-white">
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div
-                  v-for="(imei, idx) in serialSummaryData.counterSerials"
-                  :key="imei.id || idx"
-                  class="flex items-center justify-between p-3 bg-green-50/50 rounded-lg border border-green-100"
-                >
-                  <div>
-                    <span class="font-mono font-bold text-gray-800 text-sm">
-                      {{ imei.code || imei.imeiCode }}
-                    </span>
-                  </div>
-                  <NTag size="tiny" type="success" round>
-                    {{ imei.statusText || 'Đã bán' }}
-                  </NTag>
-                </div>
-              </div>
-            </div>
+          <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200 text-center">
+            <p class="text-xs text-green-600 uppercase font-semibold">
+              Tổng SL
+            </p>
+            <p class="text-2xl font-bold text-green-800">
+              {{ totalQuantity }}
+            </p>
           </div>
-
-          <!-- SERIAL giao hàng -->
-          <div v-if="serialSummaryData.deliverySerials.length > 0" class="border border-blue-200 rounded-xl overflow-hidden">
-            <div class="bg-blue-50 px-4 py-3 border-b border-blue-200 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <NIcon size="20" color="#2563eb">
-                  <CubeOutline />
-                </NIcon>
-                <span class="font-bold text-blue-700">SERIAL giao hàng</span>
-              </div>
-              <NTag type="info" size="small" round>
-                {{ serialSummaryData.deliverySerials.length }} SERIAL
-              </NTag>
-            </div>
-            <div class="p-4 bg-white">
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div
-                  v-for="(imei, idx) in serialSummaryData.deliverySerials"
-                  :key="imei.id || idx"
-                  class="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-100"
-                >
-                  <div>
-                    <span class="font-mono font-bold text-gray-800 text-sm">
-                      {{ imei.code || imei.imeiCode }}
-                    </span>
-                  </div>
-                  <NTag size="tiny" type="info" round>
-                    {{ imei.statusText || 'Đã gán' }}
-                  </NTag>
-                </div>
-              </div>
-            </div>
+          <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200 text-center">
+            <p class="text-xs text-purple-600 uppercase font-semibold">
+              Tổng SERIAL
+            </p>
+            <p class="text-2xl font-bold text-purple-800">
+              {{ imeiProductsCount }}
+            </p>
           </div>
-
-          <!-- SERIAL online -->
-          <div v-if="serialSummaryData.onlineSerials.length > 0" class="border border-purple-200 rounded-xl overflow-hidden">
-            <div class="bg-purple-50 px-4 py-3 border-b border-purple-200 flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <NIcon size="20" color="#9333ea">
-                  <GlobeOutline />
-                </NIcon>
-                <span class="font-bold text-purple-700">SERIAL đơn online</span>
-              </div>
-              <NTag type="primary" size="small" round>
-                {{ serialSummaryData.onlineSerials.length }} SERIAL
-              </NTag>
-            </div>
-            <div class="p-4 bg-white">
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
-                <div
-                  v-for="(imei, idx) in serialSummaryData.onlineSerials"
-                  :key="imei.id || idx"
-                  class="flex items-center justify-between p-3 bg-purple-50/50 rounded-lg border border-purple-100"
-                >
-                  <div>
-                    <span class="font-mono font-bold text-gray-800 text-sm">
-                      {{ imei.code || imei.imeiCode }}
-                    </span>
-                  </div>
-                  <NTag size="tiny" type="primary" round>
-                    {{ imei.statusText || 'Đã đặt' }}
-                  </NTag>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Không có SERIAL -->
-          <div v-if="serialSummaryData.totalSerials === 0" class="text-center py-12 bg-gray-50 rounded-xl">
-            <NIcon size="48" class="text-gray-300 mb-3">
-              <CubeOutline />
-            </NIcon>
-            <p class="text-gray-500 font-medium">
-              Không có SERIAL nào được gán
+          <div class="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200 text-center">
+            <p class="text-xs text-orange-600 uppercase font-semibold">
+              Tổng tiền
+            </p>
+            <p class="text-lg font-bold text-orange-800">
+              {{ formatCurrency(hoaDonData?.tongTienSauGiam) }}
             </p>
           </div>
         </div>
 
-        <!-- Thông tin bổ sung -->
-        <div v-if="selectedSummaryImeiRow" class="mt-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-          <div class="flex items-center gap-2 text-sm text-yellow-700">
-            <NIcon size="18">
-              <InformationCircleOutline />
-            </NIcon>
-            <span>
-              Đang xem SERIAL của <strong>{{ selectedSummaryImeiRow.imeiCode }}</strong>
-              trong tổng số {{ serialSummaryData.totalSerials }} SERIAL
-            </span>
+        <!-- DANH SÁCH SẢN PHẨM CHI TIẾT -->
+        <div v-if="invoiceItems.length === 0" class="text-center py-12 bg-gray-50 rounded-xl">
+          <NIcon size="48" class="text-gray-300 mb-3">
+            <CubeOutline />
+          </NIcon>
+          <p class="text-gray-500 font-medium">
+            Không có sản phẩm nào trong hóa đơn
+          </p>
+        </div>
+
+        <div v-else class="space-y-4">
+          <div
+            v-for="(product, productIndex) in invoiceItems"
+            :key="product.id || productIndex"
+            class="border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+          >
+            <!-- Header sản phẩm -->
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+              <div class="flex items-center gap-3 flex-1">
+                <span class="text-lg font-bold text-gray-400 w-8">{{ productIndex + 1 }}</span>
+                <NAvatar
+                  :src="product.anhSanPham"
+                  size="medium"
+                  :round="false"
+                  class="border border-gray-300 rounded-lg"
+                  fallback-src="https://via.placeholder.com/40?text=SP"
+                />
+                <div class="flex-1">
+                  <div class="font-bold text-gray-900 text-base">
+                    {{ product.tenSanPham }}
+                  </div>
+                  <div class="flex flex-wrap gap-2 mt-1 text-xs">
+                    <span v-if="product.maSanPham" class="text-gray-500">Mã: {{ product.maSanPham }}</span>
+                    <span v-if="product.size" class="text-gray-500">| Size: {{ product.size }}</span>
+                    <span v-if="product.mauSac" class="text-gray-500">| Màu: {{ product.mauSac }}</span>
+                    <span v-if="product.thuongHieu" class="text-gray-500">| Thương hiệu: {{ product.thuongHieu }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="text-right">
+                  <p class="text-sm text-gray-500">
+                    Số lượng
+                  </p>
+                  <p class="font-bold text-gray-900">
+                    {{ product.soLuong }}
+                  </p>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm text-gray-500">
+                    Đã gán SERIAL
+                  </p>
+                  <p class="font-bold" :class="parseIMEIList(product.danhSachImei).length >= product.soLuong ? 'text-green-600' : 'text-orange-600'">
+                    {{ parseIMEIList(product.danhSachImei).length }}/{{ product.soLuong }}
+                  </p>
+                </div>
+                <div class="text-right min-w-[100px]">
+                  <p class="text-sm text-gray-500">
+                    Thành tiền
+                  </p>
+                  <p class="font-bold text-red-600">
+                    {{ formatCurrency(product.tongTien) }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Danh sách SERIAL chi tiết -->
+            <div class="p-4 bg-white">
+              <div class="flex items-center justify-between mb-3">
+                <p class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                  <NIcon size="16" color="#3b82f6">
+                    <CubeOutline />
+                  </NIcon>
+                  DANH SÁCH SERIAL
+                </p>
+                <NTag :type="parseIMEIList(product.danhSachImei).length > 0 ? 'success' : 'default'" size="small" round>
+                  {{ parseIMEIList(product.danhSachImei).length }} SERIAL
+                </NTag>
+              </div>
+
+              <!-- Nếu có SERIAL -->
+              <div v-if="parseIMEIList(product.danhSachImei).length > 0" class="space-y-2">
+                <!-- Header bảng SERIAL -->
+                <div class="grid grid-cols-12 gap-2 px-3 py-2 bg-gray-100 rounded-lg text-xs font-semibold text-gray-600">
+                  <div class="col-span-1 text-center">
+                    #
+                  </div>
+                  <div class="col-span-4">
+                    Mã SERIAL
+                  </div>
+                  <div class="col-span-2">
+                    Ngày gán
+                  </div>
+                </div>
+
+                <!-- Danh sách SERIAL -->
+                <div
+                  v-for="(imei, imeiIndex) in parseIMEIList(product.danhSachImei)"
+                  :key="imei.id || imeiIndex"
+                  class="grid grid-cols-12 gap-2 px-3 py-2 hover:bg-blue-50 rounded-lg border-b border-gray-100 text-sm items-center"
+                >
+                  <div class="col-span-1 text-center text-gray-400 font-mono">
+                    {{ imeiIndex + 1 }}
+                  </div>
+                  <div class="col-span-4 font-mono font-bold text-purple-700">
+                    {{ imei.code || imei.imeiCode || '---' }}
+                  </div>
+
+                  <div class="col-span-2 text-xs text-gray-500">
+                    {{ imei.assignedAt ? formatDateTime(imei.assignedAt) : '---' }}
+                  </div>
+                </div>
+              </div>
+
+              <!-- Nếu chưa có SERIAL -->
+              <div v-else class="text-center py-4 bg-gray-50 rounded-lg">
+                <p class="text-gray-400 italic">
+                  Chưa có SERIAL nào được gán cho sản phẩm này
+                </p>
+              </div>
+
+              <!-- Thông tin thêm nếu là đơn online và chưa đủ serial -->
+              <div v-if="isOnlineInvoice && parseIMEIList(product.danhSachImei).length < product.soLuong" class="mt-3 p-2 bg-yellow-50 rounded-lg border border-yellow-200 text-xs text-yellow-700 flex items-center gap-2">
+                <NIcon size="16">
+                  <InformationCircleOutline />
+                </NIcon>
+                <span>Sản phẩm cần {{ product.soLuong }} serial, hiện mới có {{ parseIMEIList(product.danhSachImei).length }}. Vui lòng bổ sung đủ serial để hoàn tất đơn hàng.</span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        <!-- Ghi chú cuối modal -->
+        <div class="text-xs text-gray-400 italic border-t border-gray-200 pt-4">
+          * Danh sách SERIAL được tổng hợp từ tất cả sản phẩm trong hóa đơn
         </div>
       </div>
 
       <template #footer>
-        <div class="flex justify-end gap-3">
-          <NButton type="primary" @click="showSerialSummaryModal = false">
-            Đóng
-          </NButton>
+        <div class="flex justify-between items-center">
+          <div class="text-sm text-gray-500">
+            Tổng số: <span class="font-bold text-blue-600">{{ imeiProductsCount }}</span> SERIAL
+          </div>
+          <div class="flex gap-3">
+            <NButton @click="showSerialSummaryModal = false">
+              Đóng
+            </NButton>
+          </div>
         </div>
       </template>
     </NModal>

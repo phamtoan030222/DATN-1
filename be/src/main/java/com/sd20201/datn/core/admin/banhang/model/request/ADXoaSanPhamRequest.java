@@ -5,16 +5,13 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.util.List;
 
 @Setter
 @Getter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ADThemSanPhamRequest {
+public class ADXoaSanPhamRequest {
 
-    private String invoiceId;
-    private String productDetailId;
-    private List<String> imeiIds;
+    private String imei;
 
 }

@@ -58,8 +58,7 @@ export interface ParamsGetHoaDon extends PaginationParams {
 }
 
 export interface ParamsXoaSP {
-  idHD?: string
-  idSP?: string
+  imei?: string
 }
 
 export interface ParamsPTTT {
@@ -175,8 +174,7 @@ export interface themKHResponse {
 }
 
 export interface XoaSPResponse {
-  idHD: string
-  idSP: string
+  imei: string
 }
 
 export type SanPhamResponse = ResponseList & {
@@ -268,7 +266,7 @@ export async function themSanPham(data: ADThemSanPhamRequest) {
 }
 export async function xoaSP(data: ParamsXoaSP) {
   const res = (await request({
-    url: `${PREFIX_API_BAN_HANG_ADMIN}/xoa-san-pham `,
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/xoa-san-pham`,
     method: 'POST',
     data,
   })) as AxiosResponse<DefaultResponse<XoaSPResponse>>
@@ -501,7 +499,7 @@ export async function xoaKhachHang(idHD: string): Promise<any> {
   }
 }
 
-// api của tâm 
+// api của tâm
 export async function yeuCauQRApp(idHD: string) {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/yeu-cau-qr/${idHD}`,

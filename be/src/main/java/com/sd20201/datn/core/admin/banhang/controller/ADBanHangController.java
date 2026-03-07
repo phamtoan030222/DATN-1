@@ -111,6 +111,12 @@ public class ADBanHangController {
         return response;
     }
 
+    @PostMapping("xoa-san-pham")
+    public ResponseEntity<?> xoaSanPham(@RequestBody ADXoaSanPhamRequest request){
+        ResponseEntity<?> response = Helper.createResponseEntity(adBanHangService.xoaSanPham(request));
+        return response;
+    }
+
     @PostMapping("/thanh-toan-thanh-cong")
     public ResponseEntity<?>  thanhToanThanhCong(@RequestBody ADThanhToanRequest id) throws BadRequestException {
         ResponseEntity<?> response = Helper.createResponseEntity(adBanHangService.thanhToanThanhCong(id));

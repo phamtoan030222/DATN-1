@@ -625,7 +625,6 @@ public class ADBanHangServiceImpl implements ADBanHangService {
     @Transactional
     public ResponseObject<?> createThemSanPham(ADThemSanPhamRequest request) {
 
-        System.out.println(request.getInvoiceId());
         Invoice invoice = invoiceRepository.findById(request.getInvoiceId())
                 .orElseThrow(() -> new BusinessException("Khong tim thay hoa don"));
 
@@ -635,12 +634,12 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         List<IMEI> imeis = imeiRepository.findAllById(request.getImeiIds());
 
-        if(imeis.isEmpty()) {
-            throw new BusinessException("Khong tim thay san pham");
+        if (imeis.isEmpty()) {
+            throw new BusinessException("Khong tim thay imei");
         }
 
         if (imeis.size() != request.getImeiIds().size()) {
-            throw new BusinessException("Khong tim thay san pham");
+            throw new BusinessException("Khong tim thay imei");
         }
 
         boolean invalidImei = imeis.stream().anyMatch(
@@ -649,21 +648,49 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         );
 
         if (invalidImei) {
-            throw new BusinessException("Imei da duoc dat da ban hoac khong co");
+            throw new BusinessException("Imei da duoc dat hoac khong ton tai");
         }
 
-        InvoiceDetail invoiceDetail = new InvoiceDetail();
-        invoiceDetail.setInvoice(invoice);
-        invoiceDetail.setProductDetail(productDetail);
-        invoiceDetail.setPrice(productDetail.getPrice());
-        invoiceDetail.setQuantity(imeis.size());
+        // 🔎 kiểm tra invoice detail đã tồn tại chưa
+        Optional<InvoiceDetail> optionalInvoiceDetail =
+                invoiceDetailRepository.findByInvoiceIdAndProductDetailId(
+                        request.getInvoiceId(),
+                        request.getProductDetailId()
+                );
 
-        BigDecimal totalAmount = productDetail.getPrice()
-                .multiply(BigDecimal.valueOf(imeis.size()));
+        InvoiceDetail invoiceDetail;
 
-        invoiceDetail.setTotalAmount(totalAmount);
+        if (optionalInvoiceDetail.isPresent()) {
+
+            // ✅ đã tồn tại -> cập nhật
+            invoiceDetail = optionalInvoiceDetail.get();
+
+            int newQuantity = invoiceDetail.getQuantity();
+            invoiceDetail.setQuantity(newQuantity);
+
+            BigDecimal totalAmount = invoiceDetail.getPrice()
+                    .multiply(BigDecimal.valueOf(newQuantity));
+
+            invoiceDetail.setTotalAmount(totalAmount);
+
+        } else {
+
+            // ✅ chưa có -> tạo mới
+            invoiceDetail = new InvoiceDetail();
+            invoiceDetail.setInvoice(invoice);
+            invoiceDetail.setProductDetail(productDetail);
+            invoiceDetail.setPrice(productDetail.getPrice());
+            invoiceDetail.setQuantity(imeis.size());
+
+            BigDecimal totalAmount = productDetail.getPrice()
+                    .multiply(BigDecimal.valueOf(imeis.size()));
+
+            invoiceDetail.setTotalAmount(totalAmount);
+        }
+
         invoiceDetailRepository.save(invoiceDetail);
 
+        // 🔗 gắn IMEI vào invoice detail
         for (IMEI imei : imeis) {
             imei.setInvoiceDetail(invoiceDetail);
             imei.setImeiStatus(ImeiStatus.RESERVED);
@@ -671,10 +698,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         imeiRepository.saveAll(imeis);
 
-
-        return new ResponseObject<>(null, HttpStatus.OK, "thêm sản phẩm thanh công");
-
-
+        return new ResponseObject<>(null, HttpStatus.OK, "Them san pham thanh cong");
     }
 
     @Override
@@ -1150,5 +1174,53 @@ public class ADBanHangServiceImpl implements ADBanHangService {
                 materialRepository.getMaterials(),
                 "OKE"
         );
+    }
+
+    @Override
+    public ResponseObject<?> xoaSanPham(ADXoaSanPhamRequest request) {
+
+        IMEI imei = imeiRepository.findByCode(request.getImei())
+                .orElseThrow(() -> new BusinessException("Không tìm thấy IMEI"));
+
+        InvoiceDetail invoiceDetail = imei.getInvoiceDetail();
+
+        if (invoiceDetail == null) {
+            throw new BusinessException("IMEI không nằm trong giỏ hàng");
+        }
+
+        // chuyển trạng thái IMEI
+        imei.setImeiStatus(ImeiStatus.AVAILABLE);
+        imei.setInvoiceDetail(null);
+        imeiRepository.save(imei);
+
+        // kiểm tra còn IMEI trong invoice detail không
+        long imeiCount = imeiRepository.countByInvoiceDetailId(invoiceDetail.getId());
+
+        if (imeiCount == 0) {
+
+            invoiceDetailRepository.delete(invoiceDetail);
+
+        } else {
+
+            invoiceDetail.setQuantity((int) imeiCount);
+
+            BigDecimal totalAmount = invoiceDetail.getPrice()
+                    .multiply(BigDecimal.valueOf(imeiCount));
+
+            invoiceDetail.setTotalAmount(totalAmount);
+
+            invoiceDetailRepository.save(invoiceDetail);
+        }
+
+        // cập nhật tổng tiền hóa đơn
+        Invoice invoice = invoiceDetail.getInvoice();
+
+        BigDecimal totalInvoice = invoiceDetailRepository.sumTotalAmountByInvoiceId(invoice.getId());
+
+        invoice.setTotalAmount(totalInvoice == null ? BigDecimal.ZERO : totalInvoice);
+
+        invoiceRepository.save(invoice);
+
+        return new ResponseObject<>(null, HttpStatus.OK, "Xóa sản phẩm khỏi giỏ hàng thành công");
     }
 }

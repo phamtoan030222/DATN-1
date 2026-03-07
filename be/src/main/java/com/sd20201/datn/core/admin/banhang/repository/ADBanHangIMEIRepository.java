@@ -15,6 +15,11 @@ import java.util.Optional;
 @Repository
 public interface ADBanHangIMEIRepository extends JpaRepository<IMEI, String> {
 
+    long countByInvoiceDetailId(String invoiceDetailId);
+
+    Optional<IMEI> findByCode(String code);
+
+
 //    @Query("SELECT COUNT(i) FROM IMEI i WHERE i.productDetail.id = :productDetailId " +
 //            "AND NOT EXISTS (SELECT 1 FROM InvoiceDetail id WHERE id.iMEISold.id = i.id)")
 //    Long countAvailableIMEIByProductDetailId(@Param("productDetailId") String productDetailId);

@@ -186,15 +186,16 @@ const deliveryInfo = reactive({
 
 async function triggerShowQR() {
   if (!idHDS.value) {
-    toast.error('Vui lòng tạo hoặc chọn một hóa đơn trước!');
-    return;
+    toast.error('Vui lòng tạo hoặc chọn một hóa đơn trước!')
+    return
   }
   try {
     // Gọi API yeuCauQRApp, Backend sẽ nhận được và hét lên kênh SSE
-    await yeuCauQRApp(idHDS.value);
-    toast.success('Đã gửi yêu cầu hiển thị mã QR sang App khách hàng!');
-  } catch (error) {
-    toast.error('Gửi yêu cầu thất bại, vui lòng thử lại!');
+    await yeuCauQRApp(idHDS.value)
+    toast.success('Đã gửi yêu cầu hiển thị mã QR sang App khách hàng!')
+  }
+  catch (error) {
+    toast.error('Gửi yêu cầu thất bại, vui lòng thử lại!')
   }
 }
 
@@ -475,6 +476,8 @@ async function loadDeliveryInfo() {
 async function toggleDelivery(enabled: boolean) {
   isDeliveryEnabled.value = enabled
 
+  calculateShippingFee()
+
   if (enabled && state.detailKhachHang) {
     await loadDeliveryInfo()
   }
@@ -525,6 +528,7 @@ async function calculateShippingFee() {
     calculateTotalAmounts()
     return
   }
+  console.log('Calculating shipping fee based on tienHang:', tienHang.value)
 
   const amount = Number(tienHang.value)
   if (amount > 5000000) {
@@ -675,15 +679,15 @@ async function decreaseQuantity(idHDCT: any, idSPS: any) {
   catch (error) { toast.error('Giảm số lượng thất bại!') }
 }
 
-async function deleteProduct(idSPS: any, idHDCT: string) {
+async function deleteProduct(row: any) {
   try {
-    const formData = new FormData()
-    formData.append('idHD', idHDS.value)
-    formData.append('idSP', idSPS)
-    formData.append('idHDCT', idHDCT)
-    await xoaSP(formData)
+    console.log('Deleting product with imei:', row.imel)
+    await xoaSP({
+      imei: row.imel,
+    })
 
-    state.gioHang = state.gioHang.filter(item => item.id !== idSPS)
+    state.gioHang = state.gioHang.filter(item => item.imel !== row.imel)
+
     calculateTotalAmounts()
 
     if (hasCartItems.value) {
@@ -692,11 +696,14 @@ async function deleteProduct(idSPS: any, idHDCT: string) {
     else {
       resetDiscountState()
     }
-    toast.success('Xóa sản phẩm thành công!')
-  }
-  catch (error) { toast.error('Xóa sản phẩm thất bại!') }
-}
 
+    toast.success('Xóa sản phẩm thành công!', { autoClose: 1000 })
+  }
+  catch (error) {
+    console.error(error)
+    toast.error('Xóa sản phẩm thất bại!')
+  }
+}
 // ==================== IMEI FUNCTIONS ====================
 async function fetchSerialsByProduct(productId: string) {
   try {
@@ -729,7 +736,9 @@ async function addSerialToCart() {
     const payload = { invoiceId: idHDS.value, productDetailId: selectedProductDetail.value!.id, imeiIds: imeisDaChon }
     await themSanPham(payload)
 
-    toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`)
+    toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`, {
+      timeout: 1000,
+    })
     showSerialModal.value = false
     selectedSerialIds.value = []
 
@@ -1317,7 +1326,7 @@ const columnsGiohang: DataTableColumns<any> = [
   },
   { title: 'Đơn giá', key: 'price', width: 110, align: 'right', render: row => h(NText, { strong: true }, () => formatCurrency(row.giaGoc)) },
   { title: 'Thành tiền', key: 'total', width: 120, align: 'right', render: row => h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.giaGoc * (1 - (row.percentage || 0) / 100))) },
-  { title: '', key: 'action', width: 50, align: 'center', render: row => h(NButton, { type: 'error', size: 'tiny', text: true, onClick: () => deleteProduct(row.id, row.idHDCT) }, { icon: () => h(NIcon, null, () => h(TrashOutline)) }) },
+  { title: '', key: 'action', width: 50, align: 'center', render: row => h(NButton, { type: 'error', size: 'tiny', text: true, onClick: () => deleteProduct(row) }, { icon: () => h(NIcon, null, () => h(TrashOutline)) }) },
 ]
 
 const columns: DataTableColumns<ADProductDetailResponse> = [
@@ -1847,9 +1856,9 @@ function formatCurrencyInput(value: number) {
                 Kết hợp
               </NButton>
             </NSpace>
-            <NButton 
+            <NButton
               v-if="state.currentPaymentMethod === '1' || state.currentPaymentMethod === '2'"
-              type="info" 
+              type="info"
               dashed
               style="width: 100%; margin-top: 8px;"
               @click="triggerShowQR"
