@@ -33,6 +33,7 @@ import {
   themSL,
   xoaSL,
   xoaSP,
+  yeuCauQRApp,
 } from '@/service/api/admin/banhang.api'
 import type { ADPDImeiResponse, ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/admin/product/productDetail.api'
 import { localStorageAction } from '@/utils/storage'
@@ -182,6 +183,20 @@ const deliveryInfo = reactive({
   diaChiCuThe: '',
   ghiChu: '',
 })
+
+async function triggerShowQR() {
+  if (!idHDS.value) {
+    toast.error('Vui lòng tạo hoặc chọn một hóa đơn trước!');
+    return;
+  }
+  try {
+    // Gọi API yeuCauQRApp, Backend sẽ nhận được và hét lên kênh SSE
+    await yeuCauQRApp(idHDS.value);
+    toast.success('Đã gửi yêu cầu hiển thị mã QR sang App khách hàng!');
+  } catch (error) {
+    toast.error('Gửi yêu cầu thất bại, vui lòng thử lại!');
+  }
+}
 
 // ==================== DELIVERY BACKUP (Dùng cho Modal) ====================
 const deliveryBackup = ref<any>(null)
@@ -1823,7 +1838,24 @@ function formatCurrencyInput(value: number) {
               >
                 Chuyển khoản
               </NButton>
+              <NButton
+                :type="state.currentPaymentMethod === '2' ? 'primary' : 'default'"
+                size="small"
+                secondary
+                @click="setPaymentMethod('2')"
+              >
+                Kết hợp
+              </NButton>
             </NSpace>
+            <NButton 
+              v-if="state.currentPaymentMethod === '1' || state.currentPaymentMethod === '2'"
+              type="info" 
+              dashed
+              style="width: 100%; margin-top: 8px;"
+              @click="triggerShowQR"
+            >
+              Mở mã QR trên màn hình App
+            </NButton>
           </NSpace>
 
           <NPopconfirm positive-text="Đồng ý" negative-text="Hủy" @positive-click="xacNhan(0)">
