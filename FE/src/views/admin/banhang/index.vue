@@ -1462,6 +1462,9 @@ function formatCurrencyInput(value: number) {
                     <NTag type="warning" size="small" round>
                       Chờ xử lý
                     </NTag>
+                    <NText size="12" depth="3">
+                      {{ tab.soLuong || 0 }} sản phẩm
+                    </NText>
                   </NSpace>
                 </div>
               </NSpace>

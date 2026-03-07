@@ -704,70 +704,47 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
         return h('div', { class: 'font-semibold' }, formatCurrency(price))
       },
     },
-    {
+  ]
+
+  // Chỉ hiển thị cột thao tác khi sản phẩm chưa có serial
+  if (isOnlineInvoice.value) {
+    baseColumns.push({
       title: 'Thao tác',
       key: 'action',
       width: 120,
       align: 'center',
       render: (row) => {
-        // Đơn online - hiển thị nút Chọn Serial
-        if (isOnlineInvoice.value) {
-          if (row.isImeiRow) {
-            const parentId = row.originalProductId ?? row.id
-            const parentItem = invoiceItems.value.find(i => i.id === parentId)
-            if (!parentItem)
-              return h('span', '')
-
-            const imeiList = parseIMEIList(parentItem.danhSachImei)
-            const firstImeiCode = imeiList[0]?.code || imeiList[0]?.imeiCode
-            if (row.imeiCode !== firstImeiCode)
-              return h('span', '')
-
-            return h(NButton, {
-              size: 'tiny',
-              type: 'info',
-              secondary: true,
-              onClick: () => openSerialSelectionModal(parentItem),
-            }, { default: () => 'Chọn Serial' })
-          }
-
-          return h(NButton, {
-            size: 'tiny',
-            type: 'info',
-            secondary: true,
-            onClick: () => openSerialSelectionModal(row),
-          }, { default: () => 'Chọn Serial' })
+        if (row.imeiCode) {
+          return h('span', { class: 'text-gray-400 italic text-xs' }, 'Đã có serial')
         }
-
-        // Đơn tại quầy/giao hàng - hiển thị nút Xem Serial
-        if (row.isImeiRow) {
-          const parentId = row.originalProductId ?? row.id
-          const parentItem = invoiceItems.value.find(i => i.id === parentId)
-          if (!parentItem)
-            return h('span', '')
-
-          const imeiList = parseIMEIList(parentItem.danhSachImei)
-          const firstImeiCode = imeiList[0]?.code || imeiList[0]?.imeiCode
-          if (row.imeiCode !== firstImeiCode)
-            return h('span', '')
-
+        return h(NButton, {
+          size: 'tiny',
+          type: 'info',
+          secondary: true,
+          onClick: () => openSerialSelectionModal(row),
+        }, { default: () => 'Chọn Serial' })
+      },
+    })
+  }
+  else {
+    baseColumns.push({
+      title: 'Thao tác',
+      key: 'action',
+      width: 120,
+      align: 'center',
+      render: (row) => {
+        if (row.imeiCode) {
           return h(NButton, {
             size: 'tiny',
             type: 'success',
             secondary: true,
-            onClick: () => openSerialInfoModal(parentItem),
+            onClick: () => openSerialInfoModal(row),
           }, { default: () => 'Xem Serial' })
         }
-
-        return h(NButton, {
-          size: 'tiny',
-          type: 'success',
-          secondary: true,
-          onClick: () => openSerialInfoModal(row),
-        }, { default: () => 'Xem Serial' })
+        return h('span', { class: 'text-gray-400 italic text-xs' }, 'Không có serial')
       },
-    },
-  ]
+    })
+  }
 
   return baseColumns
 })
@@ -1158,6 +1135,10 @@ async function addSerialsToInvoice() {
       message.success(`Đã thêm ${selectedSerialIds.value.length} serial vào sản phẩm`)
       showSerialModal.value = false
       await fetchInvoiceDetails()
+
+      setTimeout(() => {
+        window.location.reload()
+      }, 800)
     }
     else {
       message.error(response.message || 'Thêm serial thất bại')

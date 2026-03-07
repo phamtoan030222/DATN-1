@@ -536,9 +536,6 @@ async function handleCheckout() {
     if (!cartId.value) {
       localStorageAction.remove(CUSTOMER_CART_ID)
     }
-    else {
-      message.error(res.message || 'Đặt hàng thất bại')
-    }
   }
   catch (error: any) {
     message.error(error.response?.data?.message || 'Có lỗi xảy ra')
