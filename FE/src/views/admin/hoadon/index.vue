@@ -66,15 +66,59 @@ const state = reactive({
 })
 
 const dateRange = ref<[number, number] | null>(null)
+const activeTab = ref('ALL')
 
+// FIX: Hàm set ngày hôm nay - set đúng start và end của ngày
 function setTodayWithDayjs() {
   const today = dayjs()
-  const startOfDay = today.startOf('day').valueOf()  // 00:00:00
-  const endOfDay = today.endOf('day').valueOf()      // 23:59:59
+  const startOfDay = today.startOf('day').valueOf() // 00:00:00
+  const endOfDay = today.endOf('day').valueOf() // 23:59:59
 
   dateRange.value = [startOfDay, endOfDay]
+
+  // Cập nhật state
+  state.startDate = startOfDay
+  state.endDate = endOfDay
+
+  // Fetch dữ liệu
+  fetchHoaDons()
 }
-const activeTab = ref('ALL')
+
+// FIX: Hàm disable ngày tương lai - chỉ disable ngày > hôm nay
+function disableFutureDate(timestamp: number) {
+  const today = new Date()
+  today.setHours(23, 59, 59, 999) // Cuối ngày hôm nay
+  return timestamp > today.getTime()
+}
+
+// FIX: Hàm xử lý khi chọn date range
+function handleDateRangeChange(value: [number, number] | null) {
+  if (value && value.length === 2) {
+    // Lấy timestamp của start và end theo đúng múi giờ địa phương
+    const startOfDay = dayjs(value[0]).startOf('day').valueOf()
+    const endOfDay = dayjs(value[1]).endOf('day').valueOf()
+
+    state.startDate = startOfDay
+    state.endDate = endOfDay
+
+    // Log để debug
+    console.log('Date range selected:', {
+      raw: value,
+      start: new Date(startOfDay).toLocaleString('vi-VN'),
+      end: new Date(endOfDay).toLocaleString('vi-VN'),
+      startTimestamp: startOfDay,
+      endTimestamp: endOfDay,
+    })
+  }
+  else {
+    state.startDate = null
+    state.endDate = null
+    dateRange.value = null
+  }
+
+  state.paginationParams.page = 1
+  fetchHoaDons()
+}
 
 // Computed pagination
 const pagination = computed(() => ({
@@ -181,30 +225,13 @@ function formatDateTime(timestamp: number) {
   }
 }
 
-function disableFutureDate(timestamp: number) {
-  return timestamp > Date.now()
-}
-
-function handleDateRangeChange(value: [number, number] | null) {
-  if (value && value.length === 2) {
-    state.startDate = value[0]
-    state.endDate = value[1]
-  }
-  else {
-    state.startDate = null
-    state.endDate = null
-  }
-  state.paginationParams.page = 1
-  fetchHoaDons()
-}
-
 function handleStatusChange(value: string | null) {
   state.searchStatus = value
   state.paginationParams.page = 1
   fetchHoaDons()
 }
 
-// Fetch data từ API
+// FIX: Fetch data từ API
 async function fetchHoaDons() {
   try {
     state.loading = true
@@ -232,10 +259,17 @@ async function fetchHoaDons() {
       params.loaiHoaDon = state.loaiHoaDon
     }
 
-    // Thêm date range nếu có
+    // FIX: Thêm date range nếu có - đảm bảo gửi đúng timestamp
     if (state.startDate && state.endDate) {
       params.startDate = state.startDate
       params.endDate = state.endDate
+
+      console.log('Sending date params to API:', {
+        startDate: new Date(state.startDate).toLocaleString('vi-VN'),
+        endDate: new Date(state.endDate).toLocaleString('vi-VN'),
+        startTimestamp: state.startDate,
+        endTimestamp: state.endDate,
+      })
     }
 
     console.log('Fetching invoices with params:', params)
@@ -256,6 +290,9 @@ async function fetchHoaDons() {
 
       if (state.products.length > 0) {
         message.success(`Đã tải ${state.products.length} hóa đơn`)
+      }
+      else {
+        message.info('Không tìm thấy hóa đơn nào')
       }
     }
     else {
@@ -462,14 +499,18 @@ function handlePageSizeChange(pageSize: number) {
   fetchHoaDons()
 }
 
+// FIX: Hàm reset filters
 function resetFilters() {
   state.searchQuery = ''
   state.searchStatus = null
   state.loaiHoaDon = null
   state.sortOrder = 'desc'
+
+  // Reset date range
   dateRange.value = null
   state.startDate = null
   state.endDate = null
+
   activeTab.value = 'ALL'
   state.paginationParams.page = 1
   state.paginationParams.size = 10
@@ -619,18 +660,6 @@ function createColumns(): DataTableColumns<HoaDonItem> {
           }),
           default: () => 'Xem chi tiết',
         }),
-
-        h(NTooltip, {}, {
-          trigger: () => h(NButton, {
-            size: 'small',
-            type: 'info',
-            onClick: () => handlePrintInvoice(row),
-            ghost: true,
-          }, {
-            icon: () => h(NIcon, {}, () => h(PrinterIcon)),
-          }),
-          default: () => 'In hóa đơn',
-        }),
       ]),
     },
   ]
@@ -651,17 +680,15 @@ watch([
 
 // Initialize
 onMounted(() => {
-  fetchHoaDons(),
   setTodayWithDayjs()
+  fetchHoaDons()
+  // Không set today mặc định, để user tự chọn
+  // setTodayWithDayjs()
 })
 </script>
 
 <template>
   <div class="page-container">
-    <div class="breadcrumb-section">
-      <BreadcrumbDefault page-title="Quản lý hóa đơn" :routes="[{ path: '/admin/hoa-don', name: 'Quản lý hóa đơn' }]" />
-    </div>
-
     <NCard class="mb-4">
       <template #header>
         <div class="section-title">
@@ -676,8 +703,12 @@ onMounted(() => {
           <NGi :span="6">
             <NFormItem label="Tìm kiếm">
               <NInput
-                v-model:value="state.searchQuery" placeholder="Nhập mã hóa đơn, tên khách hàng, SĐT..." clearable
-                @keyup.enter="fetchHoaDons" @blur="fetchHoaDons"
+                v-model:value="state.searchQuery"
+                placeholder="Nhập mã hóa đơn, tên khách hàng, SĐT..."
+                clearable
+                @keyup.enter="fetchHoaDons"
+                @clear="fetchHoaDons"
+                @blur="fetchHoaDons"
               >
                 <template #prefix>
                   <NIcon>
@@ -691,8 +722,13 @@ onMounted(() => {
           <NGi :span="6">
             <NFormItem label="Khoảng thời gian">
               <NDatePicker
-                v-model:value="dateRange" type="daterange" clearable :is-date-disabled="disableFutureDate"
-                style="width: 100%" placeholder="Chọn khoảng thời gian" @update:value="handleDateRangeChange"
+                v-model:value="dateRange"
+                type="daterange"
+                clearable
+                :is-date-disabled="disableFutureDate"
+                style="width: 100%"
+                placeholder="Chọn khoảng thời gian"
+                @update:value="handleDateRangeChange"
               />
             </NFormItem>
           </NGi>
@@ -700,7 +736,10 @@ onMounted(() => {
           <NGi :span="4">
             <NFormItem label="Loại hóa đơn">
               <NSelect
-                v-model:value="state.loaiHoaDon" :options="loaiHoaDonOptions" placeholder="Tất cả" clearable
+                v-model:value="state.loaiHoaDon"
+                :options="loaiHoaDonOptions"
+                placeholder="Tất cả"
+                clearable
                 @update:value="fetchHoaDons"
               />
             </NFormItem>
@@ -709,9 +748,29 @@ onMounted(() => {
           <NGi :span="4">
             <NFormItem label="Trạng thái">
               <NSelect
-                v-model:value="state.searchStatus" :options="statusOptions" placeholder="Tất cả" clearable
+                v-model:value="state.searchStatus"
+                :options="statusOptions"
+                placeholder="Tất cả"
+                clearable
                 @update:value="handleStatusChange"
               />
+            </NFormItem>
+          </NGi>
+
+          <NGi :span="4">
+            <NFormItem label=" ">
+              <NButton
+                type="warning"
+                ghost
+                :disabled="state.loading"
+                style="width: 100%"
+                @click="resetFilters"
+              >
+                <template #icon>
+                  <NIcon><RefreshIcon /></NIcon>
+                </template>
+                Đặt lại
+              </NButton>
             </NFormItem>
           </NGi>
         </NGrid>
@@ -768,8 +827,15 @@ onMounted(() => {
       </NAlert>
 
       <NDataTable
-        :columns="columns" :data="state.products" :pagination="pagination" :max-height="500" striped
-        :loading="state.loading" :row-key="(row) => row.id" :bordered="false" @update:page="handlePageChange"
+        :columns="columns"
+        :data="state.products"
+        :pagination="pagination"
+        :max-height="500"
+        striped
+        :loading="state.loading"
+        :row-key="(row) => row.id"
+        :bordered="false"
+        @update:page="handlePageChange"
         @update:page-size="handlePageSizeChange"
       />
     </NCard>

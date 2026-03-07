@@ -520,9 +520,22 @@ const availableStatusOptions = computed<SelectOption[]>(() => {
 })
 
 const filteredSteps = computed(() => {
+  // Trường hợp 1: Đơn hàng đã hủy - chỉ hiển thị bước hủy
+  if (isCancelled.value) {
+    return TIMELINE_STEPS.filter(step => step.key === '5')
+  }
+
+  // Trường hợp 2: Đơn tại quầy - chỉ hiển thị bước hoàn thành
   if (isCounterInvoice.value) {
     return TIMELINE_STEPS.filter(step => step.key === '4')
   }
+
+  // Trường hợp 3: Đơn giao hàng hoặc online đã hoàn thành - không hiển thị bước hủy
+  if (isCompleted.value) {
+    return TIMELINE_STEPS.filter(step => step.key !== '5')
+  }
+
+  // Trường hợp 4: Các trường hợp còn lại - hiển thị tất cả các bước
   return TIMELINE_STEPS
 })
 
@@ -1692,36 +1705,63 @@ onMounted(async () => {
       </template>
 
       <div class="relative">
-        <!-- Progress bar (ẩn khi loaiHoaDon = 0) -->
-        <template v-if="!isCounterInvoice">
+        <!-- Progress bar (ẩn khi loaiHoaDon = 0 hoặc khi chỉ có 1 bước) -->
+        <template v-if="!isCounterInvoice && filteredSteps.length > 1">
           <div class="absolute top-5 left-0 right-0 h-1.5 bg-gray-200 rounded-full z-0" />
-          <div class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10" :style="{ width: progressWidth }" />
+          <div class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10 transition-all duration-300" :style="{ width: progressWidth }" />
         </template>
 
         <!-- Steps -->
-        <div class="relative flex justify-between z-20">
+        <div
+          class="relative flex z-20"
+          :class="{
+            'justify-start gap-8': filteredSteps.length === 1,
+            'justify-between': filteredSteps.length > 1,
+          }"
+        >
           <div
-            v-for="step in filteredSteps" :key="step.key" class="flex flex-col items-center flex-1"
-            :class="{ 'cursor-pointer': isStepSelectable(step.key) }" @click="handleStepClick(step.key)"
+            v-for="step in filteredSteps"
+            :key="step.key"
+            class="flex flex-col items-center transition-all duration-300"
+            :class="{
+              'cursor-pointer hover:scale-105': isStepSelectable(step.key),
+              'opacity-50 cursor-not-allowed': !isStepSelectable(step.key) && step.key !== currentStatus.toString() && filteredSteps.length > 1,
+              'flex-1': filteredSteps.length > 1,
+              'min-w-[200px]': filteredSteps.length === 1,
+            }"
+            @click="isStepSelectable(step.key) && handleStepClick(step.key)"
           >
             <div
-              class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110"
-              :class="getStepCircleClass(step.key)"
+              class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300"
+              :class="[
+                getStepCircleClass(step.key),
+                filteredSteps.length === 1 && 'w-14 h-14 border-4',
+              ]"
             >
-              <NIcon size="18" :class="getStepIconClass(step.key)">
+              <NIcon :size="filteredSteps.length === 1 ? 24 : 18" :class="getStepIconClass(step.key)">
                 <component :is="step.icon" />
               </NIcon>
-              <div v-if="isStepCompleted(step.key)" class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
-                <NIcon size="14" color="white">
+              <div
+                v-if="isStepCompleted(step.key)"
+                class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow"
+                :class="{ 'w-7 h-7 -bottom-1.5 -right-1.5': filteredSteps.length === 1 }"
+              >
+                <NIcon :size="filteredSteps.length === 1 ? 16 : 14" color="white">
                   <CheckmarkCircleOutline />
                 </NIcon>
               </div>
             </div>
-            <div class="text-center">
-              <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
+            <div class="text-center" :class="{ 'max-w-[200px]': filteredSteps.length === 1 }">
+              <p
+                class="font-semibold mb-1"
+                :class="[
+                  getStepTextClass(step.key),
+                  filteredSteps.length === 1 ? 'text-base' : 'text-sm',
+                ]"
+              >
                 {{ step.title }}
               </p>
-              <p class="text-xs text-gray-500 min-h-[20px]">
+              <p class="text-xs text-gray-500 min-h-[20px]" :class="{ 'text-sm': filteredSteps.length === 1 }">
                 {{ getStepTime(step.key) || 'Không có dữ liệu' }}
               </p>
             </div>
