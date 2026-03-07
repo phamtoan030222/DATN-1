@@ -104,13 +104,16 @@ public class ChatServiceImpl {
             // Bắn socket báo cho khách (để hiện tin nhắn này lên)
             messagingTemplate.convertAndSend("/topic/user/" + request.getSessionId(), sysMsg);
 
+            // ✅ SỬA Ở ĐÂY: Gửi sysMsg cho admin (thay vì aiMsg bị lỗi)
+            messagingTemplate.convertAndSend("/topic/admin-messages", sysMsg);
+
             return response;
         }
 
         // 5. NẾU KHÔNG GẶP NHÂN VIÊN -> GỌI AI (GEMINI RAG)
         String aiResponse = callGeminiRAG(request, customer);
 
-        // Lưu tin nhắn AI
+        // Lưu tin nhắn AI (CHỖ NÀY MỚI KHAI BÁO aiMsg)
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setSessionId(request.getSessionId());
         aiMsg.setContent(aiResponse);
@@ -123,8 +126,12 @@ public class ChatServiceImpl {
         // Bắn socket về cho khách
         messagingTemplate.convertAndSend("/topic/user/" + request.getSessionId(), aiMsg);
 
+        // ✅ THÊM VÀO ĐÂY: Bắn socket về cho Admin nghe lén lịch sử chat của AI
+        messagingTemplate.convertAndSend("/topic/admin-messages", aiMsg);
+
         return aiResponse;
     }
+
 
     private String callGeminiRAG(ChatRequest request, Customer customer) {
         ClientPDProductDetailRequest productReq = new ClientPDProductDetailRequest();
@@ -161,23 +168,24 @@ public class ChatServiceImpl {
                 }
 
                 // 2. Thu thập đầy đủ thuộc tính từ API (Dựa trên ảnh bạn gửi)
+                // SỬA DÒNG "* LAPTOP: %s (Model: %s)" THÀNH DÒNG DƯỚI ĐÂY:
                 sb.append(String.format("""
-                * LAPTOP: %s (Model: %s)
-                  - Thương hiệu: %s
-                  - Giá niêm yết: %s %s
-                  - Màu sắc: %s
-                  - Chất liệu vỏ: %s
-                  - Cấu hình chi tiết:
-                    + CPU: %s
-                    + RAM: %s
-                    + Card đồ họa (GPU): %s
-                    + Ổ cứng: %s
-                    + Màn hình: %s
-                    + Pin: %s
-                    + Hệ điều hành: %s
-                  - Kho hàng: Còn %d máy sẵn sàng giao ngay.
-                """,
-                        p.getProductName(), p.getName(),
+* LAPTOP: [%s (Model: %s)](/product-detail/%s)
+  - Thương hiệu: %s
+  - Giá niêm yết: %s %s
+  - Màu sắc: %s
+  - Chất liệu vỏ: %s
+  - Cấu hình chi tiết:
+    + CPU: %s
+    + RAM: %s
+    + Card đồ họa (GPU): %s
+    + Ổ cứng: %s
+    + Màn hình: %s
+    + Pin: %s
+    + Hệ điều hành: %s
+  - Kho hàng: Còn %d máy sẵn sàng giao ngay.
+""",
+                        p.getProductName(), p.getName(), p.getId(), // Đã thêm p.getId() vào đây
                         p.getBrandName(),
                         formatMoney(originalPrice), discountNote,
                         p.getColor(),
@@ -214,7 +222,7 @@ public class ChatServiceImpl {
         6. Nếu có giảm giá, hãy nhắc khách mua ngay.
         7. Báo giá rõ ràng.
         8. Nếu khách hỏi vấn đề quá khó hoặc khiếu nại, hãy bảo khách nhắn cú pháp: "gặp nhân viên" để được hỗ trợ.
-        """.formatted(customerName, productContext);
+        9. LUÔN GIỮ NGUYÊN định dạng link [Tên máy](/product-detail/id) khi nhắc đến tên sản phẩm để khách có thể bấm vào."        """.formatted(customerName, productContext);
 
         return geminiService.callGemini(systemInstruction + "\n\nCÂU HỎI CỦA KHÁCH: " + request.getMessage());
     }
