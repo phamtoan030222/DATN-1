@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CUSTOMER_CART_ID, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import { localStorageAction } from '@/utils'
 import {
   Call,
@@ -23,11 +23,15 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/store'
-import { CartStore } from '@/utils/cartStore'
+import { useCartStore } from '@/store/app/card'
 
 const router = useRouter()
 const route = useRoute()
-const authStore = useAuthStore()
+const { userInfoDatn } = storeToRefs(useAuthStore())
+const { logout } = useAuthStore()
+// --- LOGIC GIỎ HÀNG MỚI (CLIENT-SIDE) ---
+// 1. Tạo biến hứng số lượng
+const { cartItems } = storeToRefs(useCartStore())
 const notification = useNotification()
 
 // --- LOGIC CUỘN TRANG ---
@@ -38,19 +42,11 @@ function handleScroll() {
 }
 
 // --- LOGIC GIỎ HÀNG ---
-const cartCount = ref(0)
-async function updateCartBadge() {
-  cartCount.value = await CartStore.getTotalQuantity()
-}
-
 onMounted(() => {
-  updateCartBadge()
-  window.addEventListener('cart-updated', updateCartBadge)
   window.addEventListener('scroll', handleScroll)
 })
 
 onUnmounted(() => {
-  window.removeEventListener('cart-updated', updateCartBadge)
   window.removeEventListener('scroll', handleScroll)
 })
 
@@ -63,14 +59,8 @@ const menuOptions: MenuOption[] = [
   { label: 'TRA CỨU ĐƠN HÀNG', key: 'tracking', href: '/tra-cuu' },
 ]
 
-const userInfo = ref<any>()
-
-onMounted(() => {
-  userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
-})
-
 const userOptions = computed(() => {
-  if (userInfo.value) {
+  if (userInfoDatn.value) {
     return [{ label: 'Đăng xuất', key: 'logout' }]
   }
   else {
@@ -119,18 +109,17 @@ function handleMenuClick(key: string, item: MenuOption) {
 
 function handlerAccountDropdown(key: string) {
   if (key === 'login') {
-    router.push({ name: 'login' })
+    router.push({ path: '/login' })
   }
   else if (key === 'logout') {
-    authStore.logout()
-    userInfo.value = localStorageAction.get(USER_INFO_STORAGE_KEY)
+    logout()
     router.push({ name: 'Home' })
     notification.success({ content: 'Bạn đã đăng xuất', duration: 3000 })
   }
 }
 
 function handleCartClick() {
-  router.push('/cart')
+  router.push({ name: 'Cart' })
 }
 </script>
 
@@ -155,10 +144,8 @@ function handleCartClick() {
       </a>
 
       <div class="search-area d-none d-sm-block">
-        <NInput
-          v-model:value="keyword" placeholder="Bạn tìm laptop gì hôm nay?" round size="large"
-          @keyup.enter="handleSearch"
-        >
+        <NInput v-model:value="keyword" placeholder="Bạn tìm laptop gì hôm nay?" round size="large"
+          @keyup.enter="handleSearch">
           <template #suffix>
             <NButton circle size="medium" color="#049d14" style="margin-right: -10px;" @click="handleSearch">
               <template #icon>
@@ -185,16 +172,18 @@ function handleCartClick() {
         </div>
 
         <NDropdown trigger="hover" :options="userOptions" @select="handlerAccountDropdown">
-          <div class="action-btn">
-            <NIcon size="28" color="#333">
-              <Person />
-            </NIcon>
-            <span class="action-label d-none d-xl-block">Tài khoản</span>
+          <div class="">
+            <div class="action-btn">
+              <NIcon size="28" color="#333">
+                <Person />
+              </NIcon>
+              <span class="action-label d-none d-xl-block">{{ userInfoDatn?.fullName || 'Tài khoản' }}</span>
+            </div>
           </div>
         </NDropdown>
 
         <div class="action-btn cart-btn" @click="handleCartClick">
-          <NBadge :value="cartCount" :max="99" :show-zero="false" color="#d03050">
+          <NBadge :value="cartItems.length" :max="99" :show-zero="false" color="#d03050">
             <NIcon size="28" color="#333">
               <Cart />
             </NIcon>
@@ -206,10 +195,8 @@ function handleCartClick() {
 
     <div v-if="!isScrolled" class="nav-background d-none d-lg-block">
       <div class="container nav-wrapper">
-        <NMenu
-          v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
-          @update:value="handleMenuClick"
-        />
+        <NMenu v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
+          @update:value="handleMenuClick" />
       </div>
     </div>
 

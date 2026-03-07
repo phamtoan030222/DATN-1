@@ -207,6 +207,7 @@ export interface CartItemResponse {
 export interface ProductDetailCartItemResponse {
   id: string
   price: number
+  quantity: number;
   percentage: number
   imageUrl: string
   cpu: string
