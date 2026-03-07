@@ -14,7 +14,17 @@ const currentSessionId = ref(null);
 const replyText = ref('');
 const chatWindowRef = ref(null);
 
-// Lấy session đang chọn
+// 🔥 LỌC SESSION: Chỉ hiện những người đã yêu cầu gặp nhân viên
+const visibleSessions = computed(() => {
+  const filtered = {};
+  for (const key in sessions.value) {
+    if (sessions.value[key].needsSupport) {
+      filtered[key] = sessions.value[key];
+    }
+  }
+  return filtered;
+});
+
 const currentSession = computed(() => currentSessionId.value ? sessions.value[currentSessionId.value] : null);
 
 // --- KẾT NỐI SOCKET ---
@@ -34,50 +44,50 @@ const connectSocket = () => {
   stompClient.value.activate();
 };
 
-// --- 🔥 LOGIC LỌC TIN NHẮN QUAN TRỌNG Ở ĐÂY ---
+// --- 🔥 LOGIC NGHE LÉN & HIỂN THỊ ---
 const handleIncomingMessage = (msg) => {
   const sId = msg.sessionId;
 
-  // 1. AI chat thì bỏ qua luôn, không hiện
-  if (msg.senderRole === 'AI') return;
-
-  // 2. Nếu session này chưa từng xuất hiện trong danh sách Admin
+  // 1. LUÔN TẠO VÀ LƯU TRỮ LỊCH SỬ NGẦM (Dù đang chat với AI)
   if (!sessions.value[sId]) {
-    // Kiểm tra xem đây có phải là lời yêu cầu gặp nhân viên không?
-    // (Dựa vào nội dung nút bấm bên Client hoặc tin nhắn Hệ thống)
-    const content = msg.content ? msg.content.toLowerCase() : '';
-    const isRequestSupport = 
-        content.includes('gặp nhân viên') || 
-        content.includes('chat với nhân viên') ||
-        msg.senderRole === 'SYSTEM'; // Hoặc tin nhắn hệ thống báo chuyển line
-
-    // Nếu KHÔNG PHẢI yêu cầu hỗ trợ -> Bỏ qua (Admin không cần biết khách đang chém gió với AI)
-    if (!isRequestSupport) return;
-
-    // Nếu ĐÚNG là yêu cầu -> Tạo mới session để hiện lên sidebar
     sessions.value[sId] = {
       id: sId,
-      customerName: msg.customer ? msg.customer.name : 'Khách vãng lai',
+      customerName: msg.customer ? msg.customer.name : 'Khách cần hỗ trợ 🆘',
       messages: [],
       unreadCount: 0,
-      lastMessage: ''
+      lastMessage: '',
+      needsSupport: false // Mặc định là ẨN
     };
   }
 
-  // 3. Nếu đã lọt vào danh sách (đã qua vòng kiểm duyệt ở trên) -> Thêm tin nhắn
-  if (sessions.value[sId]) {
-      sessions.value[sId].messages.push(msg);
+  // Lưu tin nhắn vào lịch sử
+  sessions.value[sId].messages.push(msg);
+  if (msg.senderRole !== 'SYSTEM') {
       sessions.value[sId].lastMessage = msg.content;
+  }
 
-      if (currentSessionId.value !== sId) {
+  // 2. KIỂM TRA ĐIỀU KIỆN "BUNG" LỊCH SỬ
+  const content = msg.content ? msg.content.toLowerCase() : '';
+  const isRequestSupport = 
+      content.includes('gặp nhân viên') || 
+      content.includes('chat với nhân viên') ||
+      msg.senderRole === 'SYSTEM'; 
+
+  if (isRequestSupport) {
+      sessions.value[sId].needsSupport = true; // Bật cờ -> Hiện lên danh sách bên trái
+  }
+
+  // 3. XỬ LÝ SỐ TIN NHẮN CHƯA ĐỌC
+  // Chỉ báo tin mới khi Session đã hiển thị, tin nhắn là của khách, và không phải session đang mở
+  if (sessions.value[sId].needsSupport) {
+      if (currentSessionId.value !== sId && msg.senderRole === 'CLIENT') {
         sessions.value[sId].unreadCount++;
-      } else {
+      } else if (currentSessionId.value === sId) {
         scrollToBottom();
       }
   }
 };
 
-// --- CÁC HÀM CHỨC NĂNG KHÁC (GIỮ NGUYÊN) ---
 const selectSession = (sessionId) => {
   currentSessionId.value = sessionId;
   sessions.value[sessionId].unreadCount = 0;
@@ -135,7 +145,7 @@ onMounted(() => {
       </div>
       <div class="session-list">
         <div 
-          v-for="(session, key) in sessions" 
+          v-for="(session, key) in visibleSessions" 
           :key="key"
           class="session-item"
           :class="{ active: currentSessionId === session.id }"
@@ -151,9 +161,9 @@ onMounted(() => {
           </div>
         </div>
         
-        <div v-if="Object.keys(sessions).length === 0" class="empty-list">
+        <div v-if="Object.keys(visibleSessions).length === 0" class="empty-list">
           <p>Hiện chưa có yêu cầu hỗ trợ nào.</p>
-          <small>(Tin nhắn sẽ hiện khi khách bấm "Gặp nhân viên")</small>
+          <small>(Sẽ tự động hiển thị khi khách bấm "Gặp nhân viên")</small>
         </div>
       </div>
     </div>
@@ -176,12 +186,13 @@ onMounted(() => {
             :class="{ 
               'msg-client': msg.senderRole === 'CLIENT',
               'msg-staff': msg.senderRole === 'STAFF',
-              'msg-system': msg.senderRole === 'SYSTEM'
+              'msg-system': msg.senderRole === 'SYSTEM',
+              'msg-ai': msg.senderRole === 'AI' 
             }"
           >
             <div class="msg-bubble">
               <div class="role-label" v-if="msg.senderRole !== 'STAFF'">
-                {{ msg.senderRole === 'CLIENT' ? 'Khách' : 'Hệ thống' }}
+                {{ msg.senderRole === 'CLIENT' ? 'Khách' : (msg.senderRole === 'AI' ? 'Bot 🤖' : 'Hệ thống') }}
               </div>
               <div class="text" v-html="msg.content.replace(/\n/g, '<br>')"></div>
               <div class="time">{{ formatTime(msg.createdDate) }}</div>
@@ -209,7 +220,7 @@ onMounted(() => {
 </template>
 
 <style scoped>
-/* (Giữ nguyên CSS của bạn, chỉ thêm 1 chút cho phần empty-list) */
+/* (Giữ nguyên CSS cũ của bạn, mình chỉ bổ sung thêm class cho AI) */
 .admin-chat-wrapper { display: flex; height: 85vh; background-color: #fff; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
 .sidebar { width: 320px; border-right: 1px solid #e0e0e0; background-color: #f8f9fa; display: flex; flex-direction: column; }
 .sidebar-header { padding: 20px; border-bottom: 1px solid #e0e0e0; background-color: #fff; }
@@ -233,12 +244,18 @@ onMounted(() => {
 .msg-row { display: flex; }
 .msg-client { justify-content: flex-start; }
 .msg-staff { justify-content: flex-end; }
-.msg-system { justify-content: center; }
+.msg-ai { justify-content: flex-start; }
+.msg-system { justify-content: center; width: 100%; }
 .msg-bubble { max-width: 70%; padding: 10px 15px; border-radius: 12px; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+/* Màu sắc các loại bong bóng chat */
 .msg-client .msg-bubble { background-color: #fff; border: 1px solid #ddd; border-top-left-radius: 2px; }
 .msg-staff .msg-bubble { background-color: #4caf50; color: white; border-top-right-radius: 2px; }
-.msg-system .msg-bubble { background-color: transparent; box-shadow: none; color: #888; font-size: 12px; font-style: italic; }
+.msg-ai .msg-bubble { background-color: #e3f2fd; border: 1px solid #bbdefb; border-top-left-radius: 2px; }
+.msg-system .msg-bubble { background-color: transparent; box-shadow: none; color: #888; font-size: 12px; font-style: italic; text-align: center; }
+
 .role-label { font-size: 11px; font-weight: bold; margin-bottom: 4px; color: #666; }
+.msg-staff .role-label { color: #e8f5e9; }
 .time { font-size: 10px; margin-top: 5px; opacity: 0.7; text-align: right; }
 .input-area { padding: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; background-color: #fff; }
 input { flex: 1; padding: 12px; border: 1px solid #ddd; border-radius: 25px; outline: none; font-size: 14px; }
