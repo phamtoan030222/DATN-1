@@ -1339,7 +1339,43 @@ const columnsGiohang: DataTableColumns<any> = [
       ]),
     ]),
   },
-  { title: 'Đơn giá', key: 'price', width: 110, align: 'right', render: row => h(NText, { strong: true }, () => formatCurrency(row.giaGoc)) },
+  {
+    title: 'Đơn giá',
+    key: 'price',
+    width: 160,
+    align: 'right',
+    render: (row) => {
+      const children: any[] = []
+
+      // Giá dùng để tính tiền (luôn là giá gốc)
+      children.push(
+        h(
+          NText,
+          { strong: true },
+          () => formatCurrency(row.giaGoc),
+        ),
+      )
+
+      // Nếu giá thay đổi thì hiển thị cảnh báo
+      if (row.giaDaThayDoi === 1) {
+        const tangGia = row.giaHienTai > row.giaGoc
+
+        children.push(
+          h(
+            NText,
+            {
+              type: tangGia ? 'error' : 'success',
+              style: { fontSize: '11px' },
+            },
+            () =>
+              `!!!Giá hiện tại ${tangGia ? 'đã tăng' : 'đã giảm'}: ${formatCurrency(row.giaGoc)} → ${formatCurrency(row.giaHienTai)}`,
+          ),
+        )
+      }
+
+      return h(NSpace, { vertical: true, size: 2, align: 'end' }, () => children)
+    },
+  },
   { title: 'Thành tiền', key: 'total', width: 120, align: 'right', render: row => h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.giaGoc * (1 - (row.percentage || 0) / 100))) },
   { title: '', key: 'action', width: 50, align: 'center', render: row => h(NButton, { type: 'error', size: 'tiny', text: true, onClick: () => deleteProduct(row) }, { icon: () => h(NIcon, null, () => h(TrashOutline)) }) },
 ]

@@ -651,21 +651,24 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             throw new BusinessException("Imei da duoc dat hoac khong ton tai");
         }
 
-        // 🔎 kiểm tra invoice detail đã tồn tại chưa
+        BigDecimal currentPrice = productDetail.getPrice();
+
+        // 🔎 tìm invoice detail theo product + price
         Optional<InvoiceDetail> optionalInvoiceDetail =
-                invoiceDetailRepository.findByInvoiceIdAndProductDetailId(
+                invoiceDetailRepository.findByInvoiceIdAndProductDetailIdAndPrice(
                         request.getInvoiceId(),
-                        request.getProductDetailId()
+                        request.getProductDetailId(),
+                        currentPrice
                 );
 
         InvoiceDetail invoiceDetail;
 
         if (optionalInvoiceDetail.isPresent()) {
 
-            // ✅ đã tồn tại -> cập nhật
+            // ✅ đã có cùng giá -> gộp
             invoiceDetail = optionalInvoiceDetail.get();
 
-            int newQuantity = invoiceDetail.getQuantity();
+            int newQuantity = invoiceDetail.getQuantity() + imeis.size();
             invoiceDetail.setQuantity(newQuantity);
 
             BigDecimal totalAmount = invoiceDetail.getPrice()
@@ -675,14 +678,14 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         } else {
 
-            // ✅ chưa có -> tạo mới
+            // ✅ giá mới -> tạo dòng mới
             invoiceDetail = new InvoiceDetail();
             invoiceDetail.setInvoice(invoice);
             invoiceDetail.setProductDetail(productDetail);
-            invoiceDetail.setPrice(productDetail.getPrice());
+            invoiceDetail.setPrice(currentPrice);
             invoiceDetail.setQuantity(imeis.size());
 
-            BigDecimal totalAmount = productDetail.getPrice()
+            BigDecimal totalAmount = currentPrice
                     .multiply(BigDecimal.valueOf(imeis.size()));
 
             invoiceDetail.setTotalAmount(totalAmount);
@@ -690,7 +693,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         invoiceDetailRepository.save(invoiceDetail);
 
-        // 🔗 gắn IMEI vào invoice detail
+        // 🔗 gắn IMEI
         for (IMEI imei : imeis) {
             imei.setInvoiceDetail(invoiceDetail);
             imei.setImeiStatus(ImeiStatus.RESERVED);
@@ -700,7 +703,6 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         return new ResponseObject<>(null, HttpStatus.OK, "Them san pham thanh cong");
     }
-
     @Override
     public void themKhachHang(ADThemKhachHangRequest id) {
 
