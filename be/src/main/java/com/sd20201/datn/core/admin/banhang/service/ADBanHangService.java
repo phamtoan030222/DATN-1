@@ -63,4 +63,6 @@ public interface ADBanHangService {
     ResponseObject<?> getGPUs();
 
     ResponseObject<?> getMaterials();
+
+    ResponseObject<?> boChonKhachHang(String idHoaDon);
 }

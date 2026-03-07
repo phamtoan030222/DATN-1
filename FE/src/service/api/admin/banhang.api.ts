@@ -480,23 +480,11 @@ export async function getMaterials() {
   return res.data
 }
 
-// Tạo tạm hàm giả để test (chỉ dùng khi backend chưa có API)
-export async function xoaKhachHang(idHD: string): Promise<any> {
-  try {
-    // Giả lập API call
-    console.log('Đang xóa khách hàng khỏi hóa đơn:', idHD)
-
-    // Trả về thành công giả
-    return {
-      success: true,
-      message: 'Xóa khách hàng thành công',
-      data: {
-        idHD,
-      },
-    }
-  }
-  catch (error) {
-    console.error('Lỗi khi xóa khách hàng:', error)
-    throw error
-  }
+// Thêm hàm này vào file banhang.api.ts (có thể để ở cuối file)
+export async function boChonKhachHang(idHoaDon: string) {
+  const res = await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/bo-chon-khach-hang/${idHoaDon}`,
+    method: 'PUT',
+  })
+  return res.data
 }

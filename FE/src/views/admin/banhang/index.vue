@@ -9,6 +9,7 @@ import type {
   PhuongThucThanhToanResponse,
 } from '@/service/api/admin/banhang.api'
 import {
+  boChonKhachHang,
   GeOneKhachHang,
   getColors,
   getCPUs,
@@ -793,15 +794,29 @@ async function selectKhachHang(customerId: string) {
 }
 
 async function clearSelectedCustomer() {
-  // Không gọi API vì backend chưa hỗ trợ xóa KH
-  // Chỉ reset UI local - khách hàng vẫn còn trong DB
-  // nhưng sẽ bị ghi đè khi chọn KH mới hoặc tạo HĐ mới
-  state.detailKhachHang = null
-  resetDeliveryData()
-  ward34Options.value = []
-  if (hasCartItems.value)
-    await fetchDiscounts(idHDS.value)
-  toast.info('Đã bỏ chọn khách hàng')
+  if (!idHDS.value)
+    return
+
+  try {
+    // 1. Gọi API xuống Backend để gỡ khách hàng khỏi DB
+    await boChonKhachHang(idHDS.value)
+
+    // 2. Xóa data khách hàng trên State của Front-end
+    state.detailKhachHang = null
+    resetDeliveryData()
+    ward34Options.value = []
+
+    // 3. Tính toán lại voucher nếu giỏ hàng đang có đồ
+    if (hasCartItems.value) {
+      await fetchDiscounts(idHDS.value)
+    }
+
+    toast.success('Đã bỏ chọn khách hàng')
+  }
+  catch (error) {
+    toast.error('Lỗi khi bỏ chọn khách hàng!')
+    console.error(error)
+  }
 }
 
 async function addNewCustomer() {
