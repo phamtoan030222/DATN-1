@@ -73,24 +73,26 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
     Page<ADPDProductDetailResponse> getProductDetails(Pageable pageable, @Param("request") ADPDProductDetailRequest request);
 
     @Query(value = """
-    SELECT
-        pd.id as id
-        , pd.price as price
-        , d.percentage as percentage
-        , pd.name as name
-        , pd.urlImage as imageUrl
-        , pd.cpu.name as cpu
-        , pd.ram.name as ram
-        , pd.hardDrive.name as hardDrive
-        , pd.gpu.name as gpu
-        , pd.color.name as color
-        , pd.material.name as material
-    FROM ProductDetail pd
-    LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
-    LEFT JOIN Discount d on pdd.discount.id = d.id
-    WHERE pd.id IN :ids
-        AND (d.startDate <= :time and :time <= d.endDate OR d.id IS NULL)
-    """)
+            SELECT
+                pd.id as id
+                , pd.price as price
+                , CASE
+                    WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.percentage
+                    ELSE NULL
+                  END AS percentage
+                , pd.name as name
+                , pd.urlImage as imageUrl
+                , pd.cpu.name as cpu
+                , pd.ram.name as ram
+                , pd.hardDrive.name as hardDrive
+                , pd.gpu.name as gpu
+                , pd.color.name as color
+                , pd.material.name as material
+            FROM ProductDetail pd
+            LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
+            LEFT JOIN Discount d on pdd.discount.id = d.id
+            WHERE pd.id IN :ids
+            """)
     List<ClientBanHangProductDetailCartResponse> findProductDetailCartResponseByIdIn(List<String> ids, Long time);
 
     @Query(value = """

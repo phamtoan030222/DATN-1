@@ -297,7 +297,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             CartItem cartItem = cartItemOptional.get();
             cartItemRepository.delete(cartItem);
 
-            return new ResponseObject<>(null, HttpStatus.OK, "Thêm sản phẩm thành công");
+            return new ResponseObject<>(null, HttpStatus.OK, "Xóa sản phẩm");
         } else {
             // 1. Tìm hóa đơn. Nếu không thấy -> Tự tạo mới luôn!
             Cart cart = Optional.ofNullable(request.getCartId())

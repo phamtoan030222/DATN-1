@@ -466,12 +466,21 @@ onMounted(() => {
             v-model:value="payment.note" type="textarea" placeholder="Ghi chú đơn hàng..." :rows="1"
             size="small"
           />
-          <NButton
+          <!-- <NButton
             type="primary" class="w-full h-10 text-base font-bold shadow-md shadow-blue-200"
             :loading="processing" @click="handleCheckout"
           >
             THANH TOÁN (F9)
-          </NButton>
+          </NButton> -->
+          <n-popconfirm :positive-button-props="{ type: 'info' }" @positive-click="handleCheckout"
+            :positive-text="'Xác nhận'" :negative-text="'Hủy'">
+            <template #trigger>
+              <NButton type="success">
+                Thanh Toán
+              </NButton>
+            </template>
+            Bạn chắc chắn muốn thao tác
+          </n-popconfirm>
         </div>
       </NCard>
     </div>
