@@ -150,10 +150,19 @@ const stateSP = reactive({
 
 // ==================== VOUCHER STATE ====================
 const selectedVoucher = ref<any>(null)
+const bestVoucher = ref(null)
+const voucherList = ref([])
+const showBetterVoucherModal = ref(false)
+const betterVoucher = ref<any>(null) // Voucher mới tốt hơn
+const currentVoucher = ref<any>(null)
 const applyingVoucher = ref<string | null>(null)
 const autoApplying = ref(false)
 const giamGia = ref(0)
 const betterDiscountMessage = ref('')
+// Thêm vào phần VOUCHER STATE (khoảng dòng 90-100)
+const showCheckoutVoucherModal = ref(false)
+const checkoutVoucherData = ref<any>(null)
+const checkoutVoucherType = ref<'BETTER' | 'EXPIRED' | 'NEW'>('BETTER') // Loại thông báo
 
 // ==================== PAYMENT STATE ====================
 const tienHang = ref(0)
@@ -440,6 +449,73 @@ async function loadCustomerSavedAddresses(customerId: string) {
   }
 }
 
+// Thêm hàm mới (khoảng dòng 400)
+async function validateVoucherBeforeCheckout() {
+  if (!idHDS.value || !hasCartItems.value)
+    return null
+
+  try {
+    const params = {
+      invoiceId: idHDS.value,
+      tongTien: tienHang.value,
+      customerId: state.detailKhachHang?.id ?? null,
+    }
+    const response = await getMaGiamGia(params)
+
+    // Lấy voucher tốt nhất hiện tại
+    const currentBestVoucher = response.voucherApDung?.length > 0
+      ? response.voucherApDung.reduce((best, current) =>
+          (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
+        )
+      : null
+
+    // TRƯỜNG HỢP 1: Đã chọn voucher nhưng không còn trong danh sách (hết hạn/không áp dụng)
+    if (selectedVoucher.value) {
+      const voucherStillValid = response.voucherApDung?.some(
+        v => v.voucherId === selectedVoucher.value.voucherId,
+      )
+
+      if (!voucherStillValid) {
+        return {
+          type: 'EXPIRED',
+          oldVoucher: selectedVoucher.value,
+          newVoucher: currentBestVoucher,
+          message: 'Voucher đã chọn không còn hiệu lực hoặc không áp dụng được',
+        }
+      }
+    }
+
+    // TRƯỜNG HỢP 2: Có voucher tốt hơn voucher đang chọn
+    if (selectedVoucher.value
+      && currentBestVoucher
+      && currentBestVoucher.voucherId !== selectedVoucher.value.voucherId
+      && currentBestVoucher.giamGiaThucTe > selectedVoucher.value.giamGiaThucTe) {
+      return {
+        type: 'BETTER',
+        oldVoucher: selectedVoucher.value,
+        newVoucher: currentBestVoucher,
+        message: 'Có voucher tốt hơn cho đơn hàng của bạn!',
+      }
+    }
+
+    // TRƯỜNG HỢP 3: Chưa chọn voucher và có voucher khả dụng
+    if (!selectedVoucher.value && currentBestVoucher) {
+      return {
+        type: 'NEW',
+        oldVoucher: null,
+        newVoucher: currentBestVoucher,
+        message: 'Có voucher khả dụng cho đơn hàng của bạn!',
+      }
+    }
+
+    return null // Không có thay đổi
+  }
+  catch (error) {
+    console.error('Validate voucher error:', error)
+    return null
+  }
+}
+
 async function applySavedAddress(addressId: string) {
   selectedSavedAddressId.value = addressId
 
@@ -552,9 +628,28 @@ async function fetchDiscounts(idHD: string) {
 
     const params = { invoiceId: idHD, tongTien: tienHang.value, customerId: state.detailKhachHang?.id ?? null }
     const response = await getMaGiamGia(params)
+
     state.autoVoucherResult = response
     state.discountList = response.voucherApDung ?? []
 
+    // Lấy voucher tốt nhất từ danh sách
+    const bestVoucher = response.voucherApDung?.length > 0
+      ? response.voucherApDung.reduce((best, current) =>
+          (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
+        )
+      : null
+
+    // 🆕 KIỂM TRA VOUCHER TỐT HƠN
+    if (bestVoucher
+      && selectedVoucher.value
+      && bestVoucher.voucherId !== selectedVoucher.value.voucherId
+      && bestVoucher.giamGiaThucTe > selectedVoucher.value.giamGiaThucTe) {
+      betterVoucher.value = bestVoucher
+      currentVoucher.value = selectedVoucher.value
+      showBetterVoucherModal.value = true
+    }
+
+    // Xử lý gợi ý mua thêm
     if (response.voucherTotHon?.length > 0) {
       const bestSuggestion = response.voucherTotHon[0]
       betterDiscountMessage.value = `Mua thêm ${formatCurrency(bestSuggestion.canMuaThem)} để được giảm thêm ${formatCurrency(bestSuggestion.giamThem)}`
@@ -563,14 +658,15 @@ async function fetchDiscounts(idHD: string) {
       betterDiscountMessage.value = ''
     }
 
-    if (!selectedVoucher.value && response.voucherApDung?.length > 0) {
-      const bestVoucher = response.voucherApDung.reduce((best, current) =>
-        (current.giamGiaThucTe || 0) > (best.giamGiaThucTe || 0) ? current : best,
-      )
+    // Auto chọn voucher lần đầu
+    if (!selectedVoucher.value && bestVoucher) {
       await selectVoucher(bestVoucher)
     }
   }
-  catch (error) { resetDiscountState() }
+  catch (error) {
+    console.error('Fetch discounts error:', error)
+    resetDiscountState()
+  }
 }
 
 function resetDiscountState() {
@@ -593,32 +689,26 @@ async function selectVoucher(voucher: any) {
   finally { applyingVoucher.value = null }
 }
 
-function removeVoucher() {
-  selectedVoucher.value = null
-  giamGia.value = 0
-  calculateTotalAmounts()
-  toast.info('Đã bỏ chọn voucher')
-}
-
-async function triggerAutoApplyVoucher() {
-  if (!hasCartItems.value) {
-    toast.error('Vui lòng có sản phẩm trong giỏ hàng trước!')
+// Thêm sau hàm removeVoucher (khoảng dòng 350)
+async function handleUseBetterVoucher() {
+  if (!betterVoucher.value)
     return
-  }
-  autoApplying.value = true
+
   try {
-    await fetchDiscounts(idHDS.value)
-    if (state.autoVoucherResult?.voucherApDung?.length) {
-      toast.success(`Tìm thấy ${state.autoVoucherResult.voucherApDung.length} voucher phù hợp`)
-    }
-    else {
-      toast.info('Không tìm thấy voucher phù hợp')
-    }
+    selectedVoucher.value = betterVoucher.value
+    giamGia.value = betterVoucher.value.giamGiaThucTe
+    calculateTotalAmounts()
+    showBetterVoucherModal.value = false
+    toast.success(`Đã chuyển sang voucher tốt hơn: ${betterVoucher.value.code}`)
   }
   catch (error) {
-    toast.error('Lỗi khi tìm voucher phù hợp')
+    toast.error('Không thể áp dụng voucher mới')
   }
-  finally { autoApplying.value = false }
+}
+
+function handleKeepOldVoucher() {
+  showBetterVoucherModal.value = false
+  toast.info('Vẫn áp dụng voucher cũ')
 }
 
 function getVoucherTagType(type: string) { return type === 'PERCENTAGE' ? 'success' : 'warning' }
@@ -1119,14 +1209,21 @@ async function addSerialByCode(serialCode: string) {
 
 // ==================== CHECKOUT FUNCTION ====================
 // ==================== CHECKOUT FUNCTION ====================
+// Sửa hàm xacNhan hiện tại
 async function xacNhan(check: number) {
-  if (!idHDS.value) { toast.error('Vui lòng chọn một hóa đơn!'); return }
-  if (!hasCartItems.value) { toast.error('Giỏ hàng trống!'); return }
+  if (!idHDS.value) {
+    toast.error('Vui lòng chọn một hóa đơn!')
+    return
+  }
+  if (!hasCartItems.value) {
+    toast.error('Giỏ hàng trống!')
+    return
+  }
 
-  // 1. Kiểm tra Validate Giao hàng Trực Tiếp (Không dùng biến trung gian)
+  // 1. Kiểm tra Validate Giao hàng
   if (isDeliveryEnabled.value) {
     if (!deliveryInfo.tenNguoiNhan || !deliveryInfo.sdtNguoiNhan || !deliveryInfo.tinhThanhPho || !deliveryInfo.phuongXa || !deliveryInfo.diaChiCuThe) {
-      toast.error('Vui lòng nhập đầy đủ thông tin giao hàng (Tên, SĐT, Tỉnh, Phường/Xã, Địa chỉ) trước khi thanh toán!')
+      toast.error('Vui lòng nhập đầy đủ thông tin giao hàng!')
       return
     }
     const phoneRegex = /^(03|05|07|08|09)\d{8,9}$/
@@ -1151,7 +1248,24 @@ async function xacNhan(check: number) {
     }
   }
 
-  // 3. Thực hiện API Thanh toán
+  // 3. 🆕 KIỂM TRA VOUCHER TRƯỚC KHI THANH TOÁN
+  toast.info('Đang kiểm tra voucher...')
+  const voucherCheck = await validateVoucherBeforeCheckout()
+
+  if (voucherCheck) {
+    // Có thay đổi về voucher -> hiển thị modal
+    checkoutVoucherData.value = voucherCheck
+    checkoutVoucherType.value = voucherCheck.type
+    showCheckoutVoucherModal.value = true
+    return // Dừng thanh toán, chờ user xác nhận
+  }
+
+  // 4. Không có thay đổi -> tiến hành thanh toán
+  await processPayment()
+}
+
+// Tách logic thanh toán ra hàm riêng
+async function processPayment() {
   try {
     const pName = formatAddressName(deliveryInfo.tinhThanhPho, 'province')
     const wName = formatAddressName(deliveryInfo.phuongXa, 'ward', deliveryInfo.tinhThanhPho)
@@ -1207,6 +1321,44 @@ async function resetAfterPayment() {
 
   imeiDaChon.value = []
   showDeliveryModal.value = false
+}
+
+// Thêm sau hàm processPayment
+async function handleCheckoutUseNewVoucher() {
+  if (!checkoutVoucherData.value?.newVoucher)
+    return
+
+  try {
+    // Cập nhật voucher mới
+    selectedVoucher.value = checkoutVoucherData.value.newVoucher
+    giamGia.value = checkoutVoucherData.value.newVoucher.giamGiaThucTe
+    calculateTotalAmounts()
+
+    showCheckoutVoucherModal.value = false
+
+    // Tiếp tục thanh toán
+    await processPayment()
+  }
+  catch (error) {
+    toast.error('Lỗi khi cập nhật voucher')
+  }
+}
+
+function handleCheckoutKeepOldVoucher() {
+  showCheckoutVoucherModal.value = false
+
+  // Vẫn tiếp tục thanh toán với voucher cũ (nếu vẫn còn)
+  if (checkoutVoucherData.value?.type === 'EXPIRED') {
+    toast.error('Không thể thanh toán với voucher đã hết hạn!')
+    return
+  }
+
+  processPayment()
+}
+
+function handleCheckoutCancel() {
+  showCheckoutVoucherModal.value = false
+  // Không thanh toán, quay lại chỉnh sửa
 }
 
 // ==================== WATCHERS ====================
@@ -1690,14 +1842,14 @@ function formatCurrencyInput(value: number) {
             <NText type="primary" strong>
               Voucher khả dụng
             </NText>
-            <NTag type="success" size="small" round>
-              {{ state.autoVoucherResult.voucherApDung.length }} mã
+            <NTag type="warning" size="small" round>
+              Tự động đề xuất
             </NTag>
           </NSpace>
         </template>
 
         <div v-if="selectedVoucher" class="current-voucher-section mb-3">
-          <NAlert type="success" :show-icon="true" title="Đang áp dụng">
+          <NAlert type="success" :show-icon="true" title="Đang áp dụng voucher tốt nhất">
             <NSpace vertical :size="8">
               <NSpace justify="space-between" align="center">
                 <NText strong>
@@ -1718,50 +1870,6 @@ function formatCurrencyInput(value: number) {
             </NSpace>
           </NAlert>
         </div>
-
-        <NScrollbar style="max-height: 200px;">
-          <NList size="small" bordered>
-            <NListItem v-for="voucher in state.autoVoucherResult.voucherApDung" :key="voucher.voucherId">
-              <NThing :title="voucher.code">
-                <template #avatar>
-                  <NTag :type="getVoucherTagType(voucher.typeVoucher)" size="small">
-                    {{ voucher.typeVoucher === 'PERCENTAGE' ? `${voucher.discountValue}%` : 'Cố định' }}
-                  </NTag>
-                </template>
-                <template #description>
-                  <NText depth="3" size="small">
-                    Giảm: {{ formatCurrency(voucher.giamGiaThucTe) }}
-                  </NText>
-                </template>
-              </NThing>
-              <template #suffix>
-                <NButton
-                  type="primary"
-                  size="small"
-                  :disabled="selectedVoucher?.voucherId === voucher.voucherId"
-                  :loading="applyingVoucher === voucher.voucherId"
-                  @click="selectVoucher(voucher)"
-                >
-                  {{ selectedVoucher?.voucherId === voucher.voucherId ? 'Đã chọn' : 'Chọn' }}
-                </NButton>
-              </template>
-            </NListItem>
-          </NList>
-        </NScrollbar>
-
-        <template #footer>
-          <NSpace justify="space-between" align="center" style="width: 100%">
-            <NButton size="tiny" text :loading="autoApplying" @click="triggerAutoApplyVoucher">
-              <template #icon>
-                <NIcon><ReloadOutline /></NIcon>
-              </template>
-              Tìm lại voucher
-            </NButton>
-            <NButton v-if="selectedVoucher" type="error" size="tiny" text @click="removeVoucher">
-              Bỏ chọn
-            </NButton>
-          </NSpace>
-        </template>
       </NCard>
 
       <NCard v-if="hasCartItems && state.autoVoucherResult?.voucherTotHon?.length" class="card" size="small">
@@ -2000,6 +2108,124 @@ function formatCurrencyInput(value: number) {
       </NCard>
     </NModal>
 
+    <!-- Modal thông báo voucher tốt hơn -->
+    <NModal
+      v-model:show="showBetterVoucherModal"
+      preset="dialog"
+      title="🎁 Phát hiện voucher tốt hơn!"
+      style="width: 90%; max-width: 500px"
+      :mask-closable="false"
+      :close-on-esc="false"
+    >
+      <NCard size="small" :bordered="false">
+        <NAlert type="success" :show-icon="true" class="mb-4">
+          Chúng tôi vừa tìm thấy voucher có giá trị tốt hơn cho đơn hàng của bạn!
+        </NAlert>
+
+        <NGrid :cols="2" :x-gap="16" class="mb-4">
+          <!-- Voucher cũ -->
+          <NGi>
+            <div class="voucher-comparison old-voucher">
+              <NText depth="3" class="block mb-2">
+                Voucher hiện tại
+              </NText>
+              <NTag type="info" size="small" round class="mb-2">
+                {{ currentVoucher?.code }}
+              </NTag>
+              <div class="voucher-value">
+                <NText depth="3">
+                  Giảm:
+                </NText>
+                <NText delete type="default">
+                  {{ formatCurrency(currentVoucher?.giamGiaThucTe || 0) }}
+                </NText>
+              </div>
+            </div>
+          </NGi>
+
+          <!-- Voucher mới -->
+          <NGi>
+            <div class="voucher-comparison new-voucher">
+              <NText type="success" strong class="block mb-2">
+                Voucher mới phát hiện
+              </NText>
+              <NTag type="success" size="small" round class="mb-2">
+                {{ betterVoucher?.code }}
+              </NTag>
+              <div class="voucher-value">
+                <NText depth="3">
+                  Giảm:
+                </NText>
+                <NText type="success" strong>
+                  {{ formatCurrency(betterVoucher?.giamGiaThucTe || 0) }}
+                </NText>
+              </div>
+            </div>
+          </NGi>
+        </NGrid>
+
+        <!-- So sánh số tiền chênh lệch -->
+        <div class="comparison-summary mb-4 p-3">
+          <NSpace justify="space-between" align="center">
+            <NText strong>
+              Bạn tiết kiệm thêm:
+            </NText>
+            <NText type="success" strong size="large">
+              +{{ formatCurrency((betterVoucher?.giamGiaThucTe || 0) - (currentVoucher?.giamGiaThucTe || 0)) }}
+            </NText>
+          </NSpace>
+        </div>
+
+        <!-- Thông tin tổng tiền thanh toán -->
+        <div class="payment-info mb-4">
+          <NSpace vertical :size="8">
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Tổng tiền hàng:
+              </NText>
+              <NText>{{ formatCurrency(tienHang) }}</NText>
+            </NSpace>
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Giảm giá cũ:
+              </NText>
+              <NText delete type="default">
+                {{ formatCurrency(currentVoucher?.giamGiaThucTe || 0) }}
+              </NText>
+            </NSpace>
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Giảm giá mới:
+              </NText>
+              <NText type="success">
+                -{{ formatCurrency(betterVoucher?.giamGiaThucTe || 0) }}
+              </NText>
+            </NSpace>
+            <NDivider style="margin: 4px 0" />
+            <NSpace justify="space-between">
+              <NText strong size="large">
+                Tổng thanh toán:
+              </NText>
+              <NText strong type="primary" size="large">
+                {{ formatCurrency(tienHang - (betterVoucher?.giamGiaThucTe || 0)) }}
+              </NText>
+            </NSpace>
+          </NSpace>
+        </div>
+
+        <template #footer>
+          <NSpace justify="end">
+            <NButton @click="handleKeepOldVoucher">
+              Giữ voucher cũ
+            </NButton>
+            <NButton type="primary" @click="handleUseBetterVoucher">
+              Dùng voucher mới
+            </NButton>
+          </NSpace>
+        </template>
+      </NCard>
+    </NModal>
+
     <NModal
       v-model:show="showDeliveryModal"
       preset="dialog"
@@ -2213,6 +2439,183 @@ function formatCurrencyInput(value: number) {
         <NAlert v-if="!hasCamera" type="error" title="Lỗi camera" class="mt-2">
           Không tìm thấy camera hoặc không có quyền truy cập camera.
         </NAlert>
+      </NCard>
+    </NModal>
+    <!-- Thêm modal này sau modal showBetterVoucherModal hiện tại -->
+    <NModal
+      v-model:show="showCheckoutVoucherModal"
+      preset="dialog"
+      :title="checkoutVoucherType === 'EXPIRED' ? '⚠️ Voucher không còn hiệu lực' : '🎁 Cập nhật voucher'"
+      style="width: 90%; max-width: 500px"
+      :mask-closable="false"
+      :close-on-esc="false"
+    >
+      <NCard size="small" :bordered="false">
+        <!-- Trường hợp voucher hết hạn -->
+        <template v-if="checkoutVoucherType === 'EXPIRED'">
+          <NAlert type="error" :show-icon="true" class="mb-4">
+            {{ checkoutVoucherData?.message }}
+          </NAlert>
+
+          <div class="voucher-info mb-4 p-3" style="background: #fff2f0; border-radius: 8px;">
+            <NText delete type="error" class="block mb-2">
+              Voucher cũ: {{ checkoutVoucherData?.oldVoucher?.code }}
+            </NText>
+            <NText v-if="checkoutVoucherData?.newVoucher" type="success" strong>
+              Voucher mới: {{ checkoutVoucherData?.newVoucher?.code }}
+            </NText>
+            <NText v-else type="warning">
+              Không còn voucher nào khả dụng
+            </NText>
+          </div>
+        </template>
+
+        <!-- Trường hợp có voucher tốt hơn -->
+        <template v-else-if="checkoutVoucherType === 'BETTER'">
+          <NAlert type="success" :show-icon="true" class="mb-4">
+            {{ checkoutVoucherData?.message }}
+          </NAlert>
+
+          <NGrid :cols="2" :x-gap="16" class="mb-4">
+            <NGi>
+              <div class="voucher-comparison old-voucher">
+                <NText depth="3" class="block mb-2">
+                  Voucher hiện tại
+                </NText>
+                <NTag type="info" size="small" round class="mb-2">
+                  {{ checkoutVoucherData?.oldVoucher?.code }}
+                </NTag>
+                <div class="voucher-value">
+                  <NText depth="3">
+                    Giảm:
+                  </NText>
+                  <NText delete type="default">
+                    {{ formatCurrency(checkoutVoucherData?.oldVoucher?.giamGiaThucTe || 0) }}
+                  </NText>
+                </div>
+              </div>
+            </NGi>
+
+            <NGi>
+              <div class="voucher-comparison new-voucher">
+                <NText type="success" strong class="block mb-2">
+                  Voucher mới
+                </NText>
+                <NTag type="success" size="small" round class="mb-2">
+                  {{ checkoutVoucherData?.newVoucher?.code }}
+                </NTag>
+                <div class="voucher-value">
+                  <NText depth="3">
+                    Giảm:
+                  </NText>
+                  <NText type="success" strong>
+                    {{ formatCurrency(checkoutVoucherData?.newVoucher?.giamGiaThucTe || 0) }}
+                  </NText>
+                </div>
+              </div>
+            </NGi>
+          </NGrid>
+
+          <div class="comparison-summary mb-4 p-3">
+            <NSpace justify="space-between" align="center">
+              <NText strong>
+                Bạn tiết kiệm thêm:
+              </NText>
+              <NText type="success" strong size="large">
+                +{{ formatCurrency(
+                  (checkoutVoucherData?.newVoucher?.giamGiaThucTe || 0)
+                    - (checkoutVoucherData?.oldVoucher?.giamGiaThucTe || 0),
+                ) }}
+              </NText>
+            </NSpace>
+          </div>
+        </template>
+
+        <!-- Trường hợp chưa chọn voucher và có voucher mới -->
+        <template v-else-if="checkoutVoucherType === 'NEW'">
+          <NAlert type="info" :show-icon="true" class="mb-4">
+            {{ checkoutVoucherData?.message }}
+          </NAlert>
+
+          <div class="new-voucher-only mb-4 p-3" style="background: #e6f7ff; border-radius: 8px; text-align: center;">
+            <NTag type="success" size="large" class="mb-2">
+              {{ checkoutVoucherData?.newVoucher?.code }}
+            </NTag>
+            <div class="voucher-value">
+              <NText depth="3">
+                Giảm:
+              </NText>
+              <NText type="success" strong size="large">
+                -{{ formatCurrency(checkoutVoucherData?.newVoucher?.giamGiaThucTe || 0) }}
+              </NText>
+            </div>
+          </div>
+        </template>
+
+        <!-- Hiển thị tổng tiền thanh toán -->
+        <div class="payment-info mb-4">
+          <NSpace vertical :size="8">
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Tổng tiền hàng:
+              </NText>
+              <NText>{{ formatCurrency(tienHang) }}</NText>
+            </NSpace>
+            <NSpace justify="space-between">
+              <NText depth="3">
+                Giảm giá:
+              </NText>
+              <NText type="success">
+                -{{ formatCurrency(checkoutVoucherData?.newVoucher?.giamGiaThucTe || 0) }}
+              </NText>
+            </NSpace>
+            <NDivider style="margin: 4px 0" />
+            <NSpace justify="space-between">
+              <NText strong size="large">
+                Tổng thanh toán:
+              </NText>
+              <NText strong type="primary" size="large">
+                {{ formatCurrency(tienHang - (checkoutVoucherData?.newVoucher?.giamGiaThucTe || 0)) }}
+              </NText>
+            </NSpace>
+          </NSpace>
+        </div>
+
+        <template #footer>
+          <NSpace justify="end">
+            <!-- Nút Hủy/Cancel luôn hiển thị -->
+            <NButton @click="handleCheckoutCancel">
+              Quay lại
+            </NButton>
+
+            <!-- Trường hợp voucher hết hạn và không có voucher mới -->
+            <template v-if="checkoutVoucherType === 'EXPIRED' && !checkoutVoucherData?.newVoucher">
+              <NButton type="primary" @click="handleCheckoutCancel">
+                OK, tôi hiểu
+              </NButton>
+            </template>
+
+            <!-- Trường hợp voucher hết hạn nhưng có voucher mới -->
+            <template v-else-if="checkoutVoucherType === 'EXPIRED' && checkoutVoucherData?.newVoucher">
+              <NButton @click="handleCheckoutKeepOldVoucher">
+                Vẫn dùng voucher cũ (đã hết hạn?)
+              </NButton>
+              <NButton type="primary" @click="handleCheckoutUseNewVoucher">
+                Dùng voucher mới
+              </NButton>
+            </template>
+
+            <!-- Trường hợp có voucher tốt hơn hoặc voucher mới -->
+            <template v-else>
+              <NButton v-if="selectedVoucher" @click="handleCheckoutKeepOldVoucher">
+                Giữ voucher cũ
+              </NButton>
+              <NButton type="primary" @click="handleCheckoutUseNewVoucher">
+                {{ selectedVoucher ? 'Dùng voucher mới' : 'Áp dụng voucher' }}
+              </NButton>
+            </template>
+          </NSpace>
+        </template>
       </NCard>
     </NModal>
   </div>
