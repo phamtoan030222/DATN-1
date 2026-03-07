@@ -393,11 +393,11 @@ async function loadCustomerSavedAddresses(customerId: string) {
     const res = await getAddressesByCustomer(customerId)
     customerAddresses.value = res.data?.data || []
 
-    // Tải trước tên Phường/Xã cho các địa chỉ cũ để hiển thị ra UI không bị mất dấu Tiếng Việt
     const provinceCodenames = [...new Set(customerAddresses.value.map(a => a.provinceCity).filter(Boolean))]
     await Promise.all(provinceCodenames.map(async (pCodename) => {
       const province = addressData34.value.find(p => p.codename === pCodename)
-      if (province && !province.wards) {
+      // ✅ SỬA: kiểm tra cả trường hợp wards = [] (mảng rỗng)
+      if (province && (!province.wards || province.wards.length === 0)) {
         try {
           const pRes = await fetch(`https://provinces.open-api.vn/api/v2/p/${province.code}?depth=2`)
           const pData = await pRes.json()
@@ -406,7 +406,6 @@ async function loadCustomerSavedAddresses(customerId: string) {
         catch (e) {}
       }
     }))
-
     const defaultAddr = customerAddresses.value.find((a: any) => a.isDefault)
     if (defaultAddr) {
       await applySavedAddress(defaultAddr.id)
@@ -793,14 +792,15 @@ async function selectKhachHang(customerId: string) {
   catch (error) { toast.error('Chọn khách hàng thất bại!') }
 }
 
-function clearSelectedCustomer() {
+async function clearSelectedCustomer() {
+  // Không gọi API vì backend chưa hỗ trợ xóa KH
+  // Chỉ reset UI local - khách hàng vẫn còn trong DB
+  // nhưng sẽ bị ghi đè khi chọn KH mới hoặc tạo HĐ mới
   state.detailKhachHang = null
-  // Reset thông tin giao hàng khi bỏ chọn khách hàng
-  deliveryInfo.tenNguoiNhan = ''
-  deliveryInfo.sdtNguoiNhan = ''
-  deliveryInfo.tinhThanhPho = null
-  deliveryInfo.phuongXa = null
-  deliveryInfo.diaChiCuThe = ''
+  resetDeliveryData()
+  ward34Options.value = []
+  if (hasCartItems.value)
+    await fetchDiscounts(idHDS.value)
   toast.info('Đã bỏ chọn khách hàng')
 }
 
