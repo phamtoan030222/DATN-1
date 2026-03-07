@@ -81,6 +81,7 @@ export const useAuthStore = defineStore("auth-store", {
 
       this.token = data.accessToken;
       this.userInfo = data;
+      this.userInfoDatn = data.userInfo;
 
       const routeStore = useRouteStore();
       await routeStore.initAuthRoute();

@@ -8,6 +8,8 @@ import {
   StorefrontOutline,
   TicketOutline,
 } from '@vicons/ionicons5'
+import axios from 'axios'
+import type { FormInst } from 'naive-ui'
 import {
   NButton,
   NCard,
@@ -29,15 +31,12 @@ import {
   NTag,
   useMessage,
 } from 'naive-ui'
-import type { FormInst } from 'naive-ui'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import axios from 'axios'
 import { useRouter } from 'vue-router'
 
 // Import Store & API
-import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import type { CartItemResponse } from '@/service/api/client/banhang.api'
-import { createOrder, GetGioHang, getMaGiamGia, getProductDetailCart } from '@/service/api/client/banhang.api'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { createOrder, getMaGiamGia } from '@/service/api/client/banhang.api'
 
 import {
   createAddress,
@@ -47,25 +46,30 @@ import {
   updateAddress,
 } from '@/service/api/client/customer/address.api'
 
+import { useCartStore } from '@/store/app/card'
 import { localStorageAction } from '@/utils'
-import { CartStore } from '@/utils/cartStore'
 
 const router = useRouter()
 const message = useMessage()
 const processing = ref(false)
 
 // --- Data Cart ---
-interface CartItemExt extends CartItemResponse {
-  originalPrice?: number
-  percentage?: number
-}
-const cartItems = ref<CartItemExt[]>([])
+// interface CartItemExt extends CartItemResponse {
+//   originalPrice?: number
+//   percentage?: number
+// }
+// const cartItems = ref<CartItemExt[]>([])
+
+const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { removeCart } = useCartStore()
+
+const cartItemsRef = computed(() => cartItemBuyNow.value ? [cartItemBuyNow.value] : cartItems.value)
+
 const userInfo = ref<any>(null)
 
 const STORE_ADDRESS = 'Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội'
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
-const cartId = ref<string | null>()
 
 // ====================================================
 // FORM THANH TOÁN CHÍNH (ÁP DỤNG RULES NATIVE-UI)
@@ -394,50 +398,11 @@ onMounted(async () => {
   if (userInfo.value) {
     await fetchMyAddresses()
   }
-  loadCart()
 })
 
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
-async function loadCart() {
-  cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
-  if (cartId.value) {
-    const res = await GetGioHang(cartId.value as string)
-    cartItems.value = (res.data || []).map((item: any) => {
-      const percentage = item.percentage || item.percentageDiscount || 0
-      const finalPrice = percentage > 0 ? item.price * (1 - percentage / 100) : item.price
-      return { ...item, originalPrice: item.price, price: finalPrice }
-    })
-  }
-  else {
-    const cartItem = localStorageAction.get(CUSTOMER_CART_ITEM)
-    if (!cartItem)
-      return
-    const res = await getProductDetailCart(Object.keys(cartItem))
-    cartItems.value = (res.data || []).map((productDetail: any) => {
-      const percentage = productDetail.percentage || productDetail.percentageDiscount || 0
-      const finalPrice = percentage > 0 ? productDetail.price * (1 - percentage / 100) : productDetail.price
-      return {
-        ...productDetail,
-        id: '',
-        productDetailId: productDetail.id,
-        quantity: cartItem[productDetail.id],
-        originalPrice: productDetail.price,
-        price: finalPrice,
-      }
-    })
-  }
-
-  if (cartItems.value.length === 0) {
-    message.warning('Giỏ hàng trống')
-    router.push('/cart')
-  }
-  else {
-    loadVouchers()
-  }
-}
-
-const subTotal = computed(() => cartItems.value.reduce((t, i) => t + (i.price * i.quantity), 0))
+const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.price * i.quantity), 0))
 const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 30000 : 0)
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
@@ -505,7 +470,7 @@ async function handleCheckout() {
 
   processing.value = true
   try {
-    const productPayload = cartItems.value.map(item => ({
+    const productPayload = cartItemsRef.value.map(item => ({
       productDetailId: item.productDetailId,
       quantity: item.quantity,
       price: item.price,
@@ -529,15 +494,14 @@ async function handleCheckout() {
     const res: any = await createOrder(payload)
     if (res.status === 200 || res.status === 'OK' || res.data) {
       message.success('Đặt hàng thành công!')
-      CartStore.clearCart()
       router.push('/order-success')
     }
-
-    if (!cartId.value) {
-      localStorageAction.remove(CUSTOMER_CART_ID)
-    }
-    else {
-      message.error(res.message || 'Đặt hàng thất bại')
+    if (cartItemBuyNow.value) {
+      removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+    } else {
+      cartItemsRef.value.forEach(item => {
+        removeCart(item.productDetailId)
+      })
     }
   }
   catch (error: any) {
@@ -564,8 +528,7 @@ async function handleCheckout() {
                 <div
                   class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'GIAO_HANG' ? 'border-green-600 bg-green-50 text-green-700 font-bold ring-1 ring-green-600' : 'hover:bg-gray-50 border-gray-200'"
-                  @click="deliveryType = 'GIAO_HANG'"
-                >
+                  @click="deliveryType = 'GIAO_HANG'">
                   <NIcon size="20">
                     <LocationOutline />
                   </NIcon> Giao tận nơi
@@ -573,8 +536,7 @@ async function handleCheckout() {
                 <div
                   class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-gray-50 border-gray-200'"
-                  @click="deliveryType = 'TAI_QUAY'"
-                >
+                  @click="deliveryType = 'TAI_QUAY'">
                   <NIcon size="20">
                     <StorefrontOutline />
                   </NIcon> Nhận tại cửa hàng
@@ -602,10 +564,8 @@ async function handleCheckout() {
                   <div class="text-sm font-bold text-gray-700">
                     ĐỊA CHỈ NHẬN HÀNG
                   </div>
-                  <NButton
-                    v-if="deliveryType === 'GIAO_HANG' && userInfo" type="primary" text size="small"
-                    @click="openAddressModal"
-                  >
+                  <NButton v-if="deliveryType === 'GIAO_HANG' && userInfo" type="primary" text size="small"
+                    @click="openAddressModal">
                     <template #icon>
                       <NIcon>
                         <LocationOutline />
@@ -617,48 +577,37 @@ async function handleCheckout() {
 
                 <template v-if="deliveryType === 'GIAO_HANG'">
                   <template v-if="userInfo">
-                    <div
-                      v-if="selectedAddressId"
-                      class="bg-green-50/50 p-4 border border-green-200 rounded-lg relative"
-                    >
+                    <div v-if="selectedAddressId"
+                      class="bg-green-50/50 p-4 border border-green-200 rounded-lg relative">
                       <NTag
                         v-if="String(myAddresses.find(a => a.id === selectedAddressId)?.status) === '1' || myAddresses.find(a => a.id === selectedAddressId)?.isDefault"
-                        type="success" size="small" class="mb-2"
-                      >
+                        type="success" size="small" class="mb-2">
                         Mặc định
                       </NTag>
                       <div class="text-gray-800 font-medium leading-relaxed">
-                        {{ formatFullAddress(myAddresses.find(a => a.id === selectedAddressId)) }}
+                        {{formatFullAddress(myAddresses.find(a => a.id === selectedAddressId))}}
                       </div>
                     </div>
                     <div v-else class="text-sm text-orange-600 bg-orange-50 p-3 rounded border border-orange-200">
-                      Vui lòng chọn địa chỉ giao hàng từ <span
-                        class="font-bold cursor-pointer underline"
-                        @click="openAddressModal"
-                      >Sổ địa chỉ</span>.
+                      Vui lòng chọn địa chỉ giao hàng từ <span class="font-bold cursor-pointer underline"
+                        @click="openAddressModal">Sổ địa chỉ</span>.
                     </div>
                   </template>
 
                   <template v-else>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
                       <NFormItem path="provinceName" label="Tỉnh/Thành phố">
-                        <NSelect
-                          v-model:value="checkoutForm.provinceName" :options="provinceOptions" filterable
-                          placeholder="Chọn Tỉnh/Thành" size="large" @update:value="onGuestProvinceChange"
-                        />
+                        <NSelect v-model:value="checkoutForm.provinceName" :options="provinceOptions" filterable
+                          placeholder="Chọn Tỉnh/Thành" size="large" @update:value="onGuestProvinceChange" />
                       </NFormItem>
                       <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
-                        <NSelect
-                          v-model:value="checkoutForm.wardName" :options="guestWardOptions" filterable
-                          placeholder="Chọn Phường/Xã" :disabled="!checkoutForm.provinceName" size="large"
-                        />
+                        <NSelect v-model:value="checkoutForm.wardName" :options="guestWardOptions" filterable
+                          placeholder="Chọn Phường/Xã" :disabled="!checkoutForm.provinceName" size="large" />
                       </NFormItem>
                       <div class="md:col-span-2">
                         <NFormItem path="addressDetail" label="Địa chỉ chi tiết">
-                          <NInput
-                            v-model:value="checkoutForm.addressDetail"
-                            placeholder="Nhập Số nhà, tên đường, tòa nhà..." size="large"
-                          />
+                          <NInput v-model:value="checkoutForm.addressDetail"
+                            placeholder="Nhập Số nhà, tên đường, tòa nhà..." size="large" />
                         </NFormItem>
                       </div>
                     </div>
@@ -674,10 +623,8 @@ async function handleCheckout() {
                 <NDivider style="margin: 4px 0 16px 0;" />
 
                 <NFormItem path="ghiChu" label="Ghi chú thêm (Tùy chọn)">
-                  <NInput
-                    v-model:value="checkoutForm.ghiChu" type="textarea"
-                    placeholder="Giao hàng trong giờ hành chính..." :autosize="{ minRows: 2, maxRows: 4 }"
-                  />
+                  <NInput v-model:value="checkoutForm.ghiChu" type="textarea"
+                    placeholder="Giao hàng trong giờ hành chính..." :autosize="{ minRows: 2, maxRows: 4 }" />
                 </NFormItem>
               </NForm>
             </NCard>
@@ -685,11 +632,9 @@ async function handleCheckout() {
             <NCard title="3. Phương thức thanh toán" size="small" class="shadow-sm rounded-xl">
               <NRadioGroup v-model:value="paymentMethod" name="payment" class="w-full">
                 <div class="space-y-3">
-                  <div
-                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '0' }"
-                    @click="paymentMethod = '0'"
-                  >
+                    @click="paymentMethod = '0'">
                     <NRadio value="0" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <NIcon color="#16a34a" size="24">
@@ -699,11 +644,9 @@ async function handleCheckout() {
                       </div>
                     </NRadio>
                   </div>
-                  <div
-                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'"
-                  >
+                    @click="paymentMethod = '1'">
                     <NRadio value="1" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <NIcon color="#2563eb" size="24">
@@ -722,14 +665,12 @@ async function handleCheckout() {
         <NGi>
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 sticky top-4">
             <h3 class="font-bold text-lg mb-4 pb-3 border-b text-gray-800">
-              Đơn hàng ({{ cartItems.length }} sản phẩm)
+              Đơn hàng ({{ cartItemsRef.length }} sản phẩm)
             </h3>
 
             <div class="space-y-3 mb-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-              <div
-                v-for="item in cartItems" :key="item.productDetailId"
-                class="flex justify-between text-sm py-3 border-b border-dashed border-gray-200 last:border-0"
-              >
+              <div v-for="item in cartItemsRef" :key="item.productDetailId"
+                class="flex justify-between text-sm py-3 border-b border-dashed border-gray-200 last:border-0">
                 <div class="flex-1 pr-3">
                   <div class="font-medium text-gray-800 leading-tight">
                     {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
@@ -740,13 +681,12 @@ async function handleCheckout() {
                 </div>
                 <div class="text-right flex flex-col items-end justify-center shrink-0">
                   <div class="font-bold text-red-600 text-[15px]">
-                    {{ formatCurrency(item.price * item.quantity) }}
+                    {{ formatCurrency((item.percentage && item.percentage > 0 ? item.price * (1 - item.percentage / 100)
+                      :
+                    item.price) * item.quantity) }}
                   </div>
-                  <div
-                    v-if="(item.originalPrice ?? 0) > item.price"
-                    class="text-[11px] text-gray-400 line-through mt-0.5"
-                  >
-                    {{ formatCurrency((item.originalPrice ?? 0) * item.quantity) }}
+                  <div v-if="(item.percentage ?? 0) > 0" class="text-[11px] text-gray-400 line-through mt-0.5">
+                    {{ formatCurrency((item.price ?? 0) * item.quantity) }}
                   </div>
                 </div>
               </div>
@@ -758,12 +698,10 @@ async function handleCheckout() {
                   <TicketOutline />
                 </NIcon> Khuyến mãi
               </div>
-              <NSelect
-                v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
+              <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
                 value-field="voucherId" placeholder="Chọn mã giảm giá của shop" clearable
                 :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
-                @update:value="handleSelectVoucher"
-              />
+                @update:value="handleSelectVoucher" />
             </div>
 
             <div class="space-y-3 text-[15px] text-gray-600">
@@ -772,7 +710,7 @@ async function handleCheckout() {
               </div>
               <div class="flex justify-between">
                 <span>Phí vận chuyển:</span><span class="font-medium text-gray-800">{{ formatCurrency(shippingFee)
-                }}</span>
+                  }}</span>
               </div>
               <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
                 <span>Voucher giảm:</span><span>-{{ formatCurrency(discountAmount) }}</span>
@@ -793,13 +731,22 @@ async function handleCheckout() {
               </div>
             </div>
 
-            <NButton
-              block type="primary" color="#d70018" size="large"
+            <!-- <NButton block type="primary" color="#d70018" size="large"
               class="font-bold h-12 text-lg mt-6 shadow-md shadow-red-200 hover:-translate-y-0.5 transition-transform"
-              :loading="processing" @click="handleCheckout"
-            >
+              :loading="processing" @click="handleCheckout">
               ĐẶT HÀNG NGAY
-            </NButton>
+            </NButton> -->
+            <n-popconfirm :positive-button-props="{ type: 'info' }" @positive-click="handleCheckout"
+               :positive-text="'Xác nhận'" :negative-text="'Hủy'">
+              <template #trigger>
+                <NButton block type="primary" color="#d70018" size="large"
+                  class="font-bold h-12 text-lg mt-6 shadow-md shadow-red-200 hover:-translate-y-0.5 transition-transform"
+                  :loading="processing">
+                  ĐẶT HÀNG NGAY
+                </NButton>
+              </template>
+              Bạn chắc chắn muốn thao tác
+            </n-popconfirm>
           </div>
         </NGi>
       </NGrid>
@@ -824,11 +771,9 @@ async function handleCheckout() {
           </div>
 
           <div v-else class="space-y-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
-            <div
-              v-for="addr in myAddresses" :key="addr.id"
+            <div v-for="addr in myAddresses" :key="addr.id"
               class="border p-4 rounded-lg transition-all relative group bg-white"
-              :class="{ 'border-green-500 bg-green-50/30 ring-1 ring-green-200': selectedAddressId === addr.id, 'border-gray-200': selectedAddressId !== addr.id }"
-            >
+              :class="{ 'border-green-500 bg-green-50/30 ring-1 ring-green-200': selectedAddressId === addr.id, 'border-gray-200': selectedAddressId !== addr.id }">
               <div class="flex justify-between items-start">
                 <div class="flex-1 pr-4">
                   <div class="flex items-center gap-2 mb-1">
@@ -846,15 +791,11 @@ async function handleCheckout() {
 
                 <div class="flex flex-col items-end gap-3 shrink-0">
                   <div class="flex items-center gap-2 text-blue-600">
-                    <span
-                      class="cursor-pointer hover:underline text-sm font-medium"
-                      @click="handleEditAddress(addr)"
-                    >Sửa</span>
+                    <span class="cursor-pointer hover:underline text-sm font-medium"
+                      @click="handleEditAddress(addr)">Sửa</span>
                     <span v-if="!(String(addr.status) === '1' || addr.isDefault)" class="text-gray-300">|</span>
-                    <NPopconfirm
-                      v-if="!(String(addr.status) === '1' || addr.isDefault)" positive-text="Xóa"
-                      negative-text="Hủy" @positive-click="handleDeleteAddress(addr.id)"
-                    >
+                    <NPopconfirm v-if="!(String(addr.status) === '1' || addr.isDefault)" positive-text="Xóa"
+                      negative-text="Hủy" @positive-click="handleDeleteAddress(addr.id)">
                       <template #trigger>
                         <span class="cursor-pointer text-red-500 hover:underline text-sm font-medium">Xóa</span>
                       </template>
@@ -862,27 +803,21 @@ async function handleCheckout() {
                     </NPopconfirm>
                   </div>
 
-                  <NButton
-                    v-if="selectedAddressId !== addr.id" type="primary" ghost size="small"
-                    @click="selectAddressFromModal(addr)"
-                  >
+                  <NButton v-if="selectedAddressId !== addr.id" type="primary" ghost size="small"
+                    @click="selectAddressFromModal(addr)">
                     Giao đến địa chỉ này
                   </NButton>
 
-                  <div
-                    v-else
-                    class="text-green-600 font-bold flex items-center gap-1 text-sm bg-green-100 px-2 py-1 rounded"
-                  >
+                  <div v-else
+                    class="text-green-600 font-bold flex items-center gap-1 text-sm bg-green-100 px-2 py-1 rounded">
                     <NIcon size="16">
                       <CheckmarkCircleOutline />
                     </NIcon> Đang chọn
                   </div>
 
-                  <NButton
-                    v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text type="primary"
+                  <NButton v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text type="primary"
                     class="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="handleSetDefault(addr.id)"
-                  >
+                    @click="handleSetDefault(addr.id)">
                     Thiết lập mặc định
                   </NButton>
                 </div>
@@ -899,16 +834,12 @@ async function handleCheckout() {
           <NForm ref="addressFormRef" :model="newAddress" :rules="addressRules" label-placement="top">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
               <NFormItem path="provinceName" label="Tỉnh/Thành phố">
-                <NSelect
-                  v-model:value="newAddress.provinceName" :options="provinceOptions" filterable
-                  placeholder="Chọn Tỉnh/Thành" @update:value="onModalProvinceChange"
-                />
+                <NSelect v-model:value="newAddress.provinceName" :options="provinceOptions" filterable
+                  placeholder="Chọn Tỉnh/Thành" @update:value="onModalProvinceChange" />
               </NFormItem>
               <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
-                <NSelect
-                  v-model:value="newAddress.wardName" :options="modalWardOptions" filterable
-                  placeholder="Chọn Phường/Xã" :disabled="!newAddress.provinceName"
-                />
+                <NSelect v-model:value="newAddress.wardName" :options="modalWardOptions" filterable
+                  placeholder="Chọn Phường/Xã" :disabled="!newAddress.provinceName" />
               </NFormItem>
             </div>
 
