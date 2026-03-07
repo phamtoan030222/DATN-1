@@ -38,7 +38,7 @@ public class AdColorServiceImpl implements AdColorService {
     public ResponseObject<?> createColor(ColorCreateUpdateRequest request) {
 
         // Kiểm tra trùng tên
-        List<Color> colorsByName = adColorRepository.findAllByName(request.getColorName());
+        List<Color> colorsByName = adColorRepository.findAllByName(request.getName());
         if (!colorsByName.isEmpty()) {
             return new ResponseObject<>(
                     null,
@@ -50,7 +50,7 @@ public class AdColorServiceImpl implements AdColorService {
         }
 
         // Kiểm tra trùng code
-        List<Color> colorsByCode = adColorRepository.findAllByCode(request.getColorCode());
+        List<Color> colorsByCode = adColorRepository.findAllByCode(request.getCode());
         if (!colorsByCode.isEmpty()) {
             return new ResponseObject<>(
                     null,
@@ -63,8 +63,8 @@ public class AdColorServiceImpl implements AdColorService {
 
         // Tạo mới màu
         Color color = new Color();
-        color.setName(request.getColorName());
-        color.setCode(request.getColorCode());
+        color.setName(request.getName());
+        color.setCode(request.getCode());
         color.setCreatedDate(System.currentTimeMillis());
         color.setStatus(EntityStatus.ACTIVE);
         adColorRepository.save(color);

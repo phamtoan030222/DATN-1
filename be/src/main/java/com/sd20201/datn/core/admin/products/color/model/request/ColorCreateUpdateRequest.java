@@ -9,8 +9,8 @@ import lombok.Setter;
 public class ColorCreateUpdateRequest {
 
     @NotBlank(message="Tên màu sắc không được để trống")
-    private String colorName;
+    private String name;
 
     @NotBlank(message="Vui lòng chọn mã màu")
-    private String colorCode;
+    private String code;
 }
