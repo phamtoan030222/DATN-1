@@ -1151,4 +1151,28 @@ public class ADBanHangServiceImpl implements ADBanHangService {
                 "OKE"
         );
     }
+
+    @Override
+    public ResponseObject<?> boChonKhachHang(String idHoaDon) {
+        try {
+            // 1. Tìm hóa đơn theo ID
+            Invoice hoaDon = adTaoHoaDonRepository.findById(idHoaDon)
+                    .orElseThrow(() -> new BusinessException("Không tìm thấy hóa đơn"));
+
+            // 2. Gỡ khách hàng khỏi hóa đơn (gán về null)
+            hoaDon.setCustomer(null);
+
+            // Lưu ý: Nếu hệ thống của bạn yêu cầu gỡ luôn cả Voucher khi bỏ chọn khách hàng
+            // (vì voucher thường gắn liền với khách), bạn có thể mở comment dòng dưới đây:
+            // hoaDon.setVoucher(null);
+
+            // 3. Lưu lại thay đổi xuống DB
+            adTaoHoaDonRepository.save(hoaDon);
+
+            return new ResponseObject<>(null, HttpStatus.OK, "Đã bỏ chọn khách hàng khỏi hóa đơn");
+        } catch (Exception e) {
+            log.error("Lỗi khi bỏ chọn khách hàng cho hóa đơn {}: ", idHoaDon, e);
+            throw new BusinessException("Lỗi khi bỏ chọn khách hàng: " + e.getMessage());
+        }
+    }
 }
