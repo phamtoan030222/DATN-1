@@ -3,6 +3,11 @@ import { ref, onMounted, computed, nextTick } from 'vue';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import axios from 'axios';
+import { useAuthStore } from '@/store'; 
+import { storeToRefs } from 'pinia';
+
+const authStore = useAuthStore();
+const { userInfoDatn } = storeToRefs(authStore);
 
 // --- CẤU HÌNH ---
 const BACKEND_URL = 'http://localhost:2345'; 
@@ -13,6 +18,8 @@ const sessions = ref({});
 const currentSessionId = ref(null);
 const replyText = ref('');
 const chatWindowRef = ref(null);
+
+
 
 // 🔥 LỌC SESSION: Chỉ hiện những người đã yêu cầu gặp nhân viên
 const visibleSessions = computed(() => {
@@ -94,10 +101,45 @@ const selectSession = (sessionId) => {
   scrollToBottom();
 };
 
+const acceptSession = async () => {
+  if (!currentSessionId.value) return;
+  const sId = currentSessionId.value;
+
+  // Lấy thông tin nhân viên từ Store
+  const staffName = userInfoDatn.value?.fullName || 'Admin';
+  const staffCode = userInfoDatn.value?.userCode || 'NV';
+  const staffId = userInfoDatn.value?.userId || 'NV001';
+
+  // Tạo câu thông báo chuẩn
+  const msgContent = `Nhân viên ${staffName} (Mã: ${staffCode}) đã tiếp nhận hỗ trợ bạn.`;
+
+  sessions.value[sId].messages.push({
+    senderRole: 'STAFF',
+    content: msgContent,
+    createdDate: new Date().getTime()
+  });
+  
+  sessions.value[sId].needsSupport = false; // Đã tiếp nhận thì có thể tắt cờ cảnh báo (tuỳ ý)
+  scrollToBottom();
+
+  try {
+    // Gọi API lưu tin nhắn
+    await axios.post(`${BACKEND_URL}/api/v1/chat/staff/reply`, {
+      sessionId: sId,
+      message: msgContent,
+      staffId: staffId 
+    });
+  } catch (error) {
+    console.error("Lỗi gửi tin:", error);
+  }
+};
+
+// Sửa lại hàm sendReply để lấy ID nhân viên thật
 const sendReply = async () => {
   if (!replyText.value.trim() || !currentSessionId.value) return;
   const msgContent = replyText.value;
   const sId = currentSessionId.value;
+  const staffId = userInfoDatn.value?.userId || 'NV001'; // Lấy ID thật
 
   sessions.value[sId].messages.push({
     senderRole: 'STAFF',
@@ -112,13 +154,12 @@ const sendReply = async () => {
     await axios.post(`${BACKEND_URL}/api/v1/chat/staff/reply`, {
       sessionId: sId,
       message: msgContent,
-      staffId: 'NV001' 
+      staffId: staffId 
     });
   } catch (error) {
     console.error("Lỗi gửi tin:", error);
   }
 };
-
 const formatTime = (timestamp) => {
   if (!timestamp) return '';
   return new Date(timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -200,6 +241,12 @@ onMounted(() => {
           </div>
         </div>
 
+        <div class="action-bar" style="padding: 10px 24px; background: #fff; border-top: 1px solid #eee;">
+            <button @click="acceptSession" class="accept-btn">
+              👋 Gửi thông báo Tiếp nhận hỗ trợ
+            </button>
+        </div>
+
         <div class="input-area">
           <input 
             v-model="replyText" 
@@ -264,4 +311,16 @@ input:focus { border-color: #4caf50; }
 .send-btn:hover { background-color: #43a047; }
 .welcome-screen { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #aaa; }
 .empty-list { text-align: center; padding: 20px; color: #999; margin-top: 50px; }
+.accept-btn {
+  background-color: #e0f2fe;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.accept-btn:hover { background-color: #bae6fd; }
 </style>
