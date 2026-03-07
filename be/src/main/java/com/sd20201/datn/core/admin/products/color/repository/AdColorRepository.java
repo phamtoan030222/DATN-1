@@ -18,10 +18,10 @@ public interface AdColorRepository extends ColorRepository {
     @Query(
             value = """
            SELECT c.id AS id,
-                  c.name AS colorName,
-                  c.code AS colorCode,
+                  c.name AS name,
+                  c.code AS code,
                   c.createdDate AS createdDate,
-                  c.status AS colorStatus
+                  c.status AS status
            FROM Color c 
            WHERE (
                  :keyword IS NULL 

@@ -4,11 +4,11 @@ public interface AdColorResponse {
 
     String getId();
 
-    String getColorName();
+    String getName();
 
     Long getCreatedDate();
 
-    String getColorStatus();
+    String getStatus();
 
-    String getColorCode();
+    String getCode();
 }

@@ -500,3 +500,12 @@ export async function xoaKhachHang(idHD: string): Promise<any> {
     throw error
   }
 }
+
+// api của tâm 
+export async function yeuCauQRApp(idHD: string) {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/yeu-cau-qr/${idHD}`,
+    method: 'POST',
+  })) as AxiosResponse<any>
+  return res.data
+}

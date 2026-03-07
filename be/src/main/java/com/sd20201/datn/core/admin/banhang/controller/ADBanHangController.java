@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import java.util.List;
 
@@ -27,6 +29,35 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class ADBanHangController {
     private final ADProductDetailService productDetailService;
+
+    private final java.util.concurrent.CopyOnWriteArrayList<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> emitters = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamPOS() {
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(600000L);
+        emitters.add(emitter);
+        emitter.onCompletion(() -> emitters.remove(emitter));
+        emitter.onTimeout(() -> emitters.remove(emitter));
+        emitter.onError((e) -> emitters.remove(emitter));
+        return emitter;
+    }
+
+    private void sendRealtimeUpdate(String message) {
+        for (org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter : emitters) {
+            try {
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event().name("message").data(message));
+            } catch (Exception e) {
+                emitters.remove(emitter);
+            }
+        }
+    }
+
+    @PostMapping("/yeu-cau-qr/{id}")
+    public ResponseEntity<?> yeuCauQR(@PathVariable("id") String id) {
+        String jsonMsg = "{\"action\": \"SHOW_QR\", \"idHD\": \"" + id + "\"}";
+        sendRealtimeUpdate(jsonMsg);
+        return ResponseEntity.ok("Đã gửi yêu cầu hiển thị QR");
+    }
 
     public final ADBanHangService adBanHangService;
 
@@ -43,8 +74,9 @@ public class ADBanHangController {
 
     @PostMapping("/create-hoa-don")
     public ResponseEntity<?> createHoaDon(@RequestBody ADNhanVienRequest adNhanVienRequest) {
-        return Helper.createResponseEntity(adBanHangService.createHoaDon(adNhanVienRequest));
-    }
+        ResponseEntity<?> response = Helper.createResponseEntity(adBanHangService.createHoaDon(adNhanVienRequest));
+        sendRealtimeUpdate("{\"action\": \"UPDATE_CART\"}");
+        return response;    }
 
     @GetMapping("/list-gio-hang/{id}")
     public List<ADGioHangResponse> getListGioHang(@PathVariable("id") String id) {
@@ -74,12 +106,17 @@ public class ADBanHangController {
 
     @PostMapping("them-san-pham")
     public ResponseEntity<?> modifyProduct(@RequestBody ADThemSanPhamRequest request) {
-        return Helper.createResponseEntity(adBanHangService.createThemSanPham(request));
+        ResponseEntity<?> response = Helper.createResponseEntity(adBanHangService.createThemSanPham(request));
+        sendRealtimeUpdate("{\"action\": \"UPDATE_CART\"}");
+        return response;
     }
 
     @PostMapping("/thanh-toan-thanh-cong")
     public ResponseEntity<?>  thanhToanThanhCong(@RequestBody ADThanhToanRequest id) throws BadRequestException {
-        return Helper.createResponseEntity(adBanHangService.thanhToanThanhCong(id));
+        ResponseEntity<?> response = Helper.createResponseEntity(adBanHangService.thanhToanThanhCong(id));
+        String jsonMsg = "{\"action\": \"PAYMENT_SUCCESS\", \"idHD\": \"" + id.getIdHD() + "\"}";
+        sendRealtimeUpdate(jsonMsg);
+        return response;
     }
 
     @PostMapping("/them-khach-hang")
@@ -105,7 +142,9 @@ public class ADBanHangController {
 
     @PostMapping("/huy")
     public ResponseEntity<?> huyHoaDon(ADHuyRequest adNhanVienRequest) {
-        return Helper.createResponseEntity(adBanHangService.huy(adNhanVienRequest));
+        ResponseEntity<?> response = Helper.createResponseEntity(adBanHangService.huy(adNhanVienRequest));
+        sendRealtimeUpdate("{\"action\": \"UPDATE_CART\"}");
+        return response;
     }
 
     @GetMapping("/screens")
