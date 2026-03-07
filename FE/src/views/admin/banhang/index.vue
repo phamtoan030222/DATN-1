@@ -1270,12 +1270,12 @@ onMounted(async () => {
     getMaterials(),
   ])
 
-  ColorOptions.value = colors.data.map((c: any) => ({ label: c.ten, value: c.ten }))
-  CpuOptions.value = cpus.data.map((c: any) => ({ label: c.ten, value: c.ten }))
-  GpuOptions.value = gpus.data.map((g: any) => ({ label: g.ten, value: g.ten }))
-  RamOptions.value = rams.data.map((r: any) => ({ label: r.ten, value: r.ten }))
-  HardDriveOptions.value = hardDrives.data.map((h: any) => ({ label: h.ten, value: h.ten }))
-  MaterialOptions.value = materials.data.map((m: any) => ({ label: m.ten, value: m.ten }))
+  ColorOptions.value = colors.data.map((c: any) => ({ label: c.label, value: c.value }))
+  CpuOptions.value = cpus.data.map((c: any) => ({ label: c.label, value: c.value }))
+  GpuOptions.value = gpus.data.map((g: any) => ({ label: g.label, value: g.value }))
+  RamOptions.value = rams.data.map((r: any) => ({ label: r.label, value: r.value }))
+  HardDriveOptions.value = hardDrives.data.map((h: any) => ({ label: h.label, value: h.value }))
+  MaterialOptions.value = materials.data.map((m: any) => ({ label: m.label, value: m.value }))
 
   await fetchProducts()
   await fetchCustomers()
@@ -1381,7 +1381,6 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
       onUpdateChecked: (checked) => { checked ? (selectedSerialIds.value = [...selectedSerialIds.value, row.id]) : (selectedSerialIds.value = selectedSerialIds.value.filter(id => id !== row.id)) },
     }),
   },
-  { title: 'In', key: 'print', width: 80, align: 'center', render: row => h(NButton, { size: 'tiny', text: true, onClick: () => printSerialBarcode(row.code) }, { icon: () => h(NIcon, null, () => h(BarcodeOutline)) }) },
   { title: 'SERIAL', key: 'code', width: 180, render: row => h(NText, { code: true, style: { fontFamily: 'monospace' } }, () => row.code || '-') },
   {
     title: 'Trạng thái',

@@ -106,7 +106,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             SELECT
                     p.id as id
                         , p.code as code
-                        , p.name as name
+                        , pt.name as name
                         , p.hardDrive.name as hardDrive
                         , p.material.name as material
                         , p.color.name as color
@@ -120,6 +120,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , MAX(d.percentage) as percentage
                         , MAX(d.endDate) as endDate
             FROM ProductDetail p
+                LEFT join Product pt on p.product.id = pt.id 
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
                 LEFT JOIN Discount d on pdd.discount.id = d.id
             where
