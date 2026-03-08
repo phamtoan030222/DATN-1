@@ -495,3 +495,18 @@ export async function yeuCauQRApp(idHD: string) {
   })) as AxiosResponse<any>
   return res.data
 }
+
+export interface ADGanImeiRequest {
+  hoaDonChiTietId: string
+  imeiIds: string[]
+}
+
+export async function ganImei(data: ADGanImeiRequest) {
+  const res = await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/gan-imei`,
+    method: 'PUT',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}

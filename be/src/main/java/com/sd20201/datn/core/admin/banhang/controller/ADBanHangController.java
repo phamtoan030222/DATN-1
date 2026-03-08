@@ -207,4 +207,9 @@ public class ADBanHangController {
     public ResponseEntity<?> boChonKhachHang(@PathVariable String idHoaDon) {
         return Helper.createResponseEntity(adBanHangService.boChonKhachHang(idHoaDon));
     }
+
+    @PutMapping("/gan-imei")
+    public ResponseEntity<?> ganImei(@RequestBody ADGanImeiRequest request) {
+        return Helper.createResponseEntity(adBanHangService.ganImei(request));
+    }
 }
