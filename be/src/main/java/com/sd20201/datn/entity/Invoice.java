@@ -72,6 +72,10 @@ public class Invoice extends PrimaryEntity implements Serializable {
     @Column(name = "trang_thai_thanh_toan")
     private TrangThaiThanhToan trangThaiThanhToan = TrangThaiThanhToan.CHUA_THANH_TOAN;
 
+    private String ten;
+
+    private String sdt;
+
 
     private String paymentMethod;
 

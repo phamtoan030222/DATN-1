@@ -52,8 +52,8 @@ SELECT
         WHERE hdsub.id_invoice = hd.id
     ) AS thanhTien,
 
-    COALESCE(kh.name,'') AS tenKhachHang,
-    COALESCE(kh.phone,'') AS sdtKH,
+    COALESCE(hd.name_receiver,'') AS tenKhachHang,
+    COALESCE(hd.phone_receiver,'') AS sdtKH,
     COALESCE(kh.email,'') AS email,
     COALESCE(hd.address_receiver,'') AS diaChi,
 
