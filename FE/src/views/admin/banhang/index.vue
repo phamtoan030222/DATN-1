@@ -44,6 +44,7 @@ import type { DataTableColumns } from 'naive-ui'
 import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
+// Thêm vào cuối phần import hiện tại
 
 // Naive UI Icons
 import {
@@ -53,7 +54,8 @@ import {
   CloseOutline,
   DocumentTextOutline,
   LocationOutline, // Icon địa chỉ
-  PersonOutline, // Icon người
+  PersonOutline,
+  QrCodeOutline, // Icon người
   ReloadOutline,
   SearchOutline,
   TrashOutline,
@@ -91,6 +93,7 @@ import {
   NText,
   NThing,
 } from 'naive-ui'
+import VNPayPayment from '@/components/payment/VNPayPayment.vue'
 
 // ==================== CONSTANTS ====================
 const USER_INFO = localStorageAction.get(USER_INFO_STORAGE_KEY)
@@ -208,6 +211,23 @@ async function triggerShowQR() {
     toast.error('Gửi yêu cầu thất bại, vui lòng thử lại!')
   }
 }
+
+// ==================== VNPAY STATE ====================
+const vnpayVisible = ref(false)
+const vnpayLoading = ref(false)
+const currentInvoice = computed(() => {
+  if (!idHDS.value)
+    return null
+  return {
+    id: idHDS.value,
+    code: tabs.value.find(t => t.idHD === idHDS.value)?.code || '',
+    totalAmountAfterDecrease: tongTien.value,
+    customerName: state.detailKhachHang?.ten || deliveryInfo.tenNguoiNhan,
+    customerPhone: state.detailKhachHang?.sdt || deliveryInfo.sdtNguoiNhan,
+    customerEmail: state.detailKhachHang?.email || '',
+    customerAddress: formatFullAddress.value,
+  }
+})
 
 // ==================== DELIVERY BACKUP (Dùng cho Modal) ====================
 const deliveryBackup = ref<any>(null)
@@ -447,6 +467,59 @@ async function loadCustomerSavedAddresses(customerId: string) {
     customerAddresses.value = []
     selectedSavedAddressId.value = 'NEW'
   }
+}
+
+// ==================== VNPAY FUNCTIONS ====================
+async function showVNPayPayment() {
+  if (!idHDS.value) {
+    toast.error('Vui lòng chọn hóa đơn!')
+    return
+  }
+
+  if (!hasCartItems.value) {
+    toast.error('Giỏ hàng trống!')
+    return
+  }
+
+  if (tongTien.value <= 0) {
+    toast.error('Số tiền thanh toán không hợp lệ!')
+    return
+  }
+
+  // Kiểm tra thông tin giao hàng nếu là đơn giao hàng
+  if (isDeliveryEnabled.value) {
+    if (!deliveryInfo.tenNguoiNhan || !deliveryInfo.sdtNguoiNhan || !deliveryInfo.tinhThanhPho || !deliveryInfo.phuongXa || !deliveryInfo.diaChiCuThe) {
+      toast.error('Vui lòng nhập đầy đủ thông tin giao hàng!')
+      return
+    }
+    const phoneRegex = /^(03|05|07|08|09)\d{8,9}$/
+    if (!phoneRegex.test(deliveryInfo.sdtNguoiNhan)) {
+      toast.error('Số điện thoại giao hàng không hợp lệ!')
+      return
+    }
+  }
+
+  vnpayVisible.value = true
+}
+
+function handlePaymentSuccess(result: any) {
+  toast.success('Thanh toán VNPAY thành công!')
+
+  // Cập nhật trạng thái hóa đơn
+  if (state.detailKhachHang) {
+    state.detailKhachHang.trangThaiThanhToan = 'DA_THANH_TOAN'
+  }
+
+  // Refresh lại giỏ hàng
+  refreshCart()
+
+  // Đóng modal
+  vnpayVisible.value = false
+}
+
+function handlePaymentCompleted() {
+  // Reset lại sau khi thanh toán xong
+  resetAfterPayment()
 }
 
 // Thêm hàm mới (khoảng dòng 400)
@@ -1432,6 +1505,8 @@ onMounted(async () => {
   await fetchProducts()
   await fetchCustomers()
   await fetchHoaDon()
+
+  vnpayVisible.value = false
 })
 
 // ==================== TABLE COLUMNS ====================
@@ -2000,14 +2075,21 @@ function formatCurrencyInput(value: number) {
               >
                 Tiền mặt
               </NButton>
+
+              <!-- Nút thanh toán VNPAY -->
               <NButton
-                :type="state.currentPaymentMethod === '1' ? 'primary' : 'default'"
+                type="primary"
                 size="small"
-                secondary
-                @click="setPaymentMethod('1')"
+                :loading="vnpayLoading"
+                :disabled="!currentInvoice"
+                @click="showVNPayPayment"
               >
-                Chuyển khoản
+                <template #icon>
+                  <NIcon><QrCodeOutline /></NIcon>
+                </template>
+                Thanh toán VNPAY
               </NButton>
+
               <NButton
                 :type="state.currentPaymentMethod === '2' ? 'primary' : 'default'"
                 size="small"
@@ -2017,6 +2099,8 @@ function formatCurrencyInput(value: number) {
                 Kết hợp
               </NButton>
             </NSpace>
+
+            <!-- QR App button -->
             <NButton
               v-if="state.currentPaymentMethod === '1' || state.currentPaymentMethod === '2'"
               type="info"
@@ -2440,6 +2524,14 @@ function formatCurrencyInput(value: number) {
           Không tìm thấy camera hoặc không có quyền truy cập camera.
         </NAlert>
       </NCard>
+    </NModal>
+    <NModal v-model:show="vnpayVisible" preset="dialog" title="Thanh toán VNPAY" style="width: 90%; max-width: 500px" :mask-closable="false" :close-on-esc="false">
+      <!-- Component thanh toán VNPAY -->
+      <VNPayPayment
+        :invoice="currentInvoice"
+        @payment-success="handlePaymentSuccess"
+        @payment-completed="handlePaymentCompleted"
+      />
     </NModal>
     <!-- Thêm modal này sau modal showBetterVoucherModal hiện tại -->
     <NModal

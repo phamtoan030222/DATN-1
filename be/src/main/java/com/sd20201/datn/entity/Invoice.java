@@ -3,6 +3,7 @@ package com.sd20201.datn.entity;
 import com.sd20201.datn.entity.base.PrimaryEntity;
 import com.sd20201.datn.infrastructure.constant.EntityProperties;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import com.sd20201.datn.infrastructure.constant.TypeInvoice;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -38,7 +39,8 @@ public class Invoice extends PrimaryEntity implements Serializable {
     private ShippingMethod shippingMethod;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "id_shift", referencedColumnName = "id") // Đặt tên cột là id_shift cho giống các cột id_staff bên trên
+    @JoinColumn(name = "id_shift", referencedColumnName = "id")
+    // Đặt tên cột là id_shift cho giống các cột id_staff bên trên
     private ShiftHandover shiftHandover;
 
     @Enumerated(EnumType.ORDINAL)
@@ -65,4 +67,15 @@ public class Invoice extends PrimaryEntity implements Serializable {
 
     @Column(name = "trang_thai_hoa_don")
     private EntityTrangThaiHoaDon entityTrangThaiHoaDon;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "trang_thai_thanh_toan")
+    private TrangThaiThanhToan trangThaiThanhToan = TrangThaiThanhToan.CHUA_THANH_TOAN;
+
+
+    private String paymentMethod;
+
+    private String transactionId;
+
+    private String bankCode;
 }
