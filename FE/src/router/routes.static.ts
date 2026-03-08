@@ -1,7 +1,6 @@
 export const staticRoutes: AppRoute.RowRoute[] = [
   // Bàn làm việc
 
-
   {
     name: 'monitor_stats',
     path: '/monitor/stats',
@@ -15,7 +14,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     pid: null,
   },
 
-    {
+  {
     name: 'dashboard_sales',
     path: '/dashboard/sales',
     title: 'Bán hàng tại quầy',

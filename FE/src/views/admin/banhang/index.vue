@@ -720,7 +720,6 @@ async function fetchDiscounts(idHD: string) {
       && bestVoucher.giamGiaThucTe > selectedVoucher.value.giamGiaThucTe) {
       betterVoucher.value = bestVoucher
       currentVoucher.value = selectedVoucher.value
-      showBetterVoucherModal.value = true
     }
 
     // Xử lý gợi ý mua thêm
@@ -805,47 +804,8 @@ async function refreshCart() {
   }
 }
 
-async function increaseQuantity(idHDCT: any, idSPS: any) {
-  try {
-    const formData = new FormData()
-    formData.append('idSP', idSPS)
-    formData.append('idHDCT', idHDCT)
-    formData.append('idHD', idHDS.value)
-    const res = await themSL(formData)
-
-    if (res.message.includes('thay đổi giá từ')) {
-      toast.warning(res.message)
-      return
-    }
-
-    await refreshCart()
-    if (hasCartItems.value)
-      await fetchDiscounts(idHDS.value)
-  }
-  catch (error) { toast.error('Tăng số lượng thất bại!') }
-}
-
-async function decreaseQuantity(idHDCT: any, idSPS: any) {
-  try {
-    const formData = new FormData()
-    formData.append('idSP', idSPS)
-    formData.append('idHDCT', idHDCT)
-    await xoaSL(formData)
-
-    await refreshCart()
-    if (hasCartItems.value) {
-      await fetchDiscounts(idHDS.value)
-    }
-    else {
-      resetDiscountState()
-    }
-  }
-  catch (error) { toast.error('Giảm số lượng thất bại!') }
-}
-
 async function deleteProduct(row: any) {
   try {
-    console.log('Deleting product with imei:', row.imel)
     await xoaSP({
       imei: row.imel,
     })
@@ -907,8 +867,8 @@ async function addSerialToCart() {
     selectedSerialIds.value = []
 
     await refreshCart()
-    if (hasCartItems.value)
-      await fetchDiscounts(idHDS.value)
+    // if (hasCartItems.value)
+    //   await fetchDiscounts(idHDS.value)
   }
   catch (error) { toast.error('Thêm serial vào giỏ hàng thất bại!') }
 }
@@ -1215,6 +1175,19 @@ function openBarcodeScanner() {
   if (!idHDS.value) { toast.error('Vui lòng tạo hoặc chọn hóa đơn trước!'); return }
   isBarcodeModalVisible.value = true
   nextTick(() => startBarcodeScanning())
+}
+
+function getModalTitle() {
+  switch (checkoutVoucherType.value) {
+    case 'EXPIRED':
+      return 'Voucher đã hết hạn'
+    case 'BETTER':
+      return 'Có voucher tốt hơn'
+    case 'NEW':
+      return 'Có voucher khả dụng'
+    default:
+      return 'Thông báo'
+  }
 }
 
 function startBarcodeScanning() {
@@ -2008,6 +1981,7 @@ function formatCurrencyInput(value: number) {
               <NText depth="3">
                 Giao hàng
               </NText>
+
               <NSwitch v-model:value="isDeliveryEnabled" size="small" @update:value="toggleDelivery" />
             </NSpace>
           </NSpace>
@@ -2047,6 +2021,12 @@ function formatCurrencyInput(value: number) {
                   size="small"
                   style="width: 150px"
                   placeholder="Nhập phí ship"
+                />
+
+                <NImage
+                  width="50"
+                  src="/images/ghn-logo.webp"
+                  preview-disabled
                 />
               </NSpace>
               <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
@@ -2200,8 +2180,7 @@ function formatCurrencyInput(value: number) {
     <!-- Modal thông báo voucher tốt hơn -->
     <NModal
       v-model:show="showBetterVoucherModal"
-      preset="dialog"
-      title="🎁 Phát hiện voucher tốt hơn!"
+      title=" Phát hiện voucher tốt hơn!"
       style="width: 90%; max-width: 500px"
       :mask-closable="false"
       :close-on-esc="false"
@@ -2301,18 +2280,40 @@ function formatCurrencyInput(value: number) {
             </NSpace>
           </NSpace>
         </div>
-
-        <template #footer>
-          <NSpace justify="end">
-            <NButton @click="handleKeepOldVoucher">
-              Giữ voucher cũ
-            </NButton>
-            <NButton type="primary" @click="handleUseBetterVoucher">
-              Dùng voucher mới
-            </NButton>
-          </NSpace>
-        </template>
       </NCard>
+
+      <!-- Footer của Modal - đặt bên ngoài NCard nhưng trong NModal -->
+      <template #footer>
+        <NSpace justify="end">
+          <!-- Popconfirm cho nút Giữ voucher cũ -->
+          <NPopconfirm
+            positive-text="Đồng ý"
+            negative-text="Hủy"
+            @positive-click="handleKeepOldVoucher"
+          >
+            <template #trigger>
+              <NButton>
+                Giữ voucher cũ
+              </NButton>
+            </template>
+            Bạn có chắc chắn muốn giữ voucher cũ?
+          </NPopconfirm>
+
+          <!-- Popconfirm cho nút Dùng voucher mới -->
+          <NPopconfirm
+            positive-text="Đồng ý"
+            negative-text="Hủy"
+            @positive-click="handleUseBetterVoucher"
+          >
+            <template #trigger>
+              <NButton type="primary">
+                Dùng voucher mới
+              </NButton>
+            </template>
+            Bạn có chắc chắn muốn dùng voucher mới?
+          </NPopconfirm>
+        </NSpace>
+      </template>
     </NModal>
 
     <NModal
@@ -2542,7 +2543,7 @@ function formatCurrencyInput(value: number) {
     <NModal
       v-model:show="showCheckoutVoucherModal"
       preset="dialog"
-      :title="checkoutVoucherType === 'EXPIRED' ? '⚠️ Voucher không còn hiệu lực' : '🎁 Cập nhật voucher'"
+      :title="getModalTitle()"
       style="width: 90%; max-width: 500px"
       :mask-closable="false"
       :close-on-esc="false"
@@ -2551,17 +2552,35 @@ function formatCurrencyInput(value: number) {
         <!-- Trường hợp voucher hết hạn -->
         <template v-if="checkoutVoucherType === 'EXPIRED'">
           <NAlert type="error" :show-icon="true" class="mb-4">
-            {{ checkoutVoucherData?.message }}
+            {{ checkoutVoucherData?.message || 'Voucher đã hết hạn sử dụng' }}
           </NAlert>
 
           <div class="voucher-info mb-4 p-3" style="background: #fff2f0; border-radius: 8px;">
-            <NText delete type="error" class="block mb-2">
+            <NText delete type="error" strong class="block mb-2">
               Voucher cũ: {{ checkoutVoucherData?.oldVoucher?.code }}
             </NText>
-            <NText v-if="checkoutVoucherData?.newVoucher" type="success" strong>
-              Voucher mới: {{ checkoutVoucherData?.newVoucher?.code }}
-            </NText>
-            <NText v-else type="warning">
+
+            <template v-if="checkoutVoucherData?.newVoucher">
+              <NDivider>
+                <NTag size="small" type="success">
+                  Gợi ý
+                </NTag>
+              </NDivider>
+
+              <NText type="success" strong class="block mb-2">
+                Voucher thay thế: {{ checkoutVoucherData?.newVoucher?.code }}
+              </NText>
+              <div class="voucher-value">
+                <NText depth="3">
+                  Giảm:
+                </NText>
+                <NText type="success" strong>
+                  {{ formatCurrency(checkoutVoucherData?.newVoucher?.giamGiaThucTe || 0) }}
+                </NText>
+              </div>
+            </template>
+
+            <NText v-else type="warning" class="block text-center">
               Không còn voucher nào khả dụng
             </NText>
           </div>
@@ -2613,7 +2632,7 @@ function formatCurrencyInput(value: number) {
             </NGi>
           </NGrid>
 
-          <div class="comparison-summary mb-4 p-3">
+          <div class="comparison-summary mb-4 p-3" style="background: #f6ffed; border-radius: 8px;">
             <NSpace justify="space-between" align="center">
               <NText strong>
                 Bạn tiết kiệm thêm:
@@ -2649,8 +2668,8 @@ function formatCurrencyInput(value: number) {
           </div>
         </template>
 
-        <!-- Hiển thị tổng tiền thanh toán -->
-        <div class="payment-info mb-4">
+        <!-- Hiển thị tổng tiền thanh toán (chỉ khi có voucher mới) -->
+        <div v-if="checkoutVoucherData?.newVoucher" class="payment-info mb-4">
           <NSpace vertical :size="8">
             <NSpace justify="space-between">
               <NText depth="3">
@@ -2680,35 +2699,47 @@ function formatCurrencyInput(value: number) {
 
         <template #footer>
           <NSpace justify="end">
-            <!-- Nút Hủy/Cancel luôn hiển thị -->
-            <NButton @click="handleCheckoutCancel">
-              Quay lại
-            </NButton>
-
             <!-- Trường hợp voucher hết hạn và không có voucher mới -->
             <template v-if="checkoutVoucherType === 'EXPIRED' && !checkoutVoucherData?.newVoucher">
               <NButton type="primary" @click="handleCheckoutCancel">
-                OK, tôi hiểu
+                Đóng
               </NButton>
             </template>
 
             <!-- Trường hợp voucher hết hạn nhưng có voucher mới -->
             <template v-else-if="checkoutVoucherType === 'EXPIRED' && checkoutVoucherData?.newVoucher">
-              <NButton @click="handleCheckoutKeepOldVoucher">
-                Vẫn dùng voucher cũ (đã hết hạn?)
+              <NButton @click="handleCheckoutCancel">
+                Không dùng voucher
               </NButton>
               <NButton type="primary" @click="handleCheckoutUseNewVoucher">
                 Dùng voucher mới
               </NButton>
             </template>
 
-            <!-- Trường hợp có voucher tốt hơn hoặc voucher mới -->
-            <template v-else>
-              <NButton v-if="selectedVoucher" @click="handleCheckoutKeepOldVoucher">
+            <!-- Trường hợp có voucher tốt hơn -->
+            <template v-else-if="checkoutVoucherType === 'BETTER'">
+              <NButton @click="handleCheckoutKeepOldVoucher">
                 Giữ voucher cũ
               </NButton>
               <NButton type="primary" @click="handleCheckoutUseNewVoucher">
-                {{ selectedVoucher ? 'Dùng voucher mới' : 'Áp dụng voucher' }}
+                Dùng voucher mới (tiết kiệm hơn)
+              </NButton>
+            </template>
+
+            <!-- Trường hợp voucher mới (chưa chọn voucher) -->
+            <template v-else-if="checkoutVoucherType === 'NEW'">
+              <NButton @click="handleCheckoutCancel">
+                Bỏ qua
+              </NButton>
+              <NButton type="primary" @click="handleCheckoutUseNewVoucher">
+                Áp dụng voucher
+              </NButton>
+            </template>
+
+            <!-- Fallback -->
+            <template v-else>
+              <NButton type="primary" @click="handleCheckoutCancel">
+                Đóng
               </NButton>
             </template>
           </NSpace>
