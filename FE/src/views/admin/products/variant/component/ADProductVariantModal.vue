@@ -127,7 +127,8 @@ async function handleChangeStatusImei(idImei: string) {
 }
 
 function formatCurrency(value: number | null) {
-  if (value === null) return ''
+  if (value === null)
+    return ''
 
   const str = value.toString()
 
@@ -147,8 +148,10 @@ function parseCurrency(input: string): number | null {
 
 <template>
   <n-modal :show="isOpen">
-    <n-card style="width: 50%" title="Cập nhật sản phẩm chi tiết" :bordered="false" size="huge" role="dialog"
-      aria-modal="true">
+    <n-card
+      style="width: 50%" title="Cập nhật sản phẩm chi tiết" :bordered="false" size="huge" role="dialog"
+      aria-modal="true"
+    >
       <template #header-extra>
         <NButton @click="handleClickCancel">
           <Icon icon="ic:outline-close" />
@@ -175,27 +178,37 @@ function parseCurrency(input: string): number | null {
               <n-select v-model:value="detailProduct.idRAM" :options="rams" placeholder="Chọn kích thước màn hình" />
             </n-form-item-gi>
             <n-form-item-gi :span="8" label="Chất liệu">
-              <n-select v-model:value="detailProduct.idMaterial" :options="materials"
-                placeholder="Chọn kích thước màn hình" />
+              <n-select
+                v-model:value="detailProduct.idMaterial" :options="materials"
+                placeholder="Chọn kích thước màn hình"
+              />
             </n-form-item-gi>
             <n-form-item-gi :span="8" label="Màu sắc">
-              <n-select v-model:value="detailProduct.idColor" :options="colors"
-                placeholder="Chọn kích thước màn hình" />
+              <n-select
+                v-model:value="detailProduct.idColor" :options="colors"
+                placeholder="Chọn kích thước màn hình"
+              />
             </n-form-item-gi>
             <n-form-item-gi :span="8" label="Ổ cứng">
-              <n-select v-model:value="detailProduct.idHardDrive" :options="hardDrives"
-                placeholder="Chọn kích thước màn hình" />
+              <n-select
+                v-model:value="detailProduct.idHardDrive" :options="hardDrives"
+                placeholder="Chọn kích thước màn hình"
+              />
             </n-form-item-gi>
             <n-form-item-gi :span="24" label="Giá sản phẩm">
-              <n-input-number v-model:value="detailProduct.price" style="width: 100%" placeholder="Nhập giá"
-                :precision="0" :format="formatCurrency" :parse="parseCurrency" />
+              <n-input-number
+                v-model:value="detailProduct.price" style="width: 100%" placeholder="Nhập giá"
+                :precision="0" :format="formatCurrency" :parse="parseCurrency"
+              />
             </n-form-item-gi>
           </n-grid>
         </n-form>
 
-        <span>Danh sách IMEI</span>
-        <n-data-table v-show="imeisProductDetail && imeisProductDetail.length > 0" :columns="columnsImei"
-          :data="imeisProductDetail" />
+        <span>Danh sách SERIAL</span>
+        <n-data-table
+          v-show="imeisProductDetail && imeisProductDetail.length > 0" :columns="columnsImei"
+          :data="imeisProductDetail"
+        />
       </div>
 
       <!-- footer -->
@@ -204,8 +217,10 @@ function parseCurrency(input: string): number | null {
           <NButton @click="handleClickCancel">
             Hủy
           </NButton>
-          <n-popconfirm :positive-button-props="{ type: 'info' }" @positive-click="handleClickOK"
-            @negative-click="handleClickCancel" :positive-text="'Xác nhận'" :negative-text="'Hủy'">
+          <n-popconfirm
+            :positive-button-props="{ type: 'info' }" positive-text="Xác nhận"
+            negative-text="Hủy" @positive-click="handleClickOK" @negative-click="handleClickCancel"
+          >
             <template #trigger>
               <NButton type="success">
                 Xác nhận

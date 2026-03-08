@@ -1330,56 +1330,6 @@ onMounted(async () => {
 
       <div v-else class="p-6 bg-gray-50/70 border-t border-gray-100">
         <div class="space-y-6">
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between transition-shadow hover:shadow-md">
-              <div>
-                <p class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">
-                  Mặt hàng
-                </p>
-                <p class="text-3xl font-black text-gray-800">
-                  {{ invoiceItems.length }}
-                </p>
-              </div>
-              <div class="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                <NIcon size="26">
-                  <CubeOutline />
-                </NIcon>
-              </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center justify-between transition-shadow hover:shadow-md">
-              <div>
-                <p class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">
-                  Tổng số lượng
-                </p>
-                <p class="text-3xl font-black text-gray-800">
-                  {{ totalQuantity }}
-                </p>
-              </div>
-              <div class="w-14 h-14 rounded-full bg-gray-50 flex items-center justify-center text-gray-400">
-                <NIcon size="26">
-                  <CartOutline />
-                </NIcon>
-              </div>
-            </div>
-
-            <div class="bg-white p-5 rounded-2xl border shadow-sm flex items-center justify-between transition-shadow hover:shadow-md" :class="imeiProductsCount < totalQuantity ? 'border-orange-200' : 'border-green-200'">
-              <div>
-                <p class="text-xs uppercase font-bold tracking-wider mb-1" :class="imeiProductsCount < totalQuantity ? 'text-orange-500' : 'text-green-500'">
-                  Tiến độ gán Serial
-                </p>
-                <p class="text-3xl font-black" :class="imeiProductsCount < totalQuantity ? 'text-orange-600' : 'text-green-600'">
-                  {{ imeiProductsCount }} <span class="text-xl font-medium text-gray-400">/ {{ totalQuantity }}</span>
-                </p>
-              </div>
-              <div class="w-14 h-14 rounded-full flex items-center justify-center" :class="imeiProductsCount < totalQuantity ? 'bg-orange-50 text-orange-500' : 'bg-green-50 text-green-500'">
-                <NIcon size="26">
-                  <QrCodeOutline />
-                </NIcon>
-              </div>
-            </div>
-          </div>
-
           <div v-if="invoiceItems.length === 0" class="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-sm">
             <NIcon size="56" class="text-gray-300 mb-4">
               <CubeOutline />
@@ -1444,7 +1394,7 @@ onMounted(async () => {
                       #
                     </div>
                     <div class="col-span-5 text-center">
-                      Mã SERIAL / IMEI
+                      Mã SERIAL
                     </div>
                     <div class="col-span-4 text-center">
                       Thời gian gán
