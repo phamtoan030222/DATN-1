@@ -6,7 +6,9 @@ import ShiftStartModal from '@/views/admin/shiftmanager/ShiftStartModal.vue'
 import { darkTheme } from 'naive-ui'
 import type { App } from 'vue'
 import { useAppStore } from './store'
-import { useCartStore } from './store/app/card'
+import ShiftStartModal from '@/views/admin/shiftmanager/ShiftStartModal.vue'
+import { useChatStore } from '@/store/chatStore';
+
 
 const initializationPromise = (async () => {
   const app = getCurrentInstance()?.appContext.app
@@ -33,6 +35,12 @@ const initializationPromise = (async () => {
 await initializationPromise
 
 const appStore = useAppStore()
+
+const chatStore = useChatStore();
+
+onMounted(() => {
+  chatStore.connectSocket(); 
+});
 
 const naiveLocale = computed(() => {
   return (naiveI18nOptions as any)[appStore.lang]

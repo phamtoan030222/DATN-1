@@ -133,7 +133,6 @@ async function fetchLowStockProducts() {
 // Thêm biến loading cho nút gửi mail
 const loadingEmail = ref(false)
 
-// Hàm xử lý khi bấm nút "Gửi báo cáo (Email)"
 async function handleSendEmail() {
   if (filterType.value === 'custom') {
     message.warning('Báo cáo Email chưa hỗ trợ mốc thời gian tùy chỉnh. Vui lòng chọn Hôm nay/Tuần/Tháng/Năm.');
