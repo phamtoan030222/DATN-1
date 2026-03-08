@@ -28,7 +28,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
     SELECT
             p.id as id
                 , p.code as code
-                , p.name as name
+                , CONCAT(p.name, ' - ', p.product.name) as name
                 , p.description as description
                 , p.hardDrive.name as hardDrive
                 , p.material.name as material
@@ -187,7 +187,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
         SELECT
             p.id as id
             , p.code as code
-            , p.name as name
+            , CONCAT(p.name, ' - ', p.product.name) as name
             , p.description as description
             , p.hardDrive.id as idHardDrive
             , p.material.id as idMaterial
