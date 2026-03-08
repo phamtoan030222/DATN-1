@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import type { App } from 'vue'
 import { installRouter } from '@/router'
-import { installPinia, useAuthStore } from '@/store'
+import { installPinia } from '@/store'
 import { naiveI18nOptions } from '@/utils'
+import ShiftStartModal from '@/views/admin/shiftmanager/ShiftStartModal.vue'
 import { darkTheme } from 'naive-ui'
+import type { App } from 'vue'
 import { useAppStore } from './store'
 import ShiftStartModal from '@/views/admin/shiftmanager/ShiftStartModal.vue'
 import { useChatStore } from '@/store/chatStore';
+
 
 const initializationPromise = (async () => {
   const app = getCurrentInstance()?.appContext.app
@@ -45,13 +47,15 @@ const naiveLocale = computed(() => {
     ? (naiveI18nOptions as any)[appStore.lang]
     : naiveI18nOptions.enUS
 })
+
+const { fetchCartId, fetchCartItem } = useCartStore()
+await fetchCartId()
+await fetchCartItem()
 </script>
 
 <template>
-  <n-config-provider
-    class="wh-full" inline-theme-disabled :theme="appStore.colorMode === 'dark' ? darkTheme : null"
-    :locale="naiveLocale.locale" :date-locale="naiveLocale.dateLocale" :theme-overrides="appStore.theme"
-  >
+  <n-config-provider class="wh-full" inline-theme-disabled :theme="appStore.colorMode === 'dark' ? darkTheme : null"
+    :locale="naiveLocale.locale" :date-locale="naiveLocale.dateLocale" :theme-overrides="appStore.theme">
     <naive-provider>
       <router-view />
       <Watermark :show-watermark="appStore.showWatermark" />

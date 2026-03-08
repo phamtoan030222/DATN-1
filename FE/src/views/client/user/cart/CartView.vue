@@ -3,6 +3,8 @@ import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM } from '@/constants/storageKey'
 import type { CartItemResponse } from '@/service/api/client/banhang.api'
 import { GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
+import { getQuantityProdudtDetail } from '@/service/api/client/banhang.api'
+import { useCartStore } from '@/store/app/card'
 import {
   AddOutline,
   ArrowForward,
@@ -16,136 +18,30 @@ import {
   NIcon,
   NPopconfirm,
   NSpin,
-  NTag,
-  useMessage,
+  NTag
 } from 'naive-ui'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
-const message = useMessage()
 const loading = ref(false)
-const cartItems = ref<CartItemResponse[]>([])
-const cartId = ref<string | null>(null)
+const notification = useNotification()
 
-onMounted(() => {
-  cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
-})
+const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { addToCart, removeCart } = useCartStore()
 
-// Load giỏ hàng từ LocalStorage
-async function fetchCart() {
-  loading.value = true
-  try {
-    if (cartId.value) {
-      const res = await GetGioHang(cartId.value as string)
-      cartItems.value = res.data || []
-    }
-    else {
-      const cartItem = localStorageAction.get(CUSTOMER_CART_ITEM)
-      if (!cartItem)
-        return
+async function validateIncreaseToCart(idProductDetail: string, quantity: number) {
+  const quantityProductDetailsResponse = await getQuantityProdudtDetail([idProductDetail])
+  if (quantityProductDetailsResponse.data.length > 0 && quantityProductDetailsResponse.data[0].quantity < quantity + 1) {
+    notification.error({
+      content: 'Đã vượt quá số lượng sản phẩm',
+      duration: 3000,
+    })
+    return
+  }
 
-      const res = await getProductDetailCart(Object.keys(cartItem))
-      cartItems.value = res.data.map(productDetail => ({
-        ...productDetail,
-        id: '',
-        productDetailId: productDetail.id,
-        quantity: cartItem[productDetail.id],
-      })) || []
-    }
-  }
-  catch (e) {
-    console.error(e)
-  }
-  finally {
-    loading.value = false
-  }
+  addToCart(idProductDetail, quantity)
 }
-
-// Xử lý Xóa (Client-side)
-async function handleRemove(productDetailId: string) {
-  try {
-    if (cartId.value) {
-      await themSanPham({
-        cartId: cartId.value as string,
-        productDetailId,
-        quantity: 0,
-      })
-    }
-    else {
-      const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
-      delete cart[productDetailId]
-      localStorageAction.set(CUSTOMER_CART_ITEM, cart)
-    }
-
-    fetchCart()
-    message.success('Đã xóa sản phẩm')
-  }
-  catch (e: any) {
-    message.error('Xóa sản phẩm thất bại')
-  }
-}
-
-function updateQuantitLocalStorage(idProductDetail: string, quantity: number) {
-  const cart = localStorageAction.get(CUSTOMER_CART_ITEM) ?? {}
-  cart[idProductDetail] = quantity
-  localStorageAction.set(CUSTOMER_CART_ITEM, cart)
-}
-
-// Xử lý Tăng số lượng (Client-side)
-async function handleIncrease(cartItem: CartItemResponse) {
-  try {
-    if (cartId.value) {
-      await themSanPham({
-        cartId: cartId.value as string,
-        productDetailId: cartItem.productDetailId,
-        quantity: cartItem.quantity + 1,
-      })
-    }
-    else {
-      updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity + 1)
-    }
-
-    fetchCart()
-  }
-  catch (e: any) {
-    switch (e.status) {
-      case 409:
-        message.error('Đã vượt quá số lượng sản phẩm')
-        break
-      default:
-        message.error('Cập nhật số lượng thất bại')
-    }
-  }
-}
-// Xử lý Giảm số lượng (Client-side)
-async function handleDecrease(cartItem: CartItemResponse) {
-  try {
-    if (cartItem.quantity === 1)
-      return
-    if (cartId.value) {
-      await themSanPham({
-        cartId: cartId.value as string,
-        productDetailId: cartItem.productDetailId,
-        quantity: cartItem.quantity - 1,
-      })
-    }
-    else {
-      updateQuantitLocalStorage(cartItem.productDetailId, cartItem.quantity - 1)
-    }
-    fetchCart()
-  }
-  catch (e: any) {
-    switch (e.status) {
-      case 409:
-        message.error('Đã vượt quá số lượng sản phẩm')
-        break
-      default:
-        message.error('Cập nhật số lượng thất bại')
-    }
-  }
-}
-
 // Tính tổng tiền
 const subTotal = computed(() => {
   return cartItems.value.reduce((total, item) => {
@@ -157,9 +53,12 @@ function formatCurrency(val: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
 }
 
-onMounted(() => {
-  fetchCart()
-})
+function handleClickCheckout() {
+  if (cartItemBuyNow.value) {
+    removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+  }
+  router.push('/checkout')
+}
 </script>
 
 <template>
@@ -174,10 +73,8 @@ onMounted(() => {
       <NSpin size="large" />
     </div>
 
-    <div
-      v-else-if="cartItems.length === 0"
-      class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100"
-    >
+    <div v-else-if="cartItems.length === 0"
+      class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100">
       <NEmpty description="Giỏ hàng đang trống" size="large">
         <template #extra>
           <NButton type="primary" color="#d70018" @click="router.push('/home')">
@@ -189,14 +86,10 @@ onMounted(() => {
 
     <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2 space-y-4">
-        <div
-          v-for="item in cartItems" :key="item.productDetailId"
-          class="flex gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm relative group hover:shadow-md transition-all"
-        >
-          <img
-            :src="item.imageUrl || 'https://via.placeholder.com/100'"
-            class="w-28 h-28 object-contain border rounded-lg p-2 bg-gray-50"
-          >
+        <div v-for="item in cartItems" :key="item.productDetailId"
+          class="flex gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm relative group hover:shadow-md transition-all">
+          <img :src="item.imageUrl || 'https://via.placeholder.com/100'"
+            class="w-28 h-28 object-contain border rounded-lg p-2 bg-gray-50">
 
           <div class="flex-1 flex flex-col justify-between py-1">
             <div>
@@ -237,33 +130,33 @@ onMounted(() => {
               </div>
 
               <div class="flex items-center gap-3">
-                <NButton
-                  strong secondary circle size="small" :disabled="item.quantity === 1"
-                  @click="handleDecrease(item)"
-                >
-                  <template #icon>
-                    <NIcon>
-                      <RemoveOutline />
-                    </NIcon>
-                  </template>
-                </NButton>
-                <span class="text-base font-bold min-w-[20px] text-center">{{ item.quantity }}</span>
-                <NButton strong secondary circle size="small" @click="handleIncrease(item)">
-                  <template #icon>
-                    <NIcon>
-                      <AddOutline />
-                    </NIcon>
-                  </template>
-                </NButton>
+                  <NButton strong secondary circle size="small" :disabled="item.quantity === 1"
+                    @click="addToCart(item.productDetailId, item.quantity - 1)">
+                    <template #icon>
+                      <NIcon>
+                        <RemoveOutline />
+                      </NIcon>
+                    </template>
+                  </NButton>
+                  <n-input-number v-model:value="item.quantity" :min="1" :max="5" class="w-8" :show-button="false" :bordered="false" placeholder="" />
+                  <NButton strong secondary circle size="small"
+                    @click="validateIncreaseToCart(item.productDetailId, item.quantity + 1)"
+                    :disabled="item.quantity >= 5"
+                    >
+                    <template #icon>
+                      <NIcon>
+                        <AddOutline />
+                      </NIcon>
+                    </template>
+                  </NButton>
               </div>
             </div>
           </div>
 
-          <NPopconfirm positive-text="Xóa" negative-text="Hủy" @positive-click="handleRemove(item.productDetailId)">
+          <NPopconfirm positive-text="Xóa" negative-text="Hủy" @positive-click="removeCart(item.productDetailId)">
             <template #trigger>
               <button
-                class="absolute top-3 right-3 text-gray-400 hover:text-red-500 p-1 transition-colors rounded-full hover:bg-red-50"
-              >
+                class="absolute top-3 right-3 text-gray-400 hover:text-red-500 p-1 transition-colors rounded-full hover:bg-red-50">
                 <NIcon size="20">
                   <TrashOutline />
                 </NIcon>
@@ -284,17 +177,15 @@ onMounted(() => {
               <span class="font-bold text-lg text-gray-800">Tổng tiền:</span>
               <span class="font-bold text-xl text-red-600">{{ formatCurrency(subTotal) }}</span>
             </div>
-            <NButton
-              block type="primary" color="#d70018" size="large" class="font-bold h-12 shadow-lg shadow-red-100"
-              @click="router.push('/checkout')"
-            >
-              THANH TOÁN <NIcon class="ml-2">
-                <ArrowForward />
-              </NIcon>
-            </NButton>
-            <NButton block class="mt-3" @click="router.push('/san-pham')">
-              Chọn thêm sản phẩm khác
-            </NButton>
+              <NButton block type="success" size="large" class="font-bold h-12 shadow-lg"
+                @click="handleClickCheckout">
+                Thanh toán <NIcon class="ml-2">
+                  <ArrowForward />
+                </NIcon>
+              </NButton>
+              <NButton block class="mt-3" @click="router.push('/san-pham')">
+                Chọn thêm sản phẩm khác
+              </NButton>
           </div>
         </div>
       </div>

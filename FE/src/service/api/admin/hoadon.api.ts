@@ -92,6 +92,7 @@ export interface LichSuTrangThaiItem {
 
 export interface HoaDonChiTietItem {
   // Thông tin hóa đơn
+  id: string | null
   maHoaDon: string
   tenHoaDon: string | null
   loaiHoaDon: string

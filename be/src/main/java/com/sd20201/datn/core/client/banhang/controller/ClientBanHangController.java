@@ -47,7 +47,6 @@ public class ClientBanHangController {
         return Helper.createResponseEntity(adBanHangService.getProductDetails(request));
     }
 
-
     @GetMapping("/list-hoa-don")
     public List<ClientListHoaDon> getListHoaDon() {
         return adBanHangService.getHoaDon();

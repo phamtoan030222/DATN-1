@@ -15,7 +15,11 @@ import java.util.Optional;
 public interface InvoiceDetailRepository extends JpaRepository<InvoiceDetail, String> {
     InvoiceDetail findByInvoiceAndProductDetail(Invoice invoice, ProductDetail productDetail);
 
-    Optional<InvoiceDetail> findByInvoiceIdAndProductDetailId(String invoiceId, String productDetailId);
+    Optional<InvoiceDetail> findByInvoiceIdAndProductDetailIdAndPrice(
+            String invoiceId,
+            String productDetailId,
+            BigDecimal price
+    );
 
     @Query("""
        SELECT COALESCE(SUM(i.totalAmount), 0)

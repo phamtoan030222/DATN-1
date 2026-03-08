@@ -349,6 +349,8 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         }
 
         // Cập nhật thông tin tài chính
+        invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+        invoice.setTypePayment(paymentMethod);
         invoice.setShippingFee(request.getTienShip() != null ? request.getTienShip() : BigDecimal.ZERO);
         invoice.setTotalAmount(request.getTienHang() != null ? request.getTienHang() : BigDecimal.ZERO);
         invoice.setTotalAmountAfterDecrease(request.getTongTien() != null ? request.getTongTien() : BigDecimal.ZERO);
@@ -651,21 +653,24 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             throw new BusinessException("Imei da duoc dat hoac khong ton tai");
         }
 
-        // 🔎 kiểm tra invoice detail đã tồn tại chưa
+        BigDecimal currentPrice = productDetail.getPrice();
+
+        // 🔎 tìm invoice detail theo product + price
         Optional<InvoiceDetail> optionalInvoiceDetail =
-                invoiceDetailRepository.findByInvoiceIdAndProductDetailId(
+                invoiceDetailRepository.findByInvoiceIdAndProductDetailIdAndPrice(
                         request.getInvoiceId(),
-                        request.getProductDetailId()
+                        request.getProductDetailId(),
+                        currentPrice
                 );
 
         InvoiceDetail invoiceDetail;
 
         if (optionalInvoiceDetail.isPresent()) {
 
-            // ✅ đã tồn tại -> cập nhật
+            // ✅ đã có cùng giá -> gộp
             invoiceDetail = optionalInvoiceDetail.get();
 
-            int newQuantity = invoiceDetail.getQuantity();
+            int newQuantity = invoiceDetail.getQuantity() + imeis.size();
             invoiceDetail.setQuantity(newQuantity);
 
             BigDecimal totalAmount = invoiceDetail.getPrice()
@@ -675,14 +680,14 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         } else {
 
-            // ✅ chưa có -> tạo mới
+            // ✅ giá mới -> tạo dòng mới
             invoiceDetail = new InvoiceDetail();
             invoiceDetail.setInvoice(invoice);
             invoiceDetail.setProductDetail(productDetail);
-            invoiceDetail.setPrice(productDetail.getPrice());
+            invoiceDetail.setPrice(currentPrice);
             invoiceDetail.setQuantity(imeis.size());
 
-            BigDecimal totalAmount = productDetail.getPrice()
+            BigDecimal totalAmount = currentPrice
                     .multiply(BigDecimal.valueOf(imeis.size()));
 
             invoiceDetail.setTotalAmount(totalAmount);
@@ -690,7 +695,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         invoiceDetailRepository.save(invoiceDetail);
 
-        // 🔗 gắn IMEI vào invoice detail
+        // 🔗 gắn IMEI
         for (IMEI imei : imeis) {
             imei.setInvoiceDetail(invoiceDetail);
             imei.setImeiStatus(ImeiStatus.RESERVED);
@@ -700,7 +705,6 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         return new ResponseObject<>(null, HttpStatus.OK, "Them san pham thanh cong");
     }
-
     @Override
     public void themKhachHang(ADThemKhachHangRequest id) {
 
@@ -1245,5 +1249,39 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             log.error("Lỗi khi bỏ chọn khách hàng cho hóa đơn {}: ", idHoaDon, e);
             throw new BusinessException("Lỗi khi bỏ chọn khách hàng: " + e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional
+    public ResponseObject<?> ganImei(ADGanImeiRequest request) {
+        // 1. Tìm InvoiceDetail đã có sẵn (do khách đặt online)
+        InvoiceDetail invoiceDetail = invoiceDetailRepository.findById(request.getHoaDonChiTietId())
+                .orElseThrow(() -> new BusinessException("Không tìm thấy chi tiết hóa đơn"));
+
+        // 2. Tìm các IMEI cần gán
+        List<IMEI> imeis = imeiRepository.findAllById(request.getImeiIds());
+
+        if (imeis.isEmpty() || imeis.size() != request.getImeiIds().size()) {
+            throw new BusinessException("Không tìm thấy IMEI");
+        }
+
+        // 3. Kiểm tra IMEI phải AVAILABLE và đúng sản phẩm
+        boolean invalidImei = imeis.stream().anyMatch(imei ->
+                imei.getImeiStatus() != ImeiStatus.AVAILABLE ||
+                        !imei.getProductDetail().getId().equals(invoiceDetail.getProductDetail().getId())
+        );
+
+        if (invalidImei) {
+            throw new BusinessException("IMEI không khả dụng hoặc không đúng sản phẩm");
+        }
+
+        // 4. Chỉ GÁN IMEI vào InvoiceDetail, KHÔNG thay đổi quantity/price/totalAmount
+        for (IMEI imei : imeis) {
+            imei.setInvoiceDetail(invoiceDetail);
+            imei.setImeiStatus(ImeiStatus.RESERVED);
+        }
+        imeiRepository.saveAll(imeis);
+
+        return new ResponseObject<>(null, HttpStatus.OK, "Gán serial thành công");
     }
 }

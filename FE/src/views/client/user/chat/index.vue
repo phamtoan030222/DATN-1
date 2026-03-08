@@ -17,20 +17,20 @@ import {
   ChevronDownOutline 
 } from '@vicons/ionicons5';
 
-const BACKEND_URL = 'http://localhost:2345';
-const authStore = useAuthStore();
-const { userInfoDatn } = storeToRefs(authStore);
+const BACKEND_URL = 'http://localhost:2345'
+const authStore = useAuthStore()
+const { userInfoDatn } = storeToRefs(authStore)
 
 // --- STATE ---
-const isOpen = ref(false);
-const userMessage = ref('');
-const isLoading = ref(false);
-const messagesContainer = ref(null);
-const stompClient = ref(null);
-const showOptions = ref(true);
-const showSuggestions = ref(true);
+const isOpen = ref(false)
+const userMessage = ref('')
+const isLoading = ref(false)
+const messagesContainer = ref(null)
+const stompClient = ref(null)
+const showOptions = ref(true)
+const showSuggestions = ref(true)
 
-const chatMode = ref('AI'); // 'AI' | 'WAITING' | 'STAFF'
+const chatMode = ref('AI') // 'AI' | 'WAITING' | 'STAFF'
 
 // 🔥 Biến lưu tên nhân viên
 const currentStaffName = ref(localStorage.getItem('ml_staff_name') || '');
@@ -42,11 +42,14 @@ const headerTitle = computed(() => {
   return 'Hỗ trợ MyLaptop';
 });
 
+
 const headerSubtitle = computed(() => {
-  if (chatMode.value === 'STAFF') return 'Đang hỗ trợ bạn';
-  if (chatMode.value === 'WAITING') return 'Vui lòng chờ trong giây lát';
-  return 'Phản hồi ngay lập tức';
-});
+  if (chatMode.value === 'STAFF')
+    return 'Đang hỗ trợ bạn'
+  if (chatMode.value === 'WAITING')
+    return 'Vui lòng chờ trong giây lát'
+  return 'Phản hồi ngay lập tức'
+})
 
 const messages = ref([
   {
@@ -56,8 +59,9 @@ const messages = ref([
   }
 ]);
 
-const sessionId = ref(localStorage.getItem('chat_session_id') || 'session-' + Math.random().toString(36).substr(2, 9));
-localStorage.setItem('chat_session_id', sessionId.value);
+const sessionId = ref(localStorage.getItem('chat_session_id') || `session-${Math.random().toString(36).substr(2, 9)}`)
+localStorage.setItem('chat_session_id', sessionId.value)
+
 
 const backToAI = async () => {
   chatMode.value = 'AI';
@@ -76,8 +80,9 @@ const connectSocket = () => {
     webSocketFactory: () => socket,
     onConnect: () => {
       stompClient.value.subscribe(`/topic/user/${sessionId.value}`, (message) => {
-        const msgBody = JSON.parse(message.body);
+        const msgBody = JSON.parse(message.body)
         if (msgBody.senderRole === 'STAFF') {
+
           messages.value.push({ sender: 'STAFF', content: msgBody.content });
           
           // 🔥 1. TRÍCH XUẤT TÊN NHÂN VIÊN TỪ CÂU CHÀO
@@ -103,101 +108,113 @@ const connectSocket = () => {
           isLoading.value = false;
           scrollToBottom();
         }
-      });
+      })
     },
-    onStompError: (frame) => console.error('Lỗi socket:', frame.headers['message'])
-  });
-  stompClient.value.activate();
-};
+    onStompError: frame => console.error('Lỗi socket:', frame.headers.message),
+  })
+  stompClient.value.activate()
+}
 
-const formatMessage = (text) => {
-  if (!text) return '';
+function formatMessage(text) {
+  if (!text)
+    return ''
   return text
     .replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="chat-link">$1</a>');
-};
+    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="chat-link">$1</a>')
+}
 
-const formatTime = (date) => {
-  if (!date) return '';
-  return new Date(date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
+function formatTime(date) {
+  if (!date)
+    return ''
+  return new Date(date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
 
-const scrollToBottom = () => {
+function scrollToBottom() {
   nextTick(() => {
     if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
-  });
-};
+  })
+}
 
-const handleOptionClick = async (choice) => {
-  showOptions.value = false;
+async function handleOptionClick(choice) {
+  showOptions.value = false
   if (choice === 'STAFF') {
-    userMessage.value = 'gặp nhân viên';
-    await sendMessage();
-  } else {
-    messages.value.push({ sender: 'USER', content: 'Tôi muốn hỗ trợ tự động', time: new Date() });
+    userMessage.value = 'gặp nhân viên'
+    await sendMessage()
+  }
+  else {
+    messages.value.push({ sender: 'USER', content: 'Tôi muốn hỗ trợ tự động', time: new Date() })
     setTimeout(() => {
       messages.value.push({
         sender: 'BOT',
         content: 'Dạ, tôi là trợ lý ảo của MyLaptop. Anh/chị cần tư vấn laptop hay hỗ trợ đơn hàng, cứ nhắn cho tôi nhé!',
-        time: new Date()
-      });
-      scrollToBottom();
-    }, 500);
+        time: new Date(),
+      })
+      scrollToBottom()
+    }, 500)
   }
-};
+}
 
-const sendMessage = async () => {
-  if (!userMessage.value.trim()) return;
-  const text = userMessage.value;
-  messages.value.push({ sender: 'USER', content: text, time: new Date() });
-  showOptions.value = false;
-  userMessage.value = '';
-  isLoading.value = true;
-  scrollToBottom();
+async function sendMessage() {
+  if (!userMessage.value.trim())
+    return
+  const text = userMessage.value
+  messages.value.push({ sender: 'USER', content: text, time: new Date() })
+  showOptions.value = false
+  userMessage.value = ''
+  isLoading.value = true
+  scrollToBottom()
 
   try {
     const response = await axios.post(`${BACKEND_URL}/api/v1/chat/ask`, {
       sessionId: sessionId.value,
       message: text,
-      customerId: userInfoDatn.value?.userId || null
-    });
+      customerId: userInfoDatn.value?.userId || null,
+    })
 
     if (response.data) {
       if (response.data.includes('Đang chờ nhân viên') || response.data.includes('Hệ thống đã kết nối')) {
-        chatMode.value = 'WAITING';
-        messages.value.push({ sender: 'SYSTEM', content: response.data, time: new Date() });
-      } else {
-        messages.value.push({ sender: 'BOT', content: response.data, time: new Date() });
+        chatMode.value = 'WAITING'
+        messages.value.push({ sender: 'SYSTEM', content: response.data, time: new Date() })
+      }
+      else {
+        messages.value.push({ sender: 'BOT', content: response.data, time: new Date() })
       }
     }
-  } catch (error) {
-    messages.value.push({ sender: 'SYSTEM', content: 'Không thể kết nối máy chủ. Vui lòng thử lại.', time: new Date() });
-  } finally {
-    isLoading.value = false;
-    scrollToBottom();
   }
-};
+  catch (error) {
+    messages.value.push({ sender: 'SYSTEM', content: 'Không thể kết nối máy chủ. Vui lòng thử lại.', time: new Date() })
+  }
+  finally {
+    isLoading.value = false
+    scrollToBottom()
+  }
+}
 
-const sendSuggested = async (text) => {
-  userMessage.value = text;
-  await sendMessage();
-};
+async function sendSuggested(text) {
+  userMessage.value = text
+  await sendMessage()
+}
 
-const toggleChat = () => {
-  isOpen.value = !isOpen.value;
-  if (isOpen.value) scrollToBottom();
-};
+function toggleChat() {
+  isOpen.value = !isOpen.value
+  if (isOpen.value)
+    scrollToBottom()
+}
 
-onMounted(() => connectSocket());
-onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
+onMounted(() => connectSocket())
+onUnmounted(() => {
+  if (stompClient.value)
+    stompClient.value.deactivate()
+})
 </script>
 
 <template>
   <div class="mlchat-wrapper">
     <transition name="bounce">
+
       <button class="mlchat-toggle" @click="toggleChat" :class="{ 'is-open': isOpen }">
         <n-icon size="22">
           <ChevronDownOutline v-if="isOpen" />
@@ -213,19 +230,24 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
         <div class="mlchat-header" :class="{ 'mode-staff': chatMode === 'STAFF', 'mode-waiting': chatMode === 'WAITING' }">
           <div class="header-avatar">
             <div class="avatar-ring">
+
               <n-icon size="18"><PersonOutline /></n-icon>
             </div>
-            <span class="status-dot" :class="chatMode === 'WAITING' ? 'dot-waiting' : 'dot-online'"></span>
+            <span class="status-dot" :class="chatMode === 'WAITING' ? 'dot-waiting' : 'dot-online'" />
           </div>
           <div class="header-info">
-            <div class="header-title">{{ headerTitle }}</div>
+            <div class="header-title">
+              {{ headerTitle }}
+            </div>
             <div class="header-subtitle">
-              <span class="subtitle-dot"></span>
+              <span class="subtitle-dot" />
               {{ headerSubtitle }}
             </div>
           </div>
           <button class="header-close" @click="toggleChat">
+
             <n-icon size="16"><CloseOutline /></n-icon>
+ 
           </button>
         </div>
 
@@ -241,20 +263,23 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
           <div v-for="(msg, index) in messages" :key="index" class="msg-entry">
 
             <div v-if="msg.sender === 'SYSTEM'" class="sys-notice">
-              <div class="sys-line"></div>
+              <div class="sys-line" />
               <span>{{ msg.content }}</span>
-              <div class="sys-line"></div>
+              <div class="sys-line" />
             </div>
 
             <div v-else-if="msg.sender === 'USER'" class="msg-row msg-user">
               <div class="msg-col">
-                <div class="bubble bubble-user" v-html="formatMessage(msg.content)"></div>
-                <div class="msg-time">{{ formatTime(msg.time) }}</div>
+                <div class="bubble bubble-user" v-html="formatMessage(msg.content)" />
+                <div class="msg-time">
+                  {{ formatTime(msg.time) }}
+                </div>
               </div>
             </div>
 
             <div v-else class="msg-row msg-bot">
               <div class="bot-avatar" :class="{ 'bot-avatar--staff': msg.sender === 'STAFF' }">
+
                 <n-icon size="16">
                   <PersonOutline v-if="msg.sender === 'STAFF'" />
                   <ChatbubbleEllipsesOutline v-else />
@@ -268,8 +293,10 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
                 <div class="bubble bubble-bot" v-html="formatMessage(msg.content)"></div>
                 <div class="msg-time">{{ formatTime(msg.time) }}</div>
 
+
                 <div v-if="index === 0 && showOptions" class="choice-group">
                   <button class="choice-btn choice-ai" @click="handleOptionClick('AI')">
+
                     <n-icon size="15"><FlashOutline /></n-icon>
                     Hỗ trợ tự động
                   </button>
@@ -284,10 +311,11 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
 
           <div v-if="isLoading" class="msg-row msg-bot">
             <div class="bot-avatar">
+
               <n-icon size="16"><ChatbubbleEllipsesOutline /></n-icon>
             </div>
             <div class="bubble bubble-bot typing-bubble">
-              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <span class="dot" /><span class="dot" /><span class="dot" />
             </div>
           </div>
         </div>
@@ -297,6 +325,7 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
             <div class="sugg-header">
               <span>Câu hỏi thường gặp</span>
               <button class="sugg-close" @click="showSuggestions = false">
+
                 <n-icon size="13"><CloseOutline /></n-icon>
               </button>
             </div>
@@ -311,17 +340,19 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
         <div class="mlchat-input">
           <input
             v-model="userMessage"
-            @keyup.enter="sendMessage"
             placeholder="Nhập câu hỏi của bạn..."
             type="text"
             :disabled="isLoading"
+
           />
           <button class="send-btn" @click="sendMessage" :disabled="isLoading || !userMessage.trim()">
             <n-icon size="18"><SendOutline /></n-icon>
           </button>
         </div>
 
-        <div class="mlchat-footer">Powered by <strong>MyLaptop</strong></div>
+        <div class="mlchat-footer">
+          Powered by <strong>MyLaptop</strong>
+        </div>
       </div>
     </transition>
   </div>

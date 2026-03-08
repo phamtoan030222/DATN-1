@@ -125,6 +125,25 @@ async function handleChangeStatusImei(idImei: string) {
 
   getImeisProductDetail()
 }
+
+function formatCurrency(value: number | null) {
+  if (value === null)
+    return ''
+
+  const str = value.toString()
+
+  return str.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+function parseCurrency(input: string): number | null {
+  const nums = input.replace(/\./g, '').trim()
+
+  if (/^\d+$/.test(nums)) {
+    return Number(nums)
+  }
+
+  return nums === '' ? null : Number.NaN
+}
 </script>
 
 <template>
@@ -133,7 +152,7 @@ async function handleChangeStatusImei(idImei: string) {
       style="width: 50%" title="Cập nhật sản phẩm chi tiết" :bordered="false" size="huge" role="dialog"
       aria-modal="true"
     >
-    <template #header-extra>
+      <template #header-extra>
         <NButton @click="handleClickCancel">
           <Icon icon="ic:outline-close" />
         </NButton>
@@ -150,22 +169,13 @@ async function handleChangeStatusImei(idImei: string) {
               <n-input v-model:value="detailProduct.name" disabled placeholder="Nhập tên" />
             </n-form-item-gi>
             <n-form-item-gi :span="8" label="CPU">
-              <n-select
-                v-model:value="detailProduct.idCPU" :options="cpus"
-                placeholder="Chọn tấm nền"
-              />
+              <n-select v-model:value="detailProduct.idCPU" :options="cpus" placeholder="Chọn tấm nền" />
             </n-form-item-gi>
             <n-form-item-gi :span="8" label="GPU">
-              <n-select
-                v-model:value="detailProduct.idGPU" :options="gpus"
-                placeholder="Chọn kích thước màn hình"
-              />
+              <n-select v-model:value="detailProduct.idGPU" :options="gpus" placeholder="Chọn kích thước màn hình" />
             </n-form-item-gi>
             <n-form-item-gi :span="8" label="RAM">
-              <n-select
-                v-model:value="detailProduct.idRAM" :options="rams"
-                placeholder="Chọn kích thước màn hình"
-              />
+              <n-select v-model:value="detailProduct.idRAM" :options="rams" placeholder="Chọn kích thước màn hình" />
             </n-form-item-gi>
             <n-form-item-gi :span="8" label="Chất liệu">
               <n-select
@@ -186,13 +196,19 @@ async function handleChangeStatusImei(idImei: string) {
               />
             </n-form-item-gi>
             <n-form-item-gi :span="24" label="Giá sản phẩm">
-              <n-input-number v-model:value="detailProduct.price" style="width: 100%;" placeholder="Nhập giá" />
+              <n-input-number
+                v-model:value="detailProduct.price" style="width: 100%" placeholder="Nhập giá"
+                :precision="0" :format="formatCurrency" :parse="parseCurrency"
+              />
             </n-form-item-gi>
           </n-grid>
         </n-form>
 
-        <span>Danh sách IMEI</span>
-        <n-data-table v-show="imeisProductDetail && imeisProductDetail.length > 0" :columns="columnsImei" :data="imeisProductDetail" />
+        <span>Danh sách SERIAL</span>
+        <n-data-table
+          v-show="imeisProductDetail && imeisProductDetail.length > 0" :columns="columnsImei"
+          :data="imeisProductDetail"
+        />
       </div>
 
       <!-- footer -->
@@ -202,9 +218,8 @@ async function handleChangeStatusImei(idImei: string) {
             Hủy
           </NButton>
           <n-popconfirm
-            :positive-button-props="{ type: 'info' }" @positive-click="handleClickOK"
-            @negative-click="handleClickCancel"
-            :positive-text="'Xác nhận'" :negative-text="'Hủy'"
+            :positive-button-props="{ type: 'info' }" positive-text="Xác nhận"
+            negative-text="Hủy" @positive-click="handleClickOK" @negative-click="handleClickCancel"
           >
             <template #trigger>
               <NButton type="success">
@@ -221,7 +236,7 @@ async function handleChangeStatusImei(idImei: string) {
 
 <style scoped>
 .container {
-    max-height: 400px;
-    overflow-y: auto;
+  max-height: 400px;
+  overflow-y: auto;
 }
 </style>

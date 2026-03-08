@@ -91,6 +91,7 @@ export interface ParamsThanhCong {
     danhSachImei: string[]
   }>
   daXacNhanImei?: boolean
+  trangThaiThanhToan?: string
 
 }
 
@@ -493,5 +494,20 @@ export async function yeuCauQRApp(idHD: string) {
     url: `${PREFIX_API_BAN_HANG_ADMIN}/yeu-cau-qr/${idHD}`,
     method: 'POST',
   })) as AxiosResponse<any>
+  return res.data
+}
+
+export interface ADGanImeiRequest {
+  hoaDonChiTietId: string
+  imeiIds: string[]
+}
+
+export async function ganImei(data: ADGanImeiRequest) {
+  const res = await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/gan-imei`,
+    method: 'PUT',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
   return res.data
 }

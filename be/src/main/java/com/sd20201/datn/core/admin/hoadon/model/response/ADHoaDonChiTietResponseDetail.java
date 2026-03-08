@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 public interface ADHoaDonChiTietResponseDetail {
+    String getId();
     // Thông tin hóa đơn
     String getMaHoaDon();
     String getTenHoaDon();

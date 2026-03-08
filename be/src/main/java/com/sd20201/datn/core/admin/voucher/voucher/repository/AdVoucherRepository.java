@@ -5,6 +5,7 @@ import com.sd20201.datn.core.admin.voucher.voucher.model.response.AdCustomerResp
 import com.sd20201.datn.core.admin.voucher.voucher.model.response.AdVoucherResponse;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.Voucher;
+import com.sd20201.datn.entity.VoucherDetail;
 import com.sd20201.datn.repository.VoucherRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -166,5 +167,9 @@ public interface AdVoucherRepository extends VoucherRepository {
         )
     """)
     List<Voucher> findAvailableVouchers(@Param("id") String id);
+
+    @Query("SELECT vd FROM VoucherDetail vd WHERE vd.voucher.id = :voucherId AND vd.customer.id = :customerId")
+    Optional<VoucherDetail> findByVoucherIdAndCustomerId(@Param("voucherId") String voucherId,
+                                                         @Param("customerId") String customerId);
 }
 

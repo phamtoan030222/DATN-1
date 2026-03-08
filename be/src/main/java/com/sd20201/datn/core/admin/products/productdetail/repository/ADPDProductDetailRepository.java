@@ -28,7 +28,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
     SELECT
             p.id as id
                 , p.code as code
-                , p.name as name
+                , CONCAT(p.name, ' - ', p.product.name) as name
                 , p.description as description
                 , p.hardDrive.name as hardDrive
                 , p.material.name as material
@@ -38,7 +38,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                 , p.ram.name as ram
                 , p.price as price
                 , p.status as status
-                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
+                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0)) as quantity
                 , p.urlImage as urlImage
                  , p.product.name as productName
     FROM ProductDetail p
@@ -115,7 +115,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , p.ram.name as ram
                         , p.price as price
                         , p.status as status
-                        , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
+                        , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0)) as quantity
                         , p.urlImage as urlImage
                         , MAX(d.percentage) as percentage
                         , MAX(d.endDate) as endDate
@@ -187,7 +187,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
         SELECT
             p.id as id
             , p.code as code
-            , p.name as name
+            , CONCAT(p.name, ' - ', p.product.name) as name
             , p.description as description
             , p.hardDrive.id as idHardDrive
             , p.material.id as idMaterial

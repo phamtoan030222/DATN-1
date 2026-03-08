@@ -66,6 +66,7 @@ public interface ADBHVoucherDetailRepository extends JpaRepository<VoucherDetail
           AND v.remainingQuantity > 0
           AND v.startDate <= :now
           AND v.endDate >= :now
+          AND v.status = 0
     """)
     List<Voucher> findVoucherHopLe(
             @Param("target") TargetType target,
@@ -77,7 +78,7 @@ public interface ADBHVoucherDetailRepository extends JpaRepository<VoucherDetail
         WHERE vd.customer.id = :customerId
          AND vd.voucher.remainingQuantity > 0
           AND (vd.usageStatus IS NULL OR vd.usageStatus = false)
-          
+          AND vd.status = 0
     """)
     List<Voucher> findVoucherRiengCuaKH(
             @Param("customerId") String customerId

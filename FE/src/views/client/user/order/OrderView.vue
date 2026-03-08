@@ -237,8 +237,6 @@ async function handleFinalSubmit() {
     }
   }
   catch (error) {
-    message.error('Đặt hàng thất bại!')
-    console.error(error)
   }
   finally {
     submitLoading.value = false

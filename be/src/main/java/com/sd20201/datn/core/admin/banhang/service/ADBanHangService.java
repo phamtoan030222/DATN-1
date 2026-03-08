@@ -67,4 +67,6 @@ public interface ADBanHangService {
     ResponseObject<?> xoaSanPham(ADXoaSanPhamRequest request);
 
     ResponseObject<?> boChonKhachHang(String idHoaDon);
+
+    ResponseObject<?> ganImei(ADGanImeiRequest request);
 }
