@@ -1,10 +1,7 @@
 package com.sd20201.datn.entity;
 
 import com.sd20201.datn.entity.base.PrimaryEntity;
-import com.sd20201.datn.infrastructure.constant.EntityProperties;
-import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
-import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
-import com.sd20201.datn.infrastructure.constant.TypeInvoice;
+import com.sd20201.datn.infrastructure.constant.*;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -76,8 +73,8 @@ public class Invoice extends PrimaryEntity implements Serializable {
 
     private String sdt;
 
-
-    private String paymentMethod;
+    @Column(name = "phuong_thuc_thanh_toan")
+    private TypePayment typePayment;
 
     private String transactionId;
 

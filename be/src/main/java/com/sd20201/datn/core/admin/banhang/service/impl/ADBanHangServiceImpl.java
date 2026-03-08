@@ -349,6 +349,8 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         }
 
         // Cập nhật thông tin tài chính
+        invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+        invoice.setTypePayment(paymentMethod);
         invoice.setShippingFee(request.getTienShip() != null ? request.getTienShip() : BigDecimal.ZERO);
         invoice.setTotalAmount(request.getTienHang() != null ? request.getTienHang() : BigDecimal.ZERO);
         invoice.setTotalAmountAfterDecrease(request.getTongTien() != null ? request.getTongTien() : BigDecimal.ZERO);

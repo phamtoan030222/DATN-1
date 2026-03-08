@@ -91,6 +91,7 @@ export interface ParamsThanhCong {
     danhSachImei: string[]
   }>
   daXacNhanImei?: boolean
+  trangThaiThanhToan?: string
 
 }
 

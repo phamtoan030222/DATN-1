@@ -14,10 +14,7 @@ import com.sd20201.datn.core.payment.dto.PaymentRequest;
 import com.sd20201.datn.core.payment.dto.PaymentResponse;
 import com.sd20201.datn.core.payment.util.VnpayUtil;
 import com.sd20201.datn.entity.*;
-import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
-import com.sd20201.datn.infrastructure.constant.ImeiStatus;
-import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
-import com.sd20201.datn.infrastructure.constant.TypeInvoice;
+import com.sd20201.datn.infrastructure.constant.*;
 import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.InvoiceRepository;
 import com.sd20201.datn.repository.LichSuThanhToanRepository;
@@ -478,7 +475,7 @@ public class VnPayService {
         invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.DA_XAC_NHAN);
         invoice.setPaymentDate(System.currentTimeMillis());
         invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
-        invoice.setPaymentMethod("VNPAY");
+        invoice.setTypePayment(TypePayment.VNPAY);
         invoice.setTransactionId(maGiaoDich);
         invoice.setBankCode(bankCode);
 
@@ -499,7 +496,7 @@ public class VnPayService {
         invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.HOAN_THANH);
         invoice.setPaymentDate(System.currentTimeMillis());
         invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
-        invoice.setPaymentMethod("VNPAY");
+        invoice.setTypePayment(TypePayment.VNPAY);
         invoice.setTransactionId(maGiaoDich);
         invoice.setBankCode(bankCode);
 

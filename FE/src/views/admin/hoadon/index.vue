@@ -45,6 +45,8 @@ import {
 } from '@vicons/antd'
 
 import dayjs from 'dayjs'
+import { toast } from 'vue3-toastify'
+import 'vue3-toastify/dist/index.css'
 
 const router = useRouter()
 const message = useMessage()
@@ -142,7 +144,7 @@ const statusOptions = [
 ]
 
 const loaiHoaDonOptions = [
-  { label: 'Tại quầy', value: 'OFFLINE' },
+  { label: 'Tại quầy', value: 'TAI_QUAY' },
   { label: 'Giao hàng', value: 'GIAO_HANG' },
   { label: 'Online', value: 'ONLINE' },
 ]
@@ -231,6 +233,12 @@ function handleStatusChange(value: string | null) {
   fetchHoaDons()
 }
 
+function handleLoaiHD(value: string | null) {
+  state.loaiHoaDon = value
+  state.paginationParams.page = 1
+  fetchHoaDons()
+}
+
 // FIX: Fetch data từ API
 async function fetchHoaDons() {
   try {
@@ -289,15 +297,15 @@ async function fetchHoaDons() {
       state.paginationParams.page = Math.max(1, apiPageNumber + 1)
 
       if (state.products.length > 0) {
-        message.success(`Đã tải ${state.products.length} hóa đơn`)
+        toast.success(`Đã tải ${state.products.length} hóa đơn`)
       }
       else {
-        message.info('Không tìm thấy hóa đơn nào')
+        toast.info('Không tìm thấy hóa đơn nào')
       }
     }
     else {
       state.apiError = response.message || 'Lỗi khi tải dữ liệu hóa đơn'
-      message.error(state.apiError)
+      toast.error(state.apiError)
 
       // Reset data nếu có lỗi
       state.products = []
@@ -321,106 +329,6 @@ async function fetchHoaDons() {
   finally {
     state.loading = false
   }
-}
-
-function handlePrintInvoice(invoice: HoaDonItem) {
-  const printWindow = window.open('', '_blank')
-  if (!printWindow)
-    return
-
-  const printContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Hóa đơn ${invoice.maHoaDon || invoice.id}</title>
-      <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        .invoice-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 20px; }
-        .invoice-title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-        .invoice-info { margin-bottom: 20px; }
-        .info-row { display: flex; margin-bottom: 8px; }
-        .info-label { font-weight: bold; min-width: 150px; }
-        .info-value { }
-        .total-section { text-align: right; margin-top: 20px; font-size: 16px; padding-top: 20px; border-top: 1px solid #ddd; }
-        .total-row { margin: 5px 0; }
-        .grand-total { font-size: 18px; font-weight: bold; color: #d32f2f; }
-        .thank-you { text-align: center; margin-top: 30px; font-style: italic; color: #666; }
-        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
-        @media print {
-          body { -webkit-print-color-adjust: exact; margin: 0; }
-          .no-print { display: none !important; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="invoice-header">
-        <div class="invoice-title">HÓA ĐƠN BÁN HÀNG</div>
-        <div style="font-size: 18px; margin-top: 10px;">Mã: ${invoice.maHoaDon || invoice.id}</div>
-      </div>
-
-      <div class="invoice-info">
-        ${invoice.tenKhachHang
-          ? `
-        <div class="info-row">
-          <div class="info-label">Khách hàng:</div>
-          <div class="info-value">${invoice.tenKhachHang}${invoice.sdtKhachHang ? ` - ${invoice.sdtKhachHang}` : ''}</div>
-        </div>`
-          : ''}
-        <div class="info-row">
-          <div class="info-label">Ngày tạo:</div>
-          <div class="info-value">${formatDateTime(invoice.createdDate)}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Nhân viên:</div>
-          <div class="info-value">${invoice.tenNhanVien || 'N/A'} (${invoice.maNhanVien || 'N/A'})</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Tổng tiền:</div>
-          <div class="info-value" style="font-weight: bold; color: #d32f2f;">${formatCurrency(invoice.tongTien)}</div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Loại hóa đơn:</div>
-          <div class="info-value">
-            ${loaiHoaDonLabels[invoice.loaiHoaDon] || invoice.loaiHoaDon}
-          </div>
-        </div>
-        <div class="info-row">
-          <div class="info-label">Trạng thái:</div>
-          <div class="info-value">
-            ${statusLabels[invoice.status] || invoice.status}
-          </div>
-        </div>
-      </div>
-
-      <div class="thank-you">
-        <p>Cảm ơn quý khách đã mua hàng!</p>
-        <p>Hẹn gặp lại.</p>
-      </div>
-
-      <div class="no-print" style="margin-top: 30px; text-align: center;">
-        <button onclick="window.print()" style="padding: 10px 20px; background: #1890ff; color: white; border: none; border-radius: 4px; cursor: pointer; margin-right: 10px;">
-          In hóa đơn
-        </button>
-        <button onclick="window.close()" style="padding: 10px 20px; background: #f5222d; color: white; border: none; border-radius: 4px; cursor: pointer;">
-          Đóng
-        </button>
-      </div>
-
-      <script>
-        window.onload = function() {
-          // Tự động in sau 500ms
-          setTimeout(() => {
-            window.print();
-          }, 500);
-        }
-      <\/script>
-    </body>
-    </html>
-  `
-
-  printWindow.document.write(printContent)
-  printWindow.document.close()
-  message.success('Đang mở cửa sổ in hóa đơn...')
 }
 
 function handleViewClick(invoice: HoaDonItem) {
@@ -740,7 +648,7 @@ onMounted(() => {
                 :options="loaiHoaDonOptions"
                 placeholder="Tất cả"
                 clearable
-                @update:value="fetchHoaDons"
+                @update:value="handleLoaiHD"
               />
             </NFormItem>
           </NGi>

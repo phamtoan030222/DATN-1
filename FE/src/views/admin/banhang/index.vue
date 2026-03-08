@@ -175,6 +175,7 @@ const tienKhachThanhToan = ref(0)
 const tienThieu = ref(0)
 const shippingFee = ref(0)
 const isFreeShipping = ref(false)
+const trangThaiThanhToan = ref('CHUA_THANH_TOAN')
 
 // ==================== DELIVERY STATE ====================
 const customerAddresses = ref<any[]>([])
@@ -1347,6 +1348,8 @@ async function processPayment() {
       ? [deliveryInfo.diaChiCuThe, wName, pName].filter(Boolean).join(', ')
       : ''
 
+    trangThaiThanhToan.value = 'DA_THANH_TOAN'
+
     const requestData = {
       idHD: idHDS.value,
       idNV: USER_INFO?.userId,
@@ -1363,6 +1366,7 @@ async function processPayment() {
       loaiHoaDon: isDeliveryEnabled.value ? 'GIAO_HANG' : 'TAI_QUAY',
       danhSachImei: imeiDaChon.value,
       daXacNhanImei: true,
+      trangthaiThanhToan: trangThaiThanhToan.value,
     }
 
     const res = await thanhToanThanhCong(requestData)
@@ -2078,10 +2082,11 @@ function formatCurrencyInput(value: number) {
 
               <!-- Nút thanh toán VNPAY -->
               <NButton
-                type="primary"
+                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'"
                 size="small"
                 :loading="vnpayLoading"
                 :disabled="!currentInvoice"
+                secondary
                 @click="showVNPayPayment"
               >
                 <template #icon>
