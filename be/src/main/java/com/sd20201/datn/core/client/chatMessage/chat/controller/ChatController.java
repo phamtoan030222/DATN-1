@@ -47,4 +47,15 @@ public class ChatController {
         chatService.staffReply(sessionId, message, staffId);
         return ResponseEntity.ok("Đã gửi tin nhắn trả lời");
     }
+
+    // Api kết thúc chat với nhân viên, đưa khách về lại AI
+    @PostMapping("/end-support")
+    public ResponseEntity<?> endSupport(@RequestBody Map<String, String> payload) {
+        String sessionId = payload.get("sessionId");
+
+        // Gọi hàm đã viết sẵn trong Service để xóa session khỏi danh sách chờ nhân viên
+        chatService.disableHumanSupport(sessionId);
+
+        return ResponseEntity.ok("Đã ngắt kết nối nhân viên, trở về AI");
+    }
 }

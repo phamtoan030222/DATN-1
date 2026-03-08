@@ -133,18 +133,24 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     },
   },
   {
-    title: 'Cấu hình', key: 'configuration', width: 400, align: 'left', titleAlign: 'center',
-    render: (rowData: ADProductDetailResponse) => h('div', { class: 'flex gap-1 justify-around' }, [
-      h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
-      ]),
-      h('div', [
-        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
-        h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
-      ]),
+    title: 'Tên sản phẩm',
+    key: 'name',
+    width: 200,
+    ellipsis: { tooltip: true },
+  },
+  {
+    title: 'Cấu hình', key: 'configuration', width: 300, align: 'left', titleAlign: 'center',
+    render: (rowData: ADProductDetailResponse) => h('div', { class: 'flex flex-col gap-y-2' }, [
+      // h('div', [
+      h('div', { style: { display: 'flex', alignItems: 'center', margin: '4px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
+      h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:cpu' }), h('span', { style: { marginLeft: '8px' }, innerText: `CPU: ${rowData.cpu}` })]),
+      h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:full-screen-play' }), h('span', { style: { marginLeft: '8px' }, innerText: `GPU: ${rowData.gpu}` })]),
+      // ]),
+      // h('div', [
+      h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:memory' }), h('span', { style: { marginLeft: '8px' }, innerText: `RAM: ${rowData.ram}` })]),
+      h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:loading' }), h('span', { style: { marginLeft: '8px' }, innerText: `Chất liệu: ${rowData.material}` })]),
+      h('div', { style: { display: 'flex', alignItems: 'center' } }, [h(Icon, { icon: 'icon-park-outline:hdd' }), h('span', { style: { marginLeft: '8px' }, innerText: `Ổ cứng: ${rowData.hardDrive}` })]),
+      // ]),
     ]),
   },
   {
@@ -362,7 +368,7 @@ const updateSerialvariantHandler = async (payload: { idProductDetail: string, im
           <div>
             <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
               placeholder="Chọn sản phẩm" style="width: 500px;" clearable :options="state.data.productsCombobox"
-              @update:value="() => { fetchProductDetails(); fetchProduct(); }" filterable/>
+              @update:value="() => { fetchProductDetails(); fetchProduct(); }" filterable />
           </div>
         </NSpace>
         <span>Quản lý biến thể sản phẩm trong cửa hàng</span>

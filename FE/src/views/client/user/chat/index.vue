@@ -1,10 +1,29 @@
 <script setup>
+<<<<<<< HEAD
 import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import axios from 'axios'
 import { Client } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { useAuthStore } from '@/store'
 import { storeToRefs } from 'pinia'
+=======
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
+import axios from 'axios';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
+import { useAuthStore } from '@/store';
+import { storeToRefs } from 'pinia';
+import { NIcon } from 'naive-ui';
+import {
+  ChatbubbleOutline,
+  CloseOutline,
+  PersonOutline,
+  ChatbubbleEllipsesOutline,
+  FlashOutline,
+  PeopleOutline,
+  SendOutline,
+} from '@vicons/ionicons5';
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
 
 const BACKEND_URL = 'http://localhost:2345'
 const authStore = useAuthStore()
@@ -40,26 +59,65 @@ const headerSubtitle = computed(() => {
 const messages = ref([
   {
     sender: 'BOT',
+<<<<<<< HEAD
     content: 'Xin chào! Cảm ơn bạn đã ghé thăm MyLaptop.\n Hotline CSKH: **0965.237.19**\n\n **HƯỚNG DẪN HỖ TRỢ:**\n- Em là Trợ lý AI, luôn sẵn sàng tư vấn cấu hình và báo giá Laptop 24/7.\n- Bất cứ lúc nào cần hỗ trợ chuyên sâu, anh/chị chỉ cần gõ cú pháp: **"gặp nhân viên"** (hoặc bấm nút bên dưới) để kết nối trực tiếp với tư vấn viên thật nhé!\n\nAnh/chị muốn hệ thống hỗ trợ tự động hay gặp nhân viên luôn ạ?',
     time: new Date(),
   },
 ])
+=======
+content: 'Xin chào! Cảm ơn bạn đã ghé thăm MyLaptop.\n📞 Hotline CSKH: **0965.237.19**\n\n📌 **HƯỚNG DẪN HỖ TRỢ:**\n- Em là Trợ lý AI, luôn sẵn sàng tư vấn cấu hình và báo giá Laptop 24/7.\n- Bất cứ lúc nào cần hỗ trợ chuyên sâu, anh/chị chỉ cần gõ cú pháp: **"gặp nhân viên"** (hoặc bấm nút bên dưới) để kết nối trực tiếp với tư vấn viên thật nhé!\n\nAnh/chị muốn hệ thống hỗ trợ tự động hay gặp nhân viên luôn ạ?',
+    time: new Date()
+  }
+]);
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
 
 const sessionId = ref(localStorage.getItem('chat_session_id') || `session-${Math.random().toString(36).substr(2, 9)}`)
 localStorage.setItem('chat_session_id', sessionId.value)
 
+<<<<<<< HEAD
 function connectSocket() {
   const socket = new SockJS(`${BACKEND_URL}/ws`)
+=======
+const backToAI = async () => {
+  chatMode.value = 'AI';
+  isWaitingStaff.value = false;
+  messages.value.push({ sender: 'SYSTEM', content: 'Bạn đã chủ động ngắt kết nối. Trợ lý AI đã quay lại!' });
+  scrollToBottom();
+  
+  try {
+    await axios.post(`${BACKEND_URL}/api/v1/chat/end-support`, { sessionId: sessionId.value });
+  } catch (error) {}
+};
+
+const connectSocket = () => {
+  const socket = new SockJS(`${BACKEND_URL}/ws`);
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
   stompClient.value = new Client({
     webSocketFactory: () => socket,
     onConnect: () => {
       stompClient.value.subscribe(`/topic/user/${sessionId.value}`, (message) => {
         const msgBody = JSON.parse(message.body)
         if (msgBody.senderRole === 'STAFF') {
+<<<<<<< HEAD
           chatMode.value = 'STAFF'
           messages.value.push({ sender: 'STAFF', content: msgBody.content, time: new Date() })
           isLoading.value = false
           scrollToBottom()
+=======
+          messages.value.push({ sender: 'STAFF', content: msgBody.content });
+          
+          // 🔥 NẾU LÀ CÂU KẾT THÚC CỦA ADMIN -> ĐỔI TRẠNG THÁI VỀ AI
+          if (msgBody.content.includes('Phiên hỗ trợ đã kết thúc')) {
+             chatMode.value = 'AI';
+          } else {
+             // Nếu là tin nhắn bình thường -> Hiện trạng thái nhân viên
+             chatMode.value = 'STAFF';
+             isWaitingStaff.value = false;
+          }
+          
+          isLoading.value = false;
+          scrollToBottom();
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
         }
       })
     },
@@ -168,6 +226,7 @@ onUnmounted(() => {
   <div class="mlchat-wrapper">
     <!-- TOGGLE BUTTON -->
     <transition name="bounce">
+<<<<<<< HEAD
       <button class="mlchat-toggle" :class="{ 'is-open': isOpen }" @click="toggleChat">
         <span class="toggle-icon">
           <svg v-if="!isOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -177,6 +236,13 @@ onUnmounted(() => {
             <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </span>
+=======
+      <button class="mlchat-toggle" @click="toggleChat" :class="{ 'is-open': isOpen }">
+        <n-icon size="22">
+          <ChevronDownOutline v-if="isOpen" />
+          <ChatbubbleOutline v-else />
+        </n-icon>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
         <span v-if="!isOpen" class="toggle-label">Hỗ trợ</span>
       </button>
     </transition>
@@ -188,9 +254,13 @@ onUnmounted(() => {
         <div class="mlchat-header" :class="{ 'mode-staff': chatMode === 'STAFF', 'mode-waiting': chatMode === 'WAITING' }">
           <div class="header-avatar">
             <div class="avatar-ring">
+<<<<<<< HEAD
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
               </svg>
+=======
+              <n-icon size="18"><PersonOutline /></n-icon>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
             </div>
             <span class="status-dot" :class="chatMode === 'WAITING' ? 'dot-waiting' : 'dot-online'" />
           </div>
@@ -204,10 +274,22 @@ onUnmounted(() => {
             </div>
           </div>
           <button class="header-close" @click="toggleChat">
+<<<<<<< HEAD
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
+=======
+            <n-icon size="16"><CloseOutline /></n-icon>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
           </button>
+        </div>
+
+        <div v-if="chatMode === 'STAFF' || chatMode === 'WAITING'" 
+             style="background: #fef2f2; padding: 6px; text-align: center; border-bottom: 1px solid #fee2e2;">
+            <button @click="backToAI" 
+                    style="border: none; background: transparent; color: #ef4444; font-size: 12px; cursor: pointer; font-weight: bold;">
+              ✕ Ngắt kết nối, chat với AI
+            </button>
         </div>
 
         <!-- MESSAGES -->
@@ -233,12 +315,19 @@ onUnmounted(() => {
             <!-- BOT / STAFF MESSAGE -->
             <div v-else class="msg-row msg-bot">
               <div class="bot-avatar" :class="{ 'bot-avatar--staff': msg.sender === 'STAFF' }">
+<<<<<<< HEAD
                 <svg v-if="msg.sender === 'STAFF'" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
                 </svg>
                 <svg v-else viewBox="0 0 24 24" fill="currentColor">
                   <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z" />
                 </svg>
+=======
+                <n-icon size="16">
+                  <PersonOutline v-if="msg.sender === 'STAFF'" />
+                  <ChatbubbleEllipsesOutline v-else />
+                </n-icon>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
               </div>
               <div class="msg-col">
                 <div class="sender-label">
@@ -249,9 +338,10 @@ onUnmounted(() => {
                   {{ formatTime(msg.time) }}
                 </div>
 
-                <!-- CHOICE BUTTONS sau tin nhắn đầu -->
+                <!-- CHOICE BUTTONS -->
                 <div v-if="index === 0 && showOptions" class="choice-group">
                   <button class="choice-btn choice-ai" @click="handleOptionClick('AI')">
+<<<<<<< HEAD
                     <span class="choice-icon">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
@@ -265,6 +355,13 @@ onUnmounted(() => {
                         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
                       </svg>
                     </span>
+=======
+                    <n-icon size="15"><FlashOutline /></n-icon>
+                    Hỗ trợ tự động
+                  </button>
+                  <button class="choice-btn choice-staff" @click="handleOptionClick('STAFF')">
+                    <n-icon size="15"><PeopleOutline /></n-icon>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
                     Gặp nhân viên
                   </button>
                 </div>
@@ -275,9 +372,13 @@ onUnmounted(() => {
           <!-- TYPING INDICATOR -->
           <div v-if="isLoading" class="msg-row msg-bot">
             <div class="bot-avatar">
+<<<<<<< HEAD
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
               </svg>
+=======
+              <n-icon size="16"><ChatbubbleEllipsesOutline /></n-icon>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
             </div>
             <div class="bubble bubble-bot typing-bubble">
               <span class="dot" /><span class="dot" /><span class="dot" />
@@ -291,6 +392,7 @@ onUnmounted(() => {
             <div class="sugg-header">
               <span>Câu hỏi thường gặp</span>
               <button class="sugg-close" @click="showSuggestions = false">
+<<<<<<< HEAD
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
@@ -306,6 +408,15 @@ onUnmounted(() => {
               <button class="sugg-tag" @click="sendSuggested('Laptop hot nhất hiện nay là gì?')">
                 🔥 Laptop hot
               </button>
+=======
+                <n-icon size="13"><CloseOutline /></n-icon>
+              </button>
+            </div>
+            <div class="sugg-tags">
+              <button class="sugg-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">Đặt hàng</button>
+              <button class="sugg-tag" @click="sendSuggested('Có ưu đãi gì hiện tại không?')">Ưu đãi</button>
+              <button class="sugg-tag" @click="sendSuggested('Laptop hot nhất hiện nay là gì?')">Laptop hot</button>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
             </div>
           </div>
         </transition>
@@ -317,12 +428,18 @@ onUnmounted(() => {
             placeholder="Nhập câu hỏi của bạn..."
             type="text"
             :disabled="isLoading"
+<<<<<<< HEAD
             @keyup.enter="sendMessage"
           >
           <button class="send-btn" :disabled="isLoading || !userMessage.trim()" @click="sendMessage">
             <svg viewBox="0 0 24 24" fill="currentColor">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>
+=======
+          />
+          <button class="send-btn" @click="sendMessage" :disabled="isLoading || !userMessage.trim()">
+            <n-icon size="18"><SendOutline /></n-icon>
+>>>>>>> a617eef37a36c00800a230bc91b962912562b482
           </button>
         </div>
 
@@ -369,8 +486,6 @@ onUnmounted(() => {
 }
 .mlchat-toggle:hover { background: #059669; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(16, 185, 129, 0.45); }
 .mlchat-toggle.is-open { padding: 14px; border-radius: 50%; }
-.toggle-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
-.toggle-icon svg { width: 22px; height: 22px; }
 .toggle-label { white-space: nowrap; }
 
 /* ===== PANEL ===== */
@@ -411,7 +526,6 @@ onUnmounted(() => {
   justify-content: center;
   border: 2px solid rgba(255,255,255,0.5);
 }
-.avatar-ring svg { width: 20px; height: 20px; fill: white; }
 .status-dot {
   position: absolute;
   bottom: 0;
@@ -444,7 +558,6 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 .header-close:hover { background: rgba(255,255,255,0.35); }
-.header-close svg { width: 16px; height: 16px; }
 
 /* ===== MESSAGES ===== */
 .mlchat-messages {
@@ -492,7 +605,6 @@ onUnmounted(() => {
   flex-shrink: 0;
   margin-bottom: 2px;
 }
-.bot-avatar svg { width: 16px; height: 16px; fill: white; }
 .bot-avatar--staff { background: #f59e0b; }
 
 .sender-label {
@@ -571,8 +683,6 @@ onUnmounted(() => {
   transition: all 0.2s;
   text-align: left;
 }
-.choice-icon { width: 16px; height: 16px; display: flex; align-items: center; flex-shrink: 0; }
-.choice-icon svg { width: 16px; height: 16px; }
 
 .choice-ai { border-color: #10b981; color: #10b981; }
 .choice-ai:hover { background: #10b981; color: white; transform: translateX(3px); }
@@ -667,7 +777,6 @@ onUnmounted(() => {
   transition: all 0.2s;
   flex-shrink: 0;
 }
-.send-btn svg { width: 18px; height: 18px; }
 .send-btn:hover:not(:disabled) { background: #059669; transform: scale(1.05); }
 .send-btn:disabled { background: #d1d5db; cursor: not-allowed; }
 
