@@ -644,8 +644,10 @@ const productColumns = computed<DataTableColumns<DisplayProduct>>(() => {
         return h('div', { class: 'font-mono font-bold text-center text-purple-700 text-sm p-1 bg-purple-50 rounded border border-purple-200' }, row.imeiCode)
       },
     },
+
     { title: 'Đơn giá', key: 'price', width: 120, align: 'right', render: row => h('div', { class: 'font-semibold' }, formatCurrency(row.giaBan)) },
     {
+
       title: 'Thao tác',
       key: 'action',
       width: 120,
@@ -895,6 +897,10 @@ async function addSerialsToInvoice() {
       message.success(`Đã thêm ${selectedSerialIds.value.length} serial vào sản phẩm`)
       showSerialModal.value = false
       await fetchInvoiceDetails()
+
+      setTimeout(() => {
+        window.location.reload()
+      }, 800)
     }
     else { message.error(response.message || 'Thêm serial thất bại') }
   }

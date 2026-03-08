@@ -7,5 +7,5 @@ public enum EntityTrangThaiHoaDon {
     DANG_GIAO,
     HOAN_THANH,
     DA_HUY,
-    LUU_TAM
+    LUU_TAM,
 }

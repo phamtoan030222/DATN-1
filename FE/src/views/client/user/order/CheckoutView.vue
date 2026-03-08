@@ -8,6 +8,8 @@ import {
   StorefrontOutline,
   TicketOutline,
 } from '@vicons/ionicons5'
+import axios from 'axios'
+import type { FormInst } from 'naive-ui'
 import {
   NButton,
   NCard,
@@ -29,15 +31,12 @@ import {
   NTag,
   useMessage,
 } from 'naive-ui'
-import type { FormInst } from 'naive-ui'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
-import axios from 'axios'
 import { useRouter } from 'vue-router'
 
 // Import Store & API
-import { CUSTOMER_CART_ID, CUSTOMER_CART_ITEM, USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import type { CartItemResponse } from '@/service/api/client/banhang.api'
-import { createOrder, GetGioHang, getMaGiamGia, getProductDetailCart } from '@/service/api/client/banhang.api'
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { createOrder, getMaGiamGia } from '@/service/api/client/banhang.api'
 
 import {
   createAddress,
@@ -47,25 +46,30 @@ import {
   updateAddress,
 } from '@/service/api/client/customer/address.api'
 
+import { useCartStore } from '@/store/app/card'
 import { localStorageAction } from '@/utils'
-import { CartStore } from '@/utils/cartStore'
 
 const router = useRouter()
 const message = useMessage()
 const processing = ref(false)
 
 // --- Data Cart ---
-interface CartItemExt extends CartItemResponse {
-  originalPrice?: number
-  percentage?: number
-}
-const cartItems = ref<CartItemExt[]>([])
+// interface CartItemExt extends CartItemResponse {
+//   originalPrice?: number
+//   percentage?: number
+// }
+// const cartItems = ref<CartItemExt[]>([])
+
+const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { removeCart } = useCartStore()
+
+const cartItemsRef = computed(() => cartItemBuyNow.value ? [cartItemBuyNow.value] : cartItems.value)
+
 const userInfo = ref<any>(null)
 
 const STORE_ADDRESS = 'Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội'
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
-const cartId = ref<string | null>()
 
 // ====================================================
 // FORM THANH TOÁN CHÍNH (ÁP DỤNG RULES NATIVE-UI)
@@ -394,50 +398,11 @@ onMounted(async () => {
   if (userInfo.value) {
     await fetchMyAddresses()
   }
-  loadCart()
 })
 
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
-async function loadCart() {
-  cartId.value = localStorageAction.get(CUSTOMER_CART_ID)
-  if (cartId.value) {
-    const res = await GetGioHang(cartId.value as string)
-    cartItems.value = (res.data || []).map((item: any) => {
-      const percentage = item.percentage || item.percentageDiscount || 0
-      const finalPrice = percentage > 0 ? item.price * (1 - percentage / 100) : item.price
-      return { ...item, originalPrice: item.price, price: finalPrice }
-    })
-  }
-  else {
-    const cartItem = localStorageAction.get(CUSTOMER_CART_ITEM)
-    if (!cartItem)
-      return
-    const res = await getProductDetailCart(Object.keys(cartItem))
-    cartItems.value = (res.data || []).map((productDetail: any) => {
-      const percentage = productDetail.percentage || productDetail.percentageDiscount || 0
-      const finalPrice = percentage > 0 ? productDetail.price * (1 - percentage / 100) : productDetail.price
-      return {
-        ...productDetail,
-        id: '',
-        productDetailId: productDetail.id,
-        quantity: cartItem[productDetail.id],
-        originalPrice: productDetail.price,
-        price: finalPrice,
-      }
-    })
-  }
-
-  if (cartItems.value.length === 0) {
-    message.warning('Giỏ hàng trống')
-    router.push('/cart')
-  }
-  else {
-    loadVouchers()
-  }
-}
-
-const subTotal = computed(() => cartItems.value.reduce((t, i) => t + (i.price * i.quantity), 0))
+const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.price * i.quantity), 0))
 const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 30000 : 0)
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
@@ -505,7 +470,7 @@ async function handleCheckout() {
 
   processing.value = true
   try {
-    const productPayload = cartItems.value.map(item => ({
+    const productPayload = cartItemsRef.value.map(item => ({
       productDetailId: item.productDetailId,
       quantity: item.quantity,
       price: item.price,
@@ -529,15 +494,16 @@ async function handleCheckout() {
     const res: any = await createOrder(payload)
     if (res.status === 200 || res.status === 'OK' || res.data) {
       message.success('Đặt hàng thành công!')
-      CartStore.clearCart()
       router.push('/order-success')
     }
 
-    if (!cartId.value) {
-      localStorageAction.remove(CUSTOMER_CART_ID)
+    if (cartItemBuyNow.value) {
+      removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
     }
     else {
-      message.error(res.message || 'Đặt hàng thất bại')
+      cartItemsRef.value.forEach((item) => {
+        removeCart(item.productDetailId)
+      })
     }
   }
   catch (error: any) {
@@ -722,12 +688,12 @@ async function handleCheckout() {
         <NGi>
           <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 sticky top-4">
             <h3 class="font-bold text-lg mb-4 pb-3 border-b text-gray-800">
-              Đơn hàng ({{ cartItems.length }} sản phẩm)
+              Đơn hàng ({{ cartItemsRef.length }} sản phẩm)
             </h3>
 
             <div class="space-y-3 mb-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
               <div
-                v-for="item in cartItems" :key="item.productDetailId"
+                v-for="item in cartItemsRef" :key="item.productDetailId"
                 class="flex justify-between text-sm py-3 border-b border-dashed border-gray-200 last:border-0"
               >
                 <div class="flex-1 pr-3">
@@ -740,13 +706,11 @@ async function handleCheckout() {
                 </div>
                 <div class="text-right flex flex-col items-end justify-center shrink-0">
                   <div class="font-bold text-red-600 text-[15px]">
-                    {{ formatCurrency(item.price * item.quantity) }}
+                    {{ formatCurrency((item.percentage && item.percentage > 0 ? item.price * (1 - item.percentage / 100)
+                      : item.price) * item.quantity) }}
                   </div>
-                  <div
-                    v-if="(item.originalPrice ?? 0) > item.price"
-                    class="text-[11px] text-gray-400 line-through mt-0.5"
-                  >
-                    {{ formatCurrency((item.originalPrice ?? 0) * item.quantity) }}
+                  <div v-if="(item.percentage ?? 0) > 0" class="text-[11px] text-gray-400 line-through mt-0.5">
+                    {{ formatCurrency((item.price ?? 0) * item.quantity) }}
                   </div>
                 </div>
               </div>
@@ -793,13 +757,26 @@ async function handleCheckout() {
               </div>
             </div>
 
-            <NButton
-              block type="primary" color="#d70018" size="large"
+            <!-- <NButton block type="primary" color="#d70018" size="large"
               class="font-bold h-12 text-lg mt-6 shadow-md shadow-red-200 hover:-translate-y-0.5 transition-transform"
-              :loading="processing" @click="handleCheckout"
-            >
+              :loading="processing" @click="handleCheckout">
               ĐẶT HÀNG NGAY
-            </NButton>
+            </NButton> -->
+            <NPopconfirm
+              :positive-button-props="{ type: 'info' }" positive-text="Xác nhận"
+              negative-text="Hủy" @positive-click="handleCheckout"
+            >
+              <template #trigger>
+                <NButton
+                  block type="primary" color="#d70018" size="large"
+                  class="font-bold h-12 text-lg mt-6 shadow-md shadow-red-200 hover:-translate-y-0.5 transition-transform"
+                  :loading="processing"
+                >
+                  ĐẶT HÀNG NGAY
+                </NButton>
+              </template>
+              Bạn chắc chắn muốn thao tác
+            </NPopconfirm>
           </div>
         </NGi>
       </NGrid>

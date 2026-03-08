@@ -3,10 +3,10 @@ import request from '@/service/request'
 import type { DefaultResponse } from '@/typings/api/api.common'
 import type { AxiosResponse } from 'axios'
 
-export async function getCartByCustomer(customerId: string) {
-  const res = (await request({
-    url: `${API_CUSTOMER_CARTS}/${customerId}`,
-    method: 'GET',
-  })) as AxiosResponse<DefaultResponse<string>>
-  return res.data
+export const getCartByCustomer = async (customerId: string) => {
+    const res = (await request({
+        url: `${API_CUSTOMER_CARTS}/${customerId}`,
+        method: 'GET',
+    })) as AxiosResponse<DefaultResponse<string>>
+    return res.data
 }

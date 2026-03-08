@@ -3,20 +3,40 @@ package com.sd20201.datn.core.admin.banhang.model.response;
 import java.math.BigDecimal;
 
 public interface ADGioHangResponse {
-    Long getSTT();
+
+    Integer getStt();
+
     String getIdHDCT();
+
     String getId();
+
     String getTen();
+
     Integer getSoLuong();
-    BigDecimal getgiaGoc();
+
+    BigDecimal getGiaGoc();
+
     BigDecimal getGiaBan();
+
+    BigDecimal getGiaHienTai();
+
+    Integer getGiaDaThayDoi();
+
     String getAnh();
-    String getStatus();
+
     String getCpu();
+
     String getRam();
+
     String getHardDrive();
+
     String getGpu();
+
     String getColor();
+
     String getImel();
+
     Integer getPercentage();
+
+    String getStatus();
 }

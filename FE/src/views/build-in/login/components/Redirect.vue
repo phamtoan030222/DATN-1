@@ -1,9 +1,7 @@
 <script lang="ts" setup>
 import { ROLES } from '@/constants/roles'
-import { CUSTOMER_CART_ID } from '@/constants/storageKey'
-import { getCartByCustomer } from '@/service/api/client/customer/customer.api'
 import { useAuthStore } from '@/store'
-import { localStorageAction } from '@/utils'
+import { useCartStore } from '@/store/app/card'
 import { getUserInformation } from '@/utils/token.helper'
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -15,6 +13,8 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const { state } = route.query
+
+const { fetchCartId, fetchCartItem } = useCartStore()
 
 onMounted( async () => {
   if (state) {
@@ -39,8 +39,8 @@ onMounted( async () => {
       return
     }
     else if (user.rolesCodes.includes(ROLES.KHACH_HANG) && user.roleScreen === 'CUSTOMER') {
-      const res = await getCartByCustomer(user.userId as string)
-      localStorageAction.set(CUSTOMER_CART_ID, res.data)
+      fetchCartId()
+      fetchCartItem()
       router.push({ name: 'Home' })
       return
     }
