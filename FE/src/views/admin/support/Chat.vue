@@ -118,10 +118,21 @@ const acceptSession = async () => {
 const closeSession = async () => {
   if (!currentSessionId.value) return;
   const sId = currentSessionId.value;
-  const msgContent = `Phiên hỗ trợ đã kết thúc. Cảm ơn bạn đã liên hệ với chúng tôi!`;
+
+  // Sửa lại câu thông báo để khách hàng biết AI đã quay lại
+  const msgContent = `Phiên hỗ trợ đã kết thúc. Trợ lý ảo AI đã quay trở lại để tiếp tục hỗ trợ bạn!`;
 
   sessions.value[sId].status = 'CLOSED';
   await sendSystemAction(sId, msgContent);
+  
+  try {
+    await axios.post(`${BACKEND_URL}/api/v1/chat/end-support`, {
+      sessionId: sId
+    });
+  } catch (error) {
+    console.error("Lỗi khi kết thúc chat:", error);
+  }
+
   currentSessionId.value = null; 
 };
 
