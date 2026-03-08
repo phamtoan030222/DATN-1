@@ -442,8 +442,8 @@ const productColumns = computed<DataTableColumns<HoaDonChiTietItem>>(() => {
       title: 'Sản phẩm',
       key: 'productInfo',
       minWidth: 300,
-      align: 'center', // ✅ căn giữa nội dung
-      titleAlign: 'center', // ✅ căn giữa tiêu đề
+      align: 'center',
+      titleAlign: 'center',
       render: (row) => {
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
@@ -460,7 +460,6 @@ const productColumns = computed<DataTableColumns<HoaDonChiTietItem>>(() => {
         ])
       },
     },
-    // Đã nới rộng các cột dữ liệu để chúng dàn đều, chống tạo khoảng trống ở giữa
     { title: 'Số lượng', key: 'soLuong', width: 140, align: 'center', render: row => h('span', { class: 'font-bold text-gray-800 text-base' }, row.soLuong) },
     { title: 'Đơn giá', key: 'price', width: 180, align: 'right', render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)) },
     { title: 'Thành tiền', key: 'total', width: 180, align: 'right', render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)) },
