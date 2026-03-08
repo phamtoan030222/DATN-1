@@ -20,7 +20,7 @@ SELECT
     ROW_NUMBER() OVER (ORDER BY hdct.created_date DESC) AS stt,
 
     hdct.id AS idHDCT,
-    spct.id AS id,CONCAT(sp.name, ' - ', spct.code) AS ten,
+    spct.id AS id,CONCAT(sp.name, ' - ', cl.name) AS ten,
 
     (
        SELECT COUNT(*)

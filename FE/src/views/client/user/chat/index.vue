@@ -1,165 +1,180 @@
 <script setup>
-import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue';
-import axios from 'axios';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
-import { useAuthStore } from '@/store';
-import { storeToRefs } from 'pinia';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import axios from 'axios'
+import { Client } from '@stomp/stompjs'
+import SockJS from 'sockjs-client'
+import { useAuthStore } from '@/store'
+import { storeToRefs } from 'pinia'
 
-const BACKEND_URL = 'http://localhost:2345';
-const authStore = useAuthStore();
-const { userInfoDatn } = storeToRefs(authStore);
+const BACKEND_URL = 'http://localhost:2345'
+const authStore = useAuthStore()
+const { userInfoDatn } = storeToRefs(authStore)
 
 // --- STATE ---
-const isOpen = ref(false);
-const userMessage = ref('');
-const isLoading = ref(false);
-const messagesContainer = ref(null);
-const stompClient = ref(null);
-const showOptions = ref(true);
-const showSuggestions = ref(true);
+const isOpen = ref(false)
+const userMessage = ref('')
+const isLoading = ref(false)
+const messagesContainer = ref(null)
+const stompClient = ref(null)
+const showOptions = ref(true)
+const showSuggestions = ref(true)
 
-const chatMode = ref('AI'); // 'AI' | 'WAITING' | 'STAFF'
+const chatMode = ref('AI') // 'AI' | 'WAITING' | 'STAFF'
 
 const headerTitle = computed(() => {
-  if (chatMode.value === 'STAFF') return 'Nhân viên tư vấn';
-  if (chatMode.value === 'WAITING') return 'Đang kết nối...';
-  return 'Hỗ trợ MyLaptop';
-});
+  if (chatMode.value === 'STAFF')
+    return 'Nhân viên tư vấn'
+  if (chatMode.value === 'WAITING')
+    return 'Đang kết nối...'
+  return 'Hỗ trợ MyLaptop'
+})
 
 const headerSubtitle = computed(() => {
-  if (chatMode.value === 'STAFF') return 'Đang hỗ trợ bạn';
-  if (chatMode.value === 'WAITING') return 'Vui lòng chờ trong giây lát';
-  return 'Phản hồi ngay lập tức';
-});
+  if (chatMode.value === 'STAFF')
+    return 'Đang hỗ trợ bạn'
+  if (chatMode.value === 'WAITING')
+    return 'Vui lòng chờ trong giây lát'
+  return 'Phản hồi ngay lập tức'
+})
 
 const messages = ref([
   {
     sender: 'BOT',
-    content: 'Xin chào! Cảm ơn bạn đã ghé thăm **MyLaptop**.\n📞 Hotline: **0965.237.19**\n\nBạn muốn được hỗ trợ theo hình thức nào?',
-    time: new Date()
-  }
-]);
+    content: 'Xin chào! Cảm ơn bạn đã ghé thăm MyLaptop.\n Hotline CSKH: **0965.237.19**\n\n **HƯỚNG DẪN HỖ TRỢ:**\n- Em là Trợ lý AI, luôn sẵn sàng tư vấn cấu hình và báo giá Laptop 24/7.\n- Bất cứ lúc nào cần hỗ trợ chuyên sâu, anh/chị chỉ cần gõ cú pháp: **"gặp nhân viên"** (hoặc bấm nút bên dưới) để kết nối trực tiếp với tư vấn viên thật nhé!\n\nAnh/chị muốn hệ thống hỗ trợ tự động hay gặp nhân viên luôn ạ?',
+    time: new Date(),
+  },
+])
 
-const sessionId = ref(localStorage.getItem('chat_session_id') || 'session-' + Math.random().toString(36).substr(2, 9));
-localStorage.setItem('chat_session_id', sessionId.value);
+const sessionId = ref(localStorage.getItem('chat_session_id') || `session-${Math.random().toString(36).substr(2, 9)}`)
+localStorage.setItem('chat_session_id', sessionId.value)
 
-const connectSocket = () => {
-  const socket = new SockJS(`${BACKEND_URL}/ws`);
+function connectSocket() {
+  const socket = new SockJS(`${BACKEND_URL}/ws`)
   stompClient.value = new Client({
     webSocketFactory: () => socket,
     onConnect: () => {
       stompClient.value.subscribe(`/topic/user/${sessionId.value}`, (message) => {
-        const msgBody = JSON.parse(message.body);
+        const msgBody = JSON.parse(message.body)
         if (msgBody.senderRole === 'STAFF') {
-          chatMode.value = 'STAFF';
-          messages.value.push({ sender: 'STAFF', content: msgBody.content, time: new Date() });
-          isLoading.value = false;
-          scrollToBottom();
+          chatMode.value = 'STAFF'
+          messages.value.push({ sender: 'STAFF', content: msgBody.content, time: new Date() })
+          isLoading.value = false
+          scrollToBottom()
         }
-      });
+      })
     },
-    onStompError: (frame) => console.error('Lỗi socket:', frame.headers['message'])
-  });
-  stompClient.value.activate();
-};
+    onStompError: frame => console.error('Lỗi socket:', frame.headers.message),
+  })
+  stompClient.value.activate()
+}
 
-const formatMessage = (text) => {
-  if (!text) return '';
+function formatMessage(text) {
+  if (!text)
+    return ''
   return text
     .replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="chat-link">$1</a>');
-};
+    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="chat-link">$1</a>')
+}
 
-const formatTime = (date) => {
-  if (!date) return '';
-  return new Date(date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
+function formatTime(date) {
+  if (!date)
+    return ''
+  return new Date(date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
 
-const scrollToBottom = () => {
+function scrollToBottom() {
   nextTick(() => {
     if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
-  });
-};
+  })
+}
 
-const handleOptionClick = async (choice) => {
-  showOptions.value = false;
+async function handleOptionClick(choice) {
+  showOptions.value = false
   if (choice === 'STAFF') {
-    userMessage.value = 'gặp nhân viên';
-    await sendMessage();
-  } else {
-    messages.value.push({ sender: 'USER', content: 'Tôi muốn hỗ trợ tự động', time: new Date() });
+    userMessage.value = 'gặp nhân viên'
+    await sendMessage()
+  }
+  else {
+    messages.value.push({ sender: 'USER', content: 'Tôi muốn hỗ trợ tự động', time: new Date() })
     setTimeout(() => {
       messages.value.push({
         sender: 'BOT',
         content: 'Dạ, tôi là trợ lý ảo của MyLaptop. Anh/chị cần tư vấn laptop hay hỗ trợ đơn hàng, cứ nhắn cho tôi nhé!',
-        time: new Date()
-      });
-      scrollToBottom();
-    }, 500);
+        time: new Date(),
+      })
+      scrollToBottom()
+    }, 500)
   }
-};
+}
 
-const sendMessage = async () => {
-  if (!userMessage.value.trim()) return;
-  const text = userMessage.value;
-  messages.value.push({ sender: 'USER', content: text, time: new Date() });
-  showOptions.value = false;
-  userMessage.value = '';
-  isLoading.value = true;
-  scrollToBottom();
+async function sendMessage() {
+  if (!userMessage.value.trim())
+    return
+  const text = userMessage.value
+  messages.value.push({ sender: 'USER', content: text, time: new Date() })
+  showOptions.value = false
+  userMessage.value = ''
+  isLoading.value = true
+  scrollToBottom()
 
   try {
     const response = await axios.post(`${BACKEND_URL}/api/v1/chat/ask`, {
       sessionId: sessionId.value,
       message: text,
-      customerId: userInfoDatn.value?.userId || null
-    });
+      customerId: userInfoDatn.value?.userId || null,
+    })
 
     if (response.data) {
       if (response.data.includes('Đang chờ nhân viên') || response.data.includes('Hệ thống đã kết nối')) {
-        chatMode.value = 'WAITING';
-        messages.value.push({ sender: 'SYSTEM', content: response.data, time: new Date() });
-      } else {
-        messages.value.push({ sender: 'BOT', content: response.data, time: new Date() });
+        chatMode.value = 'WAITING'
+        messages.value.push({ sender: 'SYSTEM', content: response.data, time: new Date() })
+      }
+      else {
+        messages.value.push({ sender: 'BOT', content: response.data, time: new Date() })
       }
     }
-  } catch (error) {
-    messages.value.push({ sender: 'SYSTEM', content: 'Không thể kết nối máy chủ. Vui lòng thử lại.', time: new Date() });
-  } finally {
-    isLoading.value = false;
-    scrollToBottom();
   }
-};
+  catch (error) {
+    messages.value.push({ sender: 'SYSTEM', content: 'Không thể kết nối máy chủ. Vui lòng thử lại.', time: new Date() })
+  }
+  finally {
+    isLoading.value = false
+    scrollToBottom()
+  }
+}
 
-const sendSuggested = async (text) => {
-  userMessage.value = text;
-  await sendMessage();
-};
+async function sendSuggested(text) {
+  userMessage.value = text
+  await sendMessage()
+}
 
-const toggleChat = () => {
-  isOpen.value = !isOpen.value;
-  if (isOpen.value) scrollToBottom();
-};
+function toggleChat() {
+  isOpen.value = !isOpen.value
+  if (isOpen.value)
+    scrollToBottom()
+}
 
-onMounted(() => connectSocket());
-onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
+onMounted(() => connectSocket())
+onUnmounted(() => {
+  if (stompClient.value)
+    stompClient.value.deactivate()
+})
 </script>
 
 <template>
   <div class="mlchat-wrapper">
     <!-- TOGGLE BUTTON -->
     <transition name="bounce">
-      <button class="mlchat-toggle" @click="toggleChat" :class="{ 'is-open': isOpen }">
+      <button class="mlchat-toggle" :class="{ 'is-open': isOpen }" @click="toggleChat">
         <span class="toggle-icon">
           <svg v-if="!isOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </span>
         <span v-if="!isOpen" class="toggle-label">Hỗ trợ</span>
@@ -169,47 +184,49 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
     <!-- CHAT PANEL -->
     <transition name="panel-slide">
       <div v-if="isOpen" class="mlchat-panel">
-
         <!-- HEADER -->
         <div class="mlchat-header" :class="{ 'mode-staff': chatMode === 'STAFF', 'mode-waiting': chatMode === 'WAITING' }">
           <div class="header-avatar">
             <div class="avatar-ring">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
               </svg>
             </div>
-            <span class="status-dot" :class="chatMode === 'WAITING' ? 'dot-waiting' : 'dot-online'"></span>
+            <span class="status-dot" :class="chatMode === 'WAITING' ? 'dot-waiting' : 'dot-online'" />
           </div>
           <div class="header-info">
-            <div class="header-title">{{ headerTitle }}</div>
+            <div class="header-title">
+              {{ headerTitle }}
+            </div>
             <div class="header-subtitle">
-              <span class="subtitle-dot"></span>
+              <span class="subtitle-dot" />
               {{ headerSubtitle }}
             </div>
           </div>
           <button class="header-close" @click="toggleChat">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
           </button>
         </div>
 
         <!-- MESSAGES -->
-        <div class="mlchat-messages" ref="messagesContainer">
+        <div ref="messagesContainer" class="mlchat-messages">
           <div v-for="(msg, index) in messages" :key="index" class="msg-entry">
-
             <!-- SYSTEM NOTICE -->
             <div v-if="msg.sender === 'SYSTEM'" class="sys-notice">
-              <div class="sys-line"></div>
+              <div class="sys-line" />
               <span>{{ msg.content }}</span>
-              <div class="sys-line"></div>
+              <div class="sys-line" />
             </div>
 
             <!-- USER MESSAGE -->
             <div v-else-if="msg.sender === 'USER'" class="msg-row msg-user">
               <div class="msg-col">
-                <div class="bubble bubble-user" v-html="formatMessage(msg.content)"></div>
-                <div class="msg-time">{{ formatTime(msg.time) }}</div>
+                <div class="bubble bubble-user" v-html="formatMessage(msg.content)" />
+                <div class="msg-time">
+                  {{ formatTime(msg.time) }}
+                </div>
               </div>
             </div>
 
@@ -217,23 +234,27 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
             <div v-else class="msg-row msg-bot">
               <div class="bot-avatar" :class="{ 'bot-avatar--staff': msg.sender === 'STAFF' }">
                 <svg v-if="msg.sender === 'STAFF'" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
                 </svg>
                 <svg v-else viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/>
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z" />
                 </svg>
               </div>
               <div class="msg-col">
-                <div class="sender-label">{{ msg.sender === 'STAFF' ? 'Nhân viên tư vấn' : 'Hỗ trợ MyLaptop' }}</div>
-                <div class="bubble bubble-bot" v-html="formatMessage(msg.content)"></div>
-                <div class="msg-time">{{ formatTime(msg.time) }}</div>
+                <div class="sender-label">
+                  {{ msg.sender === 'STAFF' ? 'Nhân viên tư vấn' : 'Hỗ trợ MyLaptop' }}
+                </div>
+                <div class="bubble bubble-bot" v-html="formatMessage(msg.content)" />
+                <div class="msg-time">
+                  {{ formatTime(msg.time) }}
+                </div>
 
                 <!-- CHOICE BUTTONS sau tin nhắn đầu -->
                 <div v-if="index === 0 && showOptions" class="choice-group">
                   <button class="choice-btn choice-ai" @click="handleOptionClick('AI')">
                     <span class="choice-icon">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                        <circle cx="12" cy="12" r="3" /><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
                       </svg>
                     </span>
                     Hỗ trợ tự động
@@ -241,7 +262,7 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
                   <button class="choice-btn choice-staff" @click="handleOptionClick('STAFF')">
                     <span class="choice-icon">
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
                       </svg>
                     </span>
                     Gặp nhân viên
@@ -255,11 +276,11 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
           <div v-if="isLoading" class="msg-row msg-bot">
             <div class="bot-avatar">
               <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
               </svg>
             </div>
             <div class="bubble bubble-bot typing-bubble">
-              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              <span class="dot" /><span class="dot" /><span class="dot" />
             </div>
           </div>
         </div>
@@ -271,14 +292,20 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
               <span>Câu hỏi thường gặp</span>
               <button class="sugg-close" @click="showSuggestions = false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
             <div class="sugg-tags">
-              <button class="sugg-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">🛒 Đặt hàng</button>
-              <button class="sugg-tag" @click="sendSuggested('Có ưu đãi gì hiện tại không?')">🎁 Ưu đãi</button>
-              <button class="sugg-tag" @click="sendSuggested('Laptop hot nhất hiện nay là gì?')">🔥 Laptop hot</button>
+              <button class="sugg-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">
+                🛒 Đặt hàng
+              </button>
+              <button class="sugg-tag" @click="sendSuggested('Có ưu đãi gì hiện tại không?')">
+                🎁 Ưu đãi
+              </button>
+              <button class="sugg-tag" @click="sendSuggested('Laptop hot nhất hiện nay là gì?')">
+                🔥 Laptop hot
+              </button>
             </div>
           </div>
         </transition>
@@ -287,19 +314,21 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
         <div class="mlchat-input">
           <input
             v-model="userMessage"
-            @keyup.enter="sendMessage"
             placeholder="Nhập câu hỏi của bạn..."
             type="text"
             :disabled="isLoading"
-          />
-          <button class="send-btn" @click="sendMessage" :disabled="isLoading || !userMessage.trim()">
+            @keyup.enter="sendMessage"
+          >
+          <button class="send-btn" :disabled="isLoading || !userMessage.trim()" @click="sendMessage">
             <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
             </svg>
           </button>
         </div>
 
-        <div class="mlchat-footer">Powered by <strong>MyLaptop</strong></div>
+        <div class="mlchat-footer">
+          Powered by <strong>MyLaptop</strong>
+        </div>
       </div>
     </transition>
   </div>

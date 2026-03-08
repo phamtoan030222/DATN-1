@@ -15,7 +15,7 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     SELECT
         p.id as id,
         p.code as code,
-        p.name as name,
+        CONCAT(pd.name, ' - ', p.color.name) as name,
         p.description as description,
         p.hardDrive.name as hardDrive,
         p.material.name as material,
@@ -38,6 +38,7 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
             AND d.endDate >= :currentTime
         ), 0) as percentage
     FROM ProductDetail p
+    LEFT JOIN Product pd ON p.product.id = pd.id
     WHERE (
         :#{#request.q} IS NULL 
         OR p.name LIKE CONCAT('%', :#{#request.q}, '%') 
@@ -53,11 +54,13 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
     AND p.status = 0
+    AND pd.status = 0
     ORDER BY p.createdDate DESC
     """,
                 countQuery = """
     SELECT COUNT(p.id)
     FROM ProductDetail p
+    LEFT JOIN Product pd ON p.product.id = pd.id
     WHERE (
         :#{#request.q} IS NULL 
         OR p.name LIKE CONCAT('%', :#{#request.q}, '%') 
@@ -73,6 +76,7 @@ public interface ADBanHangSanPhamChiTiet extends ProductDetailRepository {
     AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
     AND p.status = 0
+    AND pd.status = 0
     """)
         Page<ADPDProductDetailResponse> getProductDetails(
                 Pageable pageable,
