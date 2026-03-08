@@ -16,7 +16,7 @@ public interface LichSuThanhToanRepository extends JpaRepository<LichSuThanhToan
     @Query("SELECT SUM(l.soTien) FROM LichSuThanhToan l " +
             "WHERE l.hoaDon.shiftHandover.id = :shiftId " +
             "AND l.loaiGiaoDich = :loaiGiaoDich " +
-            "AND l.trangThaiThanhToan = 1") // Số 1 tương ứng với Đã thanh toán trong DB của bạn
+            "AND l.trangThaiThanhToan = 2") // Số 1 tương ứng với Đã thanh toán trong DB của bạn
     BigDecimal sumAmountByShiftIdAndMethod(
             @Param("shiftId") String shiftId,
             @Param("loaiGiaoDich") String loaiGiaoDich
