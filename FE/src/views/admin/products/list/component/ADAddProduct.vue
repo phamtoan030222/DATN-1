@@ -183,7 +183,7 @@
                                 if (state) {
                                     state.priceCommonVariant = val as number;
                                 }
-                            }" />
+                            }" :format="formatCurrency" :parse="parseCurrency" />
                         <n-button type="success"
                             @click="applyPriceCommonVariantHandler(productDetailList[0].idColor)">Áp dụng</n-button>
                     </n-space>
@@ -433,8 +433,8 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     },
     {
         title: 'Giá bán', key: 'price', width: 200, align: 'center',
-        render: (data: ADPRTableProductDetail, index: number) =>  {
-            return !data.isExist ? ( !(isEditPriceInputTable.value.idColor === data.idColor && isEditPriceInputTable.value.index === index) ?
+        render: (data: ADPRTableProductDetail, index: number) => {
+            return !data.isExist ? (!(isEditPriceInputTable.value.idColor === data.idColor && isEditPriceInputTable.value.index === index) ?
                 h('span', {
                     innerText: data.price ? (data.price + '').split('').reduce((prev, curr, index, arr) => {
                         if ((arr.length - index) % 3 == 0) return prev + ' ' + curr
@@ -578,9 +578,9 @@ const submitVariantHandler = async () => {
                 const resCreateProduct = await modifyProduct(formDataBasic as ADProductCreateUpdateRequest, imageProduct);
                 idNewProduct = resCreateProduct.data;
             } catch (e: any) {
-                switch(e.response.status as number) {
+                switch (e.response.status as number) {
                     case 413:
-                        notification.error({content: "Thêm sản phẩm thất bại. Ảnh quá lớn",duration:3000})
+                        notification.error({ content: "Thêm sản phẩm thất bại. Ảnh quá lớn", duration: 3000 })
                         break;
                     default:
                         break;
@@ -782,6 +782,24 @@ const deleteProductDetail = (idColor: string, index: number) => {
     if (stateIndex !== -1) {
         statePaginationVariantByColor.splice(stateIndex, 1)
     }
+}
+
+function formatCurrency(value: number | null) {
+    if (value === null) return ''
+
+    const str = value.toString()
+
+    return str.replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+function parseCurrency(input: string): number | null {
+    const nums = input.replace(/\./g, '').trim()
+
+    if (/^\d+$/.test(nums)) {
+        return Number(nums)
+    }
+
+    return nums === '' ? null : Number.NaN
 }
 </script>
 

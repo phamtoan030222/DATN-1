@@ -138,9 +138,11 @@ function handleClickCheckout() {
                       </NIcon>
                     </template>
                   </NButton>
-                  <span class="text-base font-bold min-w-[20px] text-center">{{ item.quantity }}</span>
+                  <n-input-number v-model:value="item.quantity" :min="1" :max="5" class="w-8" :show-button="false" :bordered="false" placeholder="" />
                   <NButton strong secondary circle size="small"
-                    @click="validateIncreaseToCart(item.productDetailId, item.quantity + 1)">
+                    @click="validateIncreaseToCart(item.productDetailId, item.quantity + 1)"
+                    :disabled="item.quantity >= 5"
+                    >
                     <template #icon>
                       <NIcon>
                         <AddOutline />
@@ -175,9 +177,9 @@ function handleClickCheckout() {
               <span class="font-bold text-lg text-gray-800">Tổng tiền:</span>
               <span class="font-bold text-xl text-red-600">{{ formatCurrency(subTotal) }}</span>
             </div>
-              <NButton block type="primary" color="#d70018" size="large" class="font-bold h-12 shadow-lg shadow-red-100"
+              <NButton block type="success" size="large" class="font-bold h-12 shadow-lg"
                 @click="handleClickCheckout">
-                THANH TOÁN <NIcon class="ml-2">
+                Thanh toán <NIcon class="ml-2">
                   <ArrowForward />
                 </NIcon>
               </NButton>

@@ -238,7 +238,7 @@ public interface ClientPDProductDetailRepository extends ProductDetailRepository
             
                     WHERE p.id = :id
                       AND (
-                          d.id IS NULL 
+                          d.id IS NULL
                           OR d.percentage = (
                               SELECT MAX(subD.percentage)
                               FROM ProductDetailDiscount subPdd
