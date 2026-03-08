@@ -5,6 +5,16 @@ import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuthStore } from '@/store';
 import { storeToRefs } from 'pinia';
+import { NIcon } from 'naive-ui';
+import {
+  ChatbubbleOutline,
+  CloseOutline,
+  PersonOutline,
+  ChatbubbleEllipsesOutline,
+  FlashOutline,
+  PeopleOutline,
+  SendOutline,
+} from '@vicons/ionicons5';
 
 const BACKEND_URL = 'http://localhost:2345';
 const authStore = useAuthStore();
@@ -36,13 +46,24 @@ const headerSubtitle = computed(() => {
 const messages = ref([
   {
     sender: 'BOT',
-    content: 'Xin chào! Cảm ơn bạn đã ghé thăm **MyLaptop**.\n📞 Hotline: **0965.237.19**\n\nBạn muốn được hỗ trợ theo hình thức nào?',
+content: 'Xin chào! Cảm ơn bạn đã ghé thăm MyLaptop.\n📞 Hotline CSKH: **0965.237.19**\n\n📌 **HƯỚNG DẪN HỖ TRỢ:**\n- Em là Trợ lý AI, luôn sẵn sàng tư vấn cấu hình và báo giá Laptop 24/7.\n- Bất cứ lúc nào cần hỗ trợ chuyên sâu, anh/chị chỉ cần gõ cú pháp: **"gặp nhân viên"** (hoặc bấm nút bên dưới) để kết nối trực tiếp với tư vấn viên thật nhé!\n\nAnh/chị muốn hệ thống hỗ trợ tự động hay gặp nhân viên luôn ạ?',
     time: new Date()
   }
 ]);
 
 const sessionId = ref(localStorage.getItem('chat_session_id') || 'session-' + Math.random().toString(36).substr(2, 9));
 localStorage.setItem('chat_session_id', sessionId.value);
+
+const backToAI = async () => {
+  chatMode.value = 'AI';
+  isWaitingStaff.value = false;
+  messages.value.push({ sender: 'SYSTEM', content: 'Bạn đã chủ động ngắt kết nối. Trợ lý AI đã quay lại!' });
+  scrollToBottom();
+  
+  try {
+    await axios.post(`${BACKEND_URL}/api/v1/chat/end-support`, { sessionId: sessionId.value });
+  } catch (error) {}
+};
 
 const connectSocket = () => {
   const socket = new SockJS(`${BACKEND_URL}/ws`);
@@ -52,8 +73,17 @@ const connectSocket = () => {
       stompClient.value.subscribe(`/topic/user/${sessionId.value}`, (message) => {
         const msgBody = JSON.parse(message.body);
         if (msgBody.senderRole === 'STAFF') {
-          chatMode.value = 'STAFF';
-          messages.value.push({ sender: 'STAFF', content: msgBody.content, time: new Date() });
+          messages.value.push({ sender: 'STAFF', content: msgBody.content });
+          
+          // 🔥 NẾU LÀ CÂU KẾT THÚC CỦA ADMIN -> ĐỔI TRẠNG THÁI VỀ AI
+          if (msgBody.content.includes('Phiên hỗ trợ đã kết thúc')) {
+             chatMode.value = 'AI';
+          } else {
+             // Nếu là tin nhắn bình thường -> Hiện trạng thái nhân viên
+             chatMode.value = 'STAFF';
+             isWaitingStaff.value = false;
+          }
+          
           isLoading.value = false;
           scrollToBottom();
         }
@@ -154,14 +184,10 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
     <!-- TOGGLE BUTTON -->
     <transition name="bounce">
       <button class="mlchat-toggle" @click="toggleChat" :class="{ 'is-open': isOpen }">
-        <span class="toggle-icon">
-          <svg v-if="!isOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-          </svg>
-          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </span>
+        <n-icon size="22">
+          <ChevronDownOutline v-if="isOpen" />
+          <ChatbubbleOutline v-else />
+        </n-icon>
         <span v-if="!isOpen" class="toggle-label">Hỗ trợ</span>
       </button>
     </transition>
@@ -174,9 +200,7 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
         <div class="mlchat-header" :class="{ 'mode-staff': chatMode === 'STAFF', 'mode-waiting': chatMode === 'WAITING' }">
           <div class="header-avatar">
             <div class="avatar-ring">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-              </svg>
+              <n-icon size="18"><PersonOutline /></n-icon>
             </div>
             <span class="status-dot" :class="chatMode === 'WAITING' ? 'dot-waiting' : 'dot-online'"></span>
           </div>
@@ -188,10 +212,16 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
             </div>
           </div>
           <button class="header-close" @click="toggleChat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
+            <n-icon size="16"><CloseOutline /></n-icon>
           </button>
+        </div>
+
+        <div v-if="chatMode === 'STAFF' || chatMode === 'WAITING'" 
+             style="background: #fef2f2; padding: 6px; text-align: center; border-bottom: 1px solid #fee2e2;">
+            <button @click="backToAI" 
+                    style="border: none; background: transparent; color: #ef4444; font-size: 12px; cursor: pointer; font-weight: bold;">
+              ✕ Ngắt kết nối, chat với AI
+            </button>
         </div>
 
         <!-- MESSAGES -->
@@ -216,34 +246,24 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
             <!-- BOT / STAFF MESSAGE -->
             <div v-else class="msg-row msg-bot">
               <div class="bot-avatar" :class="{ 'bot-avatar--staff': msg.sender === 'STAFF' }">
-                <svg v-if="msg.sender === 'STAFF'" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                </svg>
-                <svg v-else viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/>
-                </svg>
+                <n-icon size="16">
+                  <PersonOutline v-if="msg.sender === 'STAFF'" />
+                  <ChatbubbleEllipsesOutline v-else />
+                </n-icon>
               </div>
               <div class="msg-col">
                 <div class="sender-label">{{ msg.sender === 'STAFF' ? 'Nhân viên tư vấn' : 'Hỗ trợ MyLaptop' }}</div>
                 <div class="bubble bubble-bot" v-html="formatMessage(msg.content)"></div>
                 <div class="msg-time">{{ formatTime(msg.time) }}</div>
 
-                <!-- CHOICE BUTTONS sau tin nhắn đầu -->
+                <!-- CHOICE BUTTONS -->
                 <div v-if="index === 0 && showOptions" class="choice-group">
                   <button class="choice-btn choice-ai" @click="handleOptionClick('AI')">
-                    <span class="choice-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
-                      </svg>
-                    </span>
+                    <n-icon size="15"><FlashOutline /></n-icon>
                     Hỗ trợ tự động
                   </button>
                   <button class="choice-btn choice-staff" @click="handleOptionClick('STAFF')">
-                    <span class="choice-icon">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-                      </svg>
-                    </span>
+                    <n-icon size="15"><PeopleOutline /></n-icon>
                     Gặp nhân viên
                   </button>
                 </div>
@@ -254,9 +274,7 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
           <!-- TYPING INDICATOR -->
           <div v-if="isLoading" class="msg-row msg-bot">
             <div class="bot-avatar">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-              </svg>
+              <n-icon size="16"><ChatbubbleEllipsesOutline /></n-icon>
             </div>
             <div class="bubble bubble-bot typing-bubble">
               <span class="dot"></span><span class="dot"></span><span class="dot"></span>
@@ -270,15 +288,13 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
             <div class="sugg-header">
               <span>Câu hỏi thường gặp</span>
               <button class="sugg-close" @click="showSuggestions = false">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
+                <n-icon size="13"><CloseOutline /></n-icon>
               </button>
             </div>
             <div class="sugg-tags">
-              <button class="sugg-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">🛒 Đặt hàng</button>
-              <button class="sugg-tag" @click="sendSuggested('Có ưu đãi gì hiện tại không?')">🎁 Ưu đãi</button>
-              <button class="sugg-tag" @click="sendSuggested('Laptop hot nhất hiện nay là gì?')">🔥 Laptop hot</button>
+              <button class="sugg-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">Đặt hàng</button>
+              <button class="sugg-tag" @click="sendSuggested('Có ưu đãi gì hiện tại không?')">Ưu đãi</button>
+              <button class="sugg-tag" @click="sendSuggested('Laptop hot nhất hiện nay là gì?')">Laptop hot</button>
             </div>
           </div>
         </transition>
@@ -293,9 +309,7 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
             :disabled="isLoading"
           />
           <button class="send-btn" @click="sendMessage" :disabled="isLoading || !userMessage.trim()">
-            <svg viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
+            <n-icon size="18"><SendOutline /></n-icon>
           </button>
         </div>
 
@@ -340,8 +354,6 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
 }
 .mlchat-toggle:hover { background: #059669; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(16, 185, 129, 0.45); }
 .mlchat-toggle.is-open { padding: 14px; border-radius: 50%; }
-.toggle-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
-.toggle-icon svg { width: 22px; height: 22px; }
 .toggle-label { white-space: nowrap; }
 
 /* ===== PANEL ===== */
@@ -382,7 +394,6 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
   justify-content: center;
   border: 2px solid rgba(255,255,255,0.5);
 }
-.avatar-ring svg { width: 20px; height: 20px; fill: white; }
 .status-dot {
   position: absolute;
   bottom: 0;
@@ -415,7 +426,6 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
   flex-shrink: 0;
 }
 .header-close:hover { background: rgba(255,255,255,0.35); }
-.header-close svg { width: 16px; height: 16px; }
 
 /* ===== MESSAGES ===== */
 .mlchat-messages {
@@ -463,7 +473,6 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
   flex-shrink: 0;
   margin-bottom: 2px;
 }
-.bot-avatar svg { width: 16px; height: 16px; fill: white; }
 .bot-avatar--staff { background: #f59e0b; }
 
 .sender-label {
@@ -542,8 +551,6 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
   transition: all 0.2s;
   text-align: left;
 }
-.choice-icon { width: 16px; height: 16px; display: flex; align-items: center; flex-shrink: 0; }
-.choice-icon svg { width: 16px; height: 16px; }
 
 .choice-ai { border-color: #10b981; color: #10b981; }
 .choice-ai:hover { background: #10b981; color: white; transform: translateX(3px); }
@@ -638,7 +645,6 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
   transition: all 0.2s;
   flex-shrink: 0;
 }
-.send-btn svg { width: 18px; height: 18px; }
 .send-btn:hover:not(:disabled) { background: #059669; transform: scale(1.05); }
 .send-btn:disabled { background: #d1d5db; cursor: not-allowed; }
 
