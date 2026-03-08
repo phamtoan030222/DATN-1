@@ -4,14 +4,14 @@ import axios from 'axios';
 import { Client } from '@stomp/stompjs';
 import SockJS from 'sockjs-client';
 import { useAuthStore } from '@/store';
+import { storeToRefs } from 'pinia';
 
-
-const BACKEND_URL = 'http://localhost:2345'; 
-
-const {  userInfoDatn } = storeToRefs(useAuthStore());
+const BACKEND_URL = 'http://localhost:2345';
+const authStore = useAuthStore();
+const { userInfoDatn } = storeToRefs(authStore);
 
 // --- STATE ---
-const isOpen = ref(false); 
+const isOpen = ref(false);
 const userMessage = ref('');
 const isLoading = ref(false);
 const messagesContainer = ref(null);
@@ -19,28 +19,31 @@ const stompClient = ref(null);
 const showOptions = ref(true);
 const showSuggestions = ref(true);
 
-// 🔥 TRẠNG THÁI CHAT: 'AI' | 'WAITING' | 'STAFF'
-const chatMode = ref('AI'); 
+const chatMode = ref('AI'); // 'AI' | 'WAITING' | 'STAFF'
 
-// Tự động đổi tên Header dựa vào trạng thái
 const headerTitle = computed(() => {
-  if (chatMode.value === 'STAFF') return '👨‍💻 Nhân viên hỗ trợ';
-  if (chatMode.value === 'WAITING') return '⏳ Đang kết nối...';
-  return '🤖 Trợ lý ảo AI';
+  if (chatMode.value === 'STAFF') return 'Nhân viên tư vấn';
+  if (chatMode.value === 'WAITING') return 'Đang kết nối...';
+  return 'Hỗ trợ MyLaptop';
+});
+
+const headerSubtitle = computed(() => {
+  if (chatMode.value === 'STAFF') return 'Đang hỗ trợ bạn';
+  if (chatMode.value === 'WAITING') return 'Vui lòng chờ trong giây lát';
+  return 'Phản hồi ngay lập tức';
 });
 
 const messages = ref([
-  { 
-    sender: 'AI', 
-    content: 'Xin chào! Cảm ơn bạn đã ghé thăm MyLaptop.\n📞 Hotline khẩn cấp: **0965.237.19**\n\nBạn muốn hệ thống hỗ trợ tự động hay kết nối trực tiếp với nhân viên tư vấn?' 
+  {
+    sender: 'BOT',
+    content: 'Xin chào! Cảm ơn bạn đã ghé thăm **MyLaptop**.\n📞 Hotline: **0965.237.19**\n\nBạn muốn được hỗ trợ theo hình thức nào?',
+    time: new Date()
   }
 ]);
-
 
 const sessionId = ref(localStorage.getItem('chat_session_id') || 'session-' + Math.random().toString(36).substr(2, 9));
 localStorage.setItem('chat_session_id', sessionId.value);
 
-// --- 1. KẾT NỐI WEBSOCKET ---
 const connectSocket = () => {
   const socket = new SockJS(`${BACKEND_URL}/ws`);
   stompClient.value = new Client({
@@ -48,15 +51,9 @@ const connectSocket = () => {
     onConnect: () => {
       stompClient.value.subscribe(`/topic/user/${sessionId.value}`, (message) => {
         const msgBody = JSON.parse(message.body);
-        
-        // Nhận tin từ STAFF
         if (msgBody.senderRole === 'STAFF') {
-          chatMode.value = 'STAFF'; // Đổi tiêu đề thành Nhân viên
-          
-          messages.value.push({
-            sender: 'STAFF',
-            content: msgBody.content
-          });
+          chatMode.value = 'STAFF';
+          messages.value.push({ sender: 'STAFF', content: msgBody.content, time: new Date() });
           isLoading.value = false;
           scrollToBottom();
         }
@@ -72,8 +69,12 @@ const formatMessage = (text) => {
   return text
     .replace(/\n/g, '<br>')
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    // 🔥 THÊM DÒNG NÀY ĐỂ RENDER LINK SẢN PHẨM 🔥
-    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="chat-product-link">$1</a>');
+    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="chat-link">$1</a>');
+};
+
+const formatTime = (date) => {
+  if (!date) return '';
+  return new Date(date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
 const scrollToBottom = () => {
@@ -84,29 +85,29 @@ const scrollToBottom = () => {
   });
 };
 
-// --- 2. XỬ LÝ NÚT CHỌN BAN ĐẦU ---
 const handleOptionClick = async (choice) => {
-  showOptions.value = false; 
+  showOptions.value = false;
   if (choice === 'STAFF') {
-    userMessage.value = 'gặp nhân viên'; 
+    userMessage.value = 'gặp nhân viên';
     await sendMessage();
   } else {
-    messages.value.push({ sender: 'USER', content: 'Mình muốn chat với Trợ lý AI' });
+    messages.value.push({ sender: 'USER', content: 'Tôi muốn hỗ trợ tự động', time: new Date() });
     setTimeout(() => {
-      messages.value.push({ sender: 'AI', content: 'Dạ, em là trợ lý AI đây ạ 🤖. Anh/chị cần tìm mẫu Laptop nào, hoặc cứ nhắn yêu cầu cấu hình để em tư vấn nhé!' });
+      messages.value.push({
+        sender: 'BOT',
+        content: 'Dạ, tôi là trợ lý ảo của MyLaptop. Anh/chị cần tư vấn laptop hay hỗ trợ đơn hàng, cứ nhắn cho tôi nhé!',
+        time: new Date()
+      });
       scrollToBottom();
     }, 500);
   }
 };
 
-// --- 3. GỬI TIN NHẮN CHÍNH ---
 const sendMessage = async () => {
   if (!userMessage.value.trim()) return;
-
   const text = userMessage.value;
-  messages.value.push({ sender: 'USER', content: text });
-  
-  showOptions.value = false; 
+  messages.value.push({ sender: 'USER', content: text, time: new Date() });
+  showOptions.value = false;
   userMessage.value = '';
   isLoading.value = true;
   scrollToBottom();
@@ -114,28 +115,26 @@ const sendMessage = async () => {
   try {
     const response = await axios.post(`${BACKEND_URL}/api/v1/chat/ask`, {
       sessionId: sessionId.value,
-      message: text
+      message: text,
+      customerId: userInfoDatn.value?.userId || null
     });
 
     if (response.data) {
-      // Nếu Backend báo đang chờ nhân viên
-      if (response.data.includes("Đang chờ nhân viên") || response.data.includes("Hệ thống đã kết nối")) {
-         chatMode.value = 'WAITING'; // Đổi trạng thái sang chờ
-         // Hiển thị dòng thông báo của hệ thống vào giữa màn hình
-         messages.value.push({ sender: 'SYSTEM', content: response.data });
+      if (response.data.includes('Đang chờ nhân viên') || response.data.includes('Hệ thống đã kết nối')) {
+        chatMode.value = 'WAITING';
+        messages.value.push({ sender: 'SYSTEM', content: response.data, time: new Date() });
       } else {
-         messages.value.push({ sender: 'AI', content: response.data });
+        messages.value.push({ sender: 'BOT', content: response.data, time: new Date() });
       }
     }
   } catch (error) {
-    messages.value.push({ sender: 'SYSTEM', content: 'Lỗi kết nối Server 😢' });
+    messages.value.push({ sender: 'SYSTEM', content: 'Không thể kết nối máy chủ. Vui lòng thử lại.', time: new Date() });
   } finally {
     isLoading.value = false;
     scrollToBottom();
   }
 };
 
-// Hàm gửi câu hỏi gợi ý
 const sendSuggested = async (text) => {
   userMessage.value = text;
   await sendMessage();
@@ -151,145 +150,532 @@ onUnmounted(() => { if (stompClient.value) stompClient.value.deactivate(); });
 </script>
 
 <template>
-  <div class="chat-widget-wrapper">
-    <transition name="slide-fade">
-      <div v-if="isOpen" class="chat-container">
-        
-        <div class="chat-header" :class="{ 'header-staff': chatMode === 'STAFF', 'header-waiting': chatMode === 'WAITING' }">
-          <h3>{{ headerTitle }}</h3>
-          <button class="close-btn" @click="toggleChat">✖</button>
-        </div>
-
-        <div class="messages-box" ref="messagesContainer">
-          <div 
-            v-for="(msg, index) in messages" 
-            :key="index" 
-            class="message-wrapper"
-          >
-            <div :class="[
-              'message', 
-              msg.sender === 'USER' ? 'my-message' : 
-              (msg.sender === 'SYSTEM' ? 'system-message' : 'ai-message')
-            ]">
-              <div v-if="msg.sender === 'STAFF'" class="avatar staff-avatar">👮</div>
-              <div v-if="msg.sender === 'AI'" class="avatar ai-avatar">🤖</div>
-              
-              <div class="bubble" :class="{ 'staff-bubble': msg.sender === 'STAFF', 'system-bubble': msg.sender === 'SYSTEM' }" v-html="formatMessage(msg.content)"></div>
-            </div>
-
-            <div v-if="index === 0 && showOptions" class="quick-options">
-              <button @click="handleOptionClick('AI')" class="opt-btn ai-btn">🤖 Trợ lý AI hỗ trợ tự động</button>
-              <button @click="handleOptionClick('STAFF')" class="opt-btn staff-btn">👨‍💻 Kết nối Nhân viên tư vấn</button>
-            </div>
-          </div>
-          
-          <div v-if="isLoading" class="message ai-message">
-            <div class="avatar ai-avatar">🤖</div>
-            <div class="bubble loading">
-              <span>.</span><span>.</span><span>.</span>
-            </div>
-          </div>
-        </div>
-
-      <div class="suggest-box" v-if="(chatMode === 'AI' || chatMode === 'WAITING') && showSuggestions">
-          <div class="suggest-header">
-            <div class="suggest-title">💡 Câu hỏi gợi ý:</div>
-            <button class="close-suggest-btn" @click="showSuggestions = false" title="Ẩn gợi ý">✕</button>
-          </div>
-          <div class="suggest-tags">
-            <button class="suggest-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">Làm thế nào để đặt hàng?</button>
-            <button class="suggest-tag" @click="sendSuggested('Chính sách đổi trả hàng?')">Chính sách đổi trả hàng?</button>
-            <button class="suggest-tag" @click="sendSuggested('Phí vận chuyển là bao nhiêu?')">Phí vận chuyển là bao nhiêu?</button>
-          </div>
-        </div>
-
-        <div class="input-area">
-          <input 
-            v-model="userMessage" 
-            @keyup.enter="sendMessage"
-            placeholder="Hỏi gì đi bạn ơi..." 
-            type="text" 
-            :disabled="isLoading" 
-          />
-          <button @click="sendMessage" :disabled="isLoading || !userMessage.trim()">➤</button>
-        </div>
-      </div>
+  <div class="mlchat-wrapper">
+    <!-- TOGGLE BUTTON -->
+    <transition name="bounce">
+      <button class="mlchat-toggle" @click="toggleChat" :class="{ 'is-open': isOpen }">
+        <span class="toggle-icon">
+          <svg v-if="!isOpen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </span>
+        <span v-if="!isOpen" class="toggle-label">Hỗ trợ</span>
+      </button>
     </transition>
 
-    <button class="toggle-chat-btn" @click="toggleChat">
-      <span v-if="!isOpen">💬</span>
-      <span v-else>🔻</span>
-    </button>
+    <!-- CHAT PANEL -->
+    <transition name="panel-slide">
+      <div v-if="isOpen" class="mlchat-panel">
+
+        <!-- HEADER -->
+        <div class="mlchat-header" :class="{ 'mode-staff': chatMode === 'STAFF', 'mode-waiting': chatMode === 'WAITING' }">
+          <div class="header-avatar">
+            <div class="avatar-ring">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+              </svg>
+            </div>
+            <span class="status-dot" :class="chatMode === 'WAITING' ? 'dot-waiting' : 'dot-online'"></span>
+          </div>
+          <div class="header-info">
+            <div class="header-title">{{ headerTitle }}</div>
+            <div class="header-subtitle">
+              <span class="subtitle-dot"></span>
+              {{ headerSubtitle }}
+            </div>
+          </div>
+          <button class="header-close" @click="toggleChat">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- MESSAGES -->
+        <div class="mlchat-messages" ref="messagesContainer">
+          <div v-for="(msg, index) in messages" :key="index" class="msg-entry">
+
+            <!-- SYSTEM NOTICE -->
+            <div v-if="msg.sender === 'SYSTEM'" class="sys-notice">
+              <div class="sys-line"></div>
+              <span>{{ msg.content }}</span>
+              <div class="sys-line"></div>
+            </div>
+
+            <!-- USER MESSAGE -->
+            <div v-else-if="msg.sender === 'USER'" class="msg-row msg-user">
+              <div class="msg-col">
+                <div class="bubble bubble-user" v-html="formatMessage(msg.content)"></div>
+                <div class="msg-time">{{ formatTime(msg.time) }}</div>
+              </div>
+            </div>
+
+            <!-- BOT / STAFF MESSAGE -->
+            <div v-else class="msg-row msg-bot">
+              <div class="bot-avatar" :class="{ 'bot-avatar--staff': msg.sender === 'STAFF' }">
+                <svg v-if="msg.sender === 'STAFF'" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                </svg>
+                <svg v-else viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-7 12h-2v-2h2v2zm0-4h-2V6h2v4z"/>
+                </svg>
+              </div>
+              <div class="msg-col">
+                <div class="sender-label">{{ msg.sender === 'STAFF' ? 'Nhân viên tư vấn' : 'Hỗ trợ MyLaptop' }}</div>
+                <div class="bubble bubble-bot" v-html="formatMessage(msg.content)"></div>
+                <div class="msg-time">{{ formatTime(msg.time) }}</div>
+
+                <!-- CHOICE BUTTONS sau tin nhắn đầu -->
+                <div v-if="index === 0 && showOptions" class="choice-group">
+                  <button class="choice-btn choice-ai" @click="handleOptionClick('AI')">
+                    <span class="choice-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/>
+                      </svg>
+                    </span>
+                    Hỗ trợ tự động
+                  </button>
+                  <button class="choice-btn choice-staff" @click="handleOptionClick('STAFF')">
+                    <span class="choice-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                      </svg>
+                    </span>
+                    Gặp nhân viên
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TYPING INDICATOR -->
+          <div v-if="isLoading" class="msg-row msg-bot">
+            <div class="bot-avatar">
+              <svg viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+              </svg>
+            </div>
+            <div class="bubble bubble-bot typing-bubble">
+              <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- QUICK SUGGESTIONS -->
+        <transition name="fade">
+          <div v-if="(chatMode === 'AI' || chatMode === 'WAITING') && showSuggestions" class="mlchat-suggestions">
+            <div class="sugg-header">
+              <span>Câu hỏi thường gặp</span>
+              <button class="sugg-close" @click="showSuggestions = false">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+            <div class="sugg-tags">
+              <button class="sugg-tag" @click="sendSuggested('Làm thế nào để đặt hàng?')">🛒 Đặt hàng</button>
+              <button class="sugg-tag" @click="sendSuggested('Có ưu đãi gì hiện tại không?')">🎁 Ưu đãi</button>
+              <button class="sugg-tag" @click="sendSuggested('Laptop hot nhất hiện nay là gì?')">🔥 Laptop hot</button>
+            </div>
+          </div>
+        </transition>
+
+        <!-- INPUT -->
+        <div class="mlchat-input">
+          <input
+            v-model="userMessage"
+            @keyup.enter="sendMessage"
+            placeholder="Nhập câu hỏi của bạn..."
+            type="text"
+            :disabled="isLoading"
+          />
+          <button class="send-btn" @click="sendMessage" :disabled="isLoading || !userMessage.trim()">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="mlchat-footer">Powered by <strong>MyLaptop</strong></div>
+      </div>
+    </transition>
   </div>
 </template>
 
 <style scoped>
-/* --- ĐỔI MÀU HEADER --- */
-.chat-header { padding: 15px; background-color: #049d14; color: white; display: flex; justify-content: space-between; align-items: center; transition: background-color 0.3s; }
-.header-staff { background-color: #f39c12; } /* Màu cam khi gặp nhân viên */
-.header-waiting { background-color: #6c757d; } /* Màu xám khi chờ */
+/* ===== TOKENS ===== */
 
-/* --- SYSTEM MESSAGES --- */
-.system-message { justify-content: center; width: 100%; margin: 10px 0; }
-.system-bubble { background-color: transparent !important; color: #888 !important; font-size: 12px !important; font-style: italic; text-align: center; box-shadow: none !important; padding: 0 !important; }
+/* ===== WRAPPER ===== */
+.mlchat-wrapper {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
 
-/* --- CÁC STYLE CŨ GIỮ NGUYÊN --- */
-.message-wrapper { display: flex; flex-direction: column; width: 100%; }
-.quick-options { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; margin-left: 45px; max-width: 80%; }
-.opt-btn { padding: 10px 14px; border-radius: 15px; border: 1.5px solid #049d14; background-color: white; color: #049d14; font-weight: 600; font-size: 13px; text-align: left; cursor: pointer; transition: all 0.2s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
-.opt-btn:hover { background-color: #049d14; color: white; transform: translateY(-2px); }
-.staff-btn { border-color: #f39c12; color: #d35400; }
-.staff-btn:hover { background-color: #f39c12; color: white; }
-.chat-widget-wrapper { position: fixed; bottom: 20px; right: 20px; z-index: 9999; display: flex; flex-direction: column; align-items: flex-end; }
-.toggle-chat-btn { width: 60px; height: 60px; border-radius: 50%; background-color: #049d14; color: white; border: none; font-size: 30px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3); transition: transform 0.2s; display: flex; align-items: center; justify-content: center; margin-top: 10px; }
-.toggle-chat-btn:hover { transform: scale(1.1); }
-.chat-container { width: 350px; height: 500px; background-color: #fff; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.2); display: flex; flex-direction: column; border: 1px solid #eee; overflow: hidden; }
-.chat-header h3 { margin: 0; font-size: 16px; }
-.close-btn { background: none; border: none; color: white; font-size: 18px; cursor: pointer; }
-.messages-box { flex: 1; padding: 15px; overflow-y: auto; background-color: #f9f9f9; display: flex; flex-direction: column; gap: 10px; }
-.message { display: flex; width: 100%; align-items: flex-end; gap: 5px; }
-.my-message { justify-content: flex-end; }
-.ai-message { justify-content: flex-start; }
-.bubble { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 14px; line-height: 1.5; word-wrap: break-word; }
-.my-message .bubble { background-color: #049d14; color: white; border-bottom-right-radius: 2px; }
-.ai-message .bubble { background-color: #e4e6eb; color: black; border-bottom-left-radius: 2px; }
-.staff-bubble { background-color: #fff3cd !important; border: 1px solid #ffeeba; }
-.avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.staff-avatar { background: #ffc107; margin-bottom: 2px;}
-.ai-avatar { background: #e3f2fd; margin-right: 5px; border: 1px solid #bbdefb; }
-.input-area { padding: 10px; border-top: 1px solid #ddd; background-color: white; display: flex; gap: 8px; }
-input { flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none; }
-input:focus { border-color: #049d14; }
-.input-area button { background-color: #049d14; color: white; border: none; padding: 0 15px; border-radius: 20px; cursor: pointer; }
-.input-area button:disabled { background-color: #ccc; }
-.slide-fade-enter-active, .slide-fade-leave-active { transition: all 0.3s ease; }
-.slide-fade-enter-from, .slide-fade-leave-to { transform: translateY(20px); opacity: 0; }
-.loading span { animation: blink 1.4s infinite both; font-size: 20px; line-height: 10px; }
-.loading span:nth-child(2) { animation-delay: 0.2s; }
-.loading span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes blink { 0% { opacity: 0.2; } 20% { opacity: 1; } 100% { opacity: 0.2; } }
-:deep(strong) { font-weight: bold; color: #000; }
+/* ===== TOGGLE BUTTON ===== */
+.mlchat-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 20px 14px 16px;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4);
+  transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+.mlchat-toggle:hover { background: #059669; transform: translateY(-2px); box-shadow: 0 8px 28px rgba(16, 185, 129, 0.45); }
+.mlchat-toggle.is-open { padding: 14px; border-radius: 50%; }
+.toggle-icon { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; }
+.toggle-icon svg { width: 22px; height: 22px; }
+.toggle-label { white-space: nowrap; }
 
-/* Thêm CSS cho link sản phẩm trong chat */
-:deep(.chat-product-link) {
-  color: #049d14; /* Màu xanh lá chuẩn của dự án */
-  font-weight: bold;
+/* ===== PANEL ===== */
+.mlchat-panel {
+  width: 360px;
+  height: 520px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: var(--ml-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+
+/* ===== HEADER ===== */
+.mlchat-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: #10b981;
+  color: white;
+  transition: background 0.3s ease;
+  flex-shrink: 0;
+}
+.mlchat-header.mode-staff { background: #f59e0b; }
+.mlchat-header.mode-waiting { background: #4b5563; }
+
+.header-avatar { position: relative; flex-shrink: 0; }
+.avatar-ring {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255,255,255,0.5);
+}
+.avatar-ring svg { width: 20px; height: 20px; fill: white; }
+.status-dot {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+.dot-online { background: #4ade80; }
+.dot-waiting { background: #fbbf24; animation: pulse-dot 1.5s infinite; }
+
+.header-info { flex: 1; min-width: 0; }
+.header-title { font-size: 14px; font-weight: 700; line-height: 1.2; }
+.header-subtitle { font-size: 11px; opacity: 0.85; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+.subtitle-dot { width: 6px; height: 6px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
+
+.header-close {
+  background: rgba(255,255,255,0.2);
+  border: none;
+  color: white;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+  flex-shrink: 0;
+}
+.header-close:hover { background: rgba(255,255,255,0.35); }
+.header-close svg { width: 16px; height: 16px; }
+
+/* ===== MESSAGES ===== */
+.mlchat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  scroll-behavior: smooth;
+}
+.mlchat-messages::-webkit-scrollbar { width: 4px; }
+.mlchat-messages::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 4px; }
+
+.msg-entry { display: flex; flex-direction: column; }
+
+/* SYSTEM */
+.sys-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 11px;
+  font-style: italic;
+  margin: 4px 0;
+}
+.sys-line { flex: 1; height: 1px; background: #e5e7eb; }
+
+/* ROW */
+.msg-row { display: flex; gap: 8px; align-items: flex-end; }
+.msg-user { flex-direction: row-reverse; }
+.msg-col { display: flex; flex-direction: column; max-width: 78%; }
+.msg-user .msg-col { align-items: flex-end; }
+
+/* BOT AVATAR */
+.bot-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #10b981;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+.bot-avatar svg { width: 16px; height: 16px; fill: white; }
+.bot-avatar--staff { background: #f59e0b; }
+
+.sender-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #6b7280;
+  margin-bottom: 3px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* BUBBLES */
+.bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  word-break: break-word;
+}
+.bubble-bot {
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+  border-bottom-left-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.bubble-user {
+  background: #10b981;
+  color: white;
+  border-bottom-right-radius: 4px;
+}
+
+.msg-time {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 3px;
+  padding: 0 2px;
+}
+
+/* TYPING */
+.typing-bubble {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  min-width: 52px;
+}
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9ca3af;
+  animation: typing 1.3s infinite;
+}
+.dot:nth-child(2) { animation-delay: 0.2s; }
+.dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* CHOICE BUTTONS */
+.choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+.choice-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 10px;
+  border: 1.5px solid;
+  background: white;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+}
+.choice-icon { width: 16px; height: 16px; display: flex; align-items: center; flex-shrink: 0; }
+.choice-icon svg { width: 16px; height: 16px; }
+
+.choice-ai { border-color: #10b981; color: #10b981; }
+.choice-ai:hover { background: #10b981; color: white; transform: translateX(3px); }
+
+.choice-staff { border-color: #f59e0b; color: #92400e; }
+.choice-staff:hover { background: #f59e0b; color: white; transform: translateX(3px); }
+
+/* ===== SUGGESTIONS ===== */
+.mlchat-suggestions {
+  padding: 10px 14px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+.sugg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sugg-close {
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  transition: color 0.2s;
+}
+.sugg-close:hover { color: #ef4444; }
+.sugg-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.sugg-tag {
+  padding: 5px 10px;
+  border-radius: 20px;
+  border: 1px solid #d1fae5;
+  background: #f0fdf4;
+  color: #059669;
+  font-size: 11.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.sugg-tag:hover { background: #10b981; color: white; border-color: #10b981; }
+
+/* ===== INPUT ===== */
+.mlchat-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+.mlchat-input input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+  font-size: 13.5px;
+  background: #f9fafb;
+  transition: all 0.2s;
+  color: #111827;
+  font-family: inherit;
+}
+.mlchat-input input:focus {
+  border-color: #10b981;
+  background: white;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+.mlchat-input input::placeholder { color: #9ca3af; }
+.mlchat-input input:disabled { opacity: 0.6; }
+
+.send-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #10b981;
+  border: none;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+.send-btn svg { width: 18px; height: 18px; }
+.send-btn:hover:not(:disabled) { background: #059669; transform: scale(1.05); }
+.send-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+
+/* ===== FOOTER ===== */
+.mlchat-footer {
+  text-align: center;
+  font-size: 10px;
+  color: #9ca3af;
+  padding: 5px;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+}
+.mlchat-footer strong { color: #10b981; }
+
+/* ===== ANIMATIONS ===== */
+.panel-slide-enter-active { animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.panel-slide-leave-active { animation: slideDown 0.2s ease-in; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes slideDown { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(16px); } }
+
+.bounce-enter-active { animation: bounceIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+@keyframes bounceIn { from { opacity: 0; transform: scale(0.6); } to { opacity: 1; transform: scale(1); } }
+
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+@keyframes typing { 0%, 80%, 100% { transform: scale(0.7); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
+@keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ===== INLINE LINKS ===== */
+:deep(.chat-link) {
+  color: #059669;
+  font-weight: 600;
   text-decoration: none;
-  border-bottom: 1px dashed #049d14;
-  transition: all 0.2s ease;
+  border-bottom: 1px dashed #10b981;
+  transition: all 0.2s;
 }
-
-:deep(.chat-product-link:hover) {
-  color: #d35400; /* Đổi màu cam khi di chuột vào */
-  border-bottom: 1px solid #d35400;
-}
-/* --- CÂU HỎI GỢI Ý --- */
-.suggest-box { padding: 10px 16px; background-color: #fff; border-top: 1px solid var(--border-color); }
-.suggest-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.suggest-title { font-size: 12px; color: #6b7280; font-weight: 600; margin: 0; }
-.close-suggest-btn { background: none; border: none; color: #9ca3af; font-size: 14px; cursor: pointer; padding: 0 4px; transition: color 0.2s ease; line-height: 1; }
-.close-suggest-btn:hover { color: #ef4444; }
-.suggest-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-.suggest-tag { padding: 6px 12px; border-radius: 20px; border: 1px solid #f87171; background-color: #fef2f2; color: #ef4444; font-size: 12px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
-.suggest-tag:hover { background-color: #ef4444; color: white; transform: translateY(-1px); }
+:deep(.chat-link:hover) { color: #10b981; border-bottom-style: solid; }
+:deep(strong) { font-weight: 700; }
 </style>
