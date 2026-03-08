@@ -141,7 +141,7 @@ function saveMaterial() {
     }
 
     // Nếu ok -> Hiện Dialog xác nhận
-    dialog.warning({
+    dialog.success({
       title: 'Xác nhận',
       content: modalMode.value === 'add'
         ? 'Bạn có chắc chắn muốn thêm mới chất liệu này?'

@@ -185,7 +185,7 @@ async function saveScreen() {
     if (errors)
       return
 
-    dialog.warning({
+    dialog.success({
       title: 'Xác nhận',
       content: modalMode.value === 'add' ? 'Bạn có chắc muốn thêm mới màn hình này?' : 'Bạn có chắc muốn cập nhật thông tin màn hình này?',
       positiveText: 'Đồng ý',

@@ -119,7 +119,7 @@ function handleClickOK() {
   formRef.value?.validate((errors) => {
     if (!errors) {
       // Dùng Dialog để xác nhận
-      dialog.warning({
+      dialog.success({
         title: 'Xác nhận',
         content: props.id
           ? 'Bạn có chắc chắn muốn cập nhật thông tin GPU này?'

@@ -113,7 +113,7 @@ function handleClickOK() {
   formRef.value?.validate((errors) => {
     if (!errors) {
       // 3. Hiển thị Dialog xác nhận trước khi xử lý
-      dialog.warning({
+      dialog.success({
         title: 'Xác nhận',
         content: props.id
           ? 'Bạn có chắc chắn muốn cập nhật thông tin CPU này?'
