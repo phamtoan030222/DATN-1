@@ -36,7 +36,7 @@ const headerSubtitle = computed(() => {
 const messages = ref([
   {
     sender: 'BOT',
-    content: 'Xin chào! Cảm ơn bạn đã ghé thăm **MyLaptop**.\n📞 Hotline: **0965.237.19**\n\nBạn muốn được hỗ trợ theo hình thức nào?',
+content: 'Xin chào! Cảm ơn bạn đã ghé thăm MyLaptop.\n📞 Hotline CSKH: **0965.237.19**\n\n📌 **HƯỚNG DẪN HỖ TRỢ:**\n- Em là Trợ lý AI, luôn sẵn sàng tư vấn cấu hình và báo giá Laptop 24/7.\n- Bất cứ lúc nào cần hỗ trợ chuyên sâu, anh/chị chỉ cần gõ cú pháp: **"gặp nhân viên"** (hoặc bấm nút bên dưới) để kết nối trực tiếp với tư vấn viên thật nhé!\n\nAnh/chị muốn hệ thống hỗ trợ tự động hay gặp nhân viên luôn ạ?',
     time: new Date()
   }
 ]);
