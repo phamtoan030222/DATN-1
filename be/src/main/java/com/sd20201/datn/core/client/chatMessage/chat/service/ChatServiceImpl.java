@@ -146,7 +146,7 @@ public class ChatServiceImpl {
         Page<ClientPDProductDetailResponse> pageResult;
 
         if (idCurrentDiscounts != null && !idCurrentDiscounts.isEmpty()) {
-            pageResult = productDetailRepository.getProductDetailsDiscount(pageable, productReq, idCurrentDiscounts, currentTime);
+            pageResult = productDetailRepository.getProductDetailsDiscount(pageable, productReq, currentTime);
         } else {
             pageResult = productDetailRepository.getProductDetails(pageable, productReq);
         }
@@ -223,7 +223,7 @@ public class ChatServiceImpl {
             7. GIÁ CẢ: Báo giá rõ ràng, định dạng VND.
             8. CHUYỂN TIẾP: Nếu khách hỏi vấn đề ngoài chuyên môn, quá khó, hoặc khiếu nại, hãy chủ động mời khách nhắn: "gặp nhân viên" để được hỗ trợ.
             9. ĐỊNH DẠNG LINK: LUÔN GIỮ NGUYÊN định dạng link Markdown theo mẫu [Tên máy](/product-detail/id) khi nhắc đến bất kỳ tên sản phẩm nào để khách có thể click.
-            10. LỜI NHẮC CUỐI CÂU: Ở cuối mỗi câu trả lời, hãy LUÔN luôn thêm một dòng nhắn nhủ thân thiện (dùng in nghiêng). Ví dụ: "*Hoặc nếu cần hỗ trợ chuyên sâu hơn, anh/chị cứ nhắn 'gặp nhân viên' nhé!*"
+            10. LỜI NHẮC CUỐI CÂU: Ở cuối mỗi câu trả lời, hãy LUÔN luôn thêm một dòng nhắn nhủ thân thiện (dùng in nghiêng). Câu nói sau : "*Hoặc nếu cần hỗ trợ chuyên sâu hơn, anh/chị cứ nhắn 'gặp nhân viên' để được tư vấn kĩ hơn ạ!*"
             """.formatted(customerName, productContext);
 
         return geminiService.callGemini(systemInstruction + "\n\nCÂU HỎI CỦA KHÁCH: " + request.getMessage());

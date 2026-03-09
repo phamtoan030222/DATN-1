@@ -97,83 +97,79 @@ public interface ClientPDProductDetailRepository extends ProductDetailRepository
 // 2. Query có Discount
 // ==================================================================================================
     @Query(value = """
-        SELECT
-             p.id as id
-            , p.code as code
-            , p.name as name
-            , p.hardDrive.name as hardDrive
-            , p.material.name as material
-            , p.color.name as color
-            , p.gpu.name as gpu
-            , p.cpu.name as cpu
-            , p.ram.name as ram
-            , p.price as price
-            , p.status as status
-            , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
-            , p.urlImage as urlImage
-            , p.product.name as productName
-            , p.product.screen.name as screenName
-            , p.product.brand.name as brandName
-            , p.product.battery.name as batteryName
-            , p.product.operatingSystem.name as operatingSystemName
-            , MAX(d.percentage) as percentage
-            , MAX(d.endDate) as endDate
-        FROM ProductDetail p
-            LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id
-            LEFT JOIN Discount d ON pdd.discount.id = d.id AND d.endDate >= :currentTime
-        
-        WHERE
-            (
-                :#{#request.q} IS NULL OR p.name LIKE CONCAT('%',:#{#request.q},'%')
-                OR :#{#request.q} IS NULL OR p.code LIKE CONCAT('%',:#{#request.q},'%')
-                OR :#{#request.q} is null or p.product.name like concat('%', :#{#request.q}, '%')
-            ) 
-            AND (:#{#request.idGPU} IS NULL OR p.gpu.id IN :#{#request.idGPU})
-            AND (:#{#request.idCPU} IS NULL OR p.cpu.id IN :#{#request.idCPU})
-            AND (:#{#request.idColor} IS NULL OR p.color.id IN :#{#request.idColor})
-            AND (:#{#request.idMaterial} IS NULL OR p.material.id IN :#{#request.idMaterial})
-            AND (:#{#request.idHardDrive} IS NULL OR p.hardDrive.id IN :#{#request.idHardDrive})
-            AND (:#{#request.idRAM} IS NULL OR p.ram.id IN :#{#request.idRAM})
-            AND (:#{#request.idProduct} IS NULL OR p.product.id IN :#{#request.idProduct})
-            AND (:#{#request.idBrand} IS NULL OR p.product.brand.id IN :#{#request.idBrand})
-            AND (:#{#request.idScreen} IS NULL OR p.product.screen.id IN :#{#request.idScreen})
-            AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
-            AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
-            AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
-            AND (
-                d.id IS NULL
-                OR d.percentage = (
-                    SELECT MAX(subD.percentage)
-                    FROM ProductDetailDiscount subPdd
-                    JOIN subPdd.discount subD
-                    WHERE subPdd.productDetail.id = p.id
-                    AND subD.endDate >= :currentTime
+            SELECT
+                 p.id as id
+                , p.code as code
+                , p.name as name
+                , p.hardDrive.name as hardDrive
+                , p.material.name as material
+                , p.color.name as color
+                , p.gpu.name as gpu
+                , p.cpu.name as cpu
+                , p.ram.name as ram
+                , p.price as price
+                , p.status as status
+                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0 OR i.imeiStatus = 1)) as quantity
+                , p.urlImage as urlImage
+                , p.product.name as productName
+                , p.product.screen.name as screenName
+                , p.product.brand.name as brandName
+                , p.product.battery.name as batteryName
+                , p.product.operatingSystem.name as operatingSystemName
+                            , MAX(
+                              CASE
+                                WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.percentage
+                                ELSE NULL
+                              END
+                            ) AS percentage
+                            , MAX(
+                              CASE
+                                WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.endDate
+                                ELSE NULL
+                              END
+                            ) AS endDate
+            FROM ProductDetail p
+                LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id
+                LEFT JOIN Discount d ON pdd.discount.id = d.id
+            WHERE
+                (
+                    :#{#request.q} IS NULL OR p.name LIKE CONCAT('%',:#{#request.q},'%')
+                    OR :#{#request.q} IS NULL OR p.code LIKE CONCAT('%',:#{#request.q},'%')
+                    OR :#{#request.q} is null or p.product.name like concat('%', :#{#request.q}, '%')
                 )
-            )
-        
-        GROUP BY 
-             p.id, p.code, p.name, p.price, p.status, p.urlImage, p.createdDate,
-             p.hardDrive.name, p.material.name, p.color.name,
-             p.gpu.name, p.cpu.name, p.ram.name,
-             p.product.name, 
-             p.product.screen.name,
-             p.product.brand.name, 
-             p.product.battery.name,
-             p.product.operatingSystem.name
-        
-        ORDER BY p.createdDate DESC
-        """,
+                AND (:#{#request.idGPU} IS NULL OR p.gpu.id IN :#{#request.idGPU})
+                AND (:#{#request.idCPU} IS NULL OR p.cpu.id IN :#{#request.idCPU})
+                AND (:#{#request.idColor} IS NULL OR p.color.id IN :#{#request.idColor})
+                AND (:#{#request.idMaterial} IS NULL OR p.material.id IN :#{#request.idMaterial})
+                AND (:#{#request.idHardDrive} IS NULL OR p.hardDrive.id IN :#{#request.idHardDrive})
+                AND (:#{#request.idRAM} IS NULL OR p.ram.id IN :#{#request.idRAM})
+                AND (:#{#request.idProduct} IS NULL OR p.product.id IN :#{#request.idProduct})
+                AND (:#{#request.idBrand} IS NULL OR p.product.brand.id IN :#{#request.idBrand})
+                AND (:#{#request.idScreen} IS NULL OR p.product.screen.id IN :#{#request.idScreen})
+                AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
+                AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
+            GROUP BY
+                 p.id, p.code, p.name, p.price, p.status, p.urlImage, p.createdDate,
+                 p.hardDrive.name, p.material.name, p.color.name,
+                 p.gpu.name, p.cpu.name, p.ram.name,
+                 p.product.name,
+                 p.product.screen.name,
+                 p.product.brand.name,
+                 p.product.battery.name,
+                 p.product.operatingSystem.name
+            ORDER BY p.createdDate DESC
+            """,
             countQuery = """
                 SELECT COUNT(DISTINCT p.id)
                 FROM ProductDetail p
                     LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id
-                    LEFT JOIN Discount d ON pdd.discount.id = d.id AND d.endDate >= :currentTime
+                    LEFT JOIN Discount d ON pdd.discount.id = d.id
                 WHERE
                     (
                         :#{#request.q} IS NULL OR p.name LIKE CONCAT('%',:#{#request.q},'%')
                         OR :#{#request.q} IS NULL OR p.code LIKE CONCAT('%',:#{#request.q},'%')
                         OR :#{#request.q} is null or p.product.name like concat('%', :#{#request.q}, '%')
-                    ) 
+                    )
                     AND (:#{#request.idGPU} IS NULL OR p.gpu.id IN :#{#request.idGPU})
                     AND (:#{#request.idCPU} IS NULL OR p.cpu.id IN :#{#request.idCPU})
                     AND (:#{#request.idColor} IS NULL OR p.color.id IN :#{#request.idColor})
@@ -185,23 +181,11 @@ public interface ClientPDProductDetailRepository extends ProductDetailRepository
                     AND (:#{#request.idScreen} IS NULL OR p.product.screen.id IN :#{#request.idScreen})
                     AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
                     AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
-                    AND ( pdd.id IN :idProductDetailDiscount OR pdd.id IS NULL)
-                    AND (
-                        d.id IS NULL
-                        OR d.percentage = (
-                            SELECT MAX(subD.percentage)
-                            FROM ProductDetailDiscount subPdd
-                            JOIN subPdd.discount subD
-                            WHERE subPdd.productDetail.id = p.id
-                            AND subD.endDate >= :currentTime
-                        )
-                    )
                 """)
     Page<ClientPDProductDetailResponse> getProductDetailsDiscount(
             Pageable pageable,
             @Param("request") ClientPDProductDetailRequest request,
-            @Param("idProductDetailDiscount") List<String> idProductDetailDiscount,
-            @Param("currentTime") Long currentTime
+            Long time
     );
 
     @Query(value = """
@@ -230,32 +214,33 @@ public interface ClientPDProductDetailRepository extends ProductDetailRepository
                         , p.product.brand.name as brandName
                         , p.product.battery.name as batteryName
                         , p.product.operatingSystem.name as operatingSystemName
-                        , MAX(d.percentage) as percentage
-                        , MAX(d.endDate) as endDate
+                        , MAX(
+                          CASE
+                            WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.percentage
+                            ELSE NULL
+                          END
+                        ) AS percentage
+                        , MAX(
+                          CASE
+                            WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.endDate
+                            ELSE NULL
+                          END
+                        ) AS endDate
                     FROM ProductDetail p
                     LEFT JOIN ProductDetailDiscount pdd ON p.id = pdd.productDetail.id
                     LEFT JOIN Discount d ON pdd.discount.id = d.id
             
                     WHERE p.id = :id
-                      AND (
-                          d.id IS NULL
-                          OR d.percentage = (
-                              SELECT MAX(subD.percentage)
-                              FROM ProductDetailDiscount subPdd
-                              JOIN subPdd.discount subD
-                              WHERE subPdd.productDetail.id = p.id
-                          )
-                      )
             
                     GROUP BY
-                        p.id, p.code, p.name, p.description, 
+                        p.id, p.code, p.name, p.description,
                         p.hardDrive.id, p.material.id, p.color.id, 
                         p.gpu.id, p.cpu.id, p.product.id, p.price, 
                         p.ram.id, p.urlImage, 
                         p.product.name, p.cpu.name, p.ram.name, 
                         p.hardDrive.name, p.color.name
             """)
-    Optional<ClientPDProductDetailDetailResponse> getProductById(@Param("id") String id);
+    Optional<ClientPDProductDetailDetailResponse> getProductById(@Param("id") String id, Long time);
 
     Optional<ProductDetail> findByCode(String code);
 
