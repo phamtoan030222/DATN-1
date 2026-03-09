@@ -44,4 +44,6 @@ public interface ClientVoucherService {
 
 
     ResponseObject<?> getCustomersOfVoucher(String voucherId, boolean onlyUsed, Pageable pageable);
+
+    ResponseObject<?> getVouchersByUsers();
 }

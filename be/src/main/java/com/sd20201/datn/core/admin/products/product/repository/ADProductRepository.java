@@ -28,7 +28,7 @@ public interface ADProductRepository extends ProductRepository {
         , p.operatingSystem.name as operatingSystem
         , MIN(pd.price) as minPrice
         , MAX(pd.price) as maxPrice
-        , COUNT(pd.id) as quantity
+        , (SELECT count(i.id) FROM IMEI i where i.productDetail.product.id = p.id AND i.imeiStatus = 0) as quantity
         , ip.url as urlImage
         , MAX(d.percentage) as percentage
     FROM Product p

@@ -1,8 +1,7 @@
 // API Voucher
-import type { DefaultResponse } from '@/typings/api/api.common'
-import request from '@/service/request'
 import { API_PREFIX_ORDER_ONLINE_VOUCHER } from '@/constants/url'
-import axios from 'axios'
+import request from '@/service/request'
+import type { DefaultResponse } from '@/typings/api/api.common'
 
 /* ===================== Types ===================== */
 export interface ADVoucherQuery {
