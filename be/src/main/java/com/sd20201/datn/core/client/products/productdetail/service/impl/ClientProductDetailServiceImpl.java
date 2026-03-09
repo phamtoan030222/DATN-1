@@ -98,19 +98,12 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
     @Override
     public ResponseObject<?> getProductDetails(ClientPDProductDetailRequest request) {
         Long currentTime = System.currentTimeMillis();
-        List<String> idCurrentDiscounts = productDetailDiscountRepository.getIdByDate(currentTime);
-
-        if (!idCurrentDiscounts.isEmpty()) {
-            return ResponseObject.successForward(
-                    PageableObject.of(productDetailRepository.getProductDetailsDiscount(Helper.createPageable(request), request, idCurrentDiscounts,currentTime)),
-                    "OKE"
-            );
-        }
 
         return ResponseObject.successForward(
-                PageableObject.of(productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
+                PageableObject.of(productDetailRepository.getProductDetailsDiscount(Helper.createPageable(request), request, currentTime)),
                 "OKE"
         );
+
     }
 
     @Override
@@ -145,7 +138,8 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
 
     @Override
     public ResponseObject<?> getDetail(String id) {
-        return productDetailRepository.getProductById(id)
+        Long currentTime = System.currentTimeMillis();
+        return productDetailRepository.getProductById(id, currentTime)
                 .map(data -> ResponseObject.successForward(data, "Fetch product detail success"))
                 .orElse(ResponseObject.errorForward("Fetch product detail failure", HttpStatus.NOT_FOUND));
     }
@@ -302,7 +296,7 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
 
         if (existProductDetailOptional.isPresent()) {
             addImeiToProductDetail(existProductDetailOptional.get(), variant.getImei());
-            return ResponseObject.successForward(existProductDetailOptional.get().getId(),"Variant is exist. Update quantity variant to exist variant");
+            return ResponseObject.successForward(existProductDetailOptional.get().getId(), "Variant is exist. Update quantity variant to exist variant");
         }
 
         ProductDetail productDetail = new ProductDetail();
@@ -342,7 +336,7 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
         return ResponseObject.successForward(imeiRepository.findByCode(ids), "OKE");
     }
 
-    private void addImeiToProductDetail(ProductDetail productDetail,List<String> imeiVariants) {
+    private void addImeiToProductDetail(ProductDetail productDetail, List<String> imeiVariants) {
         imeiRepository.saveAll(
                 imeiVariants.stream()
                         .filter(imeiValue -> imeiRepository.findByCode(imeiValue).isEmpty())
@@ -363,7 +357,8 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
     public ResponseObject<?> quickAddPropertiesProduct(Map<String, ?> request) {
         String nameProperty = String.valueOf(request.get("nameProperty")).trim();
 
-        if (nameProperty.isBlank()) return ResponseObject.errorForward("Name property must be not blank", HttpStatus.CONFLICT);
+        if (nameProperty.isBlank())
+            return ResponseObject.errorForward("Name property must be not blank", HttpStatus.CONFLICT);
 
         ProductPropertiesType type = ProductPropertiesType.valueOf((String) request.get("type"));
         switch (type) {
@@ -546,7 +541,8 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
     @Override
     public ResponseObject<?> addImeiToExistProductDetail(ClientAddSerialNumberRequest request) {
         Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getIdProductDetail());
-        if (productDetailOptional.isEmpty()) return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
+        if (productDetailOptional.isEmpty())
+            return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
 
         ProductDetail productDetail = productDetailOptional.get();
 

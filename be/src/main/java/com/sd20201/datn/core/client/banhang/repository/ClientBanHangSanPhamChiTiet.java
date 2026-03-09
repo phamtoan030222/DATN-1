@@ -76,10 +76,12 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
             SELECT
                 pd.id as id
                 , pd.price as price
-                , CASE
+                , MAX(
+                  CASE
                     WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.percentage
                     ELSE NULL
-                  END AS percentage
+                  END
+                ) AS percentage
                 , pd.name as name
                 , pd.urlImage as imageUrl
                 , pd.cpu.name as cpu

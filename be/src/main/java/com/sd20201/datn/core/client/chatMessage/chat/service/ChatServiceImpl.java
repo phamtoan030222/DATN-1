@@ -146,7 +146,7 @@ public class ChatServiceImpl {
         Page<ClientPDProductDetailResponse> pageResult;
 
         if (idCurrentDiscounts != null && !idCurrentDiscounts.isEmpty()) {
-            pageResult = productDetailRepository.getProductDetailsDiscount(pageable, productReq, idCurrentDiscounts, currentTime);
+            pageResult = productDetailRepository.getProductDetailsDiscount(pageable, productReq, currentTime);
         } else {
             pageResult = productDetailRepository.getProductDetails(pageable, productReq);
         }

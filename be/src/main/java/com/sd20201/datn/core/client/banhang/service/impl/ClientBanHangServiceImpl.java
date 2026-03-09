@@ -312,7 +312,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                                             .replace("<<STT>>", String.valueOf(index.get()))
                                             .replace("<<NAME_PRODUCT>>", invoiceDetail.getProductDetail().getProduct().getName() + " - " + invoiceDetail.getProductDetail().getName())
                                             .replace("<<SO_LUONG>>", String.valueOf(invoiceDetail.getQuantity()))
-                                            .replace("<<DON_GIA>>", formatterMoney.format(invoiceDetail.getTotalAmount()))
+                                            .replace("<<DON_GIA>>", formatterMoney.format(invoiceDetail.getPrice()))
                                             .replace("<<ATTRIBUTE>>",
                                                     attribute
                                                             .formatted(
