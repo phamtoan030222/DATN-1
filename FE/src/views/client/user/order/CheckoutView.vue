@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import {
   AddOutline,
-  CardOutline,
   CashOutline,
   CheckmarkCircleOutline,
   CloseOutline,
   LocationOutline,
   StorefrontOutline,
-  TicketOutline,
+  TicketOutline
 } from '@vicons/ionicons5'
 import axios from 'axios'
 import type { FormInst } from 'naive-ui'
@@ -501,7 +500,12 @@ async function handleCheckout() {
     const res: any = await createOrder(payload)
     if (res.status === 200 || res.status === 'OK' || res.data) {
       message.success('Đặt hàng thành công!')
-      router.push('/order-success')
+      router.push({
+        name: 'OrderSuccess',
+        query: {
+          'ma-hoa-don': res.data?.data?.code || '',
+        },
+      })
     }
 
     if (cartItemBuyNow.value) {
@@ -689,10 +693,10 @@ async function handleCheckout() {
                   </div>
                   <div
                     class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'"
+                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '2' }"
+                    @click="paymentMethod = '2'"
                   >
-                    <NRadio value="1" class="w-full">
+                    <NRadio value="2" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="25" src="../../../../../images/vnpay.png" />
                         VNPAY
@@ -701,10 +705,10 @@ async function handleCheckout() {
                   </div>
                   <div
                     class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'"
+                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '3' }"
+                    @click="paymentMethod = '3'"
                   >
-                    <NRadio value="1" class="w-full">
+                    <NRadio value="3" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="40" src="../../../../../images/vietqr.png" />
                         VietQR
@@ -956,6 +960,10 @@ async function handleCheckout() {
         </div>
       </NSpin>
     </NModal>
+
+    <n-modal>
+
+    </n-modal>
   </div>
 </template>
 
