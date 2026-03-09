@@ -504,6 +504,46 @@ const productColumns = computed<DataTableColumns<any>>(() => {
   ]
 })
 
+const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>(() => {
+  return [
+    { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, index) => h('span', { class: 'font-medium text-gray-500' }, index + 1) },
+    {
+      title: 'Sản phẩm',
+      key: 'productInfo',
+      minWidth: 300,
+      align: 'center',
+      titleAlign: 'center',
+      render: (row) => {
+        if (!row.tenSanPham)
+          return h('div', { class: 'hidden' })
+        return h('div', { class: `flex items-center justify-center gap-4 py-1` }, [
+          h(NAvatar, { src: row.anhSanPham, size: 'large', round: false, class: 'border border-gray-200 rounded-md shadow-sm bg-white', fallbackSrc: 'https://via.placeholder.com/40?text=No+Image' }),
+          h('div', { class: ' min-w-0' }, [
+            h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
+            h('div', { class: 'flex flex-wrap items-center gap-2 mt-1.5' }, [
+              row.thuongHieu && h(NTag, { size: 'tiny', type: 'info', bordered: false }, { default: () => row.thuongHieu }),
+              row.mauSac && h(NTag, { size: 'tiny', type: 'default', bordered: false }, { default: () => row.mauSac }),
+              row.size && h('span', { class: 'text-xs text-gray-500' }, `| Size: ${row.size}`),
+            ]),
+          ]),
+        ])
+      },
+    },
+    { title: 'Số lượng', key: 'soLuong', width: 140, align: 'center', render: row => h('span', { class: 'font-bold text-gray-800 text-base' }, row.soLuong) },
+    { title: 'Đơn giá', key: 'price', width: 180, align: 'right', render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)) },
+    { title: 'Thành tiền', key: 'total', width: 180, align: 'right', render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)) },
+    {
+      title: 'Thao tác',
+      key: 'action',
+      width: 120,
+      align: 'center',
+      render: (row) => {
+        return h(NButton, { size: 'small', quaternary: true, type: 'info', class: 'hover:bg-blue-50', onClick: () => openSerialInfoModal(row) }, { icon: () => h(NIcon, { size: 20 }, { default: () => h(EyeOutline) }) })
+      },
+    },
+  ]
+})
+
 const customerFormRules: FormRules = {
   tenKhachHang: [{ required: true, message: 'Vui lòng nhập họ và tên', trigger: ['blur', 'input'] }],
   sdtKH: [{ required: true, message: 'Vui lòng nhập số điện thoại', trigger: ['blur', 'input'] }, { pattern: /(84|0[3|5789])+(\d{8})\b/, message: 'Số điện thoại không hợp lệ', trigger: ['blur', 'input'] }],
@@ -1375,157 +1415,50 @@ onMounted(async () => {
         </div>
       </div>
 
-      <div v-else class="p-6 bg-gray-50/70 border-t border-gray-100">
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
-            <div class="text-blue-600 font-bold text-xs uppercase mb-1">
-              Tổng SP
-            </div>
-            <div class="text-blue-700 font-black text-2xl">
-              {{ productCount }}
-            </div>
-          </div>
-          <div class="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
-            <div class="text-green-600 font-bold text-xs uppercase mb-1">
-              Tổng SL
-            </div>
-            <div class="text-green-700 font-black text-2xl">
-              {{ totalQuantity }}
-            </div>
-          </div>
-          <div class="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center">
-            <div class="text-purple-600 font-bold text-xs uppercase mb-1">
-              Tổng Serial
-            </div>
-            <div class="text-purple-700 font-black text-2xl">
-              {{ imeiProductsCount }}
-            </div>
-          </div>
-          <div class="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
-            <div class="text-orange-600 font-bold text-xs uppercase mb-1">
-              Tổng tiền
-            </div>
-            <div class="text-orange-700 font-black text-xl mt-1">
-              {{ formatCurrency(totalAmount) }}
-            </div>
-          </div>
+      <div v-else class="p-6 bg-gray-50/70">
+        <div v-if="invoiceItems.length === 0" class="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-sm">
+          <NIcon size="56" class="text-gray-300 mb-4">
+            <CubeOutline />
+          </NIcon>
+          <p class="text-gray-500 text-lg font-medium">
+            Không có sản phẩm nào trong hóa đơn
+          </p>
         </div>
 
-        <div class="space-y-5">
-          <div v-if="invoiceItems.length === 0" class="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-sm">
-            <NIcon size="56" class="text-gray-300 mb-4">
-              <CubeOutline />
-            </NIcon>
-            <p class="text-gray-500 text-lg font-medium">
-              Không có sản phẩm nào trong hóa đơn
-            </p>
+        <div v-for="(product, productIndex) in invoiceItems" :key="product.id" class=" rounded-xl bg-white shadow-sm overflow-hidden">
+          <div class="overflow-x-auto">
+            <NDataTable
+              :columns="productColumnsSerialTong"
+              :data="invoiceItems"
+              :pagination="false"
+              striped
+              class="min-w-full border-b border-gray-200"
+              :row-class-name="() => 'hover:bg-gray-50/80'"
+            />
           </div>
-
-          <div v-for="(product, productIndex) in invoiceItems" :key="product.id" class="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
-            <div class="flex items-center justify-between p-4 border-b border-gray-100 flex-wrap gap-4">
-              <div class="flex items-center gap-4">
-                <div class="font-bold text-gray-400 text-lg w-6 text-center">
-                  {{ productIndex + 1 }}
-                </div>
-                <NAvatar :src="product.anhSanPham" :size="48" :round="false" class="border border-gray-200 rounded shadow-sm bg-white p-0.5" fallback-src="https://via.placeholder.com/48" />
-                <div>
-                  <div class="font-bold text-gray-900 text-base">
-                    {{ product.tenSanPham }}
-                  </div>
-                  <div class="text-xs text-gray-500 mt-1">
-                    <span v-if="product.size">Size: {{ product.size }}</span>
-                    <span v-if="product.mauSac"> | Màu: {{ product.mauSac }}</span>
-                    <span v-if="product.thuongHieu"> | Thương hiệu: {{ product.thuongHieu }}</span>
-                  </div>
-                </div>
-              </div>
-              <div class="flex items-center gap-8 text-sm px-2 md:px-4 ml-auto">
-                <div class="text-right">
-                  <div class="text-gray-500 text-xs mb-1">
-                    Số lượng
-                  </div>
-                  <div class="font-bold text-gray-900 text-base">
-                    {{ product.soLuong }}
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div class="text-gray-500 text-xs mb-1">
-                    Đã gán SERIAL
-                  </div>
-                  <div class="font-bold text-green-600 text-base">
-                    {{ parseIMEIList(product.danhSachImei).length }}/{{ product.soLuong }}
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div class="text-gray-500 text-xs mb-1">
-                    Thành tiền
-                  </div>
-                  <div class="font-bold text-red-600 text-base">
-                    {{ formatCurrency(product.tongTien) }}
-                  </div>
-                </div>
+          <div class="p-6 bg-gray-50/30">
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-3">
+                <NTag size="small" type="success" round class="font-medium px-3">
+                  Tổng {{ parseIMEIList(product.danhSachImei).length }} SERIAL
+                </NTag>
+                <NButton v-if="isOnlineInvoice && parseIMEIList(product.danhSachImei).length < product.soLuong" type="primary" size="small" @click="openSerialSelectionModal(product)">
+                  Bổ sung Serial
+                </NButton>
               </div>
             </div>
-
-            <div class="p-4 bg-gray-50/50">
-              <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-2 text-sm font-semibold text-gray-700 uppercase">
-                  <NIcon size="18" class="text-blue-500">
-                    <CubeOutline />
-                  </NIcon> Danh sách Serial
-                </div>
-                <div class="flex items-center gap-3">
-                  <NTag size="small" type="success" round class="font-medium px-3">
-                    {{ parseIMEIList(product.danhSachImei).length }} SERIAL
-                  </NTag>
-                  <NButton v-if="isOnlineInvoice && parseIMEIList(product.danhSachImei).length < product.soLuong" type="primary" size="small" @click="openSerialSelectionModal(product)">
-                    Bổ sung Serial
-                  </NButton>
-                </div>
+            <div class="max-w-md ml-auto space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-gray-600">Tạm tính:</span><span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
               </div>
-
-              <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
-                <table class="w-full text-sm">
-                  <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold text-xs">
-                    <tr>
-                      <th class="py-3 px-4 text-center w-16">
-                        #
-                      </th>
-                      <th class="py-3 px-4 text-center">
-                        Mã SERIAL
-                      </th>
-                      <th class="py-3 px-4 text-center">
-                        Ngày gán
-                      </th>
-                      <th class="py-3 px-4 text-center">
-                        Trạng thái
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-100">
-                    <tr v-for="(imei, imeiIndex) in parseIMEIList(product.danhSachImei)" :key="imeiIndex" class="hover:bg-blue-50/30 transition-colors">
-                      <td class="py-3 px-4 text-center text-gray-400 font-medium">
-                        {{ imeiIndex + 1 }}
-                      </td>
-                      <td class="py-3 px-4 text-center font-bold text-purple-700 tracking-wide">
-                        {{ imei.code || imei.imeiCode || '---' }}
-                      </td>
-                      <td class="py-3 px-4 text-center text-gray-500">
-                        {{ imei.assignedAt ? formatDateTime(imei.assignedAt) : 'Vừa xong' }}
-                      </td>
-                      <td class="py-3 px-4 text-center">
-                        <NTag :type="IMEI_STATUS_CONFIG[imei.status]?.type || 'success'" size="small" round>
-                          {{ IMEI_STATUS_CONFIG[imei.status]?.text || 'Đã xuất kho' }}
-                        </NTag>
-                      </td>
-                    </tr>
-                    <tr v-if="parseIMEIList(product.danhSachImei).length === 0">
-                      <td colspan="4" class="py-8 text-center text-gray-400">
-                        Chưa có Serial nào được gán cho sản phẩm này
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center">
+                <span class="text-gray-600">Phí vận chuyển:</span><span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+              </div>
+              <div v-if="hoaDonData?.giaTriVoucher" class="flex justify-between items-center">
+                <span class="text-gray-600">Giảm giá voucher:</span><span class="font-medium text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
+              </div>
+              <div class="flex justify-between items-center pt-3 border-t border-gray-200">
+                <span class="text-lg font-bold text-gray-900">Tổng cộng:</span><span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
               </div>
             </div>
           </div>

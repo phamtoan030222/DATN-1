@@ -220,7 +220,6 @@ onUnmounted(() => {
           <ChatbubbleOutline v-else />
         </NIcon>
         <span v-if="!isOpen" class="toggle-label">Hỗ trợ</span>
-        </NButton>
       </button>
     </transition>
 

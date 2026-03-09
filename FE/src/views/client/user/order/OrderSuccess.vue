@@ -27,7 +27,7 @@ function continueShopping() {
             <NButton size="large" @click="goHome">
               Về Trang Chủ
             </NButton>
-            <NButton type="primary" color="#d70018" size="large" @click="continueShopping">
+            <NButton type="primary" color="#00D752" size="large" @click="continueShopping">
               Tiếp Tục Mua Sắm
             </NButton>
           </div>

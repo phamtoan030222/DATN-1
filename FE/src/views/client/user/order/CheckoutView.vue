@@ -687,9 +687,11 @@ async function handleCheckout() {
                       </div>
                     </NRadio>
                   </div>
-                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'">
+                    @click="paymentMethod = '1'"
+                  >
                     <NRadio value="1" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="25" src="../../../../../images/vnpay.png" />
@@ -697,9 +699,11 @@ async function handleCheckout() {
                       </div>
                     </NRadio>
                   </div>
-                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'">
+                    @click="paymentMethod = '1'"
+                  >
                     <NRadio value="1" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="40" src="../../../../../images/vietqr.png" />
@@ -742,12 +746,14 @@ async function handleCheckout() {
                   </div>
                 </div>
                 <div class="flex items-center ml-3">
-                  <n-button circle size="tiny" tertiary
-                    @click="removeCart(item.productDetailId, { buyNow: !!cartItemBuyNow })">
-                    <n-icon>
+                  <NButton
+                    circle size="tiny" tertiary
+                    @click="removeCart(item.productDetailId, { buyNow: !!cartItemBuyNow })"
+                  >
+                    <NIcon>
                       <CloseOutline />
-                    </n-icon>
-                  </n-button>
+                    </NIcon>
+                  </NButton>
                 </div>
               </div>
             </div>
@@ -950,10 +956,6 @@ async function handleCheckout() {
         </div>
       </NSpin>
     </NModal>
-
-    <n-model>
-
-    </n-model>
   </div>
 </template>
 

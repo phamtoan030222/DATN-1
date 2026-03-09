@@ -19,6 +19,7 @@ public class ClientThanhToanRequest {
     // Thông tin khách hàng
     private String ten;
     private String sdt;
+    private String email;
     private String diaChi;
     private String ghiChu;
 
