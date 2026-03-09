@@ -4,6 +4,10 @@ import { NButton, NResult } from 'naive-ui'
 
 const router = useRouter()
 
+const route = useRoute()
+
+const maHoaDon = computed(() => route.query['ma-hoa-don'] || '')
+
 function goHome() {
   router.push('/')
 }
@@ -19,9 +23,19 @@ function continueShopping() {
       <NResult
         status="success"
         title="Đặt Hàng Thành Công!"
-        description="Cảm ơn bạn đã tin tưởng và mua sắm. Đơn hàng của bạn đang được hệ thống xử lý."
+        :description="
+        `Cảm ơn bạn đã tin tưởng và mua sắm.
+        `
+        "
         size="huge"
       >
+      <template #default>
+        <div class="text-left">
+          <p>Mã hóa đơn của bạn: <strong>{{ maHoaDon }}</strong></p>
+          <p>Thông tin đơn hàng đã được gửi đến email của bạn.</p>
+          <p>Vui lòng giữ mã hóa đơn để theo dõi trạng thái đơn hàng.</p>
+        </div>
+      </template>
         <template #footer>
           <div class="btn-group">
             <NButton size="large" @click="goHome">

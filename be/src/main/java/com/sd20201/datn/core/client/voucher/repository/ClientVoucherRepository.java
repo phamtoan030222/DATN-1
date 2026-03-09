@@ -3,6 +3,7 @@ package com.sd20201.datn.core.client.voucher.repository;
 import com.sd20201.datn.core.admin.voucher.voucher.model.request.AdVoucherRequest;
 import com.sd20201.datn.core.admin.voucher.voucher.model.response.AdCustomerResponse;
 import com.sd20201.datn.core.admin.voucher.voucher.model.response.AdVoucherResponse;
+import com.sd20201.datn.core.client.voucher.model.response.ClientBanHangVoucherResponse;
 import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.repository.VoucherRepository;
 import org.springframework.data.domain.Page;
@@ -169,5 +170,23 @@ public interface ClientVoucherRepository extends VoucherRepository {
         )
     """)
     List<Voucher> findAvailableVouchers(@Param("id") String id);
+
+    @Query("""
+    SELECT
+        v.id as id,
+        v.name as name,
+        v.startDate as startDate,
+        v.endDate as endDate,
+        v.maxValue as maxValue,
+        v.discountValue as discountValue,
+        v.conditions as conditions,
+        v.typeVoucher as typeVoucher,
+        v.targetType as targetType
+    FROM Voucher v
+    LEFT JOIN VoucherDetail vd
+    WHERE vd.customer.id = :userId
+    """
+    )
+    List<ClientBanHangVoucherResponse> getVoucherByUserId(String userId);
 }
 
