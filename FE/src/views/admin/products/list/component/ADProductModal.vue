@@ -10,24 +10,24 @@
             </template>
             <!-- content -->
             <div>
-                <n-form>
+                <n-form ref="formRef" :model="detailProduct" :rules="rules">
                     <n-grid  :style="{ width: '100%' }" :span="12" :x-gap="30">
-                        <n-form-item-gi :span="24" label="Tên">
+                        <n-form-item-gi :span="24" label="Tên" path="name">
                             <n-input v-model:value="detailProduct.name" placeholder="Nhập tên" clearable></n-input>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Màn hình">
+                        <n-form-item-gi :span="12" label="Màn hình" path="idScreen">
                             <n-select v-model:value="detailProduct.idScreen" :options="screens"
                                 :placeholder="'Chọn tấm nền'" clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Pin">
+                        <n-form-item-gi :span="12" label="Pin" path="idBattery">
                             <n-select v-model:value="detailProduct.idBattery" :options="batteries"
                                 :placeholder="'Chọn kích thước màn hình'" clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Hệ điều hành">
+                        <n-form-item-gi :span="12" label="Hệ điều hành" path="idOperatingSystem">
                             <n-select v-model:value="detailProduct.idOperatingSystem" :options="operatingSystems"
                                 :placeholder="'Chọn kích thước màn hình'" clearable></n-select>
                         </n-form-item-gi>
-                        <n-form-item-gi :span="12" label="Hãng">
+                        <n-form-item-gi :span="12" label="Hãng" path="idBrand">
                             <n-select v-model:value="detailProduct.idBrand" :options="brands"
                                 :placeholder="'Chọn kích thước màn hình'" clearable></n-select>
                         </n-form-item-gi>
@@ -81,6 +81,16 @@ const detailProduct: Ref<NullableOptional<ADProductDetailResponse>> = ref({
     idScreen: null as string | null | undefined,
 })
 
+// validation
+const formRef = ref();
+const rules = {
+    name: { required: true, message: 'Vui lòng nhập tên', trigger: ['input', 'blur'] },
+    idScreen: { required: true, message: 'Vui lòng chọn tấm nền', trigger: ['change', 'blur'] },
+    idBattery: { required: true, message: 'Vui lòng chọn pin', trigger: ['change', 'blur'] },
+    idOperatingSystem: { required: true, message: 'Vui lòng chọn hệ điều hành', trigger: ['change', 'blur'] },
+    idBrand: { required: true, message: 'Vui lòng chọn hãng', trigger: ['change', 'blur'] },
+};
+
 const fetchDetailProduct = async () => {
     const res = await getProductById(props.id as string)
 
@@ -114,8 +124,18 @@ const handleClickCancel = () => {
 const notification = useNotification()
 
 const handleClickOK = async () => {
+    // validate form before submission
+    if (formRef.value) {
+        try {
+            await formRef.value.validate();
+        } catch (err) {
+            // validation failed, abort
+            return;
+        }
+    }
+
     const res = await updateProduct(detailProduct.value as ADProductDetailResponse)
-    console.log(res.success)
+
     if (res.success) notification.success({ content: props.id ? 'Cập nhật sản phẩm thành công' : 'Thêm sản phẩm thành công', duration: 3000 })
     else notification.error({ content: props.id ? 'Cập nhật sản phẩm thất bại' : 'Thêm sản phẩm thất bại', duration: 3000 })
     if (!props.id) resetField()
