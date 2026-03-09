@@ -79,6 +79,7 @@ const checkoutFormRef = ref<FormInst | null>(null)
 const checkoutForm = reactive({
   ten: '',
   sdt: '',
+  email: '',
   ghiChu: '',
   // Fields cho Khách Vãng Lai (chưa đăng nhập)
   provinceName: null as string | null,
@@ -93,6 +94,10 @@ const checkoutRules = computed(() => {
     sdt: [
       { required: true, message: 'Vui lòng nhập số điện thoại', trigger: ['blur', 'input'] },
       { pattern: /^(03|05|07|08|09)\d{8,9}$/, message: 'Số điện thoại không hợp lệ', trigger: ['blur', 'input'] },
+    ],
+    email: [
+      { required: true, message: 'Vui lòng nhập email', trigger: ['blur', 'input'] },
+      { type: 'email', message: 'Email không hợp lệ', trigger: ['blur', 'input'] },
     ],
   }
 
@@ -404,7 +409,7 @@ onMounted(async () => {
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
 const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.price * i.quantity), 0))
-const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 30000 : 0)
+const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 0 : 0)
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -485,6 +490,7 @@ async function handleCheckout() {
       tongTien: finalTotal.value,
       tienHang: subTotal.value,
       tienShip: shippingFee.value,
+      email: checkoutForm.email,
       giamGia: discountAmount.value,
       phuongThucThanhToan: paymentMethod.value,
       loaiHoaDon: deliveryType.value,
@@ -560,6 +566,9 @@ async function handleCheckout() {
                   </NFormItem>
                   <NFormItem path="sdt" label="Số điện thoại">
                     <NInput v-model:value="checkoutForm.sdt" placeholder="Nhập số điện thoại" size="large" />
+                  </NFormItem>
+                  <NFormItem path="email" label="Email" class="md:col-span-2">
+                    <NInput v-model:value="checkoutForm.email" placeholder="Nhập email" size="large" />
                   </NFormItem>
                 </div>
 
@@ -673,10 +682,28 @@ async function handleCheckout() {
                   >
                     <NRadio value="1" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
-                        <NIcon color="#2563eb" size="24">
-                          <CardOutline />
-                        </NIcon>
-                        Chuyển khoản qua ngân hàng (Mã QR)
+                        <n-image width="25" src="../../../../../images/momo.png" />
+                        Momo
+                      </div>
+                    </NRadio>
+                  </div>
+                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
+                    @click="paymentMethod = '1'">
+                    <NRadio value="1" class="w-full">
+                      <div class="flex items-center gap-3 font-medium text-gray-800">
+                        <n-image width="25" src="../../../../../images/vnpay.png" />
+                        VNPAY
+                      </div>
+                    </NRadio>
+                  </div>
+                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
+                    @click="paymentMethod = '1'">
+                    <NRadio value="1" class="w-full">
+                      <div class="flex items-center gap-3 font-medium text-gray-800">
+                        <n-image width="40" src="../../../../../images/vietqr.png" />
+                        VietQR
                       </div>
                     </NRadio>
                   </div>
@@ -715,11 +742,12 @@ async function handleCheckout() {
                   </div>
                 </div>
                 <div class="flex items-center ml-3">
-                  <NButton circle size="tiny" tertiary @click="removeCart(item.productDetailId, { buyNow: !!cartItemBuyNow })">
-                    <NIcon>
+                  <n-button circle size="tiny" tertiary
+                    @click="removeCart(item.productDetailId, { buyNow: !!cartItemBuyNow })">
+                    <n-icon>
                       <CloseOutline />
-                    </NIcon>
-                  </NButton>
+                    </n-icon>
+                  </n-button>
                 </div>
               </div>
             </div>
@@ -743,8 +771,15 @@ async function handleCheckout() {
                 <span>Tạm tính:</span><span class="font-medium text-gray-800">{{ formatCurrency(subTotal) }}</span>
               </div>
               <div class="flex justify-between">
-                <span>Phí vận chuyển:</span><span class="font-medium text-gray-800">{{ formatCurrency(shippingFee)
-                }}</span>
+                <div>
+                  <span>Phí vận chuyển:</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="font-medium text-gray-800">
+                    {{ formatCurrency(shippingFee) }}
+                  </span>
+                  <n-image width="80" src="../../../../../images/ghn-logo.webp" />
+                </div>
               </div>
               <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
                 <span>Voucher giảm:</span><span>-{{ formatCurrency(discountAmount) }}</span>
@@ -915,6 +950,10 @@ async function handleCheckout() {
         </div>
       </NSpin>
     </NModal>
+
+    <n-model>
+
+    </n-model>
   </div>
 </template>
 
