@@ -21,6 +21,7 @@ public class ClientThanhToanRequest {
     private String sdt;
     private String diaChi;
     private String ghiChu;
+    private String email;
 
     // Tiền nong (Dùng BigDecimal để chính xác)
     private BigDecimal tongTien; // Tổng thanh toán cuối cùng
