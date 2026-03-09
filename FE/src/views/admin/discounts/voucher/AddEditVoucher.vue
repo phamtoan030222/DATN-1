@@ -4,7 +4,6 @@ import { useRoute, useRouter } from 'vue-router'
 import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import {
   dateViVN,
-  NAvatar,
   NButton,
   NCard,
   NConfigProvider,
@@ -20,7 +19,6 @@ import {
   NPagination,
   NRadio,
   NRadioGroup,
-  NSelect,
   NSpace,
   NSpin,
   NTag,
@@ -168,6 +166,29 @@ const addVoucherRules: FormRules = {
   conditions: [{ required: true, type: 'number', message: 'Nhập điều kiện', trigger: 'blur' }],
   targetType: { required: true, message: 'Chọn đối tượng', trigger: ['change'] },
   voucherUsers: [{ required: true, validator: (_r, v: any[]) => newVoucher.value.targetType === 'INDIVIDUAL' && (!v || v.length === 0) ? new Error('Chọn ít nhất 1 khách hàng') : true, trigger: ['change'] }],
+  quantity: [
+    {
+      required: true,
+      type: 'number',
+      validator: (_rule, value) => {
+        // Bỏ qua validate nếu đối tượng không phải là Tất cả khách hàng
+        if (newVoucher.value.targetType !== 'ALL_CUSTOMERS')
+          return true
+
+        if (value === null || value === undefined || String(value).trim() === '') {
+          return new Error('Số lượng không được để trống')
+        }
+        if (!Number.isInteger(value)) {
+          return new Error('Số lượng phải là số nguyên')
+        }
+        if (value <= 0) {
+          return new Error('Số lượng phải lớn hơn 0')
+        }
+        return true
+      },
+      trigger: ['blur', 'change'],
+    },
+  ],
 }
 
 /* ===================== API Methods ===================== */

@@ -6,7 +6,7 @@ import { getProductById, getProductsCombobox } from '@/service/api/admin/product
 import { Icon } from '@iconify/vue'
 import { debounce } from 'lodash'
 import type { DataTableColumns } from 'naive-ui'
-import { NBadge, NButton, NImage, NSpace, NSwitch, NTooltip } from 'naive-ui'
+import { NBadge, NButton, NImage, NPopconfirm, NSpace, NSwitch, NTooltip } from 'naive-ui'
 import type { Ref } from 'vue'
 import { onMounted, reactive, ref } from 'vue'
 import ADProductVariantModal from './component/ADProductVariantModal.vue'
@@ -128,7 +128,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     align: 'center',
     render: (data: ADProductDetailResponse) => {
       return h(NBadge, { value: data.percentage ? `-${data.percentage}%` : undefined }, [
-        h(NImage, { width: 100, src: data.urlImage, style: { borderRadius: '4px' }, })
+        h(NImage, { width: 100, src: data.urlImage, style: { borderRadius: '4px' } }),
       ])
     },
   },
@@ -139,7 +139,11 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     ellipsis: { tooltip: true },
   },
   {
-    title: 'Cấu hình', key: 'configuration', width: 300, align: 'left', titleAlign: 'center',
+    title: 'Cấu hình',
+    key: 'configuration',
+    width: 300,
+    align: 'left',
+    titleAlign: 'center',
     render: (rowData: ADProductDetailResponse) => h('div', { class: 'flex flex-col gap-y-2' }, [
       // h('div', [
       h('div', { style: { display: 'flex', alignItems: 'center', margin: '4px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
@@ -181,9 +185,25 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 70,
+    width: 100, // Tăng nhẹ width để switch hiển thị thoải mái hơn
     align: 'center',
-    render: (data: ADProductDetailResponse) => h(NSwitch, { value: data.status == 'ACTIVE', onUpdateValue: (value: boolean) => { handleChangeStatus(data.id as string) } }),
+    render: (data: ADProductDetailResponse) => {
+      return h(
+        NPopconfirm,
+        {
+          onPositiveClick: () => handleChangeStatus(data.id as string),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
+        },
+        {
+          trigger: () => h(NSwitch, {
+            value: data.status === 'ACTIVE',
+            // Bỏ onUpdateValue ở đây đi vì NPopconfirm đã gọi hàm khi nhấn Đồng ý
+          }),
+          default: () => `Bạn có chắc muốn ${data.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} biến thể này?`,
+        },
+      )
+    },
   },
   {
     title: 'Thao tác',
@@ -301,7 +321,7 @@ async function fetchProductsCombobox() {
   state.data.productsCombobox = res.data
 }
 
-const exportExcelHandler = () => {
+function exportExcelHandler() {
   const excelData = state.data.productDetails.map((item, index) => ({
     'STT': index + 1,
     'Mã biến thể': item.code,
@@ -320,22 +340,22 @@ const exportExcelHandler = () => {
   exportToExcel(excelData, `Danh_sach_bien_the_san_pham_${product.value ? product.value.code : ''}`)
 }
 
-const handleOpenSerialVariantModel = (idProductDetail: string) => {
+function handleOpenSerialVariantModel(idProductDetail: string) {
   productDetailIdSelected.value = idProductDetail
   isOpenSerialVariantModel.value = true
 }
 
-const handleCloseSerialVariantModel = () => {
+function handleCloseSerialVariantModel() {
   isOpenSerialVariantModel.value = false
 }
 
-const updatevariantSerialSuccessHandler = () => {
+function updatevariantSerialSuccessHandler() {
   handleCloseSerialVariantModel()
   fetchProductDetails()
   productDetailIdSelected.value = undefined
 }
 
-const updateSerialvariantHandler = async (payload: { idProductDetail: string, imeis: string[] }) => {
+async function updateSerialvariantHandler(payload: { idProductDetail: string, imeis: string[] }) {
   const { idProductDetail, imeis } = payload
 
   try {
@@ -345,11 +365,11 @@ const updateSerialvariantHandler = async (payload: { idProductDetail: string, im
       notification.success({ content: `Thêm ${imeis.length} serial thành công`, duration: 3000 })
       updatevariantSerialSuccessHandler()
     }
-  } catch (error) {
+  }
+  catch (error) {
     notification.error({ content: 'Thêm serial thất bại', duration: 3000 })
   }
 }
-
 </script>
 
 <template>
@@ -366,9 +386,11 @@ const updateSerialvariantHandler = async (payload: { idProductDetail: string, im
             </span>
           </div>
           <div>
-            <n-select v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
+            <n-select
+              v-if="state.data.productsCombobox.length > 0" v-model:value="idProduct"
               placeholder="Chọn sản phẩm" style="width: 500px;" clearable :options="state.data.productsCombobox"
-              @update:value="() => { fetchProductDetails(); fetchProduct(); }" filterable />
+              filterable @update:value="() => { fetchProductDetails(); fetchProduct(); }"
+            />
           </div>
         </NSpace>
         <span>Quản lý biến thể sản phẩm trong cửa hàng</span>
@@ -397,31 +419,41 @@ const updateSerialvariantHandler = async (payload: { idProductDetail: string, im
         </n-col>
         <n-col :span="4">
           <span>Màu sắc</span>
-          <n-select v-model:value="state.search.color" placeholder="Tìm kiếm màu sắc" :options="state.data.colors"
-            clearable />
+          <n-select
+            v-model:value="state.search.color" placeholder="Tìm kiếm màu sắc" :options="state.data.colors"
+            clearable
+          />
         </n-col>
         <n-col :span="4">
           <span>ổ cứng</span>
-          <n-select v-model:value="state.search.hardDrive" placeholder="Tìm kiếm ổ cứng"
-            :options="state.data.hardDrives" clearable />
+          <n-select
+            v-model:value="state.search.hardDrive" placeholder="Tìm kiếm ổ cứng"
+            :options="state.data.hardDrives" clearable
+          />
         </n-col>
       </n-row>
       <div class="mt-20px">
         <n-row :gutter="12">
           <n-col :span="16">
             <span>Khoảng giá</span>
-            <n-slider v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range :step="1000"
-              :min="stateMinMaxPrice.priceMin ?? 0" :max="stateMinMaxPrice.priceMax ?? 50000000" />
+            <n-slider
+              v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range :step="1000"
+              :min="stateMinMaxPrice.priceMin ?? 0" :max="stateMinMaxPrice.priceMax ?? 50000000"
+            />
           </n-col>
           <n-col :span="4">
             <span>Chất liệu</span>
-            <n-select v-model:value="state.search.material" placeholder="Tìm kiếm chất liệu"
-              :options="state.data.materials" clearable />
+            <n-select
+              v-model:value="state.search.material" placeholder="Tìm kiếm chất liệu"
+              :options="state.data.materials" clearable
+            />
           </n-col>
           <n-col :span="4">
             <span>RAM</span>
-            <n-select v-model:value="state.search.ram" placeholder="Tìm kiếm RAM" :options="state.data.rams"
-              clearable />
+            <n-select
+              v-model:value="state.search.ram" placeholder="Tìm kiếm RAM" :options="state.data.rams"
+              clearable
+            />
           </n-col>
         </n-row>
       </div>
@@ -430,37 +462,48 @@ const updateSerialvariantHandler = async (payload: { idProductDetail: string, im
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton @click="exportExcelHandler" type="success" secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out">
+            <NButton
+              type="success" secondary class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              @click="exportExcelHandler"
+            >
               <template #icon>
                 <NIcon size="24">
                   <Icon icon="file-icons:microsoft-excel" />
                 </NIcon>
               </template>
               <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
                 Xuất Excel
               </span>
             </NButton>
           </NSpace>
         </div>
       </template>
-      <n-data-table :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
-        :row-key="(row) => row.id" @update:expanded-row-keys="key => expandedKeys = key as Array<string>" />
+      <n-data-table
+        :columns="columns" :data="state.data.productDetails" :expanded-row-keys="expandedKeys"
+        :row-key="(row) => row.id" @update:expanded-row-keys="key => expandedKeys = key as Array<string>"
+      />
 
       <NSpace justify="end" class="mt-20px">
-        <NPagination :page="state.pagination.page" :page-size="state.pagination.size" :page-sizes="[5, 10, 20, 50]"
-          show-size-picker :page-count="state.pagination.totalPages" @update:page="handlePageChange" />
+        <NPagination
+          :page="state.pagination.page" :page-size="state.pagination.size" :page-sizes="[5, 10, 20, 50]"
+          show-size-picker :page-count="state.pagination.totalPages" @update:page="handlePageChange"
+        />
       </NSpace>
     </n-card>
 
-    <ADProductVariantModal :id="productDetailIdSelected" :is-open="isOpenModal" :cpus="state.data.cpus"
+    <ADProductVariantModal
+      :id="productDetailIdSelected" :is-open="isOpenModal" :cpus="state.data.cpus"
       :gpus="state.data.gpus" :hard-drives="state.data.hardDrives" :materials="state.data.materials"
-      :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal" @close="closeModal" />
+      :colors="state.data.colors" :rams="state.data.rams" @success="handleSuccessModifyModal" @close="closeModal"
+    />
 
-    <ADImeiProductDetail :is-open="isOpenSerialVariantModel" :id-product-detail="productDetailIdSelected"
+    <ADImeiProductDetail
+      :is-open="isOpenSerialVariantModel" :id-product-detail="productDetailIdSelected"
       :success="updatevariantSerialSuccessHandler" @update:imei="updateSerialvariantHandler"
-      @close="handleCloseSerialVariantModel" />
+      @close="handleCloseSerialVariantModel"
+    />
   </div>
 </template>
 

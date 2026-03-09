@@ -218,7 +218,7 @@ function parseCurrency(input: string): number | null {
             Hủy
           </NButton>
           <n-popconfirm
-            :positive-button-props="{ type: 'info' }" positive-text="Xác nhận"
+            :positive-button-props="{ type: 'success' }" positive-text="Xác nhận"
             negative-text="Hủy" @positive-click="handleClickOK" @negative-click="handleClickCancel"
           >
             <template #trigger>

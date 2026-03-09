@@ -152,7 +152,7 @@ function handleSave() {
     }
 
     // Hiển thị Dialog xác nhận
-    dialog.warning({
+    dialog.success({
       title: 'Xác nhận',
       content: modalMode.value === 'add'
         ? 'Bạn có chắc chắn muốn thêm màu sắc này?'

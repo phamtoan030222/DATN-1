@@ -209,16 +209,18 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
         NPopconfirm,
         {
           onPositiveClick: () => handleChangeStatus(row.id),
+          positiveText: 'Đồng ý',
+          negativeText: 'Hủy',
         },
         {
           trigger: () => h(
+
             NSwitch,
             {
               value: row.status === 'ACTIVE',
               size: 'small',
               disabled: loading.value,
-              // Không binding onUpdateValue để chặn thay đổi trực tiếp
-              // Sự thay đổi chỉ xảy ra khi fetchCPUs lại sau khi API thành công
+
             },
           ),
           default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} CPU này?`,

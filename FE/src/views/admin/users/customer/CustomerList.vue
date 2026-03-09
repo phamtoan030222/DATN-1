@@ -297,12 +297,6 @@ function exportToExcel(dataList: Customer[], fileName: string) {
   message.success('Xuất file thành công!')
 }
 
-function handlePrint() {
-  if (customers.value.length === 0)
-    return message.warning('Không có dữ liệu!')
-  window.print()
-}
-
 onMounted(async () => {
   await initProvinces()
   fetchCustomers()
@@ -474,14 +468,6 @@ const columns = [
                 <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất Excel</span>
               </NButton>
             </NDropdown>
-            <NButton type="info" secondary class="rounded-full px-3 group" :disabled="isViewOnly" @click="handlePrint">
-              <template #icon>
-                <NIcon size="24">
-                  <Icon icon="carbon:printer" />
-                </NIcon>
-              </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">In danh sách</span>
-            </NButton>
             <NButton type="info" secondary class="rounded-full px-3 group" :disabled="isViewOnly" @click="fetchCustomers">
               <template #icon>
                 <NIcon size="24">

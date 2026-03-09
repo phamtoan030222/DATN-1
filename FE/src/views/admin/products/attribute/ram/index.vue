@@ -208,7 +208,7 @@ function saveRam() {
     if (errors)
       return // Dừng nếu có lỗi validate
 
-    dialog.warning({
+    dialog.success({
       title: 'Xác nhận',
       content: modalMode.value === 'add'
         ? 'Bạn có chắc chắn muốn thêm RAM này?'

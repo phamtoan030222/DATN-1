@@ -134,12 +134,11 @@ function handleSaveBrand() {
   // Gọi validate
   formRef.value?.validate((errors) => {
     if (errors) {
-      // Nếu có lỗi thì dừng lại, NFormItem sẽ tự hiện dòng chữ đỏ
       return
     }
 
-    // Nếu không lỗi thì hiện Dialog xác nhận
-    dialog.warning({
+    // CHỈ CẦN SỬA Ở ĐÂY: Đổi dialog.warning thành dialog.success
+    dialog.success({
       title: 'Xác nhận',
       content: modalMode.value === 'add'
         ? 'Bạn có chắc chắn muốn thêm thương hiệu này?'

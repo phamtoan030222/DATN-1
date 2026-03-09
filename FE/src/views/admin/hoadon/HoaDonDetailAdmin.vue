@@ -320,6 +320,31 @@ const imeiProductsCount = computed(() => {
   return totalImei
 })
 
+// === TÁCH MỖI SERIAL THÀNH 1 DÒNG ===
+const flattenedInvoiceItems = computed(() => {
+  const result: any[] = []
+  let stt = 1
+  invoiceItems.value.forEach((item) => {
+    const imeiList = parseIMEIList(item.danhSachImei)
+    const totalQty = item.soLuong || 1
+
+    for (let i = 0; i < totalQty; i++) {
+      const assignedImei = imeiList[i] || null
+      result.push({
+        ...item, // giữ thông tin sản phẩm gốc
+        stt: stt++, // STT chạy dài
+        uniqueKey: `${item.id}_${assignedImei ? assignedImei.id : `unassigned_${i}`}`,
+        soLuongOriginal: item.soLuong,
+        soLuong: 1, // Fix cứng hiển thị số lượng 1 dòng = 1 sản phẩm
+        tongTien: item.giaBan, // Thành tiền cho 1 đơn vị
+        imeiAssigned: assignedImei,
+        isAssigned: !!assignedImei,
+      })
+    }
+  })
+  return result
+})
+
 const printProducts = computed<PrintProduct[]>(() => {
   const result: PrintProduct[] = []
   invoiceItems.value.forEach((item) => {
@@ -435,9 +460,9 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
 ]
 
 // ==================== BẢNG SẢN PHẨM (TRANG CHÍNH) ====================
-const productColumns = computed<DataTableColumns<HoaDonChiTietItem>>(() => {
+const productColumns = computed<DataTableColumns<any>>(() => {
   return [
-    { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, index) => h('span', { class: 'font-medium text-gray-500' }, index + 1) },
+    { title: 'STT', key: 'stt', width: 60, align: 'center', render: row => h('span', { class: 'font-medium text-gray-500' }, row.stt) },
     {
       title: 'Sản phẩm',
       key: 'productInfo',
@@ -449,7 +474,7 @@ const productColumns = computed<DataTableColumns<HoaDonChiTietItem>>(() => {
           return h('div', { class: 'hidden' })
         return h('div', { class: `flex items-center justify-center gap-4 py-1` }, [
           h(NAvatar, { src: row.anhSanPham, size: 'large', round: false, class: 'border border-gray-200 rounded-md shadow-sm bg-white', fallbackSrc: 'https://via.placeholder.com/40?text=No+Image' }),
-          h('div', { class: ' min-w-0' }, [
+          h('div', { class: 'min-w-0 flex flex-col items-start' }, [
             h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
             h('div', { class: 'flex flex-wrap items-center gap-2 mt-1.5' }, [
               row.thuongHieu && h(NTag, { size: 'tiny', type: 'info', bordered: false }, { default: () => row.thuongHieu }),
@@ -460,18 +485,22 @@ const productColumns = computed<DataTableColumns<HoaDonChiTietItem>>(() => {
         ])
       },
     },
-    { title: 'Số lượng', key: 'soLuong', width: 140, align: 'center', render: row => h('span', { class: 'font-bold text-gray-800 text-base' }, row.soLuong) },
-    { title: 'Đơn giá', key: 'price', width: 180, align: 'right', render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)) },
-    { title: 'Thành tiền', key: 'total', width: 180, align: 'right', render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)) },
+    // THAY THẾ CỘT SỐ LƯỢNG BẰNG CỘT SERIAL
     {
-      title: 'Thao tác',
-      key: 'action',
-      width: 120,
+      title: 'Mã Serial',
+      key: 'serialCode',
+      width: 180,
       align: 'center',
       render: (row) => {
-        return h(NButton, { size: 'small', quaternary: true, type: 'info', class: 'hover:bg-blue-50', onClick: () => openSerialInfoModal(row) }, { icon: () => h(NIcon, { size: 20 }, { default: () => h(EyeOutline) }) })
+        if (row.isAssigned) {
+          return h('span', { class: 'font-mono font-bold text-indigo-600 tracking-wide' }, row.imeiAssigned.code || row.imeiAssigned.imeiCode)
+        }
+        return h(NTag, { type: 'warning', size: 'small', round: true }, { default: () => 'Chưa có mã' })
       },
     },
+    { title: 'Đơn giá', key: 'price', width: 140, align: 'right', render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)) },
+    { title: 'Thành tiền', key: 'total', width: 140, align: 'right', render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.giaBan)) },
+
   ]
 })
 
@@ -559,8 +588,27 @@ function getStepTime(stepKey: string): string | null {
 }
 
 // ==================== Modal Handlers ====================
+// ==================== Modal Handlers ====================
 function openStatusModalNext(): void {
   if (nextStatusToUpdate.value !== null) {
+    // --- BẮT ĐẦU: VALIDATE KIỂM TRA SERIAL ---
+    // Kiểm tra nếu đơn là Online (hoặc giao hàng) và đang chuyển từ 'Chờ xác nhận' (0) sang 'Đã xác nhận' (1)
+    if (currentStatus.value === 0 && nextStatusToUpdate.value === 1) {
+      // Kiểm tra xem có sản phẩm nào chưa đủ Serial không
+      const isMissingSerial = invoiceItems.value.some((product) => {
+        const assignedCount = parseIMEIList(product.danhSachImei).length
+        const requiredCount = product.soLuong || 0
+        return assignedCount < requiredCount
+      })
+
+      // Nếu thiếu, báo lỗi và chặn (return) không cho mở Modal
+      if (isMissingSerial) {
+        message.error('Vui lòng gán đủ Serial cho tất cả sản phẩm trước khi xác nhận đơn hàng!')
+        return
+      }
+    }
+    // --- KẾT THÚC: VALIDATE KIỂM TRA SERIAL ---
+
     selectedStatus.value = nextStatusToUpdate.value
     showStatusModal.value = true
   }
@@ -1302,7 +1350,7 @@ onMounted(async () => {
         <div class="overflow-x-auto">
           <NDataTable
             :columns="productColumns"
-            :data="invoiceItems"
+            :data="flattenedInvoiceItems"
             :pagination="false"
             striped
             class="min-w-full border-b border-gray-200"
@@ -1328,7 +1376,42 @@ onMounted(async () => {
       </div>
 
       <div v-else class="p-6 bg-gray-50/70 border-t border-gray-100">
-        <div class="space-y-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
+            <div class="text-blue-600 font-bold text-xs uppercase mb-1">
+              Tổng SP
+            </div>
+            <div class="text-blue-700 font-black text-2xl">
+              {{ productCount }}
+            </div>
+          </div>
+          <div class="bg-green-50 border border-green-100 rounded-xl p-4 text-center">
+            <div class="text-green-600 font-bold text-xs uppercase mb-1">
+              Tổng SL
+            </div>
+            <div class="text-green-700 font-black text-2xl">
+              {{ totalQuantity }}
+            </div>
+          </div>
+          <div class="bg-purple-50 border border-purple-100 rounded-xl p-4 text-center">
+            <div class="text-purple-600 font-bold text-xs uppercase mb-1">
+              Tổng Serial
+            </div>
+            <div class="text-purple-700 font-black text-2xl">
+              {{ imeiProductsCount }}
+            </div>
+          </div>
+          <div class="bg-orange-50 border border-orange-100 rounded-xl p-4 text-center">
+            <div class="text-orange-600 font-bold text-xs uppercase mb-1">
+              Tổng tiền
+            </div>
+            <div class="text-orange-700 font-black text-xl mt-1">
+              {{ formatCurrency(totalAmount) }}
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-5">
           <div v-if="invoiceItems.length === 0" class="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-sm">
             <NIcon size="56" class="text-gray-300 mb-4">
               <CubeOutline />
@@ -1338,104 +1421,111 @@ onMounted(async () => {
             </p>
           </div>
 
-          <div v-else class="space-y-6">
-            <div v-for="(product, productIndex) in invoiceItems" :key="product.id || productIndex" class="border border-gray-200 bg-white rounded-2xl overflow-hidden shadow-sm">
-              <div class="bg-white px-6 py-4 border-b border-gray-100 flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center gap-5 min-w-[300px]">
-                  <span class="text-xl font-black text-gray-300 w-6">{{ productIndex + 1 }}</span>
-                  <NAvatar :src="product.anhSanPham" :size="56" :round="false" class="border border-gray-200 rounded-lg shadow-sm bg-white p-1" fallback-src="https://via.placeholder.com/56?text=SP" />
-                  <div>
-                    <div class="font-bold text-gray-900 text-lg">
-                      {{ product.tenSanPham }}
-                    </div>
-                    <div class="text-xs text-gray-500 mt-1 flex items-center gap-3">
-                      <span v-if="product.maSanPham">Mã: <span class="font-mono font-medium text-gray-700">{{ product.maSanPham }}</span></span>
-                      <span v-if="product.thuongHieu" class="px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-xs text-gray-600">Hãng: {{ product.thuongHieu }}</span>
-                    </div>
-                  </div>
+          <div v-for="(product, productIndex) in invoiceItems" :key="product.id" class="border border-gray-200 rounded-xl bg-white shadow-sm overflow-hidden">
+            <div class="flex items-center justify-between p-4 border-b border-gray-100 flex-wrap gap-4">
+              <div class="flex items-center gap-4">
+                <div class="font-bold text-gray-400 text-lg w-6 text-center">
+                  {{ productIndex + 1 }}
                 </div>
-
-                <div class="flex items-center gap-4 ml-auto">
-                  <NTag v-if="parseIMEIList(product.danhSachImei).length >= product.soLuong" type="success" size="large" round class="px-4 font-bold border-green-200 bg-green-50 text-green-700">
-                    <template #icon>
-                      <NIcon><CheckmarkCircleOutline /></NIcon>
-                    </template>
-                    Đã đủ Serial ({{ product.soLuong }}/{{ product.soLuong }})
-                  </NTag>
-                  <NTag v-else-if="parseIMEIList(product.danhSachImei).length === 0" type="error" size="large" round class="px-4 font-bold border-red-200 bg-red-50 text-red-700">
-                    <template #icon>
-                      <NIcon><CloseCircleOutline /></NIcon>
-                    </template>
-                    Chưa có Serial
-                  </NTag>
-                  <NTag v-else type="warning" size="large" round class="px-4 font-bold border-orange-200 bg-orange-50 text-orange-700">
-                    <template #icon>
-                      <NIcon><TimeOutline /></NIcon>
-                    </template>
-                    Thiếu {{ product.soLuong - parseIMEIList(product.danhSachImei).length }} Serial
-                  </NTag>
-
-                  <div v-if="isOnlineInvoice && parseIMEIList(product.danhSachImei).length < product.soLuong" class="pl-5 border-l border-gray-200">
-                    <NButton type="info" secondary round size="small" class="shadow-sm" @click="openSerialSelectionModal(product)">
-                      <template #icon>
-                        <NIcon><QrCodeOutline /></NIcon>
-                      </template>
-                      Bổ sung Serial
-                    </NButton>
+                <NAvatar :src="product.anhSanPham" :size="48" :round="false" class="border border-gray-200 rounded shadow-sm bg-white p-0.5" fallback-src="https://via.placeholder.com/48" />
+                <div>
+                  <div class="font-bold text-gray-900 text-base">
+                    {{ product.tenSanPham }}
+                  </div>
+                  <div class="text-xs text-gray-500 mt-1">
+                    <span v-if="product.size">Size: {{ product.size }}</span>
+                    <span v-if="product.mauSac"> | Màu: {{ product.mauSac }}</span>
+                    <span v-if="product.thuongHieu"> | Thương hiệu: {{ product.thuongHieu }}</span>
                   </div>
                 </div>
               </div>
-
-              <div class="p-5 bg-gray-50/50">
-                <div v-if="parseIMEIList(product.danhSachImei).length > 0" class="border border-gray-200 rounded-xl overflow-hidden bg-white shadow-sm">
-                  <div class="grid grid-cols-12 gap-4 px-6 py-3 bg-gray-100/70 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                    <div class="col-span-1 text-center">
-                      #
-                    </div>
-                    <div class="col-span-5 text-center">
-                      Mã SERIAL
-                    </div>
-                    <div class="col-span-4 text-center">
-                      Thời gian gán
-                    </div>
-                    <div class="col-span-2 text-center">
-                      Trạng thái
-                    </div>
+              <div class="flex items-center gap-8 text-sm px-2 md:px-4 ml-auto">
+                <div class="text-right">
+                  <div class="text-gray-500 text-xs mb-1">
+                    Số lượng
                   </div>
+                  <div class="font-bold text-gray-900 text-base">
+                    {{ product.soLuong }}
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-gray-500 text-xs mb-1">
+                    Đã gán SERIAL
+                  </div>
+                  <div class="font-bold text-green-600 text-base">
+                    {{ parseIMEIList(product.danhSachImei).length }}/{{ product.soLuong }}
+                  </div>
+                </div>
+                <div class="text-right">
+                  <div class="text-gray-500 text-xs mb-1">
+                    Thành tiền
+                  </div>
+                  <div class="font-bold text-red-600 text-base">
+                    {{ formatCurrency(product.tongTien) }}
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                  <div class="divide-y divide-gray-100">
-                    <div v-for="(imei, imeiIndex) in parseIMEIList(product.danhSachImei)" :key="imei.id || imeiIndex" class="grid grid-cols-12 gap-4 px-6 py-3.5 text-sm hover:bg-blue-50/30 transition-colors items-center">
-                      <div class="col-span-1 text-center text-gray-400 font-mono font-bold">
+            <div class="p-4 bg-gray-50/50">
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2 text-sm font-semibold text-gray-700 uppercase">
+                  <NIcon size="18" class="text-blue-500">
+                    <CubeOutline />
+                  </NIcon> Danh sách Serial
+                </div>
+                <div class="flex items-center gap-3">
+                  <NTag size="small" type="success" round class="font-medium px-3">
+                    {{ parseIMEIList(product.danhSachImei).length }} SERIAL
+                  </NTag>
+                  <NButton v-if="isOnlineInvoice && parseIMEIList(product.danhSachImei).length < product.soLuong" type="primary" size="small" @click="openSerialSelectionModal(product)">
+                    Bổ sung Serial
+                  </NButton>
+                </div>
+              </div>
+
+              <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <table class="w-full text-sm">
+                  <thead class="bg-gray-50 border-b border-gray-200 text-gray-600 font-semibold text-xs">
+                    <tr>
+                      <th class="py-3 px-4 text-center w-16">
+                        #
+                      </th>
+                      <th class="py-3 px-4 text-center">
+                        Mã SERIAL
+                      </th>
+                      <th class="py-3 px-4 text-center">
+                        Ngày gán
+                      </th>
+                      <th class="py-3 px-4 text-center">
+                        Trạng thái
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-100">
+                    <tr v-for="(imei, imeiIndex) in parseIMEIList(product.danhSachImei)" :key="imeiIndex" class="hover:bg-blue-50/30 transition-colors">
+                      <td class="py-3 px-4 text-center text-gray-400 font-medium">
                         {{ imeiIndex + 1 }}
-                      </div>
-                      <div class="col-span-5 font-mono font-bold text-indigo-600 text-base tracking-widest text-center flex items-center justify-center">
+                      </td>
+                      <td class="py-3 px-4 text-center font-bold text-purple-700 tracking-wide">
                         {{ imei.code || imei.imeiCode || '---' }}
-                      </div>
-                      <div class="col-span-4 text-center flex items-center justify-center gap-1.5 text-gray-500">
-                        <NIcon size="15">
-                          <TimeOutline />
-                        </NIcon>
-                        <span class="text-xs font-medium">{{ imei.assignedAt ? formatDateTime(imei.assignedAt) : 'Vừa xong' }}</span>
-                      </div>
-                      <div class="col-span-2 flex items-center justify-center">
-                        <NTag :type="IMEI_STATUS_CONFIG[imei.status]?.type || 'success'" size="small" round class="font-semibold px-3">
+                      </td>
+                      <td class="py-3 px-4 text-center text-gray-500">
+                        {{ imei.assignedAt ? formatDateTime(imei.assignedAt) : 'Vừa xong' }}
+                      </td>
+                      <td class="py-3 px-4 text-center">
+                        <NTag :type="IMEI_STATUS_CONFIG[imei.status]?.type || 'success'" size="small" round>
                           {{ IMEI_STATUS_CONFIG[imei.status]?.text || 'Đã xuất kho' }}
                         </NTag>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div v-else class="flex flex-col items-center justify-center py-8 bg-white border border-gray-200 rounded-xl shadow-sm">
-                  <div class="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                    <NIcon size="24" class="text-gray-400">
-                      <InformationCircleOutline />
-                    </NIcon>
-                  </div>
-                  <p class="text-gray-500 font-medium text-sm">
-                    Sản phẩm này chưa có mã Serial nào.
-                  </p>
-                </div>
+                      </td>
+                    </tr>
+                    <tr v-if="parseIMEIList(product.danhSachImei).length === 0">
+                      <td colspan="4" class="py-8 text-center text-gray-400">
+                        Chưa có Serial nào được gán cho sản phẩm này
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
@@ -1522,7 +1612,7 @@ onMounted(async () => {
               {{ selectedSerialInfoProduct.tenSanPham }}
             </div>
             <div class="text-sm text-gray-500">
-              Đã gán <span class="font-bold text-green-600">{{ currentProductSerialInfo.length }}/{{ selectedSerialInfoProduct.soLuong }}</span> máy
+              Đã gán <span class="font-bold text-green-600">{{ currentProductSerialInfo.length }}/{{ selectedSerialInfoProduct.soLuongOriginal || selectedSerialInfoProduct.soLuong }}</span> máy
             </div>
           </div>
         </div>
