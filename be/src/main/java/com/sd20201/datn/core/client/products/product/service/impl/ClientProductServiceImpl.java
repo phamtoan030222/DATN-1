@@ -2,6 +2,8 @@ package com.sd20201.datn.core.client.products.product.service.impl;
 
 import com.sd20201.datn.core.client.products.product.model.request.ClientProductCreateUpdateRequest;
 import com.sd20201.datn.core.client.products.product.model.request.ClientProductRequest;
+import com.sd20201.datn.core.client.products.productdetail.model.response.ClientDiscountProductProjection;
+import com.sd20201.datn.core.client.products.productdetail.repository.ClientCampaignProductRepository;
 import com.sd20201.datn.core.client.products.product.repository.ClientPRBatteryRepository;
 import com.sd20201.datn.core.client.products.product.repository.ClientPRBrandRepository;
 import com.sd20201.datn.core.client.products.product.repository.ClientPROperatingSystemRepository;
@@ -24,10 +26,12 @@ import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -50,6 +54,8 @@ public class ClientProductServiceImpl implements ClientProductService {
     private final CloudinaryService cloudinaryService;
 
     private final ImageProductRepository imageProductRepository;
+
+    private final ClientCampaignProductRepository campaignProductRepository;
 
     @Override
     public ResponseObject<?> getProducts(ClientProductRequest request) {

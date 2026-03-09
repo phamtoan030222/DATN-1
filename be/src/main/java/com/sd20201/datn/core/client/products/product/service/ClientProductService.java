@@ -28,4 +28,5 @@ public interface ClientProductService {
     ResponseObject<?> update(ClientProductCreateUpdateRequest request);
 
     ResponseObject<?> getProductsCombobox();
+
 }
