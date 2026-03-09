@@ -511,3 +511,15 @@ export async function ganImei(data: ADGanImeiRequest) {
   })
   return res.data
 }
+
+// Thêm interface mới
+export interface DoiImeiRequest {
+  hoaDonChiTietId: string
+  oldImeiId: string
+  newImeiId: string // Chỉ 1 serial, không phải array
+}
+
+export async function doiImei(data: DoiImeiRequest) {
+  const res = await request.put('/api/v1/admin/hoa-don/doi-imei', data)
+  return res.data
+}

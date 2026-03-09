@@ -139,7 +139,7 @@ const state = reactive({
   khachHang: [] as KhachHangResponse[],
   products: [] as ADProductDetailResponse[],
   autoVoucherResult: null as GoiYVoucherResponse | null,
-  currentPaymentMethod: '0',
+  currentPaymentMethod: '',
   paginationParams: { page: 1, size: 10 },
   totalItemsKH: 0,
 })
@@ -220,13 +220,19 @@ const currentInvoice = computed(() => {
   if (!idHDS.value)
     return null
   return {
-    id: idHDS.value,
+    // 1. SỬA "id" THÀNH "orderId"
+    orderId: idHDS.value,
+
     code: tabs.value.find(t => t.idHD === idHDS.value)?.code || '',
     totalAmountAfterDecrease: tongTien.value,
     customerName: state.detailKhachHang?.ten || deliveryInfo.tenNguoiNhan,
     customerPhone: state.detailKhachHang?.sdt || deliveryInfo.sdtNguoiNhan,
     customerEmail: state.detailKhachHang?.email || '',
     customerAddress: formatFullAddress.value,
+
+    // 2. THÊM 2 TRƯỜNG BẮT BUỘC NÀY
+    orderType: '250000', // Mã danh mục chuẩn của VNPAY dành cho Đồ công nghệ/Máy tính
+    language: 'vn', // Ngôn ngữ hiển thị trên trang thanh toán
   }
 })
 
@@ -503,19 +509,11 @@ async function showVNPayPayment() {
   vnpayVisible.value = true
 }
 
-function handlePaymentSuccess(result: any) {
+// ✅ Sửa lại - gọi resetAfterPayment() giống thanh toán tiền mặt
+async function handlePaymentSuccess(result: any) {
   toast.success('Thanh toán VNPAY thành công!')
-
-  // Cập nhật trạng thái hóa đơn
-  if (state.detailKhachHang) {
-    state.detailKhachHang.trangThaiThanhToan = 'DA_THANH_TOAN'
-  }
-
-  // Refresh lại giỏ hàng
-  refreshCart()
-
-  // Đóng modal
   vnpayVisible.value = false
+  await resetAfterPayment() // ← Xóa tab, reset toàn bộ giống thanh toán thường
 }
 
 function handlePaymentCompleted() {
@@ -1103,6 +1101,7 @@ function resetInvoiceState() {
   resetDiscountState(); selectedVoucher.value = null; giamGia.value = 0
   isDeliveryEnabled.value = false
   resetDeliveryData() // DỌN SẠCH DATA GIAO HÀNG
+  state.currentPaymentMethod = ''
   calculateTotalAmounts()
 }
 
@@ -1110,6 +1109,7 @@ function resetCurrentInvoice() {
   idHDS.value = ''; state.gioHang = []; state.detailKhachHang = null
   resetDiscountState(); selectedVoucher.value = null; giamGia.value = 0
   resetDeliveryData() // DỌN SẠCH DATA GIAO HÀNG
+  state.currentPaymentMethod = ''
   calculateTotalAmounts()
 }
 
@@ -1166,8 +1166,9 @@ function openProductSelectionModal() {
 // ==================== PAYMENT FUNCTIONS ====================
 function setPaymentMethod(method: string) {
   state.currentPaymentMethod = method
-  const messages: Record<string, string> = { 0: 'Tiền mặt', 1: 'Chuyển khoản', 2: 'Kết hợp' }
-  toast.success(`Đã chọn phương thức thanh toán ${messages[method] || method}`)
+  if (method === 'VNPAY') {
+    showVNPayPayment()
+  }
 }
 
 // ==================== BARCODE SCANNER ====================
@@ -2052,6 +2053,7 @@ function formatCurrencyInput(value: number) {
             <NText depth="3">
               Phương thức thanh toán:
             </NText>
+            <!-- Thay thế phần NSpace chứa các nút phương thức thanh toán -->
             <NSpace>
               <NButton
                 :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'"
@@ -2062,14 +2064,12 @@ function formatCurrencyInput(value: number) {
                 Tiền mặt
               </NButton>
 
-              <!-- Nút thanh toán VNPAY -->
               <NButton
-                :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'"
+                :type="state.currentPaymentMethod === 'VNPAY' ? 'primary' : 'default'"
                 size="small"
-                :loading="vnpayLoading"
-                :disabled="!currentInvoice"
                 secondary
-                @click="showVNPayPayment"
+                :loading="vnpayLoading"
+                @click="setPaymentMethod('VNPAY')"
               >
                 <template #icon>
                   <NIcon><QrCodeOutline /></NIcon>
@@ -2533,10 +2533,12 @@ function formatCurrencyInput(value: number) {
         </NAlert>
       </NCard>
     </NModal>
-    <NModal v-model:show="vnpayVisible" preset="dialog" title="Thanh toán VNPAY" style="width: 90%; max-width: 500px" :mask-closable="false" :close-on-esc="false">
-      <!-- Component thanh toán VNPAY -->
+    <NModal v-model:show="vnpayVisible" preset="dialog" style="width: 90%; max-width: 500px" :mask-closable="false" :close-on-esc="false">
       <VNPayPayment
+        v-if="vnpayVisible"
+        :visible="vnpayVisible"
         :invoice="currentInvoice"
+        @update:visible="vnpayVisible = $event"
         @payment-success="handlePaymentSuccess"
         @payment-completed="handlePaymentCompleted"
       />

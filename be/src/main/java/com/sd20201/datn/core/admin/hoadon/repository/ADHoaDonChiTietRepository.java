@@ -54,7 +54,8 @@ SELECT
 
     COALESCE(hd.name_receiver,'') AS tenKhachHang,
     COALESCE(hd.phone_receiver,'') AS sdtKH,
-    COALESCE(kh.email,'') AS email,
+    COALESCE(NULLIF(hd.email, ''), kh.email, '') AS email,
+    kh.email AS email2,
     COALESCE(hd.address_receiver,'') AS diaChi,
 
     -- ===== LỊCH SỬ TRẠNG THÁI =====

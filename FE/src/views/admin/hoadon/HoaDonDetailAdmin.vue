@@ -35,6 +35,7 @@ import {
   getHoaDonChiTiets,
 } from '@/service/api/admin/hoadon.api'
 import {
+  doiImei,
   ganImei,
   getImeiProductDetail,
   themSanPham,
@@ -280,6 +281,9 @@ const scanInputRef = ref<HTMLInputElement | null>(null)
 const requiredQuantityToAssign = ref(0)
 const alreadyAssignedCount = ref(0)
 
+// ✅ Ref lưu serial đang được thay thế (null = đang ở luồng bổ sung)
+const changingImei = ref<IMEIItem | null>(null)
+
 const showSerialInfoModal = ref(false)
 const selectedSerialInfoProduct = ref<HoaDonChiTietItem | null>(null)
 const showHistoryModal = ref(false)
@@ -331,12 +335,12 @@ const flattenedInvoiceItems = computed(() => {
     for (let i = 0; i < totalQty; i++) {
       const assignedImei = imeiList[i] || null
       result.push({
-        ...item, // giữ thông tin sản phẩm gốc
-        stt: stt++, // STT chạy dài
+        ...item,
+        stt: stt++,
         uniqueKey: `${item.id}_${assignedImei ? assignedImei.id : `unassigned_${i}`}`,
         soLuongOriginal: item.soLuong,
-        soLuong: 1, // Fix cứng hiển thị số lượng 1 dòng = 1 sản phẩm
-        tongTien: item.giaBan, // Thành tiền cho 1 đơn vị
+        soLuong: 1,
+        tongTien: item.giaBan,
         imeiAssigned: assignedImei,
         isAssigned: !!assignedImei,
       })
@@ -442,7 +446,7 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
             selectedSerialIds.value = [...selectedSerialIds.value, row.id]
           }
           else {
-            message.warning(`Chỉ được chọn thêm tối đa ${requiredQuantityToAssign.value} serial`)
+            message.warning(`Chỉ được chọn tối đa ${requiredQuantityToAssign.value} serial`)
           }
         }
         else {
@@ -451,18 +455,35 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
       },
     }),
   },
-  { title: 'Serial', key: 'serialNumber', flex: 1, render: row => h(NText, { strong: true, code: true, style: { fontFamily: 'monospace', fontSize: '14px', letterSpacing: '1px' } }, () => row.code || '-') },
+  {
+    title: 'Serial',
+    key: 'serialNumber',
+    flex: 1,
+    render: row => h(NText, { strong: true, code: true, style: { fontFamily: 'monospace', fontSize: '14px', letterSpacing: '1px' } }, () => row.code || '-'),
+  },
   { title: 'Tên / Kho', key: 'name', width: 150, render: row => h(NText, () => row.name || '-') },
-  { title: 'Trạng thái', key: 'status', width: 120, align: 'center', render: (row) => {
-    const config = IMEI_STATUS_CONFIG[row.imeiStatus] || { type: 'default', text: row.imeiStatus || 'Không xác định' }
-    return h(NTag, { type: config.type, size: 'small', round: true }, () => config.text)
-  } },
+  {
+    title: 'Trạng thái',
+    key: 'status',
+    width: 120,
+    align: 'center',
+    render: (row) => {
+      const config = IMEI_STATUS_CONFIG[row.imeiStatus] || { type: 'default', text: row.imeiStatus || 'Không xác định' }
+      return h(NTag, { type: config.type, size: 'small', round: true }, () => config.text)
+    },
+  },
 ]
 
-// ==================== BẢNG SẢN PHẨM (TRANG CHÍNH) ====================
+// ==================== BẢNG SẢN PHẨM - TAB DANH SÁCH (có cột thao tác) ====================
 const productColumns = computed<DataTableColumns<any>>(() => {
   return [
-    { title: 'STT', key: 'stt', width: 60, align: 'center', render: row => h('span', { class: 'font-medium text-gray-500' }, row.stt) },
+    {
+      title: 'STT',
+      key: 'stt',
+      width: 60,
+      align: 'center',
+      render: row => h('span', { class: 'font-medium text-gray-500' }, row.stt),
+    },
     {
       title: 'Sản phẩm',
       key: 'productInfo',
@@ -472,8 +493,14 @@ const productColumns = computed<DataTableColumns<any>>(() => {
       render: (row) => {
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
-        return h('div', { class: `flex items-center justify-center gap-4 py-1` }, [
-          h(NAvatar, { src: row.anhSanPham, size: 'large', round: false, class: 'border border-gray-200 rounded-md shadow-sm bg-white', fallbackSrc: 'https://via.placeholder.com/40?text=No+Image' }),
+        return h('div', { class: 'flex items-center justify-center gap-4 py-1' }, [
+          h(NAvatar, {
+            src: row.anhSanPham,
+            size: 'large',
+            round: false,
+            class: 'border border-gray-200 rounded-md shadow-sm bg-white',
+            fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+          }),
           h('div', { class: 'min-w-0 flex flex-col items-start' }, [
             h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
             h('div', { class: 'flex flex-wrap items-center gap-2 mt-1.5' }, [
@@ -485,7 +512,6 @@ const productColumns = computed<DataTableColumns<any>>(() => {
         ])
       },
     },
-    // THAY THẾ CỘT SỐ LƯỢNG BẰNG CỘT SERIAL
     {
       title: 'Mã Serial',
       key: 'serialCode',
@@ -498,23 +524,51 @@ const productColumns = computed<DataTableColumns<any>>(() => {
         return h(NTag, { type: 'warning', size: 'small', round: true }, { default: () => 'Chưa có mã' })
       },
     },
-    { title: 'Đơn giá', key: 'price', width: 140, align: 'right', render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)) },
-    { title: 'Thành tiền', key: 'total', width: 140, align: 'right', render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.giaBan)) },
-
+    {
+      title: 'Đơn giá',
+      key: 'price',
+      width: 140,
+      align: 'right',
+      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)),
+    },
+    {
+      title: 'Thành tiền',
+      key: 'total',
+      width: 140,
+      align: 'right',
+      render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.giaBan)),
+    },
+    // ✅ Cột Thao tác: Bổ sung Serial (chưa có) hoặc Thay đổi Serial (đã có)
     {
       title: 'Thao tác',
       key: 'action',
-      width: 160,
+      width: 170,
       align: 'center',
       render: (row) => {
-        // Chỉ hiện nút nếu là online invoice, dòng chưa có serial, và đơn chưa xác nhận
-        if (!isOnlineInvoice.value || row.isAssigned || !canChangeImei.value) {
+        // Không phải online invoice hoặc không được phép thao tác → hiện dấu gạch
+        if (!isOnlineInvoice.value || !canChangeImei.value) {
           return h('span', { class: 'text-gray-300 text-sm' }, '—')
         }
-        // Tìm sản phẩm gốc trong invoiceItems theo id
+
+
         const originalProduct = invoiceItems.value.find(p => p.id === row.id)
         if (!originalProduct)
-          return h('span', '-')
+          return h('span', { class: 'text-gray-300' }, '—')
+
+        if (row.isAssigned) {
+          // ✅ Đã có serial → nút "Thay đổi Serial" (màu cam)
+          return h(NButton, {
+            size: 'small',
+            type: 'warning',
+            round: true,
+            onClick: () => openSerialChangeModal(originalProduct, row.imeiAssigned),
+          }, {
+            icon: () => h(NIcon, { size: 15 }, { default: () => h(RefreshOutline) }),
+            default: () => 'Thay đổi Serial',
+          })
+        }
+
+        // ✅ Chưa có serial → nút "Bổ sung Serial" (màu xanh)
 
         return h(NButton, {
           size: 'small',
@@ -522,7 +576,8 @@ const productColumns = computed<DataTableColumns<any>>(() => {
           round: true,
           onClick: () => openSerialSelectionModal(originalProduct),
         }, {
-          icon: () => h(NIcon, { size: 16 }, { default: () => h(ScanOutline) }),
+          icon: () => h(NIcon, { size: 15 }, { default: () => h(ScanOutline) }),
+
           default: () => 'Bổ sung Serial',
         })
       },
@@ -530,9 +585,16 @@ const productColumns = computed<DataTableColumns<any>>(() => {
   ]
 })
 
+// ==================== BẢNG SẢN PHẨM - TAB CHI TIẾT SERIAL ====================
 const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>(() => {
   return [
-    { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, index) => h('span', { class: 'font-medium text-gray-500' }, index + 1) },
+    {
+      title: 'STT',
+      key: 'stt',
+      width: 60,
+      align: 'center',
+      render: (_, index) => h('span', { class: 'font-medium text-gray-500' }, index + 1),
+    },
     {
       title: 'Sản phẩm',
       key: 'productInfo',
@@ -542,9 +604,15 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
       render: (row) => {
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
-        return h('div', { class: `flex items-center justify-center gap-4 py-1` }, [
-          h(NAvatar, { src: row.anhSanPham, size: 'large', round: false, class: 'border border-gray-200 rounded-md shadow-sm bg-white', fallbackSrc: 'https://via.placeholder.com/40?text=No+Image' }),
-          h('div', { class: ' min-w-0' }, [
+        return h('div', { class: 'flex items-center justify-center gap-4 py-1' }, [
+          h(NAvatar, {
+            src: row.anhSanPham,
+            size: 'large',
+            round: false,
+            class: 'border border-gray-200 rounded-md shadow-sm bg-white',
+            fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+          }),
+          h('div', { class: 'min-w-0' }, [
             h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
             h('div', { class: 'flex flex-wrap items-center gap-2 mt-1.5' }, [
               row.thuongHieu && h(NTag, { size: 'tiny', type: 'info', bordered: false }, { default: () => row.thuongHieu }),
@@ -555,16 +623,42 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
         ])
       },
     },
-    { title: 'Số lượng', key: 'soLuong', width: 140, align: 'center', render: row => h('span', { class: 'font-bold text-gray-800 text-base' }, row.soLuong) },
-    { title: 'Đơn giá', key: 'price', width: 180, align: 'right', render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)) },
-    { title: 'Thành tiền', key: 'total', width: 180, align: 'right', render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)) },
+    {
+      title: 'Số lượng',
+      key: 'soLuong',
+      width: 140,
+      align: 'center',
+      render: row => h('span', { class: 'font-bold text-gray-800 text-base' }, row.soLuong),
+    },
+    {
+      title: 'Đơn giá',
+      key: 'price',
+      width: 180,
+      align: 'right',
+      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)),
+    },
+    {
+      title: 'Thành tiền',
+      key: 'total',
+      width: 180,
+      align: 'right',
+      render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)),
+    },
     {
       title: 'Thao tác',
       key: 'action',
       width: 120,
       align: 'center',
       render: (row) => {
-        return h(NButton, { size: 'small', quaternary: true, type: 'info', class: 'hover:bg-blue-50', onClick: () => openSerialInfoModal(row) }, { icon: () => h(NIcon, { size: 20 }, { default: () => h(EyeOutline) }) })
+        return h(NButton, {
+          size: 'small',
+          quaternary: true,
+          type: 'info',
+          class: 'hover:bg-blue-50',
+          onClick: () => openSerialInfoModal(row),
+        }, {
+          icon: () => h(NIcon, { size: 20 }, { default: () => h(EyeOutline) }),
+        })
       },
     },
   ]
@@ -572,7 +666,10 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
 
 const customerFormRules: FormRules = {
   tenKhachHang: [{ required: true, message: 'Vui lòng nhập họ và tên', trigger: ['blur', 'input'] }],
-  sdtKH: [{ required: true, message: 'Vui lòng nhập số điện thoại', trigger: ['blur', 'input'] }, { pattern: /(84|0[3|5789])+(\d{8})\b/, message: 'Số điện thoại không hợp lệ', trigger: ['blur', 'input'] }],
+  sdtKH: [
+    { required: true, message: 'Vui lòng nhập số điện thoại', trigger: ['blur', 'input'] },
+    { pattern: /(84|0[3|5789])+(\d{8})\b/, message: 'Số điện thoại không hợp lệ', trigger: ['blur', 'input'] },
+  ],
   email: [{ type: 'email', message: 'Email không hợp lệ', trigger: ['blur', 'input'] }],
 }
 
@@ -586,14 +683,9 @@ function formatCurrency(value: number | undefined | null): string {
 function formatDateTime(timestamp: number | undefined): string {
   if (!timestamp)
     return 'N/A'
-  try { return new Date(timestamp).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) }
-  catch { return 'N/A' }
-}
-
-function formatTime(timestamp: number | undefined): string {
-  if (!timestamp)
-    return 'N/A'
-  try { return new Date(timestamp).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
+  try {
+    return new Date(timestamp).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
   catch { return 'N/A' }
 }
 
@@ -654,41 +746,37 @@ function getStepTime(stepKey: string): string | null {
 }
 
 // ==================== Modal Handlers ====================
-// ==================== Modal Handlers ====================
 function openStatusModalNext(): void {
   if (nextStatusToUpdate.value !== null) {
-    // --- BẮT ĐẦU: VALIDATE KIỂM TRA SERIAL ---
-    // Kiểm tra nếu đơn là Online (hoặc giao hàng) và đang chuyển từ 'Chờ xác nhận' (0) sang 'Đã xác nhận' (1)
     if (currentStatus.value === 0 && nextStatusToUpdate.value === 1) {
-      // Kiểm tra xem có sản phẩm nào chưa đủ Serial không
       const isMissingSerial = invoiceItems.value.some((product) => {
         const assignedCount = parseIMEIList(product.danhSachImei).length
         const requiredCount = product.soLuong || 0
         return assignedCount < requiredCount
       })
-
-      // Nếu thiếu, báo lỗi và chặn (return) không cho mở Modal
       if (isMissingSerial) {
         message.error('Vui lòng gán đủ Serial cho tất cả sản phẩm trước khi xác nhận đơn hàng!')
         return
       }
     }
-    // --- KẾT THÚC: VALIDATE KIỂM TRA SERIAL ---
-
     selectedStatus.value = nextStatusToUpdate.value
     showStatusModal.value = true
   }
 }
 
+// ✅ Mở modal BỔ SUNG serial (chưa có serial)
 async function openSerialSelectionModal(product: HoaDonChiTietItem) {
   if (!isOnlineInvoice.value)
     return
+
+  // Reset changingImei để đảm bảo là luồng bổ sung
+  changingImei.value = null
 
   const existingImeis = parseIMEIList(product.danhSachImei)
   alreadyAssignedCount.value = existingImeis.length
   requiredQuantityToAssign.value = (product.soLuong || 0) - alreadyAssignedCount.value
 
-  if (requiredQuantityToAssign.value <= 0 && !canChangeImei.value) {
+  if (requiredQuantityToAssign.value <= 0) {
     dialog.info({ title: 'Thông báo', content: `Sản phẩm này đã gán đủ ${existingImeis.length} serial.`, positiveText: 'Đóng' })
     return
   }
@@ -704,9 +792,46 @@ async function openSerialSelectionModal(product: HoaDonChiTietItem) {
     if (product.productDetailId) {
       const response = await getImeiProductDetail(product.productDetailId)
       if (response.success && response.data) {
-        // Lọc đi các serial đã gán cho sản phẩm này để không hiện lại trong bảng chọn
         const availableSerials = response.data.filter(s =>
           s.imeiStatus === 'AVAILABLE' && !existingImeis.some(imei => imei.id === s.id),
+        )
+        selectedSerials.value = availableSerials
+        showSerialModal.value = true
+      }
+      else { message.error(response.message || 'Không thể tải danh sách serial') }
+    }
+    else { message.error('Không tìm thấy thông tin chi tiết của sản phẩm') }
+  }
+  catch (error) { message.error('Đã xảy ra lỗi khi tải danh sách serial') }
+  finally { loadingSerials.value = false }
+}
+
+async function openSerialChangeModal(product: HoaDonChiTietItem, currentImei: IMEIItem) {
+  changingImei.value = currentImei
+  requiredQuantityToAssign.value = 1
+  // ✅ Không dùng alreadyAssignedCount cho luồng thay đổi nữa
+  alreadyAssignedCount.value = parseIMEIList(product.danhSachImei).length
+
+  selectedProductItem.value = product
+  loadingSerials.value = true
+  selectedSerials.value = []
+  selectedSerialIds.value = []
+  scanMode.value = false
+  scannedSerial.value = ''
+
+  try {
+    if (product.productDetailId) {
+      const response = await getImeiProductDetail(product.productDetailId)
+      if (response.success && response.data) {
+        const existingImeis = parseIMEIList(product.danhSachImei)
+
+        // ✅ Lọc bỏ serial đã gán NGOẠI TRỪ serial đang thay thế
+        // (loại bỏ tất cả serial trong existingImeis TRỪ currentImei.id)
+        const otherAssignedImeis = existingImeis.filter(imei => imei.id !== currentImei.id)
+
+        const availableSerials = response.data.filter(s =>
+          s.imeiStatus === 'AVAILABLE'
+          && !otherAssignedImeis.some(imei => imei.id === s.id),
         )
         selectedSerials.value = availableSerials
         showSerialModal.value = true
@@ -738,7 +863,7 @@ function handleScanInput() {
           selectedSerialIds.value = [...selectedSerialIds.value, matchedSerial.id]
           message.success(`Đã chọn serial ${matchedSerial.code}`)
         }
-        else { message.warning(`Bạn chỉ cần bổ sung ${requiredQuantityToAssign.value} serial nữa!`) }
+        else { message.warning(`Bạn chỉ cần chọn ${requiredQuantityToAssign.value} serial!`) }
       }
       else { message.warning('Serial này đã nằm trong danh sách đang chọn') }
     }
@@ -747,31 +872,42 @@ function handleScanInput() {
   }
 }
 
+// ✅ Hàm lưu serial - xử lý cả 2 luồng: bổ sung và thay đổi
 async function addSerialsToInvoice() {
   if (!selectedProductItem.value || selectedSerialIds.value.length === 0) {
     message.error('Vui lòng chọn ít nhất một serial')
     return
   }
-  if (selectedSerialIds.value.length !== requiredQuantityToAssign.value) {
-    message.error(`Cần chọn đúng ${requiredQuantityToAssign.value} serial`)
-    return
-  }
 
   isAddingSerials.value = true
   try {
-    const response = await ganImei({
-      hoaDonChiTietId: selectedProductItem.value.id, // ← ID dòng đã có
-      imeiIds: selectedSerialIds.value,
-    })
-    console.log('gan-imei response:', JSON.stringify(response))
+    let response
 
-    if (response?.status === 'OK' || response?.success === true) {
-      message.success(`Đã gán thành công ${selectedSerialIds.value.length} serial`)
-      showSerialModal.value = false
-      await fetchInvoiceDetails() // ← Không cần reload() nữa
+    if (changingImei.value) {
+      // ✅ Gọi API ĐỔI IMEI riêng — truyền 1 newImeiId (không phải array)
+      response = await doiImei({
+        hoaDonChiTietId: selectedProductItem.value.id,
+        oldImeiId: changingImei.value.id,
+        newImeiId: selectedSerialIds.value[0], // Chỉ lấy phần tử đầu tiên
+      })
     }
     else {
-      message.error(response.message || 'Gán serial thất bại')
+      // Luồng BỔ SUNG bình thường
+      response = await ganImei({
+        hoaDonChiTietId: selectedProductItem.value.id,
+        imeiIds: selectedSerialIds.value,
+      })
+    }
+
+    if (response?.status === 'OK') {
+      const actionText = changingImei.value ? 'Thay đổi' : 'Gán'
+      message.success(`${actionText} serial thành công`)
+      showSerialModal.value = false
+      changingImei.value = null
+      await fetchInvoiceDetails()
+    }
+    else {
+      message.error(response?.message || 'Thao tác thất bại')
     }
   }
   catch (error: any) {
@@ -782,10 +918,21 @@ async function addSerialsToInvoice() {
   }
 }
 
+// ✅ Reset changingImei khi đóng modal
+function handleSerialModalClose(val: boolean) {
+  if (!val) {
+    changingImei.value = null
+    selectedSerialIds.value = []
+    scanMode.value = false
+    scannedSerial.value = ''
+  }
+}
+
 function openCustomerEditModal() {
   if (hoaDonData.value) {
     Object.keys(customerForm).forEach((key) => {
-      const formKey = key as keyof CustomerForm; const dataKey = key as keyof HoaDonData
+      const formKey = key as keyof CustomerForm
+      const dataKey = key as keyof HoaDonData
       customerForm[formKey] = hoaDonData.value?.[dataKey] || ''
     })
   }
@@ -807,10 +954,18 @@ function saveCustomerInfo() {
 }
 
 async function confirmStatusUpdate(): Promise<void> {
-  if (selectedStatus.value === null || !hoaDonData.value?.maHoaDon) { message.error('Vui lòng chọn trạng thái mới'); return }
+  if (selectedStatus.value === null || !hoaDonData.value?.maHoaDon) {
+    message.error('Vui lòng chọn trạng thái mới')
+    return
+  }
   isUpdating.value = true
   try {
-    const response = await changeOrderStatus({ maHoaDon: hoaDonData.value.maHoaDon, statusTrangThaiHoaDon: selectedStatus.value, note: statusNote.value || '', idNhanVien: idNV.userId })
+    const response = await changeOrderStatus({
+      maHoaDon: hoaDonData.value.maHoaDon,
+      statusTrangThaiHoaDon: selectedStatus.value,
+      note: statusNote.value || '',
+      idNhanVien: idNV.userId,
+    })
     if (response.success) {
       message.success('Cập nhật trạng thái thành công')
       await fetchInvoiceDetails()
@@ -832,7 +987,25 @@ function openCancelModal(): void {
     positiveText: 'Xác nhận hủy',
     negativeText: 'Hủy bỏ',
     positiveButtonProps: { type: 'error' },
-    onPositiveClick: () => { selectedStatus.value = 5; showStatusModal.value = true },
+    onPositiveClick: async () => {
+      // ✅ Gọi thẳng API hủy, không mở modal chuyển trạng thái
+      isUpdating.value = true
+      try {
+        const response = await changeOrderStatus({
+          maHoaDon: hoaDonData.value!.maHoaDon!,
+          statusTrangThaiHoaDon: 5,
+          note: 'Nhân viên hủy đơn hàng',
+          idNhanVien: idNV.userId,
+        })
+        if (response.success) {
+          message.success('Đã hủy đơn hàng thành công')
+          await fetchInvoiceDetails()
+        }
+        else { message.error(response.message || 'Hủy đơn thất bại') }
+      }
+      catch (error: any) { message.error(error.message || 'Đã xảy ra lỗi') }
+      finally { isUpdating.value = false }
+    },
   })
 }
 
@@ -841,7 +1014,9 @@ async function fetchInvoiceDetails(): Promise<void> {
   try {
     isLoading.value = true
     const response = await getHoaDonChiTiets({ maHoaDon: invoiceCode.value, page: 0, size: 100 })
-    if (response.success && response.data?.content) { invoiceItems.value = response.data.content }
+    if (response.success && response.data?.content) {
+      invoiceItems.value = response.data.content
+    }
     else { message.error(response.message || 'Không thể tải chi tiết hóa đơn') }
   }
   catch (error: any) { message.error(error.message || 'Đã xảy ra lỗi khi tải dữ liệu') }
@@ -882,23 +1057,32 @@ watch(() => hoaDonData.value, async () => {
   if (hoaDonData.value)
     await generateQRCode()
 }, { deep: true })
+
 watch(() => props.hoaDonData, (newData) => {
   if (newData) {
     Object.keys(customerForm).forEach((key) => {
-      const formKey = key as keyof CustomerForm; const dataKey = key as keyof HoaDonData
+      const formKey = key as keyof CustomerForm
+      const dataKey = key as keyof HoaDonData
       customerForm[formKey] = newData[dataKey] || ''
     })
   }
 }, { immediate: true })
 
 onMounted(async () => {
-  if (invoiceCode.value) { await fetchInvoiceDetails(); await generateQRCode() }
-  else { message.error('Không tìm thấy mã hóa đơn'); router.push('/admin/hoa-don') }
+  if (invoiceCode.value) {
+    await fetchInvoiceDetails()
+    await generateQRCode()
+  }
+  else {
+    message.error('Không tìm thấy mã hóa đơn')
+    router.push('/admin/hoa-don')
+  }
 })
 </script>
 
 <template>
   <div class="container mx-auto px-4 py-6 space-y-6">
+    <!-- ==================== HEADER ==================== -->
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 no-print">
       <div>
         <h1 class="text-2xl lg:text-3xl font-bold text-gray-900">
@@ -919,7 +1103,6 @@ onMounted(async () => {
           </NTag>
         </div>
       </div>
-
       <div class="flex flex-wrap gap-2">
         <NButton type="info" secondary @click="showHistoryModal = true">
           <template #icon>
@@ -939,6 +1122,7 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- ==================== NỘI DUNG IN ==================== -->
     <div id="invoice-content" class="hidden">
       <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; background: #fff; padding: 32px; color: #1a1a1a;">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px;">
@@ -976,9 +1160,7 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-
         <div style="border-top: 3px solid #16a34a; margin-bottom: 20px;" />
-
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
           <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
             <div style="font-size: 12px; font-weight: 700; color: #16a34a; text-transform: uppercase; margin-bottom: 10px; border-bottom: 1px solid #d1fae5; padding-bottom: 6px;">
@@ -1005,7 +1187,6 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-
         <table style="width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 20px;">
           <thead>
             <tr style="background-color: #16a34a; color: #fff;">
@@ -1051,7 +1232,6 @@ onMounted(async () => {
             </tr>
           </tbody>
         </table>
-
         <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
           <div style="width: 280px; font-size: 13px;">
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
@@ -1071,7 +1251,6 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-
         <div style="border-top: 1px solid #e5e7eb; padding-top: 14px; text-align: center;">
           <div style="font-size: 13px; font-weight: 700; color: #16a34a; margin-bottom: 4px;">
             Cảm ơn quý khách đã tin tưởng My Laptop!
@@ -1080,6 +1259,7 @@ onMounted(async () => {
       </div>
     </div>
 
+    <!-- ==================== TIẾN TRÌNH ĐƠN HÀNG ==================== -->
     <NCard class="shadow-sm border-0 rounded-xl no-print" content-class="p-6">
       <template #header>
         <div class="flex items-center justify-between">
@@ -1088,7 +1268,6 @@ onMounted(async () => {
           </h3>
           <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.thoiGianCapNhatCuoi || hoaDonData?.ngayTao) }}</span>
         </div>
-
         <NButton
           v-if="showCancelButton"
           type="error"
@@ -1116,7 +1295,6 @@ onMounted(async () => {
                 class="absolute h-[6px] bg-blue-500 z-0 left-[50%] w-full"
                 style="top: 45px;"
               />
-
               <div class="h-24 flex items-center justify-center relative z-10 w-full">
                 <div
                   class="rounded-full flex items-center justify-center transition-all duration-500 relative"
@@ -1135,7 +1313,6 @@ onMounted(async () => {
                   </div>
                 </div>
               </div>
-
               <div class="text-center mt-3 px-2">
                 <p class="font-bold text-blue-600 text-sm md:text-base leading-tight">
                   {{ step.title }}
@@ -1144,7 +1321,6 @@ onMounted(async () => {
                   {{ getStepTime(step.key) || 'Vừa xong' }}
                 </p>
               </div>
-
               <div
                 v-if="index === currentVisibleSteps.length - 1 && nextStatusToUpdate !== null"
                 class="mt-3 w-full flex justify-center pb-2"
@@ -1217,7 +1393,9 @@ onMounted(async () => {
       </div>
     </NCard>
 
+    <!-- ==================== 3 CARD THÔNG TIN ==================== -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 no-print">
+      <!-- Thông tin khách hàng -->
       <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
         <template #header>
           <div class="flex items-center justify-between">
@@ -1229,7 +1407,7 @@ onMounted(async () => {
                 Thông tin khách hàng
               </h3>
             </div>
-            <NButton v-if="currentStatus === 0" type="primary" tertiary size="small" class="!text-sm" @click="openCustomerEditModal">
+            <NButton v-if="currentStatus === 0" type="primary" tertiary size="small" @click="openCustomerEditModal">
               <template #icon>
                 <NIcon><CreateOutline /></NIcon>
               </template> Chỉnh sửa
@@ -1248,8 +1426,12 @@ onMounted(async () => {
                 {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}
               </h4>
               <div class="flex flex-wrap gap-2 mt-2">
-                <span class="inline-flex items-center gap-1 text-sm text-gray-600"><NIcon size="14"><CallOutline /></NIcon> {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}</span>
-                <span class="inline-flex items-center gap-1 text-sm text-gray-600"><NIcon size="14"><MailOutline /></NIcon> {{ hoaDonData?.email2 || hoaDonData?.email || 'Chưa có email' }}</span>
+                <span class="inline-flex items-center gap-1 text-sm text-gray-600">
+                  <NIcon size="14"><CallOutline /></NIcon> {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}
+                </span>
+                <span class="inline-flex items-center gap-1 text-sm text-gray-600">
+                  <NIcon size="14"><MailOutline /></NIcon> {{ hoaDonData?.email2 || hoaDonData?.email || 'Chưa có email' }}
+                </span>
               </div>
             </div>
           </div>
@@ -1266,6 +1448,7 @@ onMounted(async () => {
         </div>
       </NCard>
 
+      <!-- Tóm tắt đơn hàng -->
       <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
         <template #header>
           <div class="flex items-center gap-2">
@@ -1283,11 +1466,9 @@ onMounted(async () => {
               <p class="text-xs text-gray-500">
                 Tổng sản phẩm
               </p>
-              <div v-if="productCount > 0">
-                <p class="text-lg font-bold text-gray-900">
-                  {{ productCount }} sản phẩm
-                </p>
-              </div>
+              <p class="text-lg font-bold text-gray-900">
+                {{ productCount }} sản phẩm
+              </p>
             </div>
             <div class="bg-gray-50 p-3 rounded-lg">
               <p class="text-xs text-gray-500">
@@ -1309,14 +1490,16 @@ onMounted(async () => {
               <span class="text-gray-600">Giảm giá voucher:</span><span class="font-semibold text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
             </div>
             <div class="flex justify-between items-center pt-4">
-              <span class="text-lg font-bold text-gray-900">TỔNG CỘNG:</span><span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-lg font-bold text-gray-900">TỔNG CỘNG:</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
           </div>
           <div v-if="hoaDonData?.maVoucher" class="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
             <div class="flex items-center gap-2 mb-1">
               <NIcon size="16" color="#10b981">
                 <PricetagOutline />
-              </NIcon><span class="text-sm font-medium text-green-800">Voucher áp dụng</span>
+              </NIcon>
+              <span class="text-sm font-medium text-green-800">Voucher áp dụng</span>
             </div>
             <p class="text-green-700 font-medium">
               {{ hoaDonData.maVoucher }} - {{ hoaDonData.tenVoucher }}
@@ -1328,6 +1511,7 @@ onMounted(async () => {
         </div>
       </NCard>
 
+      <!-- Thông tin thanh toán -->
       <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
         <template #header>
           <div class="flex items-center gap-2">
@@ -1362,13 +1546,16 @@ onMounted(async () => {
           </div>
           <div class="space-y-3 pt-4 border-t border-gray-100">
             <div class="flex justify-between items-center">
-              <span class="text-gray-600">Tổng tiền thanh toán:</span><span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-gray-600">Tổng tiền thanh toán:</span>
+              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
             <div v-if="hoaDonData?.duNo" class="flex justify-between items-center">
-              <span class="text-gray-600">Còn nợ:</span><span class="font-bold text-orange-600">{{ formatCurrency(hoaDonData.duNo) }}</span>
+              <span class="text-gray-600">Còn nợ:</span>
+              <span class="font-bold text-orange-600">{{ formatCurrency(hoaDonData.duNo) }}</span>
             </div>
             <div v-if="hoaDonData?.hoanPhi" class="flex justify-between items-center">
-              <span class="text-gray-600">Hoàn phí:</span><span class="font-bold text-blue-600">{{ formatCurrency(hoaDonData.hoanPhi) }}</span>
+              <span class="text-gray-600">Hoàn phí:</span>
+              <span class="font-bold text-blue-600">{{ formatCurrency(hoaDonData.hoanPhi) }}</span>
             </div>
             <div class="pt-4">
               <p class="text-sm text-gray-600 mb-2">
@@ -1377,7 +1564,8 @@ onMounted(async () => {
               <div class="flex items-center gap-2 text-sm">
                 <NIcon size="16" color="#6b7280">
                   <TimeOutline />
-                </NIcon><span>{{ formatDateTime(hoaDonData?.ngayTao) }}</span>
+                </NIcon>
+                <span>{{ formatDateTime(hoaDonData?.ngayTao) }}</span>
               </div>
             </div>
           </div>
@@ -1385,6 +1573,7 @@ onMounted(async () => {
       </NCard>
     </div>
 
+    <!-- ==================== DANH SÁCH SẢN PHẨM ==================== -->
     <NCard class="shadow-sm border-0 rounded-xl overflow-hidden no-print">
       <template #header>
         <div class="flex items-center justify-between">
@@ -1396,7 +1585,6 @@ onMounted(async () => {
               Danh sách sản phẩm
             </h3>
           </div>
-
           <NRadioGroup v-model:value="productViewMode" size="small">
             <NRadioButton value="products">
               <div class="flex items-center gap-1 px-2">
@@ -1412,6 +1600,7 @@ onMounted(async () => {
         </div>
       </template>
 
+      <!-- Tab: Danh sách (có cột thao tác Bổ sung / Thay đổi Serial) -->
       <div v-if="productViewMode === 'products'">
         <div class="overflow-x-auto">
           <NDataTable
@@ -1426,21 +1615,26 @@ onMounted(async () => {
         <div class="p-6 bg-gray-50/30">
           <div class="max-w-md ml-auto space-y-3">
             <div class="flex justify-between items-center">
-              <span class="text-gray-600">Tạm tính:</span><span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+              <span class="text-gray-600">Tạm tính:</span>
+              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
             </div>
             <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center">
-              <span class="text-gray-600">Phí vận chuyển:</span><span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+              <span class="text-gray-600">Phí vận chuyển:</span>
+              <span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
             </div>
             <div v-if="hoaDonData?.giaTriVoucher" class="flex justify-between items-center">
-              <span class="text-gray-600">Giảm giá voucher:</span><span class="font-medium text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
+              <span class="text-gray-600">Giảm giá voucher:</span>
+              <span class="font-medium text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
             </div>
             <div class="flex justify-between items-center pt-3 border-t border-gray-200">
-              <span class="text-lg font-bold text-gray-900">Tổng cộng:</span><span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Tab: Chi tiết Serial (không có nút bổ sung, chỉ xem) -->
       <div v-else class="p-6 bg-gray-50/70">
         <div v-if="invoiceItems.length === 0" class="text-center py-16 bg-white rounded-2xl border border-gray-200 shadow-sm">
           <NIcon size="56" class="text-gray-300 mb-4">
@@ -1451,8 +1645,8 @@ onMounted(async () => {
           </p>
         </div>
 
-        <!-- Xóa v-for bao ngoài, chỉ render 1 bảng duy nhất -->
-        <div class="rounded-xl bg-white shadow-sm overflow-hidden">
+
+        <div v-else class="rounded-xl bg-white shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <NDataTable
               :columns="productColumnsSerialTong"
@@ -1464,6 +1658,13 @@ onMounted(async () => {
             />
           </div>
           <div class="p-6 bg-gray-50/30">
+
+            <!-- Chỉ hiển thị tổng số serial, không có nút bổ sung -->
+            <div class="flex items-center mb-4">
+              <NTag size="small" type="success" round class="font-medium px-3">
+                Tổng {{ imeiProductsCount }} SERIAL đã gán
+              </NTag>
+            </div>
             <div class="max-w-md ml-auto space-y-3">
               <div class="flex justify-between items-center">
                 <span class="text-gray-600">Tạm tính:</span>
@@ -1487,34 +1688,89 @@ onMounted(async () => {
       </div>
     </NCard>
 
-    <NModal v-model:show="showSerialModal" preset="card" :title="`Chọn Serial - ${selectedProductItem?.tenSanPham || ''}`" style="width: 90%; max-width: 1000px; border-radius: 12px" :bordered="false" class="no-print shadow-2xl">
+    <!-- ==================== MODAL: CHỌN / THAY ĐỔI SERIAL ==================== -->
+    <NModal
+      v-model:show="showSerialModal"
+      preset="card"
+      :title="changingImei
+        ? `Thay đổi Serial - ${selectedProductItem?.tenSanPham || ''}`
+        : `Bổ sung Serial - ${selectedProductItem?.tenSanPham || ''}`"
+      style="width: 90%; max-width: 1000px; border-radius: 12px"
+      :bordered="false"
+      class="no-print shadow-2xl"
+      @update:show="handleSerialModalClose"
+    >
       <div class="space-y-4">
+        <!-- Thông tin sản phẩm -->
         <div v-if="selectedProductItem" class="flex items-center justify-between p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
           <div class="flex items-center gap-4">
-            <NAvatar :src="selectedProductItem.anhSanPham" size="large" round fallback-src="https://via.placeholder.com/40" class="border border-blue-200 bg-white p-1" />
+            <NAvatar
+              :src="selectedProductItem.anhSanPham"
+              size="large"
+              round
+              fallback-src="https://via.placeholder.com/40"
+              class="border border-blue-200 bg-white p-1"
+            />
             <div>
               <div class="font-bold text-gray-900 text-lg mb-1">
                 {{ selectedProductItem.tenSanPham }}
               </div>
-              <div class="flex items-center gap-3 text-sm">
-                <span class="text-gray-500">Đã gán: <span class="font-bold text-green-600">{{ alreadyAssignedCount }}</span>/{{ selectedProductItem.soLuong }}</span>
-                <span class="text-gray-300">|</span>
-                <span class="text-blue-700 font-medium">Cần bổ sung: <span class="font-bold">{{ requiredQuantityToAssign }}</span> Serial</span>
-                <span class="text-gray-300">|</span>
-                <span class="text-orange-600 font-medium">Đang chọn: <span class="font-bold">{{ selectedSerialIds.length }}</span>/{{ requiredQuantityToAssign }}</span>
+              <!-- ✅ Hiển thị thông tin khác nhau tuỳ luồng -->
+              <div class="flex flex-wrap items-center gap-3 text-sm">
+                <template v-if="changingImei">
+                  <!-- ✅ Chỉ hiện số đang chọn, không hiện tổng đã gán (tránh nhầm lẫn) -->
+                  <span class="text-blue-700 font-medium">
+                    Đang chọn serial thay thế:
+                    <span class="font-bold">{{ selectedSerialIds.length }}</span>/1
+                  </span>
+                </template>
+                <template v-else>
+                  <span class="text-gray-500">
+                    Đã gán: <span class="font-bold text-green-600">{{ alreadyAssignedCount }}</span>/{{ selectedProductItem.soLuong }}
+                  </span>
+                  <span class="text-gray-300">|</span>
+                  <span class="text-blue-700 font-medium">
+                    Cần bổ sung: <span class="font-bold">{{ requiredQuantityToAssign }}</span> Serial
+                  </span>
+                  <span class="text-gray-300">|</span>
+                  <span class="text-orange-600 font-medium">
+                    Đang chọn: <span class="font-bold">{{ selectedSerialIds.length }}</span>/{{ requiredQuantityToAssign }}
+                  </span>
+                </template>
               </div>
             </div>
           </div>
-          <NButton type="primary" size="large" round class="shadow-sm" @click="startScanMode">
+          <NButton type="primary" size="large" round class="shadow-sm flex-shrink-0" @click="startScanMode">
             <template #icon>
               <NIcon><QrCodeOutline /></NIcon>
-            </template> Quét mã vạch
+            </template>
+            Quét mã vạch
           </NButton>
         </div>
 
+        <!-- ✅ Banner hiển thị serial cũ đang bị thay thế -->
+        <div v-if="changingImei" class="flex items-center gap-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+          <NIcon size="20" color="#f97316">
+            <RefreshOutline />
+          </NIcon>
+          <div class="text-sm">
+            <span class="text-gray-500">Serial cũ sẽ bị thay thế: </span>
+            <span class="font-mono font-bold text-orange-600 tracking-wider">{{ changingImei.code }}</span>
+            <span class="text-gray-400 ml-2 text-xs">(Serial này sẽ trở về trạng thái khả dụng)</span>
+          </div>
+        </div>
+
+        <!-- Khu vực quét mã vạch -->
         <div v-if="scanMode" class="p-4 bg-yellow-50 rounded-xl border border-yellow-200 shadow-inner">
           <div class="flex items-center gap-3">
-            <NInput ref="scanInputRef" v-model:value="scannedSerial" placeholder="Nhấp chuột vào đây và Quét mã vạch Serial..." size="large" class="font-mono" @keyup.enter="handleScanInput">
+            <NInput
+              ref="scanInputRef"
+              v-model:value="scannedSerial"
+              placeholder="Nhấp chuột vào đây và Quét mã vạch Serial..."
+              size="large"
+              class="font-mono"
+              @keyup.enter="handleScanInput"
+            >
               <template #prefix>
                 <NIcon><QrCodeOutline /></NIcon>
               </template>
@@ -1528,6 +1784,7 @@ onMounted(async () => {
           </div>
         </div>
 
+        <!-- Bảng danh sách serial -->
         <div v-if="loadingSerials" class="text-center py-12">
           <NSpin size="large" />
           <p class="text-gray-400 mt-4">
@@ -1535,9 +1792,17 @@ onMounted(async () => {
           </p>
         </div>
         <div v-else class="border border-gray-200 rounded-xl overflow-hidden">
-          <NDataTable :columns="serialColumns" :data="selectedSerials" :max-height="400" :pagination="{ pageSize: 10 }" :bordered="false" striped />
+          <NDataTable
+            :columns="serialColumns"
+            :data="selectedSerials"
+            :max-height="400"
+            :pagination="{ pageSize: 10 }"
+            :bordered="false"
+            striped
+          />
         </div>
 
+        <!-- Nút hành động -->
         <div class="flex justify-end gap-3 pt-5">
           <NButton size="large" round @click="showSerialModal = false">
             Hủy bỏ
@@ -1551,16 +1816,32 @@ onMounted(async () => {
             class="font-bold shadow-md"
             @click="addSerialsToInvoice"
           >
-            Lưu thay đổi ({{ selectedSerialIds.length }}/{{ requiredQuantityToAssign }})
+            {{ changingImei
+              ? `Lưu thay đổi (${selectedSerialIds.length}/1)`
+              : `Lưu thay đổi (${selectedSerialIds.length}/${requiredQuantityToAssign})` }}
           </NButton>
         </div>
       </div>
     </NModal>
 
-    <NModal v-model:show="showSerialInfoModal" preset="card" title="Thông tin Serial đã gán" style="width: 500px; border-radius: 12px" :bordered="false" class="no-print shadow-xl">
+    <!-- ==================== MODAL: XEM SERIAL ĐÃ GÁN ==================== -->
+    <NModal
+      v-model:show="showSerialInfoModal"
+      preset="card"
+      title="Thông tin Serial đã gán"
+      style="width: 500px; border-radius: 12px"
+      :bordered="false"
+      class="no-print shadow-xl"
+    >
       <div v-if="selectedSerialInfoProduct" class="space-y-4">
         <div class="flex items-center gap-4 p-4 bg-green-50/50 border border-green-100 rounded-xl">
-          <NAvatar :src="selectedSerialInfoProduct.anhSanPham" size="large" round fallback-src="https://via.placeholder.com/40" class="border border-green-200 bg-white" />
+          <NAvatar
+            :src="selectedSerialInfoProduct.anhSanPham"
+            size="large"
+            round
+            fallback-src="https://via.placeholder.com/40"
+            class="border border-green-200 bg-white"
+          />
           <div>
             <div class="font-bold text-gray-900 text-base mb-1">
               {{ selectedSerialInfoProduct.tenSanPham }}
@@ -1570,7 +1851,6 @@ onMounted(async () => {
             </div>
           </div>
         </div>
-
         <div v-if="currentProductSerialInfo.length === 0" class="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <NIcon size="48" class="mb-2 opacity-50">
             <CubeOutline />
@@ -1578,7 +1858,11 @@ onMounted(async () => {
           <p>Sản phẩm chưa có serial nào</p>
         </div>
         <div v-else class="space-y-2 max-h-96 overflow-y-auto pr-2">
-          <div v-for="(imei, index) in currentProductSerialInfo" :key="imei.id || index" class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+          <div
+            v-for="(imei, index) in currentProductSerialInfo"
+            :key="imei.id || index"
+            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm"
+          >
             <div class="flex items-center gap-3">
               <span class="text-xs text-gray-400 font-bold w-4 text-center">{{ index + 1 }}</span>
               <span class="font-mono font-bold text-indigo-600 text-base tracking-wider">{{ imei.code || imei.imeiCode }}</span>
@@ -1598,7 +1882,16 @@ onMounted(async () => {
       </template>
     </NModal>
 
-    <NModal v-model:show="showHistoryModal" preset="card" title="Lịch sử đơn hàng" style="width: 1000px; max-width: 95vw; border-radius: 12px;" class="no-print shadow-2xl" :bordered="false" size="huge">
+    <!-- ==================== MODAL: LỊCH SỬ ĐƠN HÀNG ==================== -->
+    <NModal
+      v-model:show="showHistoryModal"
+      preset="card"
+      title="Lịch sử đơn hàng"
+      style="width: 1000px; max-width: 95vw; border-radius: 12px;"
+      class="no-print shadow-2xl"
+      :bordered="false"
+      size="huge"
+    >
       <div class="w-full mt-2">
         <div class="grid grid-cols-12 gap-4 pb-4 border-b-2 border-gray-100 text-[13px] font-bold text-gray-500 uppercase tracking-wider">
           <div class="col-span-3 pl-4">
@@ -1615,7 +1908,11 @@ onMounted(async () => {
           </div>
         </div>
         <div class="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto pr-2 mt-2">
-          <div v-for="(item, index) in historyList" :key="index" class="grid grid-cols-12 gap-4 py-4 items-center hover:bg-gray-50/70 transition-colors rounded-lg">
+          <div
+            v-for="(item, index) in historyList"
+            :key="index"
+            class="grid grid-cols-12 gap-4 py-4 items-center hover:bg-gray-50/70 transition-colors rounded-lg"
+          >
             <div class="col-span-3 pl-4 flex items-center gap-3">
               <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0" :class="getStepCircleBg(item.trangThai)">
                 <NIcon size="18" :class="getStepIconClass(item.trangThai.toString())">
@@ -1645,6 +1942,8 @@ onMounted(async () => {
         </div>
       </div>
     </NModal>
+
+    <!-- ==================== MODAL: CHUYỂN TRẠNG THÁI ==================== -->
     <NModal
       v-model:show="showStatusModal"
       preset="card"
@@ -1681,7 +1980,6 @@ onMounted(async () => {
             </div>
             <span class="text-sm font-semibold text-gray-500 text-center">{{ getStatusText(currentStatus) }}</span>
           </div>
-
           <div class="flex flex-col items-center justify-center w-1/3 relative z-10">
             <div class="w-full h-[2px] bg-gray-200 absolute top-[50%] -translate-y-1/2 -z-10" />
             <div class="w-8 h-8 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
@@ -1690,7 +1988,6 @@ onMounted(async () => {
               </NIcon>
             </div>
           </div>
-
           <div class="flex flex-col items-center gap-2 relative z-10 w-1/3">
             <div
               class="w-16 h-16 rounded-full border-[3px] flex items-center justify-center shadow-md scale-110 transition-colors"
@@ -1700,15 +1997,11 @@ onMounted(async () => {
                 <component :is="getStatusIcon(nextStatusToUpdate)" />
               </NIcon>
             </div>
-            <span
-              class="text-sm font-bold text-center mt-1"
-              :class="getModalStatusColorClass(nextStatusToUpdate).split(' ')[1]"
-            >
+            <span class="text-sm font-bold text-center mt-1" :class="getModalStatusColorClass(nextStatusToUpdate).split(' ')[1]">
               {{ getStatusText(nextStatusToUpdate) }}
             </span>
           </div>
         </div>
-
         <div class="space-y-2">
           <label class="text-sm font-semibold text-gray-700 flex items-center gap-1">
             Ghi chú thêm <span class="text-gray-400 font-normal text-xs">(Không bắt buộc)</span>
@@ -1744,7 +2037,6 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-/* Print styles */
 @media print {
   .no-print { display: none !important; }
   body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; font-size: 12px; }

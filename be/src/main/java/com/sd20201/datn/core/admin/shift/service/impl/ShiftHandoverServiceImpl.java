@@ -75,7 +75,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             cashRevenue = (cashRevenue == null) ? BigDecimal.ZERO : cashRevenue;
 
             // 2. TÍNH DOANH THU CHUYỂN KHOẢN (Bằng ID Ca làm việc)
-            BigDecimal transferRevenue = lichSuThanhToanRepository.sumAmountByShiftIdAndMethod(shift.getId(), "CHUYEN_KHOAN");
+            BigDecimal transferRevenue = lichSuThanhToanRepository.sumAmountByShiftIdAndMethod(shift.getId(), "VNPAY");
             transferRevenue = (transferRevenue == null) ? BigDecimal.ZERO : transferRevenue;
 
             // 3. TỔNG TIỀN MẶT HỆ THỐNG = Đầu ca + Doanh thu tiền mặt
@@ -138,7 +138,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         cashRevenue = (cashRevenue != null) ? cashRevenue : BigDecimal.ZERO;
 
         // 2. TÍNH DOANH THU CHUYỂN KHOẢN (Bằng ID Ca làm việc)
-        BigDecimal transferRevenue = lichSuThanhToanRepository.sumAmountByShiftIdAndMethod(shift.getId(), "CHUYEN_KHOAN");
+        BigDecimal transferRevenue = lichSuThanhToanRepository.sumAmountByShiftIdAndMethod(shift.getId(), "VNPAY");
         transferRevenue = (transferRevenue != null) ? transferRevenue : BigDecimal.ZERO;
 
         // 3. Cập nhật các con số vào DB

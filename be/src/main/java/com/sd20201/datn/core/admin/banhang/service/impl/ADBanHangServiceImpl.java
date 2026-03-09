@@ -345,7 +345,24 @@ public class ADBanHangServiceImpl implements ADBanHangService {
                 System.out.println("Đã cập nhật địa chỉ: " + request.getDiaChi());
             }
         } else {
-            System.out.println("Đây là hóa đơn TẠI QUẦY, không cập nhật thông tin giao hàng");
+            // Hóa đơn tại quầy: lấy từ request nếu có, fallback sang customer
+            Customer kh = invoice.getCustomer();
+
+            String ten = (request.getTen() != null && !request.getTen().trim().isEmpty())
+                    ? request.getTen()
+                    : (kh != null ? kh.getName() : "Khách lẻ");
+
+            String sdt = (request.getSdt() != null && !request.getSdt().trim().isEmpty())
+                    ? request.getSdt()
+                    : (kh != null ? kh.getPhone() : "");
+
+            String diaChi = (request.getDiaChi() != null && !request.getDiaChi().trim().isEmpty())
+                    ? request.getDiaChi()
+                    : "";
+
+            invoice.setNameReceiver(ten);
+            invoice.setPhoneReceiver(sdt);
+            invoice.setAddressReceiver(diaChi);
         }
 
         // Cập nhật thông tin tài chính

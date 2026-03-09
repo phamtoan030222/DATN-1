@@ -580,6 +580,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             if (id.getTen() != null) hoaDonToUpdate.setNameReceiver(id.getTen());
             if (id.getSdt() != null) hoaDonToUpdate.setPhoneReceiver(id.getSdt());
             if (id.getDiaChi() != null) hoaDonToUpdate.setAddressReceiver(id.getDiaChi());
+            if (id.getEmail() != null) hoaDonToUpdate.setEmail(id.getEmail());
 //            if (id.getGhiChu() != null) hoaDonToUpdate.setNote(id.getGhiChu());
 
             // [QUAN TRỌNG] Cập nhật tiền

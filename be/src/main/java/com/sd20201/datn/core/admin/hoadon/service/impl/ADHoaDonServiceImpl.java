@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.hoadon.service.impl;
 
+import com.sd20201.datn.core.admin.hoadon.model.request.ADDoiImeiRequest;
 import com.sd20201.datn.core.admin.shift.repository.AdShiftHandoverRepository;
 import com.sd20201.datn.entity.ShiftHandover;
 import com.sd20201.datn.core.admin.banhang.repository.ADBanHangIMEIRepository;
@@ -643,6 +644,93 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Lỗi khi lấy chi tiết hóa đơn: " + e.getMessage()
             );
+        }
+    }
+
+    @Override
+    @Transactional
+    public ResponseObject<?> doiImei(ADDoiImeiRequest request) {
+        try {
+            log.info("Bắt đầu đổi IMEI: oldImeiId={}, newImeiId={}, hoaDonChiTietId={}",
+                    request.getOldImeiId(), request.getNewImeiId(), request.getHoaDonChiTietId());
+
+            // 1. Tìm InvoiceDetail
+            InvoiceDetail chiTiet = adHoaDonChiTietRepository.findById(request.getHoaDonChiTietId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy chi tiết hóa đơn: "
+                            + request.getHoaDonChiTietId()));
+
+            // 2. Kiểm tra hóa đơn còn ở trạng thái CHỜ XÁC NHẬN mới cho đổi
+            Invoice hoaDon = chiTiet.getInvoice();
+            if (hoaDon.getEntityTrangThaiHoaDon() != EntityTrangThaiHoaDon.CHO_XAC_NHAN) {
+                throw new RuntimeException(
+                        "Chỉ có thể thay đổi Serial khi đơn hàng ở trạng thái 'Chờ xác nhận'"
+                );
+            }
+
+            // 3. Tìm IMEI cũ và kiểm tra nó thuộc InvoiceDetail này
+            IMEI imeiCu = imeiRepository.findById(request.getOldImeiId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy Serial cũ: "
+                            + request.getOldImeiId()));
+
+            boolean imeiCuThuocChiTiet = chiTiet.getImeis().stream()
+                    .anyMatch(imei -> imei.getId().equals(request.getOldImeiId()));
+            if (!imeiCuThuocChiTiet) {
+                throw new RuntimeException("Serial cũ không thuộc dòng hóa đơn này");
+            }
+
+            // 4. Tìm IMEI mới và kiểm tra còn AVAILABLE
+            IMEI imeiMoi = imeiRepository.findById(request.getNewImeiId())
+                    .orElseThrow(() -> new RuntimeException("Không tìm thấy Serial mới: "
+                            + request.getNewImeiId()));
+
+            if (imeiMoi.getImeiStatus() != ImeiStatus.AVAILABLE) {
+                throw new RuntimeException(
+                        "Serial mới không ở trạng thái khả dụng (hiện tại: "
+                                + imeiMoi.getImeiStatus() + ")"
+                );
+            }
+
+            // 5. Kiểm tra 2 IMEI cùng ProductDetail
+            if (!imeiCu.getProductDetail().getId().equals(imeiMoi.getProductDetail().getId())) {
+                throw new RuntimeException("Serial mới không thuộc cùng sản phẩm với Serial cũ");
+            }
+
+            // 6. Giải phóng IMEI cũ → trả về AVAILABLE
+            imeiCu.setImeiStatus(ImeiStatus.AVAILABLE);
+            imeiCu.setInvoiceDetail(null);
+            imeiCu.setInvoiceHolding(null);
+            imeiCu.setLockedAt(null);
+            imeiRepository.save(imeiCu);
+            log.info("Đã giải phóng Serial cũ: {}", imeiCu.getCode());
+
+            // 7. Gán IMEI mới → RESERVED (đang chờ xác nhận)
+            imeiMoi.setImeiStatus(ImeiStatus.RESERVED);
+            imeiMoi.setInvoiceDetail(chiTiet);
+            imeiMoi.setLockedAt(System.currentTimeMillis());
+            imeiRepository.save(imeiMoi);
+            log.info("Đã gán Serial mới: {}", imeiMoi.getCode());
+
+            // 8. Cập nhật danh sách IMEI trong InvoiceDetail
+            chiTiet.getImeis().removeIf(imei -> imei.getId().equals(request.getOldImeiId()));
+            chiTiet.getImeis().add(imeiMoi);
+            adHoaDonChiTietRepository.save(chiTiet);
+
+            // 9. Trả về kết quả
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("hoaDonChiTietId", chiTiet.getId());
+            responseData.put("oldImeiCode", imeiCu.getCode());
+            responseData.put("newImeiCode", imeiMoi.getCode());
+            responseData.put("message", "Đổi Serial thành công");
+
+            log.info("Đổi Serial thành công: {} → {}", imeiCu.getCode(), imeiMoi.getCode());
+            return new ResponseObject<>(responseData, HttpStatus.OK, "Đổi Serial thành công");
+
+        } catch (RuntimeException e) {
+            log.error("Lỗi đổi Serial: {}", e.getMessage(), e);
+            throw e;
+        } catch (Exception e) {
+            log.error("Lỗi hệ thống khi đổi Serial: {}", e.getMessage(), e);
+            throw new RuntimeException("Lỗi hệ thống: " + e.getMessage(), e);
         }
     }
 }
