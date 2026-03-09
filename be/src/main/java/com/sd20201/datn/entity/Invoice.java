@@ -58,6 +58,8 @@ public class Invoice extends PrimaryEntity implements Serializable {
     @Column(length = 15)
     private String phoneReceiver;
 
+    private String email;
+
     private Long paymentDate;
 
     private String description;

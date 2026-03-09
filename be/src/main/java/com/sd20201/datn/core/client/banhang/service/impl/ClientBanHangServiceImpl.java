@@ -139,6 +139,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             invoice.setTypeInvoice(TypeInvoice.ONLINE);
             invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
             invoice.setCreatedDate(System.currentTimeMillis());
+            invoice.setEmail(request.getEmail());
 
             // Lưu hóa đơn trước để có ID
             invoice = invoiceRepository.save(invoice);
