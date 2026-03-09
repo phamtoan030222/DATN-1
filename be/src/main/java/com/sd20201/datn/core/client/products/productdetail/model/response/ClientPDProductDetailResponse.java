@@ -36,6 +36,8 @@ public interface ClientPDProductDetailResponse extends IsIdentify, IsEntityStatu
 
     String getProductName();
 
+    Long getStartDate();
+
     Long getEndDate();
 
     // Nếu bạn muốn lấy thêm màn hình, hãng, pin...

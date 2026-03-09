@@ -1,8 +1,5 @@
 <script setup lang="ts">
-import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { localStorageAction } from '@/utils'
 import {
-  Call,
   Cart,
   Menu as MenuIcon,
   Person,
@@ -20,8 +17,9 @@ import {
   NMenu,
   useNotification,
 } from 'naive-ui'
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/store'
 import { useCartStore } from '@/store/app/card'
 
@@ -29,30 +27,13 @@ const router = useRouter()
 const route = useRoute()
 const { userInfoDatn } = storeToRefs(useAuthStore())
 const { logout } = useAuthStore()
-// --- LOGIC GIỎ HÀNG MỚI (CLIENT-SIDE) ---
-// 1. Tạo biến hứng số lượng
+
+// --- LOGIC GIỎ HÀNG ---
 const { cartItems } = storeToRefs(useCartStore())
 const notification = useNotification()
 
-// --- LOGIC CUỘN TRANG ---
-const isScrolled = ref(false)
-
-function handleScroll() {
-  isScrolled.value = window.scrollY > 80
-}
-
-// --- LOGIC GIỎ HÀNG ---
-onMounted(() => {
-  window.addEventListener('scroll', handleScroll)
-})
-
-onUnmounted(() => {
-  window.removeEventListener('scroll', handleScroll)
-})
-
 // --- DATA MENU ---
 const menuOptions: MenuOption[] = [
-  { label: 'TRANG CHỦ', key: 'home', href: '/' },
   { label: 'SẢN PHẨM', key: 'products', href: '/san-pham' },
   { label: 'GIỚI THIỆU', key: 'about', href: '/gioi-thieu' },
   { label: 'LIÊN HỆ', key: 'contact', href: '/lien-he' },
@@ -132,20 +113,23 @@ function handleCartClick() {
         </NIcon>
       </button>
 
-      <button v-if="isScrolled" class="mobile-toggle d-none d-lg-flex" @click="showDrawer = true">
-        <NIcon size="32" color="#049d14">
-          <MenuIcon />
-        </NIcon>
-      </button>
-
       <a href="/" class="logo-area">
         <img src="/favicon.svg" alt="Logo" class="logo-img" onerror="this.style.display='none'">
         <div class="brand-info d-none d-sm-flex"><span class="brand-text">My Laptop</span></div>
       </a>
 
+      <div class="main-menu-inline d-none d-lg-flex">
+        <NMenu
+          v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
+          @update:value="handleMenuClick"
+        />
+      </div>
+
       <div class="search-area d-none d-sm-block">
-        <NInput v-model:value="keyword" placeholder="Bạn tìm laptop gì hôm nay?" round size="large"
-          @keyup.enter="handleSearch">
+        <NInput
+          v-model:value="keyword" placeholder="Tìm laptop..." round size="large"
+          @keyup.enter="handleSearch"
+        >
           <template #suffix>
             <NButton circle size="medium" color="#049d14" style="margin-right: -10px;" @click="handleSearch">
               <template #icon>
@@ -159,26 +143,12 @@ function handleCartClick() {
       </div>
 
       <div class="actions-area">
-        <div v-if="!isScrolled" class="hotline-group d-none d-lg-flex">
-          <div class="hotline-info">
-            <span class="hotline-label">TƯ VẤN MIỄN PHÍ</span>
-            <span class="hotline-number">0965.237.19</span>
-          </div>
-          <div class="icon-wrapper">
-            <NIcon size="24" color="#049d14">
-              <Call />
-            </NIcon>
-          </div>
-        </div>
-
         <NDropdown trigger="hover" :options="userOptions" @select="handlerAccountDropdown">
-          <div class="">
-            <div class="action-btn">
-              <NIcon size="28" color="#333">
-                <Person />
-              </NIcon>
-              <span class="action-label d-none d-xl-block">{{ userInfoDatn?.fullName || 'Tài khoản' }}</span>
-            </div>
+          <div class="action-btn">
+            <NIcon size="28" color="#333">
+              <Person />
+            </NIcon>
+            <span class="action-label d-none d-xl-block">{{ userInfoDatn?.fullName || 'Tài khoản' }}</span>
           </div>
         </NDropdown>
 
@@ -190,13 +160,6 @@ function handleCartClick() {
           </NBadge>
           <span class="action-label d-none d-xl-block">Giỏ hàng</span>
         </div>
-      </div>
-    </div>
-
-    <div v-if="!isScrolled" class="nav-background d-none d-lg-block">
-      <div class="container nav-wrapper">
-        <NMenu v-model:value="activeKey" mode="horizontal" :options="menuOptions" class="modern-menu"
-          @update:value="handleMenuClick" />
       </div>
     </div>
 
@@ -230,104 +193,23 @@ function handleCartClick() {
   width: 100%;
 }
 
-.main-content {
-  flex: 1;
-  background-color: #f9f9f9;
-  padding-bottom: 40px;
-}
-
-.d-none {
-  display: none !important;
-}
-
-.d-lg-block {
-  display: block !important;
-}
-
-.d-lg-none {
-  display: none !important;
-}
-
-.d-lg-flex {
-  display: flex !important;
-}
-
-.d-sm-flex {
-  display: flex !important;
-}
-
-.d-sm-block {
-  display: block !important;
-}
-
-.d-xl-block {
-  display: block !important;
-}
+.d-none { display: none !important; }
+.d-lg-block { display: block !important; }
+.d-lg-none { display: none !important; }
+.d-lg-flex { display: flex !important; }
+.d-sm-flex { display: flex !important; }
+.d-sm-block { display: block !important; }
+.d-xl-block { display: block !important; }
 
 @media (max-width: 1200px) {
-  .d-xl-block {
-    display: none !important;
-  }
+  .d-xl-block { display: none !important; }
 }
 
 @media (min-width: 992px) {
-  .d-lg-block {
-    display: block !important;
-  }
-
-  .d-lg-none {
-    display: none !important;
-  }
-
-  .d-lg-flex {
-    display: flex !important;
-  }
-
-  .d-none {
-    display: none;
-  }
-}
-
-.top-banner {
-  position: relative;
-  height: 60px;
-  overflow: hidden;
-  background: #000;
-}
-
-.banner-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.6;
-}
-
-.banner-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 2;
-  text-align: center;
-}
-
-.banner-title {
-  color: #21f15c;
-  font-size: 1.8rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  margin: 0;
-  text-shadow: 0 10px 5px green;
-}
-
-.banner-subtitle {
-  color: #f0f0f0;
-  font-size: 1rem;
-  margin-top: 5px;
-  text-shadow: 0 5px 5px green;
+  .d-lg-block { display: block !important; }
+  .d-lg-none { display: none !important; }
+  .d-lg-flex { display: flex !important; }
+  .d-none { display: none; }
 }
 
 .header-inner {
@@ -357,52 +239,76 @@ function handleCartClick() {
   letter-spacing: -0.5px;
 }
 
-.search-area {
+.main-menu-inline {
   flex: 1;
-  max-width: 500px;
+  justify-content: flex-start;
+  margin-left: 10px;
+}
+
+:deep(.modern-menu) {
+  background: transparent !important;
+  display: flex;
+  height: 100%;
+}
+
+:deep(.modern-menu .n-menu-item) {
+  display: flex;
+  align-items: center;
+}
+
+:deep(.modern-menu .n-menu-item-content) {
+  padding: 0 8px !important;
+  background: transparent !important;
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+:deep(.modern-menu .n-menu-item-content .n-menu-item-content-header) {
+  color: #333 !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  text-transform: uppercase;
+  transition: color 0.3s;
+}
+
+:deep(.modern-menu .n-menu-item-content:hover .n-menu-item-content-header) {
+  color: #049d14 !important;
+}
+
+:deep(.modern-menu .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content-header) {
+  color: #049d14 !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+}
+
+:deep(.modern-menu .n-menu-item-content)::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 3px;
+  background-color: #049d14;
+  transition: all 0.3s ease-out;
+  transform: translateX(-50%);
+}
+
+:deep(.modern-menu .n-menu-item-content.n-menu-item-content--selected)::after {
+  width: 100%;
+}
+
+.search-area {
+  width: 100%;
+  max-width: 280px;
+  margin-left: auto;
 }
 
 .actions-area {
   display: flex;
   align-items: center;
   gap: 25px;
-}
-
-.hotline-group {
-  align-items: center;
-  gap: 10px;
-  margin-right: 15px;
-  padding-right: 20px;
-  border-right: 1px solid #eee;
-}
-
-.hotline-info {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.2;
-}
-
-.hotline-label {
-  font-size: 0.7rem;
-  color: #666;
-  font-weight: 600;
-}
-
-.hotline-number {
-  font-size: 1.1rem;
-  color: #049d14;
-  font-weight: 800;
-}
-
-.icon-wrapper {
-  width: 40px;
-  height: 40px;
-  background: #f0fdf4;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .action-btn {
@@ -429,73 +335,6 @@ function handleCartClick() {
   margin-top: 2px;
 }
 
-.nav-background {
-  background-color: #049d14;
-  height: 50px;
-}
-
-.nav-wrapper {
-  display: flex;
-  justify-content: center;
-  height: 100%;
-}
-
-:deep(.modern-menu) {
-  background: transparent !important;
-  display: flex;
-  justify-content: center;
-  height: 100%;
-}
-
-:deep(.modern-menu .n-menu-item) {
-  height: 100%;
-  display: flex;
-  align-items: center;
-}
-
-:deep(.modern-menu .n-menu-item-content) {
-  padding: 0 30px !important;
-  background: transparent !important;
-  position: relative;
-  height: 100%;
-  display: flex;
-  align-items: center;
-}
-
-:deep(.modern-menu .n-menu-item-content .n-menu-item-content-header) {
-  color: rgba(227, 226, 226, 0.9) !important;
-  font-weight: 600 !important;
-  font-size: 15px !important;
-  text-transform: uppercase;
-  transition: color 0.3s;
-}
-
-:deep(.modern-menu .n-menu-item-content:hover .n-menu-item-content-header) {
-  color: #ffffff !important;
-}
-
-:deep(.modern-menu .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content-header) {
-  color: #ffffff !important;
-  font-weight: 700 !important;
-  font-size: 17px !important;
-}
-
-:deep(.modern-menu .n-menu-item-content)::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 4px;
-  background-color: #ffcc00;
-  transition: all 0.3s ease-out;
-  transform: translateX(-50%);
-}
-
-:deep(.modern-menu .n-menu-item-content.n-menu-item-content--selected)::after {
-  width: 100%;
-}
-
 .mobile-toggle {
   background: none;
   border: none;
@@ -503,13 +342,5 @@ function handleCartClick() {
   padding: 0;
   display: flex;
   align-items: center;
-}
-
-.main-footer {
-  background-color: #333;
-  color: white;
-  padding: 20px 0;
-  text-align: center;
-  margin-top: auto;
 }
 </style>

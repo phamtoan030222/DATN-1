@@ -5,6 +5,9 @@ import com.sd20201.datn.core.client.products.productdetail.model.request.ClientP
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDVariantRequest;
+import com.sd20201.datn.core.client.products.productdetail.model.request.SanPhamChiTietGiamGiaRepuest;
+import com.sd20201.datn.core.client.products.productdetail.model.response.ClientDiscountProductProjection;
+import com.sd20201.datn.core.client.products.productdetail.repository.ClientCampaignProductRepository;
 import com.sd20201.datn.core.client.products.productdetail.repository.ClientPDBatteryRepository;
 import com.sd20201.datn.core.client.products.productdetail.repository.ClientPDBrandRepository;
 import com.sd20201.datn.core.client.products.productdetail.repository.ClientPDCPURepository;
@@ -21,6 +24,7 @@ import com.sd20201.datn.core.client.products.productdetail.repository.ClientPDRA
 import com.sd20201.datn.core.client.products.productdetail.repository.ClientPDScreenRepository;
 import com.sd20201.datn.core.client.products.productdetail.service.ClientProductDetailService;
 import com.sd20201.datn.core.common.base.PageableObject;
+import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.core.common.cloudinary.model.response.CloudinaryResponse;
 import com.sd20201.datn.core.common.cloudinary.service.CloudinaryService;
@@ -48,12 +52,17 @@ import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,6 +103,7 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
     private final ClientPDBrandRepository brandRepository;
 
     private final ClientPDProductDetailDiscountRepository productDetailDiscountRepository;
+    private final ClientCampaignProductRepository clientCampaignProductRepository;
 
     @Override
     public ResponseObject<?> getProductDetails(ClientPDProductDetailRequest request) {
@@ -552,5 +562,46 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
             return ResponseObject.errorForward(e.getMessage(), HttpStatus.CONFLICT);
         }
         return ResponseObject.successForward(null, "Save serial success");
+    }
+
+    @Override
+    public ResponseObject<?> getOngoingDiscounts(SanPhamChiTietGiamGiaRepuest request) {
+        Long currentTime = System.currentTimeMillis();
+        Pageable pageable = Helper.createPageable(request);
+
+        // 1. Lấy cục data bự của Spring
+        Page<ClientDiscountProductProjection> pageData = clientCampaignProductRepository
+                .findOngoingDiscountProducts(pageable, currentTime);
+
+        // 2. Bọc qua PageableObject.of() để lọc dữ liệu thừa
+        return ResponseObject.successForward(
+                PageableObject.of(pageData),
+                "Lấy danh sách giảm giá đang diễn ra thành công"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getNearestUpcomingDiscounts(SanPhamChiTietGiamGiaRepuest request) {
+        Long currentTime = System.currentTimeMillis();
+        Pageable pageable = Helper.createPageable(request);
+
+        Page<String> upcomingIds = clientCampaignProductRepository
+                .findNearestUpcomingDiscountId(currentTime, pageable);
+
+
+        if (upcomingIds.isEmpty()) {
+            return ResponseObject.successForward(PageableObject.of(Page.empty()), "Không có đợt giảm giá nào sắp tới");
+        }
+
+        String nearestDiscountId = upcomingIds.getContent().get(0);
+
+        Page<ClientDiscountProductProjection> pageData = clientCampaignProductRepository
+                .findProductsByDiscountId(pageable, nearestDiscountId);
+
+        // Tương tự, dùng PageableObject.of() ở đây
+        return ResponseObject.successForward(
+                PageableObject.of(pageData),
+                "Lấy danh sách giảm giá sắp diễn ra thành công"
+        );
     }
 }
