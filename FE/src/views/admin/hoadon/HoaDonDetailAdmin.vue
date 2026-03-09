@@ -72,8 +72,6 @@ import {
   ScanOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
-import { toast } from 'vue3-toastify'
-import 'vue3-toastify/dist/index.css'
 
 // ==================== Types & Interfaces ====================
 interface CustomerForm {
@@ -503,6 +501,32 @@ const productColumns = computed<DataTableColumns<any>>(() => {
     { title: 'Đơn giá', key: 'price', width: 140, align: 'right', render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)) },
     { title: 'Thành tiền', key: 'total', width: 140, align: 'right', render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.giaBan)) },
 
+    {
+      title: 'Thao tác',
+      key: 'action',
+      width: 160,
+      align: 'center',
+      render: (row) => {
+        // Chỉ hiện nút nếu là online invoice, dòng chưa có serial, và đơn chưa xác nhận
+        if (!isOnlineInvoice.value || row.isAssigned || !canChangeImei.value) {
+          return h('span', { class: 'text-gray-300 text-sm' }, '—')
+        }
+        // Tìm sản phẩm gốc trong invoiceItems theo id
+        const originalProduct = invoiceItems.value.find(p => p.id === row.id)
+        if (!originalProduct)
+          return h('span', '-')
+
+        return h(NButton, {
+          size: 'small',
+          type: 'primary',
+          round: true,
+          onClick: () => openSerialSelectionModal(originalProduct),
+        }, {
+          icon: () => h(NIcon, { size: 16 }, { default: () => h(ScanOutline) }),
+          default: () => 'Bổ sung Serial',
+        })
+      },
+    },
   ]
 })
 
@@ -645,7 +669,7 @@ function openStatusModalNext(): void {
 
       // Nếu thiếu, báo lỗi và chặn (return) không cho mở Modal
       if (isMissingSerial) {
-        toast.error('Vui lòng gán đủ Serial cho tất cả sản phẩm trước khi xác nhận đơn hàng!')
+        message.error('Vui lòng gán đủ Serial cho tất cả sản phẩm trước khi xác nhận đơn hàng!')
         return
       }
     }
@@ -712,24 +736,24 @@ function handleScanInput() {
       if (!selectedSerialIds.value.includes(matchedSerial.id)) {
         if (selectedSerialIds.value.length < requiredQuantityToAssign.value) {
           selectedSerialIds.value = [...selectedSerialIds.value, matchedSerial.id]
-          toast.success(`Đã chọn serial ${matchedSerial.code}`)
+          message.success(`Đã chọn serial ${matchedSerial.code}`)
         }
-        else { toast.warning(`Bạn chỉ cần bổ sung ${requiredQuantityToAssign.value} serial nữa!`) }
+        else { message.warning(`Bạn chỉ cần bổ sung ${requiredQuantityToAssign.value} serial nữa!`) }
       }
-      else { toast.warning('Serial này đã nằm trong danh sách đang chọn') }
+      else { message.warning('Serial này đã nằm trong danh sách đang chọn') }
     }
-    else { toast.error('Không tìm thấy serial khả dụng (Hoặc serial đã được gán)') }
+    else { message.error('Không tìm thấy serial khả dụng (Hoặc serial đã được gán)') }
     scannedSerial.value = ''
   }
 }
 
 async function addSerialsToInvoice() {
   if (!selectedProductItem.value || selectedSerialIds.value.length === 0) {
-    toast.error('Vui lòng chọn ít nhất một serial')
+    message.error('Vui lòng chọn ít nhất một serial')
     return
   }
   if (selectedSerialIds.value.length !== requiredQuantityToAssign.value) {
-    toast.error(`Cần chọn đúng ${requiredQuantityToAssign.value} serial`)
+    message.error(`Cần chọn đúng ${requiredQuantityToAssign.value} serial`)
     return
   }
 
@@ -742,16 +766,16 @@ async function addSerialsToInvoice() {
     console.log('gan-imei response:', JSON.stringify(response))
 
     if (response?.status === 'OK' || response?.success === true) {
-      toast.success(`Đã gán thành công ${selectedSerialIds.value.length} serial`)
+      message.success(`Đã gán thành công ${selectedSerialIds.value.length} serial`)
       showSerialModal.value = false
       await fetchInvoiceDetails() // ← Không cần reload() nữa
     }
     else {
-      toast.error(response.message || 'Gán serial thất bại')
+      message.error(response.message || 'Gán serial thất bại')
     }
   }
   catch (error: any) {
-    toast.error(error.response?.data?.message || 'Đã xảy ra lỗi hệ thống')
+    message.error(error.response?.data?.message || 'Đã xảy ra lỗi hệ thống')
   }
   finally {
     isAddingSerials.value = false
@@ -776,32 +800,32 @@ function saveCustomerInfo() {
         emit('update:customer', { ...customerForm })
         isSavingCustomer.value = false
         showCustomerModal.value = false
-        toast.success('Cập nhật thông tin khách hàng thành công')
+        message.success('Cập nhật thông tin khách hàng thành công')
       }, 500)
     }
   })
 }
 
 async function confirmStatusUpdate(): Promise<void> {
-  if (selectedStatus.value === null || !hoaDonData.value?.maHoaDon) { toast.error('Vui lòng chọn trạng thái mới'); return }
+  if (selectedStatus.value === null || !hoaDonData.value?.maHoaDon) { message.error('Vui lòng chọn trạng thái mới'); return }
   isUpdating.value = true
   try {
     const response = await changeOrderStatus({ maHoaDon: hoaDonData.value.maHoaDon, statusTrangThaiHoaDon: selectedStatus.value, note: statusNote.value || '', idNhanVien: idNV.userId })
     if (response.success) {
-      toast.success('Cập nhật trạng thái thành công')
+      message.success('Cập nhật trạng thái thành công')
       await fetchInvoiceDetails()
       selectedStatus.value = null
       statusNote.value = ''
       showStatusModal.value = false
     }
-    else { toast.error(response.message || 'Cập nhật thất bại') }
+    else { message.error(response.message || 'Cập nhật thất bại') }
   }
-  catch (error: any) { toast.error(error.message || 'Đã xảy ra lỗi khi cập nhật') }
+  catch (error: any) { message.error(error.message || 'Đã xảy ra lỗi khi cập nhật') }
   finally { isUpdating.value = false }
 }
 
 function openCancelModal(): void {
-  if (isCancelled.value) { toast.warning('Đơn hàng đã bị hủy'); return }
+  if (isCancelled.value) { message.warning('Đơn hàng đã bị hủy'); return }
   dialog.error({
     title: 'Xác nhận hủy đơn hàng',
     content: 'Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.',
@@ -818,9 +842,9 @@ async function fetchInvoiceDetails(): Promise<void> {
     isLoading.value = true
     const response = await getHoaDonChiTiets({ maHoaDon: invoiceCode.value, page: 0, size: 100 })
     if (response.success && response.data?.content) { invoiceItems.value = response.data.content }
-    else { toast.error(response.message || 'Không thể tải chi tiết hóa đơn') }
+    else { message.error(response.message || 'Không thể tải chi tiết hóa đơn') }
   }
-  catch (error: any) { toast.error(error.message || 'Đã xảy ra lỗi khi tải dữ liệu') }
+  catch (error: any) { message.error(error.message || 'Đã xảy ra lỗi khi tải dữ liệu') }
   finally { isLoading.value = false }
 }
 
@@ -842,9 +866,9 @@ async function handlePrint() {
   printLoading.value = true
   await generateQRCode()
   const invoiceContent = document.getElementById('invoice-content')
-  if (!invoiceContent) { toast.error('Không tìm thấy nội dung hóa đơn'); printLoading.value = false; return }
+  if (!invoiceContent) { message.error('Không tìm thấy nội dung hóa đơn'); printLoading.value = false; return }
   const printWindow = window.open('', '_blank')
-  if (!printWindow) { toast.error('Trình duyệt đã chặn popup. Vui lòng cho phép popup.'); printLoading.value = false; return }
+  if (!printWindow) { message.error('Trình duyệt đã chặn popup. Vui lòng cho phép popup.'); printLoading.value = false; return }
   const printStyles = `<style>* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: Arial, sans-serif; background: white; color: #1a1a1a; padding: 24px; } table { width: 100%; border-collapse: collapse; } th { background-color: #16a34a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } tr:nth-child(even) td { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } @media print { body { padding: 0; } th { background-color: #16a34a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style>`
   printWindow.document.write(`<!DOCTYPE html><html><head><title>HoaDon_${hoaDonData.value.maHoaDon || invoiceCode.value}</title>${printStyles}</head><body>${invoiceContent.innerHTML}<script>window.onload = function() { window.print(); }<\/script></body></html>`)
   printWindow.document.close()
@@ -869,7 +893,7 @@ watch(() => props.hoaDonData, (newData) => {
 
 onMounted(async () => {
   if (invoiceCode.value) { await fetchInvoiceDetails(); await generateQRCode() }
-  else { toast.error('Không tìm thấy mã hóa đơn'); router.push('/admin/hoa-don') }
+  else { message.error('Không tìm thấy mã hóa đơn'); router.push('/admin/hoa-don') }
 })
 </script>
 
@@ -1427,7 +1451,8 @@ onMounted(async () => {
           </p>
         </div>
 
-        <div v-for="(product, productIndex) in invoiceItems" :key="product.id" class=" rounded-xl bg-white shadow-sm overflow-hidden">
+        <!-- Xóa v-for bao ngoài, chỉ render 1 bảng duy nhất -->
+        <div class="rounded-xl bg-white shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <NDataTable
               :columns="productColumnsSerialTong"
@@ -1439,28 +1464,22 @@ onMounted(async () => {
             />
           </div>
           <div class="p-6 bg-gray-50/30">
-            <div class="flex items-center justify-between mb-3">
-              <div class="flex items-center gap-3">
-                <NTag size="small" type="success" round class="font-medium px-3">
-                  Tổng {{ parseIMEIList(product.danhSachImei).length }} SERIAL
-                </NTag>
-                <NButton v-if="isOnlineInvoice && parseIMEIList(product.danhSachImei).length < product.soLuong" type="primary" size="small" @click="openSerialSelectionModal(product)">
-                  Bổ sung Serial
-                </NButton>
-              </div>
-            </div>
             <div class="max-w-md ml-auto space-y-3">
               <div class="flex justify-between items-center">
-                <span class="text-gray-600">Tạm tính:</span><span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+                <span class="text-gray-600">Tạm tính:</span>
+                <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
               </div>
               <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center">
-                <span class="text-gray-600">Phí vận chuyển:</span><span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
+                <span class="text-gray-600">Phí vận chuyển:</span>
+                <span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
               </div>
               <div v-if="hoaDonData?.giaTriVoucher" class="flex justify-between items-center">
-                <span class="text-gray-600">Giảm giá voucher:</span><span class="font-medium text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
+                <span class="text-gray-600">Giảm giá voucher:</span>
+                <span class="font-medium text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
               </div>
               <div class="flex justify-between items-center pt-3 border-t border-gray-200">
-                <span class="text-lg font-bold text-gray-900">Tổng cộng:</span><span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+                <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
+                <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
               </div>
             </div>
           </div>
