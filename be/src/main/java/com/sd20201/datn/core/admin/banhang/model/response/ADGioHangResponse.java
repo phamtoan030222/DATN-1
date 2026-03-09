@@ -10,6 +10,8 @@ public interface ADGioHangResponse {
 
     String getId();
 
+    String getMa();
+
     String getTen();
 
     Integer getSoLuong();

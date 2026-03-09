@@ -72,6 +72,8 @@ import {
   ScanOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
+import { toast } from 'vue3-toastify'
+import 'vue3-toastify/dist/index.css'
 
 // ==================== Types & Interfaces ====================
 interface CustomerForm {
@@ -643,7 +645,7 @@ function openStatusModalNext(): void {
 
       // Nếu thiếu, báo lỗi và chặn (return) không cho mở Modal
       if (isMissingSerial) {
-        message.error('Vui lòng gán đủ Serial cho tất cả sản phẩm trước khi xác nhận đơn hàng!')
+        toast.error('Vui lòng gán đủ Serial cho tất cả sản phẩm trước khi xác nhận đơn hàng!')
         return
       }
     }
@@ -710,24 +712,24 @@ function handleScanInput() {
       if (!selectedSerialIds.value.includes(matchedSerial.id)) {
         if (selectedSerialIds.value.length < requiredQuantityToAssign.value) {
           selectedSerialIds.value = [...selectedSerialIds.value, matchedSerial.id]
-          message.success(`Đã chọn serial ${matchedSerial.code}`)
+          toast.success(`Đã chọn serial ${matchedSerial.code}`)
         }
-        else { message.warning(`Bạn chỉ cần bổ sung ${requiredQuantityToAssign.value} serial nữa!`) }
+        else { toast.warning(`Bạn chỉ cần bổ sung ${requiredQuantityToAssign.value} serial nữa!`) }
       }
-      else { message.warning('Serial này đã nằm trong danh sách đang chọn') }
+      else { toast.warning('Serial này đã nằm trong danh sách đang chọn') }
     }
-    else { message.error('Không tìm thấy serial khả dụng (Hoặc serial đã được gán)') }
+    else { toast.error('Không tìm thấy serial khả dụng (Hoặc serial đã được gán)') }
     scannedSerial.value = ''
   }
 }
 
 async function addSerialsToInvoice() {
   if (!selectedProductItem.value || selectedSerialIds.value.length === 0) {
-    message.error('Vui lòng chọn ít nhất một serial')
+    toast.error('Vui lòng chọn ít nhất một serial')
     return
   }
   if (selectedSerialIds.value.length !== requiredQuantityToAssign.value) {
-    message.error(`Cần chọn đúng ${requiredQuantityToAssign.value} serial`)
+    toast.error(`Cần chọn đúng ${requiredQuantityToAssign.value} serial`)
     return
   }
 
@@ -740,16 +742,16 @@ async function addSerialsToInvoice() {
     console.log('gan-imei response:', JSON.stringify(response))
 
     if (response?.status === 'OK' || response?.success === true) {
-      message.success(`Đã gán thành công ${selectedSerialIds.value.length} serial`)
+      toast.success(`Đã gán thành công ${selectedSerialIds.value.length} serial`)
       showSerialModal.value = false
       await fetchInvoiceDetails() // ← Không cần reload() nữa
     }
     else {
-      message.error(response.message || 'Gán serial thất bại')
+      toast.error(response.message || 'Gán serial thất bại')
     }
   }
   catch (error: any) {
-    message.error(error.response?.data?.message || 'Đã xảy ra lỗi hệ thống')
+    toast.error(error.response?.data?.message || 'Đã xảy ra lỗi hệ thống')
   }
   finally {
     isAddingSerials.value = false
@@ -774,32 +776,32 @@ function saveCustomerInfo() {
         emit('update:customer', { ...customerForm })
         isSavingCustomer.value = false
         showCustomerModal.value = false
-        message.success('Cập nhật thông tin khách hàng thành công')
+        toast.success('Cập nhật thông tin khách hàng thành công')
       }, 500)
     }
   })
 }
 
 async function confirmStatusUpdate(): Promise<void> {
-  if (selectedStatus.value === null || !hoaDonData.value?.maHoaDon) { message.error('Vui lòng chọn trạng thái mới'); return }
+  if (selectedStatus.value === null || !hoaDonData.value?.maHoaDon) { toast.error('Vui lòng chọn trạng thái mới'); return }
   isUpdating.value = true
   try {
     const response = await changeOrderStatus({ maHoaDon: hoaDonData.value.maHoaDon, statusTrangThaiHoaDon: selectedStatus.value, note: statusNote.value || '', idNhanVien: idNV.userId })
     if (response.success) {
-      message.success('Cập nhật trạng thái thành công')
+      toast.success('Cập nhật trạng thái thành công')
       await fetchInvoiceDetails()
       selectedStatus.value = null
       statusNote.value = ''
       showStatusModal.value = false
     }
-    else { message.error(response.message || 'Cập nhật thất bại') }
+    else { toast.error(response.message || 'Cập nhật thất bại') }
   }
-  catch (error: any) { message.error(error.message || 'Đã xảy ra lỗi khi cập nhật') }
+  catch (error: any) { toast.error(error.message || 'Đã xảy ra lỗi khi cập nhật') }
   finally { isUpdating.value = false }
 }
 
 function openCancelModal(): void {
-  if (isCancelled.value) { message.warning('Đơn hàng đã bị hủy'); return }
+  if (isCancelled.value) { toast.warning('Đơn hàng đã bị hủy'); return }
   dialog.error({
     title: 'Xác nhận hủy đơn hàng',
     content: 'Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.',
@@ -816,9 +818,9 @@ async function fetchInvoiceDetails(): Promise<void> {
     isLoading.value = true
     const response = await getHoaDonChiTiets({ maHoaDon: invoiceCode.value, page: 0, size: 100 })
     if (response.success && response.data?.content) { invoiceItems.value = response.data.content }
-    else { message.error(response.message || 'Không thể tải chi tiết hóa đơn') }
+    else { toast.error(response.message || 'Không thể tải chi tiết hóa đơn') }
   }
-  catch (error: any) { message.error(error.message || 'Đã xảy ra lỗi khi tải dữ liệu') }
+  catch (error: any) { toast.error(error.message || 'Đã xảy ra lỗi khi tải dữ liệu') }
   finally { isLoading.value = false }
 }
 
@@ -840,9 +842,9 @@ async function handlePrint() {
   printLoading.value = true
   await generateQRCode()
   const invoiceContent = document.getElementById('invoice-content')
-  if (!invoiceContent) { message.error('Không tìm thấy nội dung hóa đơn'); printLoading.value = false; return }
+  if (!invoiceContent) { toast.error('Không tìm thấy nội dung hóa đơn'); printLoading.value = false; return }
   const printWindow = window.open('', '_blank')
-  if (!printWindow) { message.error('Trình duyệt đã chặn popup. Vui lòng cho phép popup.'); printLoading.value = false; return }
+  if (!printWindow) { toast.error('Trình duyệt đã chặn popup. Vui lòng cho phép popup.'); printLoading.value = false; return }
   const printStyles = `<style>* { box-sizing: border-box; margin: 0; padding: 0; } body { font-family: Arial, sans-serif; background: white; color: #1a1a1a; padding: 24px; } table { width: 100%; border-collapse: collapse; } th { background-color: #16a34a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } tr:nth-child(even) td { background-color: #f9fafb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } @media print { body { padding: 0; } th { background-color: #16a34a !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }</style>`
   printWindow.document.write(`<!DOCTYPE html><html><head><title>HoaDon_${hoaDonData.value.maHoaDon || invoiceCode.value}</title>${printStyles}</head><body>${invoiceContent.innerHTML}<script>window.onload = function() { window.print(); }<\/script></body></html>`)
   printWindow.document.close()
@@ -867,7 +869,7 @@ watch(() => props.hoaDonData, (newData) => {
 
 onMounted(async () => {
   if (invoiceCode.value) { await fetchInvoiceDetails(); await generateQRCode() }
-  else { message.error('Không tìm thấy mã hóa đơn'); router.push('/admin/hoa-don') }
+  else { toast.error('Không tìm thấy mã hóa đơn'); router.push('/admin/hoa-don') }
 })
 </script>
 
