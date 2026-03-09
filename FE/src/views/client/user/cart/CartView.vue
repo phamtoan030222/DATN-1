@@ -4,7 +4,7 @@ import type { CartItemResponse } from '@/service/api/client/banhang.api'
 import { GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
 import { localStorageAction } from '@/utils'
 import { getQuantityProdudtDetail } from '@/service/api/client/banhang.api'
-import { useCartStore } from '@/store/app/card'
+import { useCartStore } from '@/store/app/cart'
 import {
   AddOutline,
   ArrowForward,

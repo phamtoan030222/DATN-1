@@ -46,7 +46,7 @@ import {
   updateAddress,
 } from '@/service/api/client/customer/address.api'
 
-import { useCartStore } from '@/store/app/card'
+import { useCartStore } from '@/store/app/cart'
 import { localStorageAction } from '@/utils'
 
 const router = useRouter()
@@ -60,7 +60,7 @@ const processing = ref(false)
 // }
 // const cartItems = ref<CartItemExt[]>([])
 
-const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { cartId, cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
 const { removeCart } = useCartStore()
 
 const cartItemsRef = computed(() => cartItemBuyNow.value ? [cartItemBuyNow.value] : cartItems.value)
@@ -409,7 +409,7 @@ onMounted(async () => {
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
 const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.percentage ? (i.price * (1 - i.percentage / 100)) * i.quantity : i.price * i.quantity), 0))
-const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 0 : 0)
+const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? (isFreeShipping.value ? 0 : 30000) : 0)
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -504,6 +504,7 @@ async function handleCheckout() {
       loaiHoaDon: deliveryType.value,
       idPGG: selectedVoucher.value || null,
       products: productPayload,
+      cartId: cartId.value || null,
     }
 
     const res: any = await createOrder(payload)
@@ -532,6 +533,24 @@ async function handleCheckout() {
   finally {
     processing.value = false
   }
+}
+
+const isFreeShipping = computed(() => deliveryType.value === 'GIAO_HANG' && subTotal.value >= 5000000) // Ví dụ: Miễn phí ship cho đơn trên 5 triệu
+
+function formatCurrencyInput(value: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
+
+function parseCurrency(value: string) {
+  if (!value)
+    return 0
+  let str = String(value).replace(/[^0-9nghìtrieu]/g, '').trim().toLowerCase()
+  let number = Number.parseInt(str.replace(/\D/g, '')) || 0
+  if (str.includes('nghìn'))
+    number *= 1000
+  else if (str.includes('triệu'))
+    number *= 1000000
+  return number
 }
 </script>
 
@@ -763,12 +782,18 @@ async function handleCheckout() {
                   <span>Phí vận chuyển:</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-800">
+                  <span v-if="isFreeShipping" class="font-medium text-gray-800">
                     {{ formatCurrency(shippingFee) }}
                   </span>
+                  <NInputNumber v-else v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
+                    :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
+                    placeholder="Nhập phí ship" :show-button="false"/>
                   <n-image width="80" src="../../../../../images/ghn-logo.webp" />
                 </div>
               </div>
+              <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
+                Miễn phí vận chuyển (Đơn hàng trên 5.000.000đ)
+              </NAlert>
               <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
                 <span>Voucher giảm:</span><span>-{{ formatCurrency(discountAmount) }}</span>
               </div>

@@ -190,8 +190,33 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
             sendEmail(invoice, invoiceDetails, request.getEmail(), request);
 
-            return ResponseObject.successForward(invoice, "Đặt hàng thành công");
+            if (request.getCartId() != null) {
+                Optional<Cart> cartOptional = Optional.of(request.getCartId())
+                        .flatMap(cartRepository::findById);
+                if (cartOptional.isEmpty()) return ResponseObject.errorForward("Cart not found", HttpStatus.NOT_FOUND);
 
+                Cart cart = cartOptional.get();
+
+                for (ClientProductItemRequest item : request.getProducts()) {
+
+                    Optional<ProductDetail> productDetailOptional= productDetailRepository.findById(item.getProductDetailId());
+                    if (productDetailOptional.isEmpty()) continue;
+                    ProductDetail productDetail = productDetailOptional.get();
+
+                    Optional<CartItem> cartItemOptional = cartItemRepository.findByCartAndProductDetail(cart, productDetail);
+                    if (cartItemOptional.isEmpty()) return ResponseObject.errorForward("Cart not found", HttpStatus.NOT_FOUND);
+
+                    CartItem cartItem = cartItemOptional.get();
+                    if (item.getQuantity() < cartItem.getQuantity()) {
+                        cartItem.setQuantity(cartItem.getQuantity() - item.getQuantity());
+                        cartItemRepository.save(cartItem);
+                    } else if(item.getQuantity().equals(cartItem.getQuantity())) {
+                        cartItemRepository.delete(cartItem);
+                    }
+                }
+            }
+
+            return ResponseObject.successForward(invoice, "Đặt hàng thành công");
         } catch (Exception e) {
             log.error("Lỗi đặt hàng: ", e);
             throw new BusinessException(e.getMessage()); // Throw ra để Controller bắt lỗi trả về 400
@@ -363,7 +388,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         }
 
         String htmlReplace = html
-                .replace("<<CUSTOMER_NAME>>", invoice.getCustomer().getName())
+                .replace("<<CUSTOMER_NAME>>", Optional.ofNullable(invoice.getCustomer()).map(Customer::getName).orElse(request.getTen()))
                 .replace("<<MA_HOA_DON>>", invoice.getCode())
                 .replace("<<NGAY_TAO>>", invoiceCreateDateFormat)
                 .replace("<<HINH_THUC_CHUYEN_KHOAN>>", "Thanh toán khi nhận hàng")
