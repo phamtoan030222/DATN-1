@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { useAuthStore } from '@/store'
-import { useCartStore } from '@/store/app/cart'
 import {
   Cart,
   Menu as MenuIcon,
@@ -23,7 +21,7 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/store'
-import { useCartStore } from '@/store/app/card'
+import { useCartStore } from '@/store/app/cart'
 
 const router = useRouter()
 const route = useRoute()
