@@ -29,6 +29,7 @@ export const API_ADMIN_GEO = `${API_URL}/geo` as string
 export const API_ADMIN_STAFF = `${PREFIX_API_ADMIN}/staff` as string
 
 export const API_ADMIN_PRODUCTS = `${PREFIX_API_ADMIN}/products` as string
+export const API_ADMIN_BATTERY = `${API_ADMIN_PRODUCTS}/battery` as string
 export const API_ADMIN_COLOR = `${API_ADMIN_PRODUCTS}/color` as string
 export const API_ADMIN_RAM = `${API_ADMIN_PRODUCTS}/ram` as string
 export const API_ADMIN_HARD_DRIVE = `${API_ADMIN_PRODUCTS}/harddrive` as string
@@ -45,10 +46,8 @@ export const API_ADMIN_PRODUCT_DETAIL
 export const API_ADMIN_PRODUCT_BRAND = `${API_ADMIN_PRODUCTS}/brand` as string
 export const API_ADMIN_PRODUCT_OPERATING_SYSTEM
   = `${API_ADMIN_PRODUCTS}/operating` as string
-export const API_ADMIN_BATTERY = `${API_ADMIN_PRODUCTS}/battery` as string
 export const API_ADMIN_DISCOUNT
   = `${PREFIX_API_ADMIN}/discounts/discount` as string
-
 export const API_ADMIN_PRODUCT_VOUCHER
   = `${API_ADMIN_PRODUCTS}/voucher` as string
 

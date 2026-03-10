@@ -94,6 +94,17 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
             LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
             LEFT JOIN Discount d on pdd.discount.id = d.id
             WHERE pd.id IN :ids
+            GROUP BY
+                pd.id
+                , pd.price
+                , pd.name
+                , pd.urlImage
+                , pd.cpu.name
+                , pd.ram.name
+                , pd.hardDrive.name
+                , pd.gpu.name
+                , pd.color.name
+                , pd.material.name
             """)
     List<ClientBanHangProductDetailCartResponse> findProductDetailCartResponseByIdIn(List<String> ids, Long time);
 

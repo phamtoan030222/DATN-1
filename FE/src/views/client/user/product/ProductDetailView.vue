@@ -7,6 +7,7 @@ import {
   Flash,
   RefreshOutline,
   TicketOutline,
+  TimeOutline,
 } from '@vicons/ionicons5'
 import {
   NButton,
@@ -38,7 +39,7 @@ import {
 
 import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
 import { getVouchers } from '@/service/api/client/discount/api.voucher'
-import { useCartStore } from '@/store/app/card'
+import { useCartStore } from '@/store/app/cart'
 
 // --- CONFIG ---
 const route = useRoute()
@@ -49,6 +50,7 @@ const message = useMessage()
 const loading = ref(false)
 const loadingCart = ref(false)
 const { addToCart } = useCartStore()
+
 // Product Data
 const product = ref<any>(null)
 const allVariants = ref<any[]>([])
@@ -78,31 +80,19 @@ const rawVoucherList = ref<ADVoucherResponse[]>([])
 const selectedVoucher = ref<ADVoucherResponse | null>(null)
 const timeLeft = ref('')
 let timerInterval: any = null
+
+// --- TRẠNG THÁI SALE ---
 const isFlashSaleEnded = ref(false)
-const notification = useNotification()
+const isUpcomingSale = ref(false)
+const isOngoingSale = ref(false)
+
 // ==========================================
 // 1. LOGIC GIỎ HÀNG
 // ==========================================
 
 function handleAddToCart() {
   addToCart(product.value.id, quantity.value)
-
-  notification.success({
-    title: 'Đã thêm vào giỏ hàng!',
-    content: `Bạn vừa thêm "${product.value.name}" thành công.`,
-    duration: 3000,
-    keepAliveOnHover: true,
-    action: () =>
-      h(
-        NButton,
-        {
-          text: true,
-          type: 'primary',
-          onClick: () => router.push({ name: 'Cart' }),
-        },
-        { default: () => 'Xem giỏ hàng ngay' },
-      ),
-  })
+  message.success('Đã thêm sản phẩm vào giỏ hàng')
 }
 function handleBuyNow() {
   addToCart(product.value.id, quantity.value)
@@ -119,6 +109,15 @@ async function fetchData(id: string) {
     const res = await getProductDetailById(id)
     if (res.data) {
       product.value = res.data
+
+      // [THAY ĐỔI QUAN TRỌNG]: Ghi đè dữ liệu giảm giá từ URL (truyền từ Home sang)
+      if (route.query.pct)
+        product.value.percentage = Number(route.query.pct)
+      if (route.query.sd)
+        product.value.startDate = Number(route.query.sd)
+      if (route.query.ed)
+        product.value.endDate = Number(route.query.ed)
+
       selectedImage.value = product.value.urlImage || 'https://via.placeholder.com/500'
 
       // Set options mặc định theo sản phẩm đang xem
@@ -143,10 +142,13 @@ async function fetchData(id: string) {
         colorOptions.value = colorOptions.value.filter(opt => allVariants.value.some((v: any) => v.idColor === opt.value))
       }
 
-      if (!product.value.endDate && allVariants.value.length > 0) {
+      // Gán startDate và endDate từ variant (Chỉ fallback nếu trên URL KHÔNG có)
+      if (!product.value.endDate && !route.query.ed && allVariants.value.length > 0) {
         const currentVariant = allVariants.value.find((v: any) => v.id === product.value.id)
         if (currentVariant && currentVariant.endDate) {
           product.value.endDate = currentVariant.endDate
+          product.value.startDate = currentVariant.startDate
+          product.value.percentage = currentVariant.percentage
         }
       }
 
@@ -223,12 +225,10 @@ async function loadGlobalOptions() {
   }
 }
 
-// 1. CẬP NHẬT: Lấy danh sách biến thể theo idProduct thay vì tên sản phẩm
 async function loadAllVariants(idProduct: string) {
   try {
     if (!idProduct)
       return
-    // Vì backend yêu cầu mảng nên ta truyền [idProduct]
     const res = await getProductDetails({ page: 1, size: 100, idProduct: [idProduct] })
     let list: any[] = []
     if (res?.data) {
@@ -247,9 +247,7 @@ async function loadAllVariants(idProduct: string) {
   }
 }
 
-// 2. CẬP NHẬT: Logic click chọn bản linh hoạt
 async function selectVariantOption(type: string, val: string) {
-  // Gán tạm giá trị mới
   if (type === 'GPU')
     selectedGpu.value = val
   if (type === 'CPU')
@@ -261,7 +259,6 @@ async function selectVariantOption(type: string, val: string) {
   if (type === 'COLOR')
     selectedColor.value = val
 
-  // Thử tìm máy khớp chính xác với tất cả tiêu chí đang chọn
   let match = allVariants.value.find(v =>
     (!selectedGpu.value || v.idGPU === selectedGpu.value)
     && (!selectedCpu.value || v.idCPU === selectedCpu.value)
@@ -270,7 +267,6 @@ async function selectVariantOption(type: string, val: string) {
     && (!selectedColor.value || v.idColor === selectedColor.value),
   )
 
-  // Nếu không có cấu hình chính xác tuyệt đối, tìm 1 máy gần đúng có thuộc tính vừa chọn
   if (!match) {
     match = allVariants.value.find((v) => {
       if (type === 'GPU')
@@ -287,9 +283,9 @@ async function selectVariantOption(type: string, val: string) {
     })
   }
 
-  // Nếu tìm thấy và khác ID hiện tại -> chuyển URL
   if (match && match.id !== product.value.id) {
-    await router.replace({ params: { id: match.id } })
+    // Kèm theo query params hiện tại (nếu có) để khi đổi màu vẫn nhớ đang xem flash sale
+    await router.replace({ params: { id: match.id }, query: route.query })
   }
 }
 
@@ -322,11 +318,8 @@ async function fetchAvailableVouchers() {
   catch (e) { console.error(e) }
 }
 
-const currentPercent = computed(() => {
-  if (isFlashSaleEnded.value)
-    return 0
-  return Number(product.value?.percentage) || 0
-})
+const rawPercent = computed(() => Number(product.value?.percentage) || 0)
+const currentPercent = computed(() => isOngoingSale.value ? rawPercent.value : 0)
 
 const listPrice = computed(() => Number(product.value?.price) || 0)
 const sellingPrice = computed(() => {
@@ -365,29 +358,55 @@ const finalTotalPrice = computed(() => {
   return total > 0 ? total : 0
 })
 
+// [THAY ĐỔI QUAN TRỌNG]: Logic đếm ngược đồng bộ hoàn toàn với Home.vue
 function startCountdown() {
-  isFlashSaleEnded.value = false
-  const rawEndDate = product.value?.endDate
-
-  if (!rawEndDate) {
-    isFlashSaleEnded.value = true
-    timeLeft.value = ''
-    if (timerInterval)
-      clearInterval(timerInterval)
-    return
-  }
-
-  const endTimestamp = new Date(rawEndDate).getTime()
   if (timerInterval)
     clearInterval(timerInterval)
 
+  const rawStartDate = product.value?.startDate
+  const rawEndDate = product.value?.endDate
+
+  const parseSafeDate = (dateStr: any) => {
+    if (!dateStr)
+      return 0
+    const safeStr = typeof dateStr === 'string' ? dateStr.replace(/-/g, '/') : dateStr
+    const timestamp = new Date(safeStr).getTime()
+    return isNaN(timestamp) ? 0 : timestamp
+  }
+
+  const startTimestamp = parseSafeDate(rawStartDate)
+  const endTimestamp = parseSafeDate(rawEndDate)
+
+  if (!endTimestamp) {
+    isFlashSaleEnded.value = true
+    isUpcomingSale.value = false
+    isOngoingSale.value = false
+    timeLeft.value = ''
+    return
+  }
+
   const updateTimer = () => {
     const now = new Date().getTime()
-    const distance = endTimestamp - now
+    let distance = 0
 
-    if (distance <= 0) {
+    if (now < startTimestamp) {
+      isUpcomingSale.value = true
+      isOngoingSale.value = false
+      isFlashSaleEnded.value = false
+      distance = startTimestamp - now
+    }
+    else if (now >= startTimestamp && now <= endTimestamp) {
+      isUpcomingSale.value = false
+      isOngoingSale.value = true
+      isFlashSaleEnded.value = false
+      distance = endTimestamp - now
+    }
+    else {
+      isUpcomingSale.value = false
+      isOngoingSale.value = false
       isFlashSaleEnded.value = true
       clearInterval(timerInterval)
+      timeLeft.value = ''
       return
     }
 
@@ -395,12 +414,13 @@ function startCountdown() {
     const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
     const m = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60))
     const s = Math.floor((distance % (1000 * 60)) / 1000)
-    const f = (n: number) => (n < 10 ? `0${n}` : n)
 
-    timeLeft.value = d > 0 ? `${d} ngày ${f(h)}:${f(m)}:${f(s)}` : `${f(h)}:${f(m)}:${f(s)}`
+    const f = (n: number) => n.toString().padStart(2, '0')
+    timeLeft.value = d > 0 ? `${d} Ngày ${f(h)}:${f(m)}:${f(s)}` : `${f(h)}:${f(m)}:${f(s)}`
   }
 
   updateTimer()
+
   if (!isFlashSaleEnded.value) {
     timerInterval = setInterval(updateTimer, 1000)
   }
@@ -455,11 +475,21 @@ onUnmounted(() => {
         <NGridItem>
           <div class="gallery-box relative mb-8">
             <div class="main-image-wrapper border border-gray-100 rounded-lg overflow-hidden bg-white">
-              <img :src="selectedImage" class="w-full h-full object-contain p-4"
-                @error="selectedImage = 'https://via.placeholder.com/500'">
-              <div v-if="currentPercent > 0"
-                class="absolute top-4 left-4 bg-red-600 text-white font-bold px-3 py-1 rounded shadow-md z-10 animate-pulse">
-                -{{ currentPercent }}%
+              <img
+                :src="selectedImage" class="w-full h-full object-contain p-4"
+                @error="selectedImage = 'https://via.placeholder.com/500'"
+              >
+              <div
+                v-if="isOngoingSale && rawPercent > 0"
+                class="absolute top-4 left-4 bg-red-600 text-white font-bold px-3 py-1 rounded shadow-md z-10 animate-pulse"
+              >
+                -{{ rawPercent }}%
+              </div>
+              <div
+                v-else-if="isUpcomingSale && rawPercent > 0"
+                class="absolute top-4 left-4 bg-blue-600 text-white font-bold px-3 py-1 rounded shadow-md z-10"
+              >
+                Sắp giảm {{ rawPercent }}%
               </div>
             </div>
           </div>
@@ -468,8 +498,10 @@ onUnmounted(() => {
             <h3 class="font-bold mb-4 border-l-4 border-green-600 pl-3 text-lg text-gray-800">
               Thông số cấu hình chi tiết
             </h3>
-            <NDescriptions bordered label-placement="left" size="small" :column="1"
-              label-style="width: 140px; font-weight: 600; background-color: #f0fdf4; color: #166534;">
+            <NDescriptions
+              bordered label-placement="left" size="small" :column="1"
+              label-style="width: 140px; font-weight: 600; background-color: #f0fdf4; color: #166534;"
+            >
               <NDescriptionsItem label="CPU">
                 {{ product.cpuName || product.cpu || product.idCPU || 'Đang cập nhật' }}
               </NDescriptionsItem>
@@ -484,9 +516,9 @@ onUnmounted(() => {
               <NDescriptionsItem label="Ổ cứng">
                 {{
                   product.hardDriveName
-                  || product.hardDrive
-                  || product.idHardDrive
-                  || 'Đang cập nhật'
+                    || product.hardDrive
+                    || product.idHardDrive
+                    || 'Đang cập nhật'
                 }}
               </NDescriptionsItem>
               <NDescriptionsItem label="Màn hình">
@@ -502,8 +534,7 @@ onUnmounted(() => {
                 {{ product.materialName || product.material || product.idMaterial || 'Đang cập nhật' }}
               </NDescriptionsItem>
               <NDescriptionsItem label="Hệ điều hành">
-                {{ product.operatingSystem || product.operatingSystemName || product.idOperatingSystem
-                  || 'Đang cập nhật' }}
+                {{ product.operatingSystem || product.operatingSystemName || product.idOperatingSystem || 'Đang cập nhật' }}
               </NDescriptionsItem>
             </NDescriptions>
           </div>
@@ -521,37 +552,53 @@ onUnmounted(() => {
               <span>(Mã: {{ product.code }})</span>
             </div>
 
-            <div v-if="currentPercent > 0"
-              class="flash-sale-bar bg-gradient-to-r from-red-600 to-orange-500 text-white p-3 rounded-t-lg flex justify-between items-center shadow-md select-none">
+            <div
+              v-if="isOngoingSale || isUpcomingSale"
+              class="flash-sale-bar text-white p-3 rounded-t-lg flex justify-between items-center shadow-md select-none transition-colors"
+              :class="isOngoingSale ? 'bg-gradient-to-r from-red-600 to-orange-500' : 'bg-gradient-to-r from-blue-700 to-indigo-600'"
+            >
               <div class="flex items-center gap-2">
-                <NIcon size="24" class="animate-pulse">
-                  <Flash />
+                <NIcon size="24" :class="isOngoingSale ? 'animate-pulse text-yellow-300' : 'animate-bounce text-cyan-300'">
+                  <Flash v-if="isOngoingSale" />
+                  <TimeOutline v-else />
                 </NIcon>
-                <span class="font-bold text-lg uppercase tracking-wide">FLASH SALE</span>
+                <span class="font-bold text-lg uppercase tracking-wide">
+                  {{ isOngoingSale ? 'FLASH SALE' : 'SẮP DIỄN RA' }}
+                </span>
               </div>
               <div class="flex items-center gap-2 bg-black/20 px-3 py-1 rounded backdrop-blur-sm">
-                <span class="text-xs opacity-90">Kết thúc trong:</span>
-                <span class="font-mono font-bold text-lg text-yellow-300">{{ timeLeft }}</span>
+                <span class="text-xs opacity-90">{{ isOngoingSale ? 'Kết thúc trong:' : 'Bắt đầu trong:' }}</span>
+                <span class="font-mono font-bold text-lg" :class="isOngoingSale ? 'text-yellow-300' : 'text-cyan-300'">{{ timeLeft }}</span>
               </div>
             </div>
 
-            <div class="price-section bg-red-50/50 p-5 border border-red-100 mb-6 transition-all" :class="{
-              'rounded-b-lg border-t-0': currentPercent > 0,
-              'rounded-lg': currentPercent <= 0,
-            }">
-              <div v-if="currentPercent > 0" class="flex items-center gap-2 mb-1">
+            <div
+              class="price-section p-5 border mb-6 transition-all"
+              :class="{
+                'bg-red-50/50 border-red-100 rounded-b-lg border-t-0': isOngoingSale,
+                'bg-blue-50/50 border-blue-100 rounded-b-lg border-t-0': isUpcomingSale,
+                'bg-gray-50 border-gray-200 rounded-lg': !isOngoingSale && !isUpcomingSale,
+              }"
+            >
+              <div v-if="isOngoingSale && rawPercent > 0" class="flex items-center gap-2 mb-1">
                 <span class="text-gray-400 text-sm">Giá niêm yết:</span>
                 <span class="text-gray-400 text-lg line-through font-medium">{{
                   formatCurrency(listPrice)
-                  }}</span>
-                <span class="text-red-600 text-xs font-bold bg-red-100 px-2 py-0.5 rounded-full">-{{ currentPercent
-                  }}%</span>
+                }}</span>
+                <span class="text-red-600 text-xs font-bold bg-red-100 px-2 py-0.5 rounded-full">-{{ rawPercent }}%</span>
               </div>
-              <div class="flex items-baseline gap-2">
-                <span class="text-4xl font-bold text-red-600 tracking-tight">{{
-                  formatCurrency(sellingPrice)
-                  }}</span>
-                <span v-if="currentPercent <= 0" class="text-xs text-gray-500">(Giá đã bao gồm VAT)</span>
+
+              <div v-else-if="isUpcomingSale && rawPercent > 0" class="flex items-center gap-2 mb-1">
+                <span class="text-gray-500 text-sm font-medium">Sắp mở bán với giá:</span>
+                <span class="text-blue-600 font-bold text-lg">{{ formatCurrency(listPrice * (100 - rawPercent) / 100) }}</span>
+                <span class="text-blue-600 text-xs font-bold bg-blue-100 px-2 py-0.5 rounded-full">Dự kiến giảm {{ rawPercent }}%</span>
+              </div>
+
+              <div class="flex items-baseline gap-2 mt-1">
+                <span class="text-4xl font-bold tracking-tight" :class="(isOngoingSale || isFlashSaleEnded) ? 'text-red-600' : 'text-blue-700'">
+                  {{ formatCurrency(sellingPrice) }}
+                </span>
+                <span v-if="!isOngoingSale" class="text-xs text-gray-500">(Giá thanh toán hiện tại)</span>
               </div>
             </div>
 
@@ -576,8 +623,10 @@ onUnmounted(() => {
                     GPU
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <button v-for="opt in gpuOptions" :key="opt.value" class="chip"
-                      :class="{ active: selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)">
+                    <button
+                      v-for="opt in gpuOptions" :key="opt.value" class="chip"
+                      :class="{ active: selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)"
+                    >
                       {{ opt.label }}
                     </button>
                   </div>
@@ -588,8 +637,10 @@ onUnmounted(() => {
                     CPU
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <button v-for="opt in cpuOptions" :key="opt.value" class="chip"
-                      :class="{ active: selectedCpu === opt.value }" @click="selectVariantOption('CPU', opt.value)">
+                    <button
+                      v-for="opt in cpuOptions" :key="opt.value" class="chip"
+                      :class="{ active: selectedCpu === opt.value }" @click="selectVariantOption('CPU', opt.value)"
+                    >
                       {{ opt.label }}
                     </button>
                   </div>
@@ -600,8 +651,10 @@ onUnmounted(() => {
                     RAM
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <button v-for="opt in ramOptions" :key="opt.value" class="chip"
-                      :class="{ active: selectedRam === opt.value }" @click="selectVariantOption('RAM', opt.value)">
+                    <button
+                      v-for="opt in ramOptions" :key="opt.value" class="chip"
+                      :class="{ active: selectedRam === opt.value }" @click="selectVariantOption('RAM', opt.value)"
+                    >
                       {{ opt.label }}
                     </button>
                   </div>
@@ -612,9 +665,11 @@ onUnmounted(() => {
                     Ổ cứng
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <button v-for="opt in hardDriveOptions" :key="opt.value" class="chip"
+                    <button
+                      v-for="opt in hardDriveOptions" :key="opt.value" class="chip"
                       :class="{ active: selectedHardDrive === opt.value }"
-                      @click="selectVariantOption('HDD', opt.value)">
+                      @click="selectVariantOption('HDD', opt.value)"
+                    >
                       {{ opt.label }}
                     </button>
                   </div>
@@ -625,8 +680,10 @@ onUnmounted(() => {
                     Màu sắc
                   </div>
                   <div class="flex flex-wrap gap-2">
-                    <button v-for="opt in colorOptions" :key="opt.value" class="chip"
-                      :class="{ active: selectedColor === opt.value }" @click="selectVariantOption('COLOR', opt.value)">
+                    <button
+                      v-for="opt in colorOptions" :key="opt.value" class="chip"
+                      :class="{ active: selectedColor === opt.value }" @click="selectVariantOption('COLOR', opt.value)"
+                    >
                       {{ opt.label }}
                     </button>
                   </div>
@@ -635,7 +692,8 @@ onUnmounted(() => {
             </div>
 
             <div
-              class="voucher-section mb-6 border border-dashed border-red-300 bg-red-50 p-4 rounded-lg hover:bg-red-100/50 transition-colors">
+              class="voucher-section mb-6 border border-dashed border-red-300 bg-red-50 p-4 rounded-lg hover:bg-red-100/50 transition-colors"
+            >
               <div class="flex justify-between items-center">
                 <div class="flex items-center gap-2 text-red-700 font-bold">
                   <NIcon size="20">
@@ -647,8 +705,10 @@ onUnmounted(() => {
                   {{ selectedVoucher ? 'Đổi mã khác' : 'Chọn mã giảm giá' }}
                 </NButton>
               </div>
-              <div v-if="selectedVoucher"
-                class="mt-3 bg-white border border-red-200 p-3 rounded flex justify-between items-center shadow-sm">
+              <div
+                v-if="selectedVoucher"
+                class="mt-3 bg-white border border-red-200 p-3 rounded flex justify-between items-center shadow-sm"
+              >
                 <div>
                   <div class="font-bold text-red-600">
                     {{ selectedVoucher.code }}
@@ -680,16 +740,22 @@ onUnmounted(() => {
               </div>
 
               <div class="flex gap-4 h-12">
-                <n-popconfirm :positive-button-props="{ type: 'success' }" :disabled="isOutOfStock"
-                  positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleBuyNow">
+                <n-popconfirm
+                  :positive-button-props="{ type: 'success' }" :disabled="isOutOfStock"
+                  positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleBuyNow"
+                >
                   <template #trigger>
-                    <NButton v-if="!isOutOfStock" type="primary"
+                    <NButton
+                      v-if="!isOutOfStock" type="primary"
                       class="flex-1 h-full text-lg font-bold shadow-lg shadow-green-200 hover:-translate-y-0.5 transition-transform"
-                      color="#059669" :loading="loadingCart">
+                      color="#059669" :loading="loadingCart"
+                    >
                       MUA NGAY
                     </NButton>
-                    <NButton v-else disabled
-                      class="flex-1 h-full text-lg font-bold bg-gray-300 text-gray-500 cursor-not-allowed">
+                    <NButton
+                      v-else disabled
+                      class="flex-1 h-full text-lg font-bold bg-gray-300 text-gray-500 cursor-not-allowed"
+                    >
                       <template #icon>
                         <NIcon>
                           <AlertCircleOutline />
@@ -700,12 +766,16 @@ onUnmounted(() => {
                   </template>
                   Bạn chắc chắn muốn thao tác
                 </n-popconfirm>
-                <n-popconfirm :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
-                  @positive-click="handleAddToCart">
+                <n-popconfirm
+                  :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
+                  @positive-click="handleAddToCart"
+                >
                   <template #trigger>
-                    <NButton strong secondary type="info"
+                    <NButton
+                      strong secondary type="info"
                       class="flex-1 h-full text-lg font-bold hover:-translate-y-0.5 transition-transform"
-                      :disabled="isOutOfStock" :loading="loadingCart">
+                      :disabled="isOutOfStock" :loading="loadingCart"
+                    >
                       <template #icon>
                         <NIcon>
                           <CartOutline />
@@ -731,13 +801,17 @@ onUnmounted(() => {
         <NEmpty description="Tiếc quá! Chưa có mã giảm giá nào phù hợp" />
       </div>
       <div v-else class="space-y-3 p-1 max-h-[400px] overflow-y-auto">
-        <div v-for="(v, index) in validVouchers" :key="v.id"
+        <div
+          v-for="(v, index) in validVouchers" :key="v.id"
           class="border rounded-lg p-3 cursor-pointer transition-all hover:shadow-md relative bg-white group" :class="{
             'border-red-500 bg-red-50 ring-1 ring-red-200': selectedVoucher?.id === v.id,
             'border-gray-200': selectedVoucher?.id !== v.id,
-          }" @click="handleSelectVoucher(v)">
-          <div v-if="index === 0"
-            class="absolute -top-2 -right-2 bg-yellow-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm z-10 font-bold">
+          }" @click="handleSelectVoucher(v)"
+        >
+          <div
+            v-if="index === 0"
+            class="absolute -top-2 -right-2 bg-yellow-500 text-white text-[10px] px-2 py-0.5 rounded-full shadow-sm z-10 font-bold"
+          >
             TỐT NHẤT
           </div>
           <div class="flex justify-between items-start">
@@ -745,7 +819,7 @@ onUnmounted(() => {
               <div class="flex items-center gap-2">
                 <span class="font-bold text-lg text-red-600 group-hover:text-red-700">{{
                   v.code
-                  }}</span>
+                }}</span>
                 <NTag size="tiny" type="error" bordered>
                   {{ v.typeVoucher === 'PERCENTAGE' ? 'Giảm %' : 'Giảm tiền' }}
                 </NTag>
@@ -769,8 +843,10 @@ onUnmounted(() => {
               </div>
             </div>
             <div class="flex items-center justify-center h-full pl-3">
-              <div class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center"
-                :class="{ 'bg-red-500 border-red-500': selectedVoucher?.id === v.id }">
+              <div
+                class="w-5 h-5 rounded-full border border-gray-300 flex items-center justify-center"
+                :class="{ 'bg-red-500 border-red-500': selectedVoucher?.id === v.id }"
+              >
                 <NIcon v-if="selectedVoucher?.id === v.id" color="white" size="14">
                   <CheckmarkCircle />
                 </NIcon>
@@ -788,7 +864,6 @@ onUnmounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 30px 20px;
-  /* background-color: #fff; */
   min-height: 80vh;
 }
 
@@ -824,7 +899,6 @@ onUnmounted(() => {
   font-weight: 600;
 }
 
-/* override confirm button inside n-popconfirm in this component */
 :deep(.n-popconfirm__action .n-button--info-type) {
   background-color: #18a058 !important;
   border-color: #18a058 !important;

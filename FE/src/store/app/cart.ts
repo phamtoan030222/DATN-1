@@ -57,7 +57,7 @@ export const useCartStore = defineStore('cart', () => {
 
         const res = await getProductDetailCart(Object.keys(cartItemStorage))
         cartItems.value = (res.data || []).map((item: any) => {
-          return { ...item, quantity: cartItemStorage[item.id] || 0 }
+          return { ...item, quantity: cartItemStorage[item.id] || 0, productDetailId: item.id }
         })
       }
     } catch (error) {
@@ -129,7 +129,7 @@ export const useCartStore = defineStore('cart', () => {
   /**
    * Xóa sản phẩm khỏi giỏ hàng
    */
-  const removeCart = (idProductDetail: string, option?: { buyNow?: boolean }) => {
+  const removeCart = async (idProductDetail: string, option?: { buyNow?: boolean }) => {
     try {
       const { buyNow } = option || {}
 
@@ -139,7 +139,7 @@ export const useCartStore = defineStore('cart', () => {
       }
 
       if (cartId.value) {
-        themSanPham({
+        await themSanPham({
           cartId: cartId.value as string,
           productDetailId: idProductDetail,
           quantity: 0

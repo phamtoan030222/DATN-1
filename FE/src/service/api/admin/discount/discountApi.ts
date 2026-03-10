@@ -415,3 +415,11 @@ export const sendEmail = async (id: string) => {
   const res = await request.post(`${API_ADMIN_DISCOUNT}/sendEmail/${id}`)
   return res.data
 }
+
+export async function updateDiscountStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
+  return request({
+    url: `${API_ADMIN_DISCOUNT}/${id}/status`,
+    method: 'PATCH',
+    data: { status },
+  })
+}

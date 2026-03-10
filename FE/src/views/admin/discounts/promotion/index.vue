@@ -20,7 +20,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { getAllDiscounts,deleteDiscount } from '@/service/api/admin/discount/discountApi'
+import { getAllDiscounts, deleteDiscount , updateDiscountStatus } from '@/service/api/admin/discount/discountApi'
 import type { DiscountResponse, ParamsGetDiscount } from '@/service/api/admin/discount/discountApi'
 import { useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
@@ -421,7 +421,7 @@ watch(searchForm, () => { currentPage.value = 1 })
                 </NIcon>
               </template>
               <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                Tạo đợt giảm giá
+                Tạo mới
               </span>
             </NButton>
 
@@ -454,7 +454,7 @@ watch(searchForm, () => { currentPage.value = 1 })
                 </NIcon>
               </template>
               <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                Tải lại dữ liệu
+                Tải lại
               </span>
             </NButton>
           </NSpace>

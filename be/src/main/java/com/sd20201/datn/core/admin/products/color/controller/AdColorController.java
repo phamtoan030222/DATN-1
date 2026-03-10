@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.products.color.controller;
 
+import com.sd20201.datn.core.admin.products.brand.model.request.ADCreateBrandRequest;
 import com.sd20201.datn.core.admin.products.color.model.request.AdColorRequest;
 import com.sd20201.datn.core.admin.products.color.model.request.ColorCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.color.service.AdColorService;
@@ -9,6 +10,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,7 +31,17 @@ public class AdColorController {
     }
 
     @PostMapping("/add")
-    public ResponseEntity<?> updateColor(@RequestBody ColorCreateUpdateRequest request){
+    public ResponseEntity<?> cteateColor(@RequestBody ColorCreateUpdateRequest request){
         return Helper.createResponseEntity(adColorService.createColor(request));
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateColor(@PathVariable String id, @RequestBody ColorCreateUpdateRequest request) {
+        return Helper.createResponseEntity(adColorService.updateColor(id, request));
+    }
+
+    @PatchMapping("/{id}/status")
+    public ResponseEntity<?> updateColorStatus(@PathVariable String id) {
+        return Helper.createResponseEntity(adColorService.updateColorStatus(id));
     }
 }

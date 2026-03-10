@@ -554,7 +554,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
   {
     name: 'support_chat',
     path: '/support/chat',
-    title: 'Chat thường',
+    title: 'Chat',
     requiresAuth: true,
     roles: ['QUAN_LY', 'NHAN_VIEN'],
     icon: 'icon-park-outline:communication',

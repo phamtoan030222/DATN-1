@@ -16,13 +16,15 @@ import hero2 from '@/assets/images/bg4.jpg'
 import hero3 from '@/assets/images/banner7.jpg'
 
 // Import API Sản phẩm thường
-import { getProductDetails } from '@/service/api/client/product/productDetail.api'
-import type { ADProductDetailRequest, ADProductDetailResponse } from '@/service/api/client/product/productDetail.api'
+import { getNearestUpcomingDiscounts, getOngoingDiscounts, getProductDetails } from '@/service/api/client/product/productDetail.api'
+import type {
+  ADProductDetailRequest,
+  ADProductDetailResponse,
+  DiscountProductRequest,
+  DiscountProductResponse,
+} from '@/service/api/client/product/productDetail.api'
 
 import { getBrands } from '@/service/api/client/product/product.api'
-// Import API Giảm giá (Sự kiện)
-import { getAllDiscounts, getAppliedProducts } from '@/service/api/client/discount/discountApi'
-import type { AppliedProductResponse, DiscountResponse } from '@/service/api/client/discount/discountApi'
 
 const router = useRouter()
 
@@ -41,7 +43,7 @@ const quickBenefits = ref([
   { id: 1, icon: 'icon-park-outline:delivery', title: 'Giao nhanh', desc: 'Toàn quốc 1–3 ngày' },
   { id: 2, icon: 'icon-park-outline:protect', title: 'Bảo hành', desc: 'Minh bạch, rõ ràng' },
   { id: 3, icon: 'icon-park-outline:customer', title: 'Tư vấn', desc: 'Đúng nhu cầu' },
-  { id: 4, icon: 'icon-park-outline:credit', title: 'Trả góp', desc: '0% lãi suất' },
+  { id: 4, icon: 'icon-park-outline:cgreenit', title: 'Trả góp', desc: '0% lãi suất' },
 ])
 
 // --- QUẢN LÝ DANH SÁCH HÃNG (BRAND) ĐỘNG ---
@@ -64,14 +66,13 @@ const brandStyleMap: Record<string, any> = {
   asus: { textStyling: 'text-black font-black text-xl' },
   dell: { textStyling: 'text-blue-800 font-black text-xl' },
   hp: { textStyling: 'text-blue-500 font-bold text-xl' },
-  lenovo: { textStyling: 'text-red-600 font-bold text-xl' },
+  lenovo: { textStyling: 'text-green-600 font-bold text-xl' },
   acer: { textStyling: 'text-green-600 font-bold text-xl' },
 }
 
 async function fetchBrands() {
   try {
     const res: any = await getBrands()
-    // LƯU Ý: API getBrands trả về mảng thuộc tính có key là 'value' và 'label'
     const apiBrands = res?.data || []
 
     brands.value = apiBrands.map((b: any) => {
@@ -93,12 +94,33 @@ async function fetchBrands() {
   }
 }
 
-// --- QUẢN LÝ SỰ KIỆN GIẢM GIÁ ---
+// --- QUẢN LÝ GIẢM GIÁ (2 API ongoing / upcoming) ---
 const currentTime = ref(new Date().getTime())
 let timer: ReturnType<typeof setInterval> | null = null
 
-const currentEvent = ref<{ info: DiscountResponse, products: AppliedProductResponse[] } | null>(null)
-const upcomingEvent = ref<{ info: DiscountResponse, products: AppliedProductResponse[] } | null>(null)
+const ongoingDiscountProducts = ref<DiscountProductResponse[]>([])
+const upcomingDiscountProducts = ref<DiscountProductResponse[]>([])
+
+const ongoingDiscountInfo = computed(() => ongoingDiscountProducts.value?.[0] ?? null)
+const upcomingDiscountInfo = computed(() => upcomingDiscountProducts.value?.[0] ?? null)
+
+function extractItems<T = any>(res: any): T[] {
+  const payload = res?.data ?? res
+  const d = payload?.data ?? payload
+
+  if (Array.isArray(d))
+    return d as T[]
+  if (Array.isArray(d?.items))
+    return d.items as T[]
+  if (Array.isArray(d?.data))
+    return d.data as T[]
+  if (Array.isArray(d?.data?.data))
+    return d.data.data as T[]
+  if (Array.isArray(d?.data?.items))
+    return d.data.items as T[]
+
+  return []
+}
 
 function getCountdown(targetTime: number) {
   const diff = targetTime - currentTime.value
@@ -118,28 +140,21 @@ function getCountdown(targetTime: number) {
   }
 }
 
-async function fetchRealDiscounts() {
+async function fetchDiscountProducts() {
   loadingDiscounts.value = true
   try {
-    const resDiscounts = await getAllDiscounts({ page: 1, size: 20 })
-    const allDiscounts = resDiscounts.items || []
-    const now = new Date().getTime()
+    const params: DiscountProductRequest = { page: 1, size: 15 }
 
-    const ongoing = allDiscounts.find((d: DiscountResponse) => d.startTime <= now && d.endTime >= now)
-    const upcoming = allDiscounts.find((d: DiscountResponse) => d.startTime > now)
+    const [ongoingRes, upcomingRes] = await Promise.all([
+      getOngoingDiscounts(params),
+      getNearestUpcomingDiscounts(params),
+    ])
 
-    if (ongoing) {
-      const resProducts = await getAppliedProducts(ongoing.id, { page: 1, size: 15 })
-      currentEvent.value = { info: ongoing, products: resProducts.items || [] }
-    }
-
-    if (upcoming) {
-      const resProducts = await getAppliedProducts(upcoming.id, { page: 1, size: 15 })
-      upcomingEvent.value = { info: upcoming, products: resProducts.items || [] }
-    }
+    ongoingDiscountProducts.value = extractItems<DiscountProductResponse>(ongoingRes)
+    upcomingDiscountProducts.value = extractItems<DiscountProductResponse>(upcomingRes)
   }
   catch (error) {
-    console.error('Lỗi khi tải dữ liệu giảm giá:', error)
+    console.error('Lỗi khi tải dữ liệu giảm giá (ongoing/upcoming):', error)
   }
   finally {
     loadingDiscounts.value = false
@@ -148,7 +163,7 @@ async function fetchRealDiscounts() {
 
 // --- QUẢN LÝ SẢN PHẨM MỚI NHẤT ---
 const newest = computed(() => {
-  return [...productDetails.value].slice(0, 20)
+  return [...productDetails.value].slice(0, 10)
 })
 
 async function fetchNormalProducts() {
@@ -173,7 +188,6 @@ async function fetchNormalProducts() {
 // --- HÀM XỬ LÝ SỰ KIỆN ĐIỀU HƯỚNG ---
 function goProducts(brandId?: string) {
   if (brandId && typeof brandId === 'string') {
-    // Đẩy brandId qua query 'brand' để khớp với ProductListView
     router.push({ name: 'Products', query: { brand: brandId } })
   }
   else {
@@ -181,8 +195,22 @@ function goProducts(brandId?: string) {
   }
 }
 
-function handleClickProduct(id: string) {
-  router.push({ name: 'ProductDetail', params: { id } })
+function handleClickProduct(id: string, item?: any) {
+  const queryParams: any = {}
+  if (item) {
+    if (item.percentage !== undefined && item.percentage !== null)
+      queryParams.pct = item.percentage
+    if (item.startDate)
+      queryParams.sd = item.startDate
+    if (item.endDate)
+      queryParams.ed = item.endDate
+  }
+
+  router.push({
+    name: 'ProductDetail',
+    params: { id },
+    query: queryParams,
+  })
 }
 
 function formatCurrency(value: number) {
@@ -202,7 +230,7 @@ function handleImageError(e: Event) {
 
 onMounted(() => {
   fetchNormalProducts()
-  fetchRealDiscounts()
+  fetchDiscountProducts()
   fetchBrands()
 
   timer = setInterval(() => {
@@ -217,20 +245,22 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1300px] px-4 py-8 bg-gray-50/50 min-h-screen">
+  <div class="mx-auto max-w-[1300px] px-4 py-8 bg-[#f4f6f8] min-h-screen font-sans">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12">
-      <div class="lg:col-span-8 rounded-2xl overflow-hidden shadow-sm bg-white">
+      <div class="lg:col-span-8 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.08)] bg-white relative group">
         <NCarousel show-arrow autoplay draggable dot-type="line" class="h-[250px] md:h-[400px]">
-          <div v-for="b in heroBanners" :key="b.id" class="relative w-full h-full cursor-pointer" @click="goProducts()">
-            <img :src="b.url" :alt="b.title" class="w-full h-full object-cover">
-            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
-            <div class="absolute bottom-0 left-0 p-6 md:p-10">
-              <h2 class="text-white text-2xl md:text-4xl font-bold tracking-tight mb-4">
+          <div v-for="b in heroBanners" :key="b.id" class="relative w-full h-full cursor-pointer overflow-hidden" @click="goProducts()">
+            <img :src="b.url" :alt="b.title" class="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105">
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+            <div class="absolute bottom-0 left-0 p-6 md:p-10 w-full">
+              <h2 class="text-white text-2xl md:text-4xl font-extrabold tracking-tight mb-5 drop-shadow-md">
                 {{ b.title }}
               </h2>
-              <NButton type="primary" size="large"
-                class="!rounded-xl !font-semibold shadow-lg hover:-translate-y-0.5 transition-transform"
-                @click.stop="goProducts()">
+              <NButton
+                type="primary" size="large"
+                class="!rounded-xl !font-bold !px-8 shadow-[0_4px_14px_0_rgba(225,29,72,0.39)] hover:-translate-y-1 transition-all duration-300 bg-red-600 hover:bg-red-500 border-none"
+                @click.stop="goProducts()"
+              >
                 Khám phá ngay
               </NButton>
             </div>
@@ -239,22 +269,28 @@ onUnmounted(() => {
       </div>
 
       <div class="lg:col-span-4 flex flex-col gap-4">
-        <div class="bg-white rounded-2xl p-6 shadow-sm h-full flex flex-col justify-between">
+        <div class="bg-white rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-full flex flex-col justify-between border border-gray-100">
           <div>
-            <h3 class="text-lg font-bold text-gray-800 mb-4">
-              Đặc quyền mua sắm
-            </h3>
+            <div class="flex items-center gap-2 mb-6">
+              <NovaIcon icon="icon-park-solid:diamond" :size="24" class="text-green-600" />
+              <h3 class="text-xl font-extrabold text-gray-800 uppercase tracking-wide">
+                Đặc quyền mua sắm
+              </h3>
+            </div>
+
             <div class="grid grid-cols-2 gap-4">
-              <div v-for="b in quickBenefits" :key="b.id"
-                class="flex flex-col gap-2 p-3 rounded-xl bg-gray-50 hover:bg-red-50/50 transition-colors">
-                <div class="w-10 h-10 rounded-full bg-red-100/80 flex items-center justify-center text-[#d70018]">
-                  <NovaIcon :icon="b.icon" :size="20" />
+              <div
+                v-for="b in quickBenefits" :key="b.id"
+                class="flex flex-col gap-3 p-4 rounded-xl bg-gray-50/80 border border-gray-100 hover:border-green-200 hover:bg-green-50/50 hover:shadow-md transition-all duration-300 group cursor-default"
+              >
+                <div class="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-[#d70018] group-hover:scale-110 transition-transform">
+                  <NovaIcon :icon="b.icon" :size="24" />
                 </div>
                 <div>
-                  <div class="font-bold text-gray-900 text-sm">
+                  <div class="font-bold text-gray-900 text-sm mb-0.5">
                     {{ b.title }}
                   </div>
-                  <div class="text-xs text-gray-500 mt-0.5">
+                  <div class="text-[13px] text-gray-500 leading-tight">
                     {{ b.desc }}
                   </div>
                 </div>
@@ -267,86 +303,105 @@ onUnmounted(() => {
 
     <div class="mb-14">
       <div class="flex flex-col items-center justify-center mb-8">
-        <h2 class="text-xl font-bold text-gray-800 uppercase tracking-wider relative">
-          <span class="text-red-500 mr-1">|</span> CHỌN THEO HÃNG
+        <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wider relative flex items-center gap-2">
+          <NovaIcon icon="icon-park-solid:category-management" class="text-green-600" />
+          CHỌN THEO HÃNG
         </h2>
-        <div class="w-12 h-0.5 bg-red-500 mt-2" />
+        <div class="w-16 h-1 bg-red-600 mt-3 rounded-full" />
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4 px-2 md:px-10">
-        <button v-for="b in brands" :key="b.id"
-          class="bg-white rounded-xl h-14 md:h-16 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-md transition-all duration-300 border border-transparent hover:border-gray-200"
-          @click="goProducts(b.id)">
-          <img v-if="b.logoUrl" :src="b.logoUrl" :alt="b.name" class="max-h-8 object-contain px-4">
-          <div v-else class="flex items-center gap-1">
-            <NovaIcon v-if="b.icon" :icon="b.icon" :size="24" class="text-black" />
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-5 px-2 md:px-0">
+        <button
+          v-for="b in brands" :key="b.id"
+          class="bg-white rounded-2xl h-16 md:h-20 flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgba(215,0,24,0.15)] hover:-translate-y-1 transition-all duration-300 border border-gray-100 hover:border-green-200 group"
+          @click="goProducts(b.id)"
+        >
+          <img v-if="b.logoUrl" :src="b.logoUrl" :alt="b.name" class="max-h-10 object-contain px-4 group-hover:scale-110 transition-transform">
+          <div v-else class="flex items-center gap-2 group-hover:scale-110 transition-transform">
+            <NovaIcon v-if="b.icon" :icon="b.icon" :size="28" class="text-gray-800" />
             <span v-else :class="b.textStyling">{{ b.name }}</span>
           </div>
         </button>
       </div>
     </div>
 
-    <div v-if="currentEvent" class="mb-12">
-      <div
-        class="bg-gradient-to-r from-[#ef4444] to-[#f97316] rounded-2xl p-4 md:p-6 shadow-lg relative overflow-hidden">
-        <div class="flex flex-col md:flex-row items-center justify-between mb-6 gap-4 border-b border-white/20 pb-4">
-          <h2 class="text-2xl font-bold text-white flex items-center gap-2 z-10">
-            <span class="animate-pulse">🔥</span> ĐANG DIỄN RA: {{ currentEvent.info.discountName }}
-          </h2>
+    <div v-if="ongoingDiscountInfo" class="mb-14">
+      <div class="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 rounded-2xl p-4 md:p-5 shadow-[0_10px_40px_rgba(239,68,68,0.3)] relative overflow-hidden">
+        <div class="absolute -top-20 -right-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl" />
+        <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-yellow-400 opacity-20 rounded-full blur-3xl" />
 
-          <div class="flex items-center gap-2 z-10 bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm">
-            <span class="text-white text-sm font-medium mr-2">Kết thúc sau:</span>
-            <div class="flex items-center gap-1.5 font-bold">
-              <span v-if="getCountdown(currentEvent.info.endTime).d > 0" class="text-white mr-1">{{
-                getCountdown(currentEvent.info.endTime).d }} ngày</span>
-              <span class="bg-white text-red-600 px-2.5 py-1.5 rounded shadow-sm min-w-[36px] text-center">{{
-                getCountdown(currentEvent.info.endTime).h }}</span>
-              <span class="text-white">:</span>
-              <span class="bg-white text-red-600 px-2.5 py-1.5 rounded shadow-sm min-w-[36px] text-center">{{
-                getCountdown(currentEvent.info.endTime).m }}</span>
-              <span class="text-white">:</span>
-              <span class="bg-white text-red-600 px-2.5 py-1.5 rounded shadow-sm min-w-[36px] text-center">{{
-                getCountdown(currentEvent.info.endTime).s }}</span>
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-5 gap-4 border-b border-white/20 pb-4">
+          <div class="flex items-start gap-2 flex-1 min-w-0 z-10 mt-1">
+            <NovaIcon icon="icon-park-solid:lightning" class="text-yellow-300 animate-pulse shrink-0 mt-0.5" :size="34" />
+            <div class="flex flex-col">
+              <span class="text-yellow-200 text-[11px] md:text-xs font-black uppercase tracking-wider mb-1">
+                Đang diễn ra
+              </span>
+              <h2
+                class="text-xl md:text-2xl font-black text-white drop-shadow-md leading-snug break-words line-clamp-2"
+                :title="ongoingDiscountInfo.discountName"
+              >
+                {{ ongoingDiscountInfo.discountName }}
+              </h2>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 z-10 bg-black/20 px-3.5 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-inner shrink-0">
+            <span class="text-white/90 text-xs font-bold uppercase tracking-wider">Kết thúc sau</span>
+            <div class="flex items-center gap-1 font-black text-base">
+              <span v-if="getCountdown(ongoingDiscountInfo.endDate).d > 0" class="text-yellow-300 mr-1 text-sm">{{ getCountdown(ongoingDiscountInfo.endDate).d }} Ngày</span>
+              <span class="bg-white text-red-600 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(ongoingDiscountInfo.endDate).h }}</span>
+              <span class="text-white/70">:</span>
+              <span class="bg-white text-red-600 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(ongoingDiscountInfo.endDate).m }}</span>
+              <span class="text-white/70">:</span>
+              <span class="bg-white text-red-600 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(ongoingDiscountInfo.endDate).s }}</span>
             </div>
           </div>
         </div>
 
-        <div v-if="loadingDiscounts" class="py-10 flex justify-center">
+        <div v-if="loadingDiscounts" class="py-12 flex justify-center">
           <NSpin size="large" stroke="#ffffff" />
         </div>
-        <div v-else-if="currentEvent.products.length === 0" class="py-10 bg-white/10 rounded-xl">
+        <div v-else-if="ongoingDiscountProducts.length === 0" class="py-12 bg-white/10 rounded-xl backdrop-blur-sm">
           <p class="text-center text-white font-medium">
-            Sản phẩm đang được cập nhật
+            Sản phẩm đang được cập nhật...
           </p>
         </div>
 
-        <div v-else
-          class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 z-10 relative">
-          <div v-for="item in currentEvent.products" :key="item.id"
-            class="snap-start shrink-0 w-[240px] md:w-[260px] bg-white rounded-xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer relative group flex flex-col"
-            @click="handleClickProduct(item.productDetailCode || item.id)">
-            <div class="absolute top-0 left-0 z-10 flex flex-col gap-1 p-2">
-              <span v-if="item.percentageDiscount > 0"
-                class="bg-red-600 text-white text-[11px] font-bold px-2 py-1 rounded shadow-sm flex items-center gap-1">
-                GIẢM {{ item.percentageDiscount }}%
+        <div v-else class="flex gap-4 md:gap-5 overflow-x-auto pb-3 snap-x snap-mandatory hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 z-10 relative">
+          <div
+            v-for="item in ongoingDiscountProducts" :key="item.productDetailId"
+            class="snap-start shrink-0 w-[240px] md:w-[260px] bg-white rounded-2xl p-4 md:p-5 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer relative group flex flex-col border-2 border-transparent hover:border-yellow-400"
+            @click="handleClickProduct(item.productDetailId, item)"
+          >
+            <div class="absolute top-3 left-3 z-20">
+              <span v-if="item.percentage > 0" class="bg-gradient-to-r from-red-600 to-red-500 text-white text-[11px] font-black px-2.5 py-1 rounded-tr-xl rounded-bl-xl rounded-tl-sm rounded-br-sm shadow-md flex items-center gap-1 border border-green-400">
+                GIẢM {{ item.percentage }}%
               </span>
             </div>
 
-            <div
-              class="h-[180px] mt-6 mb-4 flex items-center justify-center group-hover:-translate-y-2 transition-transform duration-500">
-              <img :src="item.image" :alt="item.productName" class="max-w-full max-h-[160px] object-contain"
-                @error="handleImageError">
+            <div class="h-[160px] mt-6 mb-4 flex items-center justify-center group-hover:-translate-y-3 transition-transform duration-500 relative">
+              <img :src="item.urlImage" :alt="item.productName" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
             </div>
 
             <div class="flex flex-col gap-2 mt-auto">
-              <h3
-                class="text-sm font-bold text-gray-800 line-clamp-2 leading-tight group-hover:text-[#d70018] transition-colors">
-                {{ item.productName }}
+              <h3 class="text-[14px] font-bold text-gray-800 line-clamp-2 min-h-[40px] leading-snug group-hover:text-[#d70018] transition-colors">
+                {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
               </h3>
-              <div class="mt-2 flex flex-col">
-                <span class="text-red-600 text-lg font-black">{{ formatCurrency(salePrice(item.price,
-                  item.percentageDiscount)) }}</span>
-                <span class="text-gray-400 text-xs line-through font-medium">{{ formatCurrency(item.price) }}</span>
+
+              <div class="flex flex-wrap gap-1.5 mt-1">
+                <span v-if="item.ram" class="bg-orange-50 text-orange-500 text-[11px] font-semibold px-2 py-0.5 rounded border border-orange-200">{{ item.ram }}</span>
+                <span v-if="item.hardDrive" class="bg-orange-50 text-orange-500 text-[11px] font-semibold px-2 py-0.5 rounded border border-orange-200">{{ item.hardDrive }}</span>
+              </div>
+
+              <div class="mt-3 flex items-end justify-between">
+                <div class="flex flex-col">
+                  <span class="text-[#d70018] text-lg font-black leading-none">{{ formatCurrency(item.salePrice) }}</span>
+                  <span class="text-gray-400 text-xs line-through font-semibold mt-1">{{ formatCurrency(item.originalPrice) }}</span>
+                </div>
+                <div class="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors text-green-600">
+                  <NovaIcon icon="icon-park-outline:shopping-cart" :size="20" />
+                </div>
               </div>
             </div>
           </div>
@@ -354,56 +409,83 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div v-if="upcomingEvent" class="mb-12 opacity-90">
-      <div
-        class="bg-gradient-to-r from-[#3b82f6] to-[#8b5cf6] rounded-2xl p-4 md:p-6 shadow-md relative overflow-hidden">
-        <div class="flex flex-col md:flex-row items-center justify-between mb-6 gap-4 border-b border-white/20 pb-4">
-          <h2 class="text-2xl font-bold text-white flex items-center gap-2 z-10">
-            ⏳ SẮP DIỄN RA: {{ upcomingEvent.info.discountName }}
-          </h2>
+    <div v-if="upcomingDiscountInfo" class="mb-14">
+      <div class="bg-gradient-to-r from-blue-800 via-blue-700 to-indigo-600 rounded-2xl p-4 md:p-5 shadow-[0_10px_40px_rgba(37,99,235,0.2)] relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5" />
 
-          <div class="flex items-center gap-2 z-10 bg-white/10 px-4 py-2 rounded-lg backdrop-blur-sm">
-            <span class="text-white text-sm font-medium mr-2">Bắt đầu sau:</span>
-            <div class="flex items-center gap-1.5 font-bold">
-              <span v-if="getCountdown(upcomingEvent.info.startTime).d > 0" class="text-white mr-1">{{
-                getCountdown(upcomingEvent.info.startTime).d }} ngày</span>
-              <span class="bg-white/90 text-blue-700 px-2.5 py-1.5 rounded shadow-sm min-w-[36px] text-center">{{
-                getCountdown(upcomingEvent.info.startTime).h }}</span>
-              <span class="text-white">:</span>
-              <span class="bg-white/90 text-blue-700 px-2.5 py-1.5 rounded shadow-sm min-w-[36px] text-center">{{
-                getCountdown(upcomingEvent.info.startTime).m }}</span>
-              <span class="text-white">:</span>
-              <span class="bg-white/90 text-blue-700 px-2.5 py-1.5 rounded shadow-sm min-w-[36px] text-center">{{
-                getCountdown(upcomingEvent.info.startTime).s }}</span>
+        <div class="flex flex-col md:flex-row md:items-center justify-between mb-5 gap-4 border-b border-white/20 pb-4">
+          <div class="flex items-start gap-2 flex-1 min-w-0 z-10 mt-1">
+            <NovaIcon icon="icon-park-solid:alarm-clock" class="text-cyan-300 animate-bounce shrink-0 mt-0.5" :size="34" />
+            <div class="flex flex-col">
+              <span class="text-cyan-200 text-[13px] md:text-xs font-black uppercase tracking-wider mb-1">
+                Sắp diễn ra
+              </span>
+              <h2
+                class="text-xl md:text-2xl font-black text-white drop-shadow-md leading-snug break-words line-clamp-2"
+                :title="upcomingDiscountInfo.discountName"
+              >
+                {{ upcomingDiscountInfo.discountName }}
+              </h2>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2 z-10 bg-black/20 px-3.5 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-inner shrink-0">
+            <span class="text-white/90 text-xs font-bold uppercase tracking-wider">Bắt đầu sau</span>
+            <div class="flex items-center gap-1 font-black text-base">
+              <span v-if="getCountdown(upcomingDiscountInfo.startDate).d > 0" class="text-cyan-300 mr-1 text-sm">{{ getCountdown(upcomingDiscountInfo.startDate).d }} Ngày</span>
+              <span class="bg-white/95 text-blue-800 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(upcomingDiscountInfo.startDate).h }}</span>
+              <span class="text-white/70">:</span>
+              <span class="bg-white/95 text-blue-800 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(upcomingDiscountInfo.startDate).m }}</span>
+              <span class="text-white/70">:</span>
+              <span class="bg-white/95 text-blue-800 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(upcomingDiscountInfo.startDate).s }}</span>
             </div>
           </div>
         </div>
 
-        <div v-if="loadingDiscounts" class="py-10 flex justify-center">
+        <div v-if="loadingDiscounts" class="py-12 flex justify-center">
           <NSpin size="large" stroke="#ffffff" />
         </div>
 
-        <div v-else
-          class="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 z-10 relative">
-          <div v-for="item in upcomingEvent.products" :key="item.id"
-            class="snap-start shrink-0 w-[240px] md:w-[260px] bg-white/95 rounded-xl p-4 shadow-sm border border-blue-100 relative flex flex-col grayscale-[20%]">
-            <div
-              class="absolute inset-0 bg-white/40 z-20 rounded-xl flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
-              <span class="bg-blue-600 text-white font-bold px-4 py-2 rounded-lg shadow-lg">Chờ săn sale</span>
+        <div v-else class="flex gap-4 md:gap-5 overflow-x-auto pb-3 snap-x snap-mandatory hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 z-10 relative">
+          <div
+            v-for="item in upcomingDiscountProducts" :key="item.productDetailId"
+            class="snap-start shrink-0 w-[240px] md:w-[260px] bg-white rounded-2xl p-4 md:p-5 shadow-lg relative flex flex-col group overflow-hidden border-2 border-transparent hover:border-blue-400 transition-all duration-300 cursor-pointer"
+            @click="handleClickProduct(item.productDetailId, item)"
+          >
+            <div class="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <span class="bg-blue-600 text-white font-extrabold px-5 py-2.5 text-sm rounded-xl shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all">
+                <NovaIcon icon="icon-park-outline:preview-open" /> Xem trước
+              </span>
             </div>
 
-            <div class="h-[180px] mt-2 mb-4 flex items-center justify-center">
-              <img :src="item.image" :alt="item.productName" class="max-w-full max-h-[160px] object-contain"
-                @error="handleImageError">
+            <div class="absolute top-3 left-3 z-40">
+              <span v-if="item.percentage > 0" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-blue-900 text-[11px] font-black px-2.5 py-1 rounded-tr-xl rounded-bl-xl rounded-tl-sm rounded-br-sm shadow-md flex items-center gap-1 border border-yellow-300">
+                SẮP GIẢM {{ item.percentage }}%
+              </span>
             </div>
 
-            <div class="flex flex-col gap-2 mt-auto">
-              <h3 class="text-sm font-bold text-gray-700 line-clamp-2 leading-tight">
-                {{ item.productName }}
+            <div class="h-[160px] mt-6 mb-4 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 relative z-20">
+              <img :src="item.urlImage" :alt="item.productName" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
+            </div>
+
+            <div class="flex flex-col gap-2 mt-auto z-20 relative">
+              <h3 class="text-[14px] font-bold text-gray-800 line-clamp-2 min-h-[40px] leading-snug group-hover:text-blue-700 transition-colors">
+                {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
               </h3>
-              <div class="mt-2 flex flex-col">
-                <span class="text-blue-700 text-lg font-black">??? đ</span>
-                <span class="text-gray-400 text-xs font-medium">Giá gốc: {{ formatCurrency(item.price) }}</span>
+
+              <div class="flex flex-wrap gap-1.5 mt-1">
+                <span v-if="item.ram" class="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2 py-0.5 rounded border border-blue-100">{{ item.ram }}</span>
+                <span v-if="item.hardDrive" class="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2 py-0.5 rounded border border-blue-100">{{ item.hardDrive }}</span>
+              </div>
+
+              <div class="mt-3 bg-gray-50 rounded-lg p-3 border border-dashed border-gray-300 flex flex-col gap-1">
+                <div class="text-[11px] text-gray-500 font-medium uppercase tracking-wide">
+                  Giá dự kiến:
+                </div>
+                <div class="flex flex-col">
+                  <span class="text-blue-700 text-lg font-black leading-none">{{ formatCurrency(item.salePrice) }}</span>
+                  <span class="text-gray-400 text-xs line-through font-medium mt-1">{{ formatCurrency(item.originalPrice) }}</span>
+                </div>
               </div>
             </div>
           </div>
@@ -412,60 +494,63 @@ onUnmounted(() => {
     </div>
 
     <div>
-      <div class="flex items-end justify-between mb-6">
+      <div class="flex items-end justify-between mb-8 border-b border-gray-200 pb-4">
         <div>
-          <h2 class="text-2xl font-bold text-gray-900">
-            Sản phẩm mới nhất
+          <h2 class="text-2xl md:text-3xl font-black text-gray-900 flex items-center gap-2">
+            <NovaIcon icon="icon-park-solid:fire" class="text-orange-500" /> Sản phẩm mới nhất
           </h2>
-          <p class="text-gray-500 text-sm mt-1">
-            Cập nhật xu hướng công nghệ
+          <p class="text-gray-500 text-sm mt-1 ml-9">
+            Cập nhật xu hướng công nghệ hàng đầu
           </p>
         </div>
+        <button class="text-blue-600 font-semibold hover:text-blue-800 hover:underline flex items-center gap-1 transition-colors" @click="goProducts()">
+          Xem tất cả <NovaIcon icon="icon-park-outline:right" />
+        </button>
       </div>
 
-      <div v-if="loading" class="py-10 flex justify-center">
+      <div v-if="loading" class="py-16 flex justify-center">
         <NSpin size="large" />
       </div>
-      <div v-else-if="newest.length === 0" class="py-10 bg-white rounded-2xl shadow-sm">
+      <div v-else-if="newest.length === 0" class="py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
         <NEmpty description="Rất tiếc, hiện tại chưa có sản phẩm" />
       </div>
 
       <div v-else class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
-        <div v-for="item in newest" :key="item.id"
-          class="bg-white rounded-2xl p-4 shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer border border-gray-100 relative group flex flex-col h-full"
-          @click="handleClickProduct(item.id)">
-          <div v-if="(item.percentage ?? 0) > 0"
-            class="absolute top-3 right-3 z-10 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
-            -{{ item.percentage }}%
+        <div
+          v-for="item in newest" :key="item.id"
+          class="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-300 hover:-translate-y-1.5 cursor-pointer border-2 border-transparent hover:border-green-400 relative group flex flex-col h-full overflow-hidden"
+          @click="handleClickProduct(item.id, item)"
+        >
+          <div class="absolute top-3 left-3 z-20">
+            <span v-if="(item.percentage ?? 0) > 0" class="bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-black px-3 py-1.5 rounded-tr-xl rounded-bl-xl rounded-tl-sm rounded-br-sm shadow-md flex items-center gap-1 border border-green-400">
+              GIẢM {{ item.percentage }}%
+            </span>
           </div>
 
-          <div
-            class="h-[160px] md:h-[180px] mb-4 p-2 bg-white flex items-center justify-center group-hover:scale-105 transition-transform duration-500">
-            <img :src="item.urlImage" :alt="item.name" class="max-w-full max-h-full object-contain"
-              @error="handleImageError">
+          <div class="h-[180px] mt-6 mb-5 flex items-center justify-center group-hover:-translate-y-3 transition-transform duration-500 relative">
+            <img :src="item.urlImage" :alt="item.name" class="max-w-full max-h-[170px] object-contain drop-shadow-sm" @error="handleImageError">
           </div>
 
-          <div class="flex flex-col flex-1 justify-between">
-            <div>
-              <h3
-                class="text-sm font-bold text-gray-800 line-clamp-2 min-h-[40px] leading-tight group-hover:text-[#d70018] transition-colors">
-                {{ item.productName || item.name }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
-              </h3>
-              <div class="flex flex-wrap gap-1.5 mt-2">
-                <span v-if="item.ram"
-                  class="bg-gray-100 text-gray-600 text-[11px] font-semibold px-2 py-1 rounded-md">{{ item.ram }}</span>
-                <span v-if="item.hardDrive"
-                  class="bg-gray-100 text-gray-600 text-[11px] font-semibold px-2 py-1 rounded-md">{{ item.hardDrive
-                  }}</span>
-              </div>
+          <div class="flex flex-col flex-1 gap-2 mt-auto">
+            <h3 class="text-[15px] font-bold text-gray-800 line-clamp-2 min-h-[44px] leading-snug group-hover:text-[#d70018] transition-colors">
+              {{ item.productName || item.name }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
+            </h3>
+
+            <div class="flex flex-wrap gap-2 mt-2">
+              <span v-if="item.ram" class="bg-green-50 text-green-600 text-xs font-semibold px-2.5 py-1 rounded-md border border-green-200">{{ item.ram }}</span>
+              <span v-if="item.hardDrive" class="bg-blue-50 text-blue-600 text-xs font-semibold px-2.5 py-1 rounded-md border border-blue-200">{{ item.hardDrive }}</span>
             </div>
 
-            <div class="mt-4 flex flex-col">
-              <span class="text-red-600 text-[17px] font-black">{{ formatCurrency(salePrice(item.price,
-                item.percentage)) }}</span>
-              <span v-if="(item.percentage ?? 0) > 0" class="text-gray-400 text-xs line-through font-medium mt-0.5">
-                {{ formatCurrency(item.price) }}
-              </span>
+            <div class="mt-4 flex items-end justify-between">
+              <div class="flex flex-col">
+                <span class="text-[#d70018] text-xl font-black leading-none">{{ formatCurrency(salePrice(item.price, item.percentage)) }}</span>
+                <span v-if="(item.percentage ?? 0) > 0" class="text-gray-400 text-sm line-through font-semibold mt-1">
+                  {{ formatCurrency(item.price) }}
+                </span>
+              </div>
+              <div class="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors text-green-600">
+                <NovaIcon icon="icon-park-outline:shopping-cart" :size="20" />
+              </div>
             </div>
           </div>
         </div>
@@ -478,7 +563,6 @@ onUnmounted(() => {
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
-
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;

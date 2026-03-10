@@ -214,13 +214,13 @@ onUnmounted(() => {
 <template>
   <div class="mlchat-wrapper">
     <transition name="bounce">
-      <button class="mlchat-toggle" :class="{ 'is-open': isOpen }" @click="toggleChat">
+      <nbutton class="mlchat-toggle" :class="{ 'is-open': isOpen }" @click="toggleChat">
         <NIcon size="22">
           <ChevronDownOutline v-if="isOpen" />
           <ChatbubbleOutline v-else />
         </NIcon>
         <span v-if="!isOpen" class="toggle-label">Hỗ trợ</span>
-      </button>
+      </nbutton>
     </transition>
 
     <transition name="panel-slide">
@@ -373,7 +373,6 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-/* ===== GIỮ NGUYÊN CSS NHƯ CŨ CỦA BẠN ===== */
 .mlchat-wrapper {
   position: fixed;
   bottom: 24px;

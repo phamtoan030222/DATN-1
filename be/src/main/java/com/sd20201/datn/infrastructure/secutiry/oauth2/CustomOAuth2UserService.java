@@ -25,6 +25,7 @@ import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 
 import java.util.List;
@@ -134,7 +135,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 String email = oAuth2UserInfo.getEmail();
                 Customer customer = optionalCustomer.get();
                 if(customer.getCode().isEmpty()) customer.setCode(email.substring(0, email.indexOf("@")));
-                if(customer.getAvatarUrl().isEmpty()) customer.setAvatarUrl(oAuth2UserInfo.getImageUrl());
+                if(StringUtils.hasLength(customer.getAvatarUrl())) customer.setAvatarUrl(oAuth2UserInfo.getImageUrl());
                 customerRepository.save(customer);
                 return UserPrincipal.create(customer, oAuth2UserInfo.getAttributes(), rolesUser);
             } else {
