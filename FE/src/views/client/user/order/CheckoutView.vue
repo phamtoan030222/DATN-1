@@ -114,6 +114,8 @@ function hydrateCustomerInfoFromProfile() {
       checkoutForm.ten = userInfo.value.fullName || ''
     if (!checkoutForm.sdt)
       checkoutForm.sdt = userInfo.value.phone || ''
+    if (!checkoutForm.email)
+      checkoutForm.email = userInfo.value.email || ''
   }
 }
 
@@ -519,12 +521,13 @@ async function handleCheckout() {
     }
 
     if (cartItemBuyNow.value) {
-      removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+      await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
     }
     else {
-      cartItemsRef.value.forEach((item) => {
-        removeCart(item.productDetailId)
+      const removeRequests = cartItemsRef.value.map((item) => {
+        return removeCart(item.productDetailId)
       })
+      await Promise.all(removeRequests)
     }
   }
   catch (error: any) {
