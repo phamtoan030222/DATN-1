@@ -20,7 +20,6 @@ export const useChatStore = defineStore('chatStore', () => {
     localStorage.setItem('admin_chat_history', JSON.stringify(newVal))
   }, { deep: true })
 
-  // 🔥 BIẾN QUAN TRỌNG: TỔNG SỐ TIN NHẮN CHƯA ĐỌC TOÀN HỆ THỐNG
   const totalUnread = computed(() => {
     let userCount = 0
     for (const key in sessions.value) {
@@ -62,10 +61,6 @@ export const useChatStore = defineStore('chatStore', () => {
 
     let isRequestSupport = false
 
-    // ========================================================
-    // 🔥 CHIÊU CUỐI: DÙNG DẤU "===" ĐỂ BẮT CHÍNH XÁC 100%
-    // Khách bắt buộc phải nhắn đúng y xì dòng này mới tính
-    // ========================================================
     if (content === 'gặp nhân viên' || content === 'chat với nhân viên') {
       isRequestSupport = true
     }
@@ -74,10 +69,6 @@ export const useChatStore = defineStore('chatStore', () => {
     if (content === 'hệ thống đã kết nối bạn với nhân viên' || content.includes('đang chờ nhân viên')) {
       isRequestSupport = true
     }
-
-    // ========================================================
-    // 🔥 TỰ ĐỘNG LÙI VỀ TRẠNG THÁI 'AI' KHI KẾT THÚC
-    // ========================================================
     if (
       content.includes('phiên hỗ trợ đã kết thúc')
       || content.includes('ngắt kết nối')
