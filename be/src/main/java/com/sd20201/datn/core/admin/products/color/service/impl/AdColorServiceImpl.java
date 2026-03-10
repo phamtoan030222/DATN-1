@@ -6,6 +6,7 @@ import com.sd20201.datn.core.admin.products.color.repository.AdColorRepository;
 import com.sd20201.datn.core.admin.products.color.service.AdColorService;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import com.sd20201.datn.entity.Brand;
 import com.sd20201.datn.entity.Color;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.utils.Helper;
@@ -15,6 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 
 @Service
@@ -82,6 +84,33 @@ public class AdColorServiceImpl implements AdColorService {
 
     @Override
     public ResponseObject<?> updateColor(String id, ColorCreateUpdateRequest request) {
-        return null;
+        Optional<Color> optionalColor = adColorRepository.findById(id);
+        if (optionalColor.isEmpty()) {
+            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "Màu sắc không tồn tại", false, null);
+        }
+
+        Color color = optionalColor.get();
+        color.setCode(request.getCode());
+        color.setName(request.getName());
+
+        adColorRepository.save(color);
+
+        return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật màu sắc thành công", true, null);
+
+    }
+
+    @Override
+    public ResponseObject<?> updateColorStatus(String id) {
+        Optional<Color> optionalColor = adColorRepository.findById(id);
+        if (optionalColor.isEmpty()) {
+            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "Màu sắc không tồn tại", false, null);
+        }
+
+        Color color = optionalColor.get();
+        color.setStatus(color.getStatus().equals(EntityStatus.ACTIVE) ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
+        adColorRepository.save(color);
+
+        return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật trạng thái màu sắc thành công", true, null);
+
     }
 }

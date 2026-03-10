@@ -19,7 +19,7 @@ public interface ADBatteryRepository extends BatteryRepository {
                b.technolyCharging AS technolyCharging,
                b.capacity AS capacity,
                b.removeBattery AS removeBattery,
-               b.typeBattery AS type,
+               b.typeBattery AS typeBattery,
                b.status AS status
         FROM Battery b
         WHERE (:key IS NULL 
