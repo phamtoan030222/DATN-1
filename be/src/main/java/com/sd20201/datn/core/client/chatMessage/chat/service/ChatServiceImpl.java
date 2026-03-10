@@ -41,10 +41,8 @@ public class ChatServiceImpl {
     private final ClientPDProductDetailDiscountRepository discountRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
-    // Map lưu trạng thái: Session nào đang chat với Nhân viên
     private static final Map<String, Boolean> humanChatSessions = new ConcurrentHashMap<>();
 
-    // Danh sách từ khóa để kích hoạt nhân viên
     private static final List<String> TRIGGER_KEYWORDS = Arrays.asList(
             "gặp nhân viên",
             "chat với nhân viên",
@@ -60,7 +58,6 @@ public class ChatServiceImpl {
         Customer customer = request.getCustomerId() != null ?
                 customerRepository.findById(request.getCustomerId()).orElse(null) : null;
 
-        // 1. LƯU TIN NHẮN KHÁCH HÀNG
         ChatMessage userMsg = new ChatMessage();
         userMsg.setSessionId(request.getSessionId());
         userMsg.setContent(request.getMessage());
@@ -68,32 +65,20 @@ public class ChatServiceImpl {
         userMsg.setCustomer(customer);
         userMsg.setCreatedDate(System.currentTimeMillis());
         chatMessageRepository.save(userMsg);
-
-        // 2. GỬI SOCKET CHO ADMIN (Để admin thấy tin nhắn khách đang chat)
         try {
             messagingTemplate.convertAndSend("/topic/admin-messages", userMsg);
         } catch (Exception e) {
             log.error("Lỗi gửi socket admin: {}", e.getMessage());
         }
-
-        // 3. KIỂM TRA: CÓ ĐANG Ở CHẾ ĐỘ GẶP NHÂN VIÊN KHÔNG?
         if (humanChatSessions.getOrDefault(request.getSessionId(), false)) {
-            // Nếu đã bật chế độ nhân viên -> AI IM LẶNG
             return "Đang chờ nhân viên phản hồi...";
         }
-
-        // 4. TỰ ĐỘNG PHÁT HIỆN YÊU CẦU GẶP NHÂN VIÊN
         String messageContent = request.getMessage().toLowerCase();
         boolean wantHuman = TRIGGER_KEYWORDS.stream().anyMatch(messageContent::contains);
 
         if (wantHuman) {
-            // Kích hoạt chế độ nhân viên ngay lập tức
             enableHumanSupport(request.getSessionId());
-
-            // Thông báo cho khách biết
             String response = "Hệ thống đã kết nối bạn với nhân viên tư vấn. Vui lòng chờ trong giây lát...";
-
-            // Lưu tin nhắn hệ thống
             ChatMessage sysMsg = new ChatMessage();
             sysMsg.setSessionId(request.getSessionId());
             sysMsg.setContent(response);
@@ -101,19 +86,14 @@ public class ChatServiceImpl {
             sysMsg.setCreatedDate(System.currentTimeMillis());
             chatMessageRepository.save(sysMsg);
 
-            // Bắn socket báo cho khách (để hiện tin nhắn này lên)
             messagingTemplate.convertAndSend("/topic/user/" + request.getSessionId(), sysMsg);
-
-            // ✅ SỬA Ở ĐÂY: Gửi sysMsg cho admin (thay vì aiMsg bị lỗi)
             messagingTemplate.convertAndSend("/topic/admin-messages", sysMsg);
 
             return response;
         }
 
-        // 5. NẾU KHÔNG GẶP NHÂN VIÊN -> GỌI AI (GEMINI RAG)
         String aiResponse = callGeminiRAG(request, customer);
 
-        // Lưu tin nhắn AI (CHỖ NÀY MỚI KHAI BÁO aiMsg)
         ChatMessage aiMsg = new ChatMessage();
         aiMsg.setSessionId(request.getSessionId());
         aiMsg.setContent(aiResponse);
@@ -123,10 +103,8 @@ public class ChatServiceImpl {
         aiMsg.setCreatedDate(System.currentTimeMillis());
         chatMessageRepository.save(aiMsg);
 
-        // Bắn socket về cho khách
         messagingTemplate.convertAndSend("/topic/user/" + request.getSessionId(), aiMsg);
 
-        // ✅ THÊM VÀO ĐÂY: Bắn socket về cho Admin nghe lén lịch sử chat của AI
         messagingTemplate.convertAndSend("/topic/admin-messages", aiMsg);
 
         return aiResponse;
@@ -135,7 +113,6 @@ public class ChatServiceImpl {
 
     private String callGeminiRAG(ChatRequest request, Customer customer) {
         ClientPDProductDetailRequest productReq = new ClientPDProductDetailRequest();
-        // Đảm bảo lấy được toàn bộ dải giá
         productReq.setMinPrice(0);
         productReq.setMaxPrice(1000000000);
 
@@ -155,8 +132,6 @@ public class ChatServiceImpl {
         if (pageResult != null && pageResult.hasContent()) {
             for (ClientPDProductDetailResponse p : pageResult.getContent()) {
                 BigDecimal originalPrice = (p.getPrice() != null) ? BigDecimal.valueOf(p.getPrice()) : BigDecimal.ZERO;
-
-                // 1. Tính toán giá khuyến mãi
                 String discountNote = "";
                 if (p.getPercentage() != null && p.getPercentage() > 0) {
                     BigDecimal discountPercent = BigDecimal.valueOf(p.getPercentage());
@@ -167,25 +142,23 @@ public class ChatServiceImpl {
                             p.getPercentage(), formatMoney(discountedPrice));
                 }
 
-                // 2. Thu thập đầy đủ thuộc tính từ API (Dựa trên ảnh bạn gửi)
-                // SỬA DÒNG "* LAPTOP: %s (Model: %s)" THÀNH DÒNG DƯỚI ĐÂY:
                 sb.append(String.format("""
-* LAPTOP: [%s (Model: %s)](/product-detail/%s)
-  - Thương hiệu: %s
-  - Giá niêm yết: %s %s
-  - Màu sắc: %s
-  - Chất liệu vỏ: %s
-  - Cấu hình chi tiết:
-    + CPU: %s
-    + RAM: %s
-    + Card đồ họa (GPU): %s
-    + Ổ cứng: %s
-    + Màn hình: %s
-    + Pin: %s
-    + Hệ điều hành: %s
-  - Kho hàng: Còn %d máy sẵn sàng giao ngay.
-""",
-                        p.getProductName(), p.getName(), p.getId(), // Đã thêm p.getId() vào đây
+                * LAPTOP: [%s (Model: %s)](/product-detail/%s)
+                  - Thương hiệu: %s
+                  - Giá niêm yết: %s %s
+                  - Màu sắc: %s
+                  - Chất liệu vỏ: %s
+                  - Cấu hình chi tiết:
+                    + CPU: %s
+                    + RAM: %s
+                    + Card đồ họa (GPU): %s
+                    + Ổ cứng: %s
+                    + Màn hình: %s
+                    + Pin: %s
+                    + Hệ điều hành: %s
+                  - Kho hàng: Còn %d máy sẵn sàng giao ngay.
+                """,
+                        p.getProductName(), p.getName(), p.getId(),
                         p.getBrandName(),
                         formatMoney(originalPrice), discountNote,
                         p.getColor(),
@@ -199,13 +172,10 @@ public class ChatServiceImpl {
         }
 
         String productContext = sb.length() > 0 ? sb.toString() : "Hiện không có sản phẩm nào phù hợp trong kho.";
-
-        // Log để bạn kiểm tra nội dung gửi đi có "màu" chưa
         log.info("CONTEST GỬI GEMINI: \n{}", productContext);
 
         String customerName = (customer != null) ? customer.getName() : "khách hàng";
 
-        // 3. System Instruction: Dạy AI cách dùng các thuộc tính mới
         String systemInstruction = """
             VAI TRÒ: Bạn là chuyên gia tư vấn Laptop nhiệt tình của MyLaptop.
             KHÁCH HÀNG: %s
@@ -228,9 +198,6 @@ public class ChatServiceImpl {
 
         return geminiService.callGemini(systemInstruction + "\n\nCÂU HỎI CỦA KHÁCH: " + request.getMessage());
     }
-
-
-    // --- HÀM HỖ TRỢ ---
 
     public void enableHumanSupport(String sessionId) {
         humanChatSessions.put(sessionId, true);

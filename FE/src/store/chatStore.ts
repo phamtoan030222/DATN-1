@@ -33,10 +33,8 @@ export const useChatStore = defineStore('chatStore', () => {
     return userCount
   })
 
-  const handleIncomingMessage = (msg: any) => {
+ const handleIncomingMessage = (msg: any) => {
     const sId = msg.sessionId
-
-    // 1. Khởi tạo session nếu chưa có
     if (!sessions.value[sId]) {
       sessions.value[sId] = {
         id: sId,
@@ -44,50 +42,36 @@ export const useChatStore = defineStore('chatStore', () => {
         messages: [],
         unreadCount: 0,
         lastMessage: '',
-        status: 'AI',
+        status: 'AI', 
         lastTime: new Date().getTime(),
       }
     }
 
-    // 2. Thêm tin nhắn mới vào danh sách
     sessions.value[sId].messages.push(msg)
     sessions.value[sId].lastTime = new Date().getTime()
-    if (msg.senderRole !== 'SYSTEM') {
-      sessions.value[sId].lastMessage = msg.content
-    }
+    sessions.value[sId].lastMessage = msg.content
 
-    // Chuyển nội dung về chữ thường và xóa khoảng trắng dư thừa 2 đầu
     const content = msg.content ? String(msg.content).toLowerCase().trim() : ''
 
-    let isRequestSupport = false
-
-    if (content === 'gặp nhân viên' || content === 'chat với nhân viên') {
-      isRequestSupport = true
+    if ((content === 'gặp nhân viên' || content === 'chat với nhân viên') && content.length < 50) {
+      sessions.value[sId].status = 'WAITING'
     }
-
-    // Bắt câu thông báo của hệ thống (nếu có)
-    if (content === 'hệ thống đã kết nối bạn với nhân viên' || content.includes('đang chờ nhân viên')) {
-      isRequestSupport = true
-    }
-    if (
-      content.includes('phiên hỗ trợ đã kết thúc')
-      || content.includes('ngắt kết nối')
-      || content.includes('trợ lý ai đã quay trở lại')
-    ) {
-      sessions.value[sId].status = 'AI'
-      sessions.value[sId].unreadCount = 0
-    }
-
-    // Chuyển sang WAITING nếu có yêu cầu gặp nhân viên hợp lệ
-    if (isRequestSupport && (sessions.value[sId].status === 'AI' || sessions.value[sId].status === 'CLOSED')) {
+    if (content.includes('hệ thống đã kết nối') || content.includes('đang chờ nhân viên')) {
       sessions.value[sId].status = 'WAITING'
     }
 
-    // Tăng số đếm tin nhắn chưa đọc (Chỉ tăng khi KHÁC chế độ AI)
+    if (
+      content.includes('phiên hỗ trợ đã kết thúc') || 
+      content.includes('trợ lý ai đã quay trở lại') ||
+      content.includes('hoặc nếu cần hỗ trợ chuyên sâu hơn') || 
+      content.includes('anh/chị cứ nhắn \'gặp nhân viên\'')     
+    ) {
+      sessions.value[sId].status = 'AI'
+      sessions.value[sId].unreadCount = 0 
+    }
     if (sessions.value[sId].status !== 'AI') {
-      if (currentActiveSessionId.value !== sId && (msg.senderRole === 'CLIENT' || msg.senderRole === 'USER')) {
-        // Chỉ đếm những tin nhắn có độ dài bình thường của khách, chặn tin spam siêu dài của AI
-        if (content.length < 500) {
+      if (currentActiveSessionId.value !== sId) {
+        if (content.length < 500 && !content.includes('hệ thống đã kết nối')) {
           sessions.value[sId].unreadCount++
         }
       }

@@ -13,5 +13,7 @@ public interface AdColorService {
 
     ResponseObject<?> updateColor(String id, @Valid ColorCreateUpdateRequest request);
 
+    ResponseObject<?> updateColorStatus(String id);
+
 
 }
