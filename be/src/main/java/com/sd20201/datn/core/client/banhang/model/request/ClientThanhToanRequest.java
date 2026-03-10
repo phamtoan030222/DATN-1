@@ -36,5 +36,7 @@ public class ClientThanhToanRequest {
     private Integer check; // 0 hoặc 1
 
     private List<ClientProductItemRequest> products;
+
+    private String cartId;
 }
 

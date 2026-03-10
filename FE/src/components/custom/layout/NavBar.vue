@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useAuthStore } from '@/store'
+import { useCartStore } from '@/store/app/cart'
 import {
   Cart,
   Menu as MenuIcon,

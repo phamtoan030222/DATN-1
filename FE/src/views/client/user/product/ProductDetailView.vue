@@ -39,7 +39,7 @@ import {
 
 import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
 import { getVouchers } from '@/service/api/client/discount/api.voucher'
-import { useCartStore } from '@/store/app/card'
+import { useCartStore } from '@/store/app/cart'
 
 // --- CONFIG ---
 const route = useRoute()

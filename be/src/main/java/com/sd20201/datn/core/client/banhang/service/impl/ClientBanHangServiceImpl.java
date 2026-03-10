@@ -45,6 +45,7 @@ import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
 import com.sd20201.datn.infrastructure.constant.ImeiStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import com.sd20201.datn.infrastructure.constant.TypeInvoice;
 import com.sd20201.datn.infrastructure.constant.TypePayment;
 import com.sd20201.datn.infrastructure.constant.TypeVoucher;
@@ -159,6 +160,28 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                     request.getEmail()
             );
 
+            invoice.setVoucher(
+                    Optional.ofNullable(request.getIdPGG())
+                            .flatMap(voucherRepository::findById)
+                            .orElse(null)
+            );
+
+            invoice.setTrangThaiThanhToan(
+                    switch (request.getPhuongThucThanhToan()) {
+                        case "0" -> TrangThaiThanhToan.CHUA_THANH_TOAN;
+                        case "1" -> TrangThaiThanhToan.DA_THANH_TOAN;
+                        default -> TrangThaiThanhToan.CHUA_THANH_TOAN;
+                    }
+            );
+
+            invoice.setTypePayment(
+                    switch (request.getPhuongThucThanhToan()) {
+                        case "0" -> TypePayment.TIEN_MAT;
+                        case "1" -> TypePayment.CHUYEN_KHOAN;
+                        default -> TypePayment.TIEN_MAT;
+                    }
+            );
+
             // Lưu hóa đơn trước để có ID
             invoice = invoiceRepository.save(invoice);
             List<InvoiceDetail> invoiceDetails = new ArrayList<>();
@@ -191,7 +214,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             sendEmail(invoice, invoiceDetails, request.getEmail(), request);
 
             return ResponseObject.successForward(invoice, "Đặt hàng thành công");
-
         } catch (Exception e) {
             log.error("Lỗi đặt hàng: ", e);
             throw new BusinessException(e.getMessage()); // Throw ra để Controller bắt lỗi trả về 400
@@ -363,7 +385,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         }
 
         String htmlReplace = html
-                .replace("<<CUSTOMER_NAME>>", invoice.getCustomer().getName())
+                .replace("<<CUSTOMER_NAME>>", Optional.ofNullable(invoice.getCustomer()).map(Customer::getName).orElse(request.getTen()))
                 .replace("<<MA_HOA_DON>>", invoice.getCode())
                 .replace("<<NGAY_TAO>>", invoiceCreateDateFormat)
                 .replace("<<HINH_THUC_CHUYEN_KHOAN>>", "Thanh toán khi nhận hàng")
@@ -596,7 +618,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
 
             hoaDonToUpdate.setTypeInvoice(TypeInvoice.ONLINE);
-
 
             // 6. CHỐT ĐƠN: Luôn set trạng thái CHỜ XÁC NHẬN với đơn Online
             hoaDonToUpdate.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
