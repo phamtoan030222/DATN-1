@@ -70,6 +70,7 @@ const userInfo = ref<any>(null)
 const STORE_ADDRESS = 'Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội'
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
+const isOpenModalSelectVouchers = ref(false)
 
 // ====================================================
 // FORM THANH TOÁN CHÍNH (ÁP DỤNG RULES NATIVE-UI)
@@ -443,7 +444,7 @@ function handleSelectVoucher(voucherId: string | null) {
   }
   const voucher = availableVouchers.value.find(v => v.voucherId === voucherId)
   if (voucher) {
-    discountAmount.value = voucher.giamGiaThucTe || 0
+    discountAmount.value = voucher.discountValue > 100 ? voucher.discountValue : subTotal.value * (voucher.discountValue / 100)
     message.success(`Đã áp dụng mã: ${voucher.code}`)
   }
 }
@@ -554,6 +555,23 @@ function parseCurrency(value: string) {
   else if (str.includes('triệu'))
     number *= 1000000
   return number
+}
+
+const handleCloseVoucherModal = () => {
+  isOpenModalSelectVouchers.value = false
+}
+
+const handleOpenVoucherModal = () => {
+  if (availableVouchers.value.length === 0) {
+    message.info('Không có mã giảm giá nào áp dụng được cho đơn hàng này')
+    return
+  }
+  isOpenModalSelectVouchers.value = true
+}
+
+const handleSelectVoucherInModal = (voucherId: string) => {
+  handleSelectVoucher(voucherId)
+  isOpenModalSelectVouchers.value = false
 }
 </script>
 
@@ -770,10 +788,16 @@ function parseCurrency(value: string) {
                   <TicketOutline />
                 </NIcon> Khuyến mãi
               </div>
-              <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
+              <!-- <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
                 value-field="voucherId" placeholder="Chọn mã giảm giá của shop" clearable
                 :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
-                @update:value="handleSelectVoucher" />
+                @update:value="handleSelectVoucher" /> -->
+                <n-button @click="handleOpenVoucherModal" class="w-full">
+                  {{ selectedVoucher ?
+                  `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
+                  : 'Chọn mã giảm giá'
+                  }}
+                </n-button>
             </div>
 
             <div class="space-y-3 text-[15px] text-gray-600">
@@ -790,7 +814,7 @@ function parseCurrency(value: string) {
                   </span>
                   <NInputNumber v-else v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
                     :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
-                    placeholder="Nhập phí ship" :show-button="false"/>
+                    placeholder="Nhập phí ship" :show-button="false" />
                   <n-image width="80" src="../../../../../images/ghn-logo.webp" />
                 </div>
               </div>
@@ -946,8 +970,72 @@ function parseCurrency(value: string) {
       </NSpin>
     </NModal>
 
-    <n-modal>
+    <n-modal :show="isOpenModalSelectVouchers">
+      <n-card style="width: 800px; height: 600px" title="Chọn phiếu giảm giá" :bordered="false" size="huge"
+        role="dialog" aria-modal="true">
+        <template #header-extra>
+          <n-button @click="handleCloseVoucherModal">
+            <n-icon>
+              <CloseOutline />
+            </n-icon>
+          </n-button>
+        </template>
 
+        <!-- content -->
+        <div :style="{ maxHeight: '400px', overflowY: 'auto' }" class="space-y-2">
+          <!-- list available vouchers -->
+          <div
+            v-for="voucher in availableVouchers"
+            :key="voucher.voucherId"
+            @click="selectedVoucher = voucher.voucherId"
+            :class="[
+              'p-4 border rounded-lg flex justify-between items-center cursor-pointer',
+              selectedVoucher === voucher.voucherId
+                ? 'border-green-500 bg-green-50'
+                : 'hover:bg-gray-100'
+            ]"
+          >
+            <div class="flex-1">
+              <div class="font-semibold text-gray-800">{{ voucher.code }}</div>
+              <div class="text-xs text-gray-600 mt-1">
+                <!-- you can adjust these fields to match your data structure -->
+                {{
+                  voucher.ten
+                    ? voucher.ten
+                    : voucher.typeVoucher === 'PERCENTAGE'
+                    ? `Giảm ${voucher.discountValue}% (tối đa ${formatCurrency(
+                        voucher.maxValue || 0
+                      )})`
+                    : `Giảm ${formatCurrency(voucher.discountValue)}`
+                }}
+              </div>
+              <div class="text-xs text-gray-500 mt-1">
+                Điều kiện tối thiểu {{ formatCurrency(voucher.dieuKien) }}
+              </div>
+            </div>
+            <div class="text-blue-500 text-sm font-medium" @click="() => handleSelectVoucherInModal(voucher.voucherId)">
+              Dùng ngay
+            </div>
+          </div>
+          <div v-if="availableVouchers.length === 0" class="text-center text-gray-500 py-6">
+            Không có phiếu giảm giá nào
+          </div>
+        </div>
+
+        <!-- footer -->
+        <!-- <template #footer>
+          <n-space justify="end">
+            <n-button @click="handleCloseVoucherModal">Hủy</n-button>
+            <n-popconfirm @positive-click="handleSelectVoucherInModal" @negative-click="handleCloseVoucherModal"
+              :positive-text="'Xác nhận'" :negative-text="'Hủy'">
+              <template #trigger>
+                <n-button type="success">Xác nhận</n-button>
+              </template>
+              Bạn chắc chắn muốn thao tác
+            </n-popconfirm>
+          </n-space>
+        </template> -->
+      </n-card>
     </n-modal>
   </div>
 </template>

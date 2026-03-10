@@ -34,10 +34,10 @@ const notification = useNotification()
 
 // --- DATA MENU ---
 const menuOptions: MenuOption[] = [
-  { label: 'SẢN PHẨM', key: 'products', href: '/san-pham' },
-  { label: 'GIỚI THIỆU', key: 'about', href: '/gioi-thieu' },
-  { label: 'LIÊN HỆ', key: 'contact', href: '/lien-he' },
-  { label: 'TRA CỨU ĐƠN HÀNG', key: 'tracking', href: '/tra-cuu' },
+  { label: 'Sản phẩm', key: 'products', href: '/san-pham' },
+  { label: 'Giới thiệu', key: 'about', href: '/gioi-thieu' },
+  { label: 'Liên hệ', key: 'contact', href: '/lien-he' },
+  { label: 'Tra cứu đơn hàng', key: 'tracking', href: '/tra-cuu' },
 ]
 
 const userOptions = computed(() => {
@@ -268,9 +268,9 @@ function handleCartClick() {
 :deep(.modern-menu .n-menu-item-content .n-menu-item-content-header) {
   color: #333 !important;
   font-weight: 600 !important;
-  font-size: 13px !important;
-  text-transform: uppercase;
+  font-size: 15px !important;
   transition: color 0.3s;
+  margin: 0 8px;
 }
 
 :deep(.modern-menu .n-menu-item-content:hover .n-menu-item-content-header) {
