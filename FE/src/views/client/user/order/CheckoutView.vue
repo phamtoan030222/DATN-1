@@ -1,21 +1,17 @@
 <script setup lang="ts">
 import {
-  AddOutline,
   CashOutline,
-  CheckmarkCircleOutline,
   CloseOutline,
   LocationOutline,
   StorefrontOutline,
-  TicketOutline
+  TicketOutline,
 } from '@vicons/ionicons5'
 import axios from 'axios'
 import type { FormInst } from 'naive-ui'
 import {
   NButton,
   NCard,
-  NCheckbox,
   NDivider,
-  NEmpty,
   NForm,
   NFormItem,
   NGi,
@@ -27,7 +23,6 @@ import {
   NRadio,
   NRadioGroup,
   NSelect,
-  NSpin,
   NTag,
   useMessage,
 } from 'naive-ui'
@@ -406,7 +401,7 @@ onMounted(async () => {
   if (userInfo.value) {
     await fetchMyAddresses()
   }
-  loadVouchers();
+  loadVouchers()
 })
 
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
@@ -557,11 +552,11 @@ function parseCurrency(value: string) {
   return number
 }
 
-const handleCloseVoucherModal = () => {
+function handleCloseVoucherModal() {
   isOpenModalSelectVouchers.value = false
 }
 
-const handleOpenVoucherModal = () => {
+function handleOpenVoucherModal() {
   if (availableVouchers.value.length === 0) {
     message.info('Không có mã giảm giá nào áp dụng được cho đơn hàng này')
     return
@@ -569,7 +564,7 @@ const handleOpenVoucherModal = () => {
   isOpenModalSelectVouchers.value = true
 }
 
-const handleSelectVoucherInModal = (voucherId: string) => {
+function handleSelectVoucherInModal(voucherId: string) {
   handleSelectVoucher(voucherId)
   isOpenModalSelectVouchers.value = false
 }
@@ -590,7 +585,8 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                 <div
                   class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'GIAO_HANG' ? 'border-green-600 bg-green-50 text-green-700 font-bold ring-1 ring-green-600' : 'hover:bg-gray-50 border-gray-200'"
-                  @click="deliveryType = 'GIAO_HANG'">
+                  @click="deliveryType = 'GIAO_HANG'"
+                >
                   <NIcon size="20">
                     <LocationOutline />
                   </NIcon> Giao tận nơi
@@ -598,7 +594,8 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                 <div
                   class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
                   :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-gray-50 border-gray-200'"
-                  @click="deliveryType = 'TAI_QUAY'">
+                  @click="deliveryType = 'TAI_QUAY'"
+                >
                   <NIcon size="20">
                     <StorefrontOutline />
                   </NIcon> Nhận tại cửa hàng
@@ -629,8 +626,10 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                   <div class="text-sm font-bold text-gray-700">
                     ĐỊA CHỈ NHẬN HÀNG
                   </div>
-                  <NButton v-if="deliveryType === 'GIAO_HANG' && userInfo" type="primary" text size="small"
-                    @click="openAddressModal">
+                  <NButton
+                    v-if="deliveryType === 'GIAO_HANG' && userInfo" type="primary" text size="small"
+                    @click="openAddressModal"
+                  >
                     <template #icon>
                       <NIcon>
                         <LocationOutline />
@@ -642,37 +641,48 @@ const handleSelectVoucherInModal = (voucherId: string) => {
 
                 <template v-if="deliveryType === 'GIAO_HANG'">
                   <template v-if="userInfo">
-                    <div v-if="selectedAddressId"
-                      class="bg-green-50/50 p-4 border border-green-200 rounded-lg relative">
+                    <div
+                      v-if="selectedAddressId"
+                      class="bg-green-50/50 p-4 border border-green-200 rounded-lg relative"
+                    >
                       <NTag
                         v-if="String(myAddresses.find(a => a.id === selectedAddressId)?.status) === '1' || myAddresses.find(a => a.id === selectedAddressId)?.isDefault"
-                        type="success" size="small" class="mb-2">
+                        type="success" size="small" class="mb-2"
+                      >
                         Mặc định
                       </NTag>
                       <div class="text-gray-800 font-medium leading-relaxed">
-                        {{formatFullAddress(myAddresses.find(a => a.id === selectedAddressId))}}
+                        {{ formatFullAddress(myAddresses.find(a => a.id === selectedAddressId)) }}
                       </div>
                     </div>
                     <div v-else class="text-sm text-orange-600 bg-orange-50 p-3 rounded border border-orange-200">
-                      Vui lòng chọn địa chỉ giao hàng từ <span class="font-bold cursor-pointer underline"
-                        @click="openAddressModal">Sổ địa chỉ</span>.
+                      Vui lòng chọn địa chỉ giao hàng từ <span
+                        class="font-bold cursor-pointer underline"
+                        @click="openAddressModal"
+                      >Sổ địa chỉ</span>.
                     </div>
                   </template>
 
                   <template v-else>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
                       <NFormItem path="provinceName" label="Tỉnh/Thành phố">
-                        <NSelect v-model:value="checkoutForm.provinceName" :options="provinceOptions" filterable
-                          placeholder="Chọn Tỉnh/Thành" size="large" @update:value="onGuestProvinceChange" />
+                        <NSelect
+                          v-model:value="checkoutForm.provinceName" :options="provinceOptions" filterable
+                          placeholder="Chọn Tỉnh/Thành" size="large" @update:value="onGuestProvinceChange"
+                        />
                       </NFormItem>
                       <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
-                        <NSelect v-model:value="checkoutForm.wardName" :options="guestWardOptions" filterable
-                          placeholder="Chọn Phường/Xã" :disabled="!checkoutForm.provinceName" size="large" />
+                        <NSelect
+                          v-model:value="checkoutForm.wardName" :options="guestWardOptions" filterable
+                          placeholder="Chọn Phường/Xã" :disabled="!checkoutForm.provinceName" size="large"
+                        />
                       </NFormItem>
                       <div class="md:col-span-2">
                         <NFormItem path="addressDetail" label="Địa chỉ chi tiết">
-                          <NInput v-model:value="checkoutForm.addressDetail"
-                            placeholder="Nhập Số nhà, tên đường, tòa nhà..." size="large" />
+                          <NInput
+                            v-model:value="checkoutForm.addressDetail"
+                            placeholder="Nhập Số nhà, tên đường, tòa nhà..." size="large"
+                          />
                         </NFormItem>
                       </div>
                     </div>
@@ -688,8 +698,10 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                 <NDivider style="margin: 4px 0 16px 0;" />
 
                 <NFormItem path="ghiChu" label="Ghi chú thêm (Tùy chọn)">
-                  <NInput v-model:value="checkoutForm.ghiChu" type="textarea"
-                    placeholder="Giao hàng trong giờ hành chính..." :autosize="{ minRows: 2, maxRows: 4 }" />
+                  <NInput
+                    v-model:value="checkoutForm.ghiChu" type="textarea"
+                    placeholder="Giao hàng trong giờ hành chính..." :autosize="{ minRows: 2, maxRows: 4 }"
+                  />
                 </NFormItem>
               </NForm>
             </NCard>
@@ -697,9 +709,11 @@ const handleSelectVoucherInModal = (voucherId: string) => {
             <NCard title="3. Phương thức thanh toán" size="small" class="shadow-sm rounded-xl">
               <NRadioGroup v-model:value="paymentMethod" name="payment" class="w-full">
                 <div class="space-y-3">
-                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '0' }"
-                    @click="paymentMethod = '0'">
+                    @click="paymentMethod = '0'"
+                  >
                     <NRadio value="0" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <NIcon color="#16a34a" size="24">
@@ -709,9 +723,11 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                       </div>
                     </NRadio>
                   </div>
-                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'">
+                    @click="paymentMethod = '1'"
+                  >
                     <NRadio value="1" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="25" src="../../../../../images/momo.png" />
@@ -719,9 +735,11 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                       </div>
                     </NRadio>
                   </div>
-                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '2' }"
-                    @click="paymentMethod = '2'">
+                    @click="paymentMethod = '2'"
+                  >
                     <NRadio value="2" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="25" src="../../../../../images/vnpay.png" />
@@ -729,9 +747,11 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                       </div>
                     </NRadio>
                   </div>
-                  <div class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                  <div
+                    class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
                     :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '3' }"
-                    @click="paymentMethod = '3'">
+                    @click="paymentMethod = '3'"
+                  >
                     <NRadio value="3" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="40" src="../../../../../images/vietqr.png" />
@@ -752,8 +772,10 @@ const handleSelectVoucherInModal = (voucherId: string) => {
             </h3>
 
             <div class="space-y-3 mb-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-              <div v-for="item in cartItemsRef" :key="item.productDetailId"
-                class="flex justify-between text-sm py-3 border-b border-dashed border-gray-200 last:border-0 group">
+              <div
+                v-for="item in cartItemsRef" :key="item.productDetailId"
+                class="flex justify-between text-sm py-3 border-b border-dashed border-gray-200 last:border-0 group"
+              >
                 <div class="flex-1 pr-3">
                   <div class="font-medium text-gray-800 leading-tight">
                     {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
@@ -772,8 +794,10 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                   </div>
                 </div>
                 <div class="flex items-center ml-3">
-                  <NButton circle size="tiny" tertiary
-                    @click="removeCart(item.productDetailId, { buyNow: !!cartItemBuyNow })">
+                  <NButton
+                    circle size="tiny" tertiary
+                    @click="removeCart(item.productDetailId, { buyNow: !!cartItemBuyNow })"
+                  >
                     <NIcon>
                       <CloseOutline />
                     </NIcon>
@@ -792,12 +816,12 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                 value-field="voucherId" placeholder="Chọn mã giảm giá của shop" clearable
                 :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
                 @update:value="handleSelectVoucher" /> -->
-                <n-button @click="handleOpenVoucherModal" class="w-full">
-                  {{ selectedVoucher ?
-                  `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
+              <NButton class="w-full" @click="handleOpenVoucherModal">
+                {{ selectedVoucher
+                  ? `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
                   : 'Chọn mã giảm giá'
-                  }}
-                </n-button>
+                }}
+              </NButton>
             </div>
 
             <div class="space-y-3 text-[15px] text-gray-600">
@@ -812,9 +836,11 @@ const handleSelectVoucherInModal = (voucherId: string) => {
                   <span v-if="isFreeShipping" class="font-medium text-gray-800">
                     {{ formatCurrency(shippingFee) }}
                   </span>
-                  <NInputNumber v-else v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
+                  <NInputNumber
+                    v-else v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
                     :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
-                    placeholder="Nhập phí ship" :show-button="false" />
+                    placeholder="Nhập phí ship" :show-button="false"
+                  />
                   <n-image width="80" src="../../../../../images/ghn-logo.webp" />
                 </div>
               </div>
@@ -840,12 +866,16 @@ const handleSelectVoucherInModal = (voucherId: string) => {
               </div>
             </div>
 
-            <NPopconfirm :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
-              @positive-click="handleCheckout">
+            <NPopconfirm
+              :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
+              @positive-click="handleCheckout"
+            >
               <template #trigger>
-                <NButton block type="success" size="large"
+                <NButton
+                  block type="success" size="large"
                   class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
-                  :loading="processing" :disabled="cartItemsRef.length === 0 || processing">
+                  :loading="processing" :disabled="cartItemsRef.length === 0 || processing"
+                >
                   Đặt hàng ngay
                 </NButton>
               </template>
@@ -856,187 +886,74 @@ const handleSelectVoucherInModal = (voucherId: string) => {
       </NGrid>
     </div>
 
-    <NModal v-model:show="showAddressModal" preset="card" title="Sổ Địa Chỉ Của Bạn" style="width: 650px" size="huge">
-      <NSpin :show="isFetchingAddresses">
-        <div v-if="!showAddAddressForm">
-          <div class="flex justify-end mb-4">
-            <NButton type="primary" dashed @click="handleOpenAddForm">
-              <template #icon>
-                <NIcon>
-                  <AddOutline />
-                </NIcon>
-              </template>
-              Thêm địa chỉ mới
-            </NButton>
-          </div>
-
-          <div v-if="myAddresses.length === 0" class="py-10 text-center">
-            <NEmpty description="Bạn chưa có địa chỉ nào lưu sẵn." />
-          </div>
-
-          <div v-else class="space-y-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
-            <div v-for="addr in myAddresses" :key="addr.id"
-              class="border p-4 rounded-lg transition-all relative group bg-white"
-              :class="{ 'border-green-500 bg-green-50/30 ring-1 ring-green-200': selectedAddressId === addr.id, 'border-gray-200': selectedAddressId !== addr.id }">
-              <div class="flex justify-between items-start">
-                <div class="flex-1 pr-4">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="font-bold text-gray-800 text-[15px]">{{ userInfo?.fullName }}</span>
-                    <span class="text-gray-400">|</span>
-                    <span class="text-gray-600">{{ userInfo?.phone }}</span>
-                    <NTag v-if="String(addr.status) === '1' || addr.isDefault" type="success" size="small" class="ml-2">
-                      Mặc định
-                    </NTag>
-                  </div>
-                  <div class="text-gray-600 text-sm mt-2 leading-relaxed">
-                    {{ formatFullAddress(addr) }}
-                  </div>
-                </div>
-
-                <div class="flex flex-col items-end gap-3 shrink-0">
-                  <div class="flex items-center gap-2 text-blue-600">
-                    <span class="cursor-pointer hover:underline text-sm font-medium"
-                      @click="handleEditAddress(addr)">Sửa</span>
-                    <span v-if="!(String(addr.status) === '1' || addr.isDefault)" class="text-gray-300">|</span>
-                    <NPopconfirm v-if="!(String(addr.status) === '1' || addr.isDefault)" positive-text="Xóa"
-                      negative-text="Hủy" @positive-click="handleDeleteAddress(addr.id)">
-                      <template #trigger>
-                        <span class="cursor-pointer text-red-500 hover:underline text-sm font-medium">Xóa</span>
-                      </template>
-                      Xóa địa chỉ này khỏi sổ của bạn?
-                    </NPopconfirm>
-                  </div>
-
-                  <NButton v-if="selectedAddressId !== addr.id" type="primary" ghost size="small"
-                    @click="selectAddressFromModal(addr)">
-                    Giao đến địa chỉ này
-                  </NButton>
-
-                  <div v-else
-                    class="text-green-600 font-bold flex items-center gap-1 text-sm bg-green-100 px-2 py-1 rounded">
-                    <NIcon size="16">
-                      <CheckmarkCircleOutline />
-                    </NIcon> Đang chọn
-                  </div>
-
-                  <NButton v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text type="primary"
-                    class="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="handleSetDefault(addr.id)">
-                    Thiết lập mặc định
-                  </NButton>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-else>
-          <h3 class="font-bold text-gray-800 mb-4 border-l-4 border-green-500 pl-2">
-            {{ editingAddressId ? 'Cập Nhật Địa Chỉ' : 'Thêm Địa Chỉ Mới' }}
-          </h3>
-
-          <NForm ref="addressFormRef" :model="newAddress" :rules="addressRules" label-placement="top">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-              <NFormItem path="provinceName" label="Tỉnh/Thành phố">
-                <NSelect v-model:value="newAddress.provinceName" :options="provinceOptions" filterable
-                  placeholder="Chọn Tỉnh/Thành" @update:value="onModalProvinceChange" />
-              </NFormItem>
-              <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
-                <NSelect v-model:value="newAddress.wardName" :options="modalWardOptions" filterable
-                  placeholder="Chọn Phường/Xã" :disabled="!newAddress.provinceName" />
-              </NFormItem>
-            </div>
-
-            <NFormItem path="detail" label="Địa chỉ chi tiết">
-              <NInput v-model:value="newAddress.detail" placeholder="Số nhà, Tên đường, Tòa nhà..." />
-            </NFormItem>
-
-            <div class="pt-1">
-              <NCheckbox v-model:checked="newAddress.isDefault">
-                Đặt làm địa chỉ mặc định
-              </NCheckbox>
-            </div>
-
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
-              <NButton @click="showAddAddressForm = false">
-                Trở lại
-              </NButton>
-              <NButton type="primary" :loading="isSavingAddress" @click="saveNewAddress">
-                Lưu địa chỉ
-              </NButton>
-            </div>
-          </NForm>
-        </div>
-      </NSpin>
-    </NModal>
-
-    <n-modal :show="isOpenModalSelectVouchers">
-      <n-card style="width: 800px; height: 600px" title="Chọn phiếu giảm giá" :bordered="false" size="huge"
-        role="dialog" aria-modal="true">
+    <NModal :show="isOpenModalSelectVouchers">
+      <NCard
+        style="width: 850px; max-width: 95vw;" title="Chọn phiếu giảm giá" :bordered="false" size="huge"
+        role="dialog" aria-modal="true"
+      >
         <template #header-extra>
-          <n-button @click="handleCloseVoucherModal">
-            <n-icon>
+          <NButton text @click="handleCloseVoucherModal">
+            <NIcon size="24">
               <CloseOutline />
-            </n-icon>
-          </n-button>
+            </NIcon>
+          </NButton>
         </template>
 
-        <!-- content -->
-        <div :style="{ maxHeight: '400px', overflowY: 'auto' }" class="space-y-2">
-          <!-- list available vouchers -->
-          <div
-            v-for="voucher in availableVouchers"
-            :key="voucher.voucherId"
-            @click="selectedVoucher = voucher.voucherId"
-            :class="[
-              'p-4 border rounded-lg flex justify-between items-center cursor-pointer',
-              selectedVoucher === voucher.voucherId
-                ? 'border-green-500 bg-green-50'
-                : 'hover:bg-gray-100'
-            ]"
-          >
-            <div class="flex-1">
-              <div class="font-semibold text-gray-800">{{ voucher.code }}</div>
-              <div class="text-xs text-gray-600 mt-1">
-                <!-- you can adjust these fields to match your data structure -->
-                {{
-                  voucher.ten
-                    ? voucher.ten
-                    : voucher.typeVoucher === 'PERCENTAGE'
-                    ? `Giảm ${voucher.discountValue}% (tối đa ${formatCurrency(
-                        voucher.maxValue || 0
-                      )})`
-                    : `Giảm ${formatCurrency(voucher.discountValue)}`
-                }}
+        <div :style="{ maxHeight: '500px', overflowY: 'auto' }" class="custom-scrollbar pr-2 py-2">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div
+              v-for="voucher in availableVouchers"
+              :key="voucher.voucherId"
+              class="relative flex bg-white border rounded-md shadow-sm overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+              :class="selectedVoucher === voucher.voucherId ? 'border-[#16a34a] ring-1 ring-[#16a34a] bg-[#f0fdf4]' : 'border-gray-200'"
+              @click="handleSelectVoucherInModal(voucher.voucherId)"
+            >
+              <div class="flex-1 p-3 pl-4 relative bg-white flex flex-col justify-center">
+                <div class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md z-10 shadow-sm">
+                  {{ voucher.code }}
+                </div>
+
+                <div class="mt-4">
+                  <h4 class="text-[#16a34a] font-bold text-[15px] truncate mb-1.5">
+                    {{ voucher.ten || (voucher.typeVoucher === 'PERCENTAGE' ? `Giảm giá ${voucher.discountValue}%` : `Giảm ${formatCurrency(voucher.discountValue)}`) }}
+                  </h4>
+
+                  <div class="text-[12px] text-black-500 leading-relaxed pr-2">
+                    <div>Đơn tối thiểu: {{ formatCurrency(voucher.dieuKien || 0) }}</div>
+                    <div v-if="voucher.typeVoucher === 'PERCENTAGE' && voucher.maxValue && voucher.maxValue > 0">
+                      Giảm tối đa: {{ formatCurrency(voucher.maxValue) }}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="text-xs text-gray-500 mt-1">
-                Điều kiện tối thiểu {{ formatCurrency(voucher.dieuKien) }}
+
+              <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2">
+                <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
+
+                <div class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none">
+                  <template v-if="voucher.typeVoucher === 'PERCENTAGE'">
+                    {{ voucher.discountValue }}<span class="text-sm ml-0.5">%</span>
+                  </template>
+                  <template v-else>
+                    {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span class="text-sm ml-0.5">đ</span>
+                  </template>
+                </div>
+                <div class="text-[10px] uppercase font-bold mt-1.5 tracking-wider opacity-90">
+                  {{ voucher.typeVoucher === 'PERCENTAGE' ? 'OFF' : 'VALUE' }}
+                </div>
               </div>
-            </div>
-            <div class="text-blue-500 text-sm font-medium" @click="() => handleSelectVoucherInModal(voucher.voucherId)">
-              Dùng ngay
             </div>
           </div>
-          <div v-if="availableVouchers.length === 0" class="text-center text-gray-500 py-6">
-            Không có phiếu giảm giá nào
+
+          <div v-if="availableVouchers.length === 0" class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg">
+            <NIcon size="48" color="#d1d5db">
+              <TicketOutline />
+            </NIcon>
+            <span class="mt-3 font-medium text-gray-500">Không có mã giảm giá nào phù hợp</span>
           </div>
         </div>
-
-        <!-- footer -->
-        <!-- <template #footer>
-          <n-space justify="end">
-            <n-button @click="handleCloseVoucherModal">Hủy</n-button>
-            <n-popconfirm @positive-click="handleSelectVoucherInModal" @negative-click="handleCloseVoucherModal"
-              :positive-text="'Xác nhận'" :negative-text="'Hủy'">
-              <template #trigger>
-                <n-button type="success">Xác nhận</n-button>
-              </template>
-              Bạn chắc chắn muốn thao tác
-            </n-popconfirm>
-          </n-space>
-        </template> -->
-      </n-card>
-    </n-modal>
+      </NCard>
+    </NModal>
   </div>
 </template>
 
