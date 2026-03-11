@@ -44,7 +44,15 @@ SELECT
     hd.trang_thai_hoa_don AS trangThaiHoaDon,
     hd.created_date AS ngayTao,
     COALESCE(hd.shipping_fee, 0) AS phiVanChuyen,
-    hd.description AS phuongThucThanhToan,
+    CASE hd.phuong_thuc_thanh_toan
+                                                           WHEN 0 THEN 'TIEN_MAT'
+                                                           WHEN 1 THEN 'VNPAY'
+                                                           WHEN 2 THEN 'CHUYEN_KHOAN'
+                                                           WHEN 3 THEN 'THE_TIN_DUNG'
+                                                           WHEN 4 THEN 'VI_DIEN_TU'
+                                                           WHEN 5 THEN 'TIEN_MAT_CHUYEN_KHOAN'
+                                                           ELSE NULL
+                                                       END AS phuongThucThanhToan, 
 
     (
         SELECT COALESCE(SUM(hdsub.quantity * hdsub.price),0)

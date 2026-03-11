@@ -22,6 +22,10 @@ public class PaymentRequest {
     private String orderType = "billpayment";
     private String language = "vn";
 
+    private String staffId;
 
+    private BigDecimal tienHang;   // Tiền hàng gốc trước giảm
+    private BigDecimal tienShip;   // Phí vận chuyển
+    private String idPGG;          // ID voucher
 }
 
