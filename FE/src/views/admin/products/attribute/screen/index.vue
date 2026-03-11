@@ -260,7 +260,7 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
   {
     title: 'STT',
     key: 'index',
-    width: 50,
+    width: 56,
     align: 'center',
     fixed: 'left', // Ghim trái
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
@@ -268,14 +268,14 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
   {
     title: 'Mã',
     key: 'code',
-    width: 100, // Cố định
+    width: 150, // Cố định
     fixed: 'left', // Ghim trái
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },
   {
     title: 'Tên Màn hình',
     key: 'name',
-    minWidth: 150, // Co giãn
+    minWidth: 250, // Co giãn
     ellipsis: { tooltip: true },
     render: row => h('span', { class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors', onClick: () => openModal('edit', row) }, row.name),
   },
@@ -283,11 +283,11 @@ const columns: DataTableColumns<ADProductScreenResponse> = [
   {
     title: 'Kích thước',
     key: 'physicalSize',
-    width: 120,
+    width: 200,
     align: 'center',
     render: row => `${row.physicalSize} inch`,
   },
-  { title: 'Tấm nền', key: 'panelType', width: 120, align: 'center' },
+  { title: 'Tấm nền', key: 'panelType', width: 200, align: 'center' },
   { title: 'Công nghệ', key: 'technology', minWidth: 200, ellipsis: { tooltip: true } }, // Co giãn
   {
     title: 'Trạng thái',

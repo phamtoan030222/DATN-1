@@ -299,7 +299,7 @@ const columns: DataTableColumns<RamResponse> = [
   {
     title: 'Mã RAM',
     key: 'code',
-    width: 120,
+    width: 140,
     fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },

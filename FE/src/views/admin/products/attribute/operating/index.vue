@@ -207,7 +207,7 @@ const columns: DataTableColumns<OperatingSystemResponse> = [
   {
     title: 'Mã',
     key: 'code',
-    width: 120,
+    width: 140,
     fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code),
   },

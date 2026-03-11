@@ -178,7 +178,7 @@ const columns: DataTableColumns<ADProductCPUResponse> = [
   {
     title: 'Mã CPU',
     key: 'code',
-    width: 100,
+    width: 150,
     fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code),
   },

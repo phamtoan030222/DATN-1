@@ -298,7 +298,7 @@ const columns: DataTableColumns<HardDriveResponse> = [
   {
     title: 'Mã Ổ cứng',
     key: 'code',
-    width: 100,
+    width: 130,
     fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },
