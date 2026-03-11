@@ -30,7 +30,12 @@ public interface ADProductRepository extends ProductRepository {
         , MAX(pd.price) as maxPrice
         , (SELECT count(i.id) FROM IMEI i where i.productDetail.product.id = p.id AND i.imeiStatus = 0) as quantity
         , ip.url as urlImage
-        , MAX(d.percentage) as percentage
+                , MAX(
+                  CASE
+                    WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.percentage
+                    ELSE NULL
+                  END
+                        ) AS percentage
     FROM Product p
         LEFT JOIN ProductDetail pd on p.id = pd.product.id
         LEFT JOIN ImageProduct ip on p.id = ip.product.id
@@ -45,7 +50,6 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
           AND (ip.index = 1 or ip.id is null)
-          AND ((d.startDate <= :date and :date <= d.endDate AND d.status=0) OR d.id IS NULL)
     GROUP BY     p.id,
                  p.code,
                  p.name,
@@ -74,7 +78,6 @@ public interface ADProductRepository extends ProductRepository {
           AND (:#{#request.idScreen} is NULL OR p.screen.id like concat('%',:#{#request.idScreen},'%'))
           AND (:#{#request.idOperatingSystem} is NULL OR p.operatingSystem.id like concat('%',:#{#request.idOperatingSystem},'%'))
           AND (ip.index = 1 or ip.id is null)
-          AND ((d.startDate <= :date and :date <= d.endDate AND d.status=0) OR d.id IS NULL)
     GROUP BY     p.id,
                  p.code,
                  p.name,
@@ -86,7 +89,7 @@ public interface ADProductRepository extends ProductRepository {
                  ip.url
     HAVING (:#{#request.minPrice} <= MIN(pd.price) AND MAX(pd.price) <= :#{#request.maxPrice})
     """)
-    Page<ADProductResponse> getProducts(Pageable pageable, ADProductRequest request, Long date);
+    Page<ADProductResponse> getProducts(Pageable pageable, ADProductRequest request, Long time);
 
     @Query(value = """
         SELECT
