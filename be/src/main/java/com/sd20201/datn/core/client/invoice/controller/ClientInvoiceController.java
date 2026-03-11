@@ -21,4 +21,14 @@ public class ClientInvoiceController {
     public ResponseEntity<?> get(@PathVariable("code") String code) {
         return Helper.createResponseEntity(invoiceService.getById(code));
     }
+
+    @GetMapping("/{id}/invoices-detail")
+    public ResponseEntity<?> getInvoiceDetails(@PathVariable("id") String code) {
+        return Helper.createResponseEntity(invoiceService.getInvoiceDetailsById(code));
+    }
+    
+    @GetMapping("/{id}/histories")
+    public ResponseEntity<?> getHistory(@PathVariable("id") String id) {
+        return Helper.createResponseEntity(invoiceService.getHistoryInvoiceById(id));
+    }
 }
