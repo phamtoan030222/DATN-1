@@ -75,7 +75,6 @@ public class ADBatteryServiceImpl implements ADBatteryService {
         }
 
         Battery battery = optionalBattery.get();
-        battery.setCode(request.getCode());
         battery.setName(request.getName());
         battery.setBrand(request.getBrand());
         battery.setTechnolyCharging(request.getTechnolyCharging());

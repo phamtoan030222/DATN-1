@@ -177,7 +177,7 @@ const columns: DataTableColumns<ADProductGPUResponse> = [
   {
     title: 'Mã GPU',
     key: 'code',
-    width: 100,
+    width: 150,
     fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code),
   },
