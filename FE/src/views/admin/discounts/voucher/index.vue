@@ -356,7 +356,6 @@ const columns: DataTableColumns<ADVoucherResponse> = [
       const id = row.id
       if (!id)
         return '-'
-
       const statusInfo = getVoucherStatus(row)
       const actions = []
       const isUpcoming = statusInfo.value === 'UPCOMING'
@@ -407,7 +406,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
               h(NSwitch, {
                 value: isChecked,
                 size: 'small',
-                loading: isSwitchingThisRow, // THÊM LOADING VÀO ĐÂY
+                loading: isSwitchingThisRow, 
                 style: { pointerEvents: 'none' },
               }),
             ]),
