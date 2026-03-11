@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.admin.banhang.repository;
 
+import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDImeiResponse;
 import com.sd20201.datn.entity.IMEI;
 import com.sd20201.datn.infrastructure.constant.ImeiStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -18,6 +19,11 @@ public interface ADBanHangIMEIRepository extends JpaRepository<IMEI, String> {
     long countByInvoiceDetailId(String invoiceDetailId);
 
     Optional<IMEI> findByCode(String code);
+
+    @Query(value = """
+    SELECT i.id as id, i.code as code, i.name as name, i.status as status, i.imeiStatus as imeiStatus from IMEI i where i.productDetail.id = :idProductDetail AND i.imeiStatus = 0 AND i.status = 0                                                                                                                                          
+    """)
+    List<ADPDImeiResponse> findByIdProductDetail(String idProductDetail);
 
 
 //    @Query("SELECT COUNT(i) FROM IMEI i WHERE i.productDetail.id = :productDetailId " +

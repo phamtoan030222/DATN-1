@@ -95,7 +95,7 @@ public class ADBanHangController {
 
         @GetMapping("/imei/{idProductDetail}")
     ResponseEntity<?> getImeiProduct(@PathVariable String idProductDetail) {
-        return Helper.createResponseEntity(productDetailService.getImeiProductDetail(idProductDetail));
+        return Helper.createResponseEntity(adBanHangService.getImeiProductDetail(idProductDetail));
     }
 
 

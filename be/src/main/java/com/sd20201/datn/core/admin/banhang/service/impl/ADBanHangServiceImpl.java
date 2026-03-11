@@ -1303,4 +1303,9 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         return new ResponseObject<>(null, HttpStatus.OK, "Gán serial thành công");
     }
+
+    @Override
+    public ResponseObject<?> getImeiProductDetail(String idProductDetail) {
+        return ResponseObject.successForward(imeiRepository.findByIdProductDetail(idProductDetail), "OKE");
+    }
 }
