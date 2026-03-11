@@ -33,6 +33,7 @@ import type { ADChangeStatusRequest, HoaDonChiTietItem } from '@/service/api/adm
 import {
   changeOrderStatus,
   getHoaDonChiTiets,
+  updateCustomerInvoice,
 } from '@/service/api/admin/hoadon.api'
 import {
   doiImei,
@@ -173,11 +174,14 @@ const INVOICE_TYPE_MAP: Record<string, { text: string, type: string }> = {
 }
 
 const PAYMENT_METHOD_MAP: Record<string, string> = {
+  TIEN_MAT: 'Tiền mặt',
+  VNPAY: 'VNPay',
+  CHUYEN_KHOAN: 'Chuyển khoản',
+  THE_TIN_DUNG: 'Thẻ tín dụng/Thẻ ghi nợ',
+  VI_DIEN_TU: 'Ví điện tử',
+  TIEN_MAT_CHUYEN_KHOAN: 'Tiền mặt + Chuyển khoản',
   CASH: 'Tiền mặt',
   BANKING: 'Chuyển khoản',
-  CREDIT_CARD: 'Thẻ tín dụng',
-  MOMO: 'Ví MoMo',
-  ZALOPAY: 'Ví ZaloPay',
 }
 
 const SHIPPING_METHOD_MAP: Record<string, string> = {
@@ -209,6 +213,59 @@ const dialog = useDialog()
 const idNV = localStorageAction.get(USER_INFO_STORAGE_KEY)
 
 // ==================== Helper Functions ====================
+async function refreshSerialList() {
+  if (!selectedProductItem.value || loadingSerials.value)
+    return
+
+  loadingSerials.value = true
+  try {
+    const response = await getImeiProductDetail(selectedProductItem.value.productDetailId!)
+    if (response.success && response.data) {
+      const existingImeis = parseIMEIList(selectedProductItem.value.danhSachImei)
+
+      if (changingImei.value) {
+        // Luồng thay đổi: loại bỏ các serial đã gán NGOẠI TRỪ serial đang thay thế
+        const otherAssignedImeis = existingImeis.filter(imei => imei.id !== changingImei.value!.id)
+        selectedSerials.value = response.data.filter(s =>
+          s.imeiStatus === 'AVAILABLE'
+          && !otherAssignedImeis.some(imei => imei.id === s.id),
+        )
+      }
+      else {
+        // Luồng bổ sung: loại bỏ tất cả serial đã gán
+        selectedSerials.value = response.data.filter(s =>
+          s.imeiStatus === 'AVAILABLE'
+          && !existingImeis.some(imei => imei.id === s.id),
+        )
+      }
+      message.success('Đã làm mới danh sách serial')
+    }
+    else {
+      message.error(response.message || 'Không thể tải danh sách serial')
+    }
+  }
+  catch {
+    message.error('Đã xảy ra lỗi khi làm mới')
+  }
+  finally {
+    loadingSerials.value = false
+  }
+}
+
+function getPaymentMethodIcon(method: string | undefined) {
+  switch (method) {
+    case 'VNPAY':
+    case 'THE_TIN_DUNG':
+      return CardOutline // icon thẻ
+    case 'CHUYEN_KHOAN':
+    case 'TIEN_MAT_CHUYEN_KHOAN':
+      return GlobeOutline // icon chuyển khoản
+    case 'TIEN_MAT':
+    default:
+      return CashOutline // icon tiền mặt
+  }
+}
+
 function parseIMEIList(imeiData: any): IMEIItem[] {
   if (!imeiData)
     return []
@@ -710,7 +767,11 @@ function getCurrentStatusTextClass(): string {
 function getCurrentStepIcon(): any { return getStatusIcon(currentStatus.value) }
 function getInvoiceTypeText(type: string | undefined): string { return INVOICE_TYPE_MAP[type || '0']?.text || 'Không xác định' }
 function getInvoiceTypeTagType(type: string | undefined): string { return INVOICE_TYPE_MAP[type || '0']?.type || 'default' }
-function getPaymentMethodText(method: string | undefined): string { return PAYMENT_METHOD_MAP[method || ''] || method || 'Tiền mặt' }
+function getPaymentMethodText(method: string | undefined): string {
+  if (!method)
+    return 'Chưa xác định' // ← đổi fallback, không ra "Tiền mặt" nữa
+  return PAYMENT_METHOD_MAP[method] || method
+}
 function getPaymentStatusText(): string { return hoaDonData.value?.duNo ? 'Còn nợ' : 'Đã thanh toán' }
 function getPaymentStatusTagType(): string { return hoaDonData.value?.duNo ? 'warning' : 'success' }
 function getStepCircleBg(status: string | number | undefined): string {
@@ -936,16 +997,35 @@ function openCustomerEditModal() {
   showCustomerModal.value = true
 }
 
-function saveCustomerInfo() {
-  customerFormRef.value?.validate((errors) => {
+async function saveCustomerInfo() {
+  customerFormRef.value?.validate(async (errors) => {
     if (!errors) {
       isSavingCustomer.value = true
-      setTimeout(() => {
-        emit('update:customer', { ...customerForm })
+      try {
+        const response = await updateCustomerInvoice({
+          maHoaDon: invoiceCode.value,
+          tenKhachHang: customerForm.tenKhachHang,
+          sdtKH: customerForm.sdtKH,
+          email: customerForm.email,
+          diaChi: customerForm.diaChi,
+        })
+
+        if (response.success || response.status === 'OK') {
+          emit('update:customer', { ...customerForm })
+          showCustomerModal.value = false
+          message.success('Cập nhật thông tin khách hàng thành công')
+          await fetchInvoiceDetails() // ← Reload lại UI
+        }
+        else {
+          message.error(response.message || 'Cập nhật thất bại')
+        }
+      }
+      catch (error: any) {
+        message.error(error?.response?.data?.message || 'Đã xảy ra lỗi')
+      }
+      finally {
         isSavingCustomer.value = false
-        showCustomerModal.value = false
-        message.success('Cập nhật thông tin khách hàng thành công')
-      }, 500)
+      }
     }
   })
 }
@@ -955,6 +1035,13 @@ async function confirmStatusUpdate(): Promise<void> {
     message.error('Vui lòng chọn trạng thái mới')
     return
   }
+
+  // ✅ Bắt buộc nhập lý do khi hủy đơn
+  if (selectedStatus.value === 5 && !statusNote.value.trim()) {
+    message.error('Vui lòng nhập lý do hủy đơn hàng')
+    return
+  }
+
   isUpdating.value = true
   try {
     const response = await changeOrderStatus({
@@ -964,7 +1051,7 @@ async function confirmStatusUpdate(): Promise<void> {
       idNhanVien: idNV.userId,
     })
     if (response.success) {
-      message.success('Cập nhật trạng thái thành công')
+      message.success(selectedStatus.value === 5 ? 'Đã hủy đơn hàng thành công' : 'Cập nhật trạng thái thành công')
       await fetchInvoiceDetails()
       selectedStatus.value = null
       statusNote.value = ''
@@ -978,32 +1065,10 @@ async function confirmStatusUpdate(): Promise<void> {
 
 function openCancelModal(): void {
   if (isCancelled.value) { message.warning('Đơn hàng đã bị hủy'); return }
-  dialog.error({
-    title: 'Xác nhận hủy đơn hàng',
-    content: 'Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.',
-    positiveText: 'Xác nhận hủy',
-    negativeText: 'Hủy bỏ',
-    positiveButtonProps: { type: 'error' },
-    onPositiveClick: async () => {
-      // ✅ Gọi thẳng API hủy, không mở modal chuyển trạng thái
-      isUpdating.value = true
-      try {
-        const response = await changeOrderStatus({
-          maHoaDon: hoaDonData.value!.maHoaDon!,
-          statusTrangThaiHoaDon: 5,
-          note: 'Nhân viên hủy đơn hàng',
-          idNhanVien: idNV.userId,
-        })
-        if (response.success) {
-          message.success('Đã hủy đơn hàng thành công')
-          await fetchInvoiceDetails()
-        }
-        else { message.error(response.message || 'Hủy đơn thất bại') }
-      }
-      catch (error: any) { message.error(error.message || 'Đã xảy ra lỗi') }
-      finally { isUpdating.value = false }
-    },
-  })
+  // Tái sử dụng modal chuyển trạng thái, set sẵn status = 5 (Đã hủy)
+  selectedStatus.value = 5
+  statusNote.value = ''
+  showStatusModal.value = true
 }
 
 // ==================== API Functions ====================
@@ -1077,7 +1142,7 @@ onMounted(async () => {
 })
 </script>
 
-<template>
+fun<template>
   <div class="container mx-auto px-4 py-6 space-y-6">
     <!-- ==================== HEADER ==================== -->
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 no-print">
@@ -1483,7 +1548,7 @@ onMounted(async () => {
             <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center py-2 border-b border-gray-100">
               <span class="text-gray-600">Phí vận chuyển:</span><span class="font-semibold">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
             </div>
-            <div v-if="hoaDonData?.giaTriVoucher" class="flex justify-between items-center py-2 border-b border-gray-100">
+            <div v-if="hoaDonData?.giaTriVoucher && hoaDonData?.maVoucher" class="flex justify-between items-center py-2 border-b border-gray-100">
               <span class="text-gray-600">Giảm giá voucher:</span><span class="font-semibold text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
             </div>
             <div class="flex justify-between items-center pt-4">
@@ -1512,8 +1577,8 @@ onMounted(async () => {
       <NCard class="shadow-sm border-0 rounded-xl" content-class="p-6">
         <template #header>
           <div class="flex items-center gap-2">
-            <NIcon size="20" color="#4b5563">
-              <CardOutline />
+            <NIcon size="20" color="#3b82f6">
+              <component :is="getPaymentMethodIcon(hoaDonData?.phuongThucThanhToan)" />
             </NIcon>
             <h3 class="text-lg font-semibold text-gray-900">
               Thông tin thanh toán
@@ -1525,7 +1590,7 @@ onMounted(async () => {
             <div class="flex items-center gap-2">
               <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
                 <NIcon size="20" color="#3b82f6">
-                  <CashOutline />
+                  <component :is="getPaymentMethodIcon(hoaDonData?.phuongThucThanhToan)" />
                 </NIcon>
               </div>
               <div>
@@ -1619,7 +1684,7 @@ onMounted(async () => {
               <span class="text-gray-600">Phí vận chuyển:</span>
               <span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
             </div>
-            <div v-if="hoaDonData?.giaTriVoucher" class="flex justify-between items-center">
+            <div v-if="hoaDonData?.giaTriVoucher && hoaDonData?.maVoucher" class="flex justify-between items-center">
               <span class="text-gray-600">Giảm giá voucher:</span>
               <span class="font-medium text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
             </div>
@@ -1669,7 +1734,7 @@ onMounted(async () => {
                 <span class="text-gray-600">Phí vận chuyển:</span>
                 <span class="font-medium">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
               </div>
-              <div v-if="hoaDonData?.giaTriVoucher" class="flex justify-between items-center">
+              <div v-if="hoaDonData?.giaTriVoucher && hoaDonData?.maVoucher" class="flex justify-between items-center">
                 <span class="text-gray-600">Giảm giá voucher:</span>
                 <span class="font-medium text-green-600">-{{ formatCurrency(Math.abs(hoaDonData.giaTriVoucher)) }}</span>
               </div>
@@ -1735,12 +1800,31 @@ onMounted(async () => {
               </div>
             </div>
           </div>
-          <NButton type="primary" size="large" round class="shadow-sm flex-shrink-0" @click="startScanMode">
-            <template #icon>
-              <NIcon><QrCodeOutline /></NIcon>
-            </template>
-            Quét mã vạch
-          </NButton>
+
+          <div class="flex items-center gap-2 flex-shrink-0">
+            <NButton
+              circle
+              size="large"
+              secondary
+              :loading="loadingSerials"
+              title="Làm mới danh sách serial"
+              style="border: 1px solid #e0e7ff;"
+              @click="refreshSerialList"
+            >
+              <template #icon>
+                <NIcon color="#6366f1">
+                  <RefreshOutline />
+                </NIcon>
+              </template>
+            </NButton>
+
+            <NButton type="primary" size="large" round class="shadow-sm" @click="startScanMode">
+              <template #icon>
+                <NIcon><QrCodeOutline /></NIcon>
+              </template>
+              Quét mã vạch
+            </NButton>
+          </div>
         </div>
 
         <!-- ✅ Banner hiển thị serial cũ đang bị thay thế -->
@@ -1942,7 +2026,7 @@ onMounted(async () => {
     <NModal
       v-model:show="showStatusModal"
       preset="card"
-      class="no-print !w-[520px] !max-w-[95vw] !rounded-2xl shadow-2xl"
+      class="no-print !w-[420px] !max-w-[90vw] !rounded-2xl shadow-2xl"
       :bordered="false"
       size="huge"
       content-style="padding-top: 0;"
@@ -1966,10 +2050,10 @@ onMounted(async () => {
       </template>
 
       <div class="py-4">
-        <div class="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-6 border border-gray-200 shadow-inner flex items-center justify-between relative overflow-hidden mb-6">
+        <div class="bg-gradient-to-br from-gray-50 to-gray-100/50 rounded-xl p-4 border border-gray-200 shadow-inner flex items-center justify-between relative overflow-hidden mb-4">
           <div class="flex flex-col items-center gap-2 relative z-10 w-1/3">
-            <div class="w-12 h-12 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center text-gray-400 shadow-sm opacity-80">
-              <NIcon size="24">
+            <div class="w-10 h-10 rounded-full bg-white border-2 border-gray-200 flex items-center justify-center text-gray-400 shadow-sm opacity-80">
+              <NIcon size="20">
                 <component :is="getStatusIcon(currentStatus)" />
               </NIcon>
             </div>
@@ -1985,29 +2069,37 @@ onMounted(async () => {
           </div>
           <div class="flex flex-col items-center gap-2 relative z-10 w-1/3">
             <div
-              class="w-16 h-16 rounded-full border-[3px] flex items-center justify-center shadow-md scale-110 transition-colors"
-              :class="getModalStatusColorClass(nextStatusToUpdate)"
+              class="w-12 h-12 rounded-full border-[3px] flex items-center justify-center shadow-md scale-110 transition-colors"
+              :class="getModalStatusColorClass(selectedStatus)"
             >
-              <NIcon size="30">
-                <component :is="getStatusIcon(nextStatusToUpdate)" />
+              <NIcon size="24">
+                <component :is="getStatusIcon(selectedStatus)" />
               </NIcon>
             </div>
-            <span class="text-sm font-bold text-center mt-1" :class="getModalStatusColorClass(nextStatusToUpdate).split(' ')[1]">
-              {{ getStatusText(nextStatusToUpdate) }}
+            <span class="text-sm font-bold text-center mt-1" :class="getModalStatusColorClass(selectedStatus).split(' ')[1]">
+              {{ getStatusText(selectedStatus) }}
             </span>
           </div>
         </div>
         <div class="space-y-2">
           <label class="text-sm font-semibold text-gray-700 flex items-center gap-1">
-            Ghi chú thêm <span class="text-gray-400 font-normal text-xs">(Không bắt buộc)</span>
+            {{ selectedStatus === 5 ? 'Lý do hủy đơn' : 'Ghi chú thêm' }}
+            <span v-if="selectedStatus === 5" class="text-red-500 font-bold">*</span>
+            <span v-else class="text-gray-400 font-normal text-xs">(Không bắt buộc)</span>
           </label>
           <NInput
             v-model:value="statusNote"
             type="textarea"
-            placeholder="Nhập ghi chú cho nhân viên hoặc khách hàng..."
+            :placeholder="selectedStatus === 5
+              ? 'Bắt buộc nhập lý do hủy đơn hàng...'
+              : 'Nhập ghi chú cho nhân viên hoặc khách hàng...'"
             :rows="3"
+            :status="selectedStatus === 5 && statusNote.trim() === '' ? 'error' : undefined"
             class="!rounded-lg"
           />
+          <p v-if="selectedStatus === 5 && statusNote.trim() === ''" class="text-xs text-red-500 mt-1">
+            Vui lòng nhập lí do
+          </p>
         </div>
       </div>
 
@@ -2025,6 +2117,87 @@ onMounted(async () => {
           >
             Xác nhận chuyển
           </NButton>
+        </div>
+      </template>
+    </NModal>
+    <!-- ==================== MODAL: CHỈNH SỬA KHÁCH HÀNG ==================== -->
+    <NModal
+      v-model:show="showCustomerModal"
+      preset="card"
+      title="Chỉnh sửa thông tin khách hàng"
+      style="width: 500px; max-width: 95vw; border-radius: 12px"
+      :bordered="false"
+      class="no-print shadow-xl"
+    >
+      <NForm
+        ref="customerFormRef"
+        :model="customerForm"
+        :rules="customerFormRules"
+        label-placement="top"
+      >
+        <NFormItem label="Họ và tên" path="tenKhachHang">
+          <NInput
+            v-model:value="customerForm.tenKhachHang"
+            placeholder="Nhập họ và tên khách hàng"
+            size="large"
+          />
+        </NFormItem>
+
+        <NFormItem label="Số điện thoại" path="sdtKH">
+          <NInput
+            v-model:value="customerForm.sdtKH"
+            placeholder="Nhập số điện thoại"
+            size="large"
+          />
+        </NFormItem>
+
+        <NFormItem label="Email" path="email">
+          <NInput
+            v-model:value="customerForm.email"
+            placeholder="Nhập email (không bắt buộc)"
+            size="large"
+          />
+        </NFormItem>
+
+        <NFormItem label="Địa chỉ" path="diaChi">
+          <NInput
+            v-model:value="customerForm.diaChi"
+            placeholder="Nhập địa chỉ giao hàng"
+            size="large"
+            type="textarea"
+            :rows="3"
+          />
+        </NFormItem>
+      </NForm>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <NButton size="large" @click="showCustomerModal = false">
+            Hủy bỏ
+          </NButton>
+          <NPopconfirm
+            positive-text="Xác nhận"
+            negative-text="Hủy bỏ"
+            @positive-click="saveCustomerInfo"
+          >
+            <template #trigger>
+              <NButton
+                type="primary"
+                size="large"
+                :loading="isSavingCustomer"
+              >
+                Lưu thông tin
+              </NButton>
+            </template>
+
+            <template #icon>
+              <NIcon color="#18a058">
+                <CheckmarkCircleOutline />
+              </NIcon>
+            </template>
+
+            Bạn có chắc muốn cập nhật thông tin khách hàng?
+          </NPopconfirm>
         </div>
       </template>
     </NModal>
@@ -2051,4 +2224,14 @@ onMounted(async () => {
 ::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+:deep(.n-popconfirm__action .n-button--primary-type) {
+  background-color: #18a058 !important;
+  border-color: #18a058 !important;
+}
+
+:deep(.n-popconfirm__action .n-button--primary-type:hover) {
+  background-color: #0f9249 !important;
+  border-color: #0f9249 !important;
+}
 </style>

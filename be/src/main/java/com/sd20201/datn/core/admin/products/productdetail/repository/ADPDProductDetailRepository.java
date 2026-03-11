@@ -38,7 +38,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                 , p.ram.name as ram
                 , p.price as price
                 , p.status as status
-                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0)) as quantity
+                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0 AND i.status = 0) as quantity
                 , p.urlImage as urlImage
                  , p.product.name as productName
     FROM ProductDetail p

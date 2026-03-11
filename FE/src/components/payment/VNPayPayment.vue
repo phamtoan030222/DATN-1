@@ -85,7 +85,8 @@ OPEN PAYMENT
 function openPaymentWindow() {
   if (!paymentUrl.value)
     return
-  window.open(paymentUrl.value, '_blank', 'width=500,height=700')
+  // Redirect thẳng tab hiện tại thay vì mở tab mới
+  window.location.href = paymentUrl.value
 }
 
 onMounted(async () => {
@@ -125,6 +126,33 @@ async function checkPaymentStatus() {
   }
   catch (e) {
     console.error('Lỗi khi kiểm tra trạng thái:', e)
+  }
+  finally {
+    checking.value = false
+  }
+}
+
+async function manualConfirmPayment() {
+  const invoiceId = props.invoice?.orderId || props.invoice?.id
+  if (!invoiceId || checking.value)
+    return
+  checking.value = true
+
+  try {
+    const response = await axios.post(
+      `http://localhost:2345/api/payment/manual-confirm/${invoiceId}`,
+    )
+    if (response.data.trangThai === 'DA_THANH_TOAN') {
+      paymentSuccess.value = true
+      paymentMessage.value = 'Đã xác nhận thanh toán thành công!'
+      amount.value = props.invoice?.totalAmountAfterDecrease || 0
+      stopChecking()
+      resultVisible.value = true
+      emit('payment-success', response.data)
+    }
+  }
+  catch (e) {
+    toast.error('Xác nhận thất bại, vui lòng thử lại!')
   }
   finally {
     checking.value = false
@@ -273,12 +301,6 @@ function finishPayment() {
 /* ==============================
 LIFECYCLE
 ============================== */
-onMounted(async () => {
-  if (props.visible) {
-    reset()
-    await createPayment()
-  }
-})
 
 watch(() => props.visible, (val) => {
   if (!val)
@@ -340,7 +362,7 @@ onBeforeUnmount(() => stopChecking())
 
         <div class="qr-wrapper">
           <div class="qr-box">
-            <QrcodeVue :value="paymentUrl" :size="240" level="H" />
+            <QrcodeVue :value="paymentUrl" :size="180" level="H" />
             <div class="qr-logo-center">
               <img :src="vnpayLogo" alt="VNPAY" style="width: 32px; height: 32px; border-radius: 6px; background: white; padding: 2px;" onerror="this.style.display='none'">
             </div>
@@ -357,6 +379,16 @@ onBeforeUnmount(() => stopChecking())
             </NIcon>
             <span class="timer-text">Mã hết hạn sau: <strong>{{ countdownDisplay }}</strong></span>
           </div>
+          <NButton
+            type="primary"
+            size="large"
+            block
+            :loading="checking"
+            class="btn-confirm"
+            @click="manualConfirmPayment"
+          >
+            Xác nhận đã thanh toán
+          </NButton>
 
           <NButton
             dashed
@@ -391,11 +423,10 @@ onBeforeUnmount(() => stopChecking())
 
 <style scoped>
 .vnpay-container {
-  padding: 8px;
+  padding: 4px 8px;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
-/* --- Layout chung --- */
 .payment-screen, .result-screen {
   display: flex;
   flex-direction: column;
@@ -403,47 +434,39 @@ onBeforeUnmount(() => stopChecking())
   text-align: center;
 }
 
-/* --- Trạng thái Loading --- */
 .loading-state {
-  padding: 60px 20px;
+  padding: 32px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
-.loading-text {
-  color: #666;
-  font-size: 15px;
-}
+.loading-text { color: #666; font-size: 14px; }
 
-/* --- Phần hiển thị thông tin tiền --- */
-.header-info {
-  margin-bottom: 24px;
-}
+.header-info { margin-bottom: 12px; }
 .amount {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 800;
-  color: #18a058; /* Xanh lá Naive UI chuẩn */
+  color: #18a058;
   letter-spacing: -0.5px;
 }
 .invoice-badge {
   display: inline-block;
-  margin-top: 8px;
-  padding: 4px 12px;
+  margin-top: 6px;
+  padding: 3px 10px;
   background-color: #f3f3f5;
   color: #666;
   border-radius: 100px;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
 }
 
-/* --- Khối chứa QR Code --- */
 .qr-wrapper {
   background: #f8fafc;
-  padding: 24px;
-  border-radius: 20px;
+  padding: 14px 20px;
+  border-radius: 16px;
   border: 1px dashed #e2e8f0;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -451,9 +474,9 @@ onBeforeUnmount(() => stopChecking())
 }
 .qr-box {
   background: white;
-  padding: 12px;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  padding: 8px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   position: relative;
   display: inline-block;
 }
@@ -463,92 +486,67 @@ onBeforeUnmount(() => stopChecking())
   left: 50%;
   transform: translate(-50%, -50%);
   background: white;
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 2px;
   display: flex;
   justify-content: center;
   align-items: center;
 }
 .note {
-  margin-top: 16px;
+  margin-top: 10px;
   margin-bottom: 0;
   color: #64748b;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
 }
 
-/* --- Nút bấm và thời gian --- */
-.actions-wrapper {
-  width: 100%;
-  padding: 0 10px;
-}
+.actions-wrapper { width: 100%; padding: 0 4px; }
 .timer-box {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   background: #fffbef;
   border: 1px solid #fde68a;
-  padding: 10px;
-  border-radius: 12px;
+  padding: 8px;
+  border-radius: 10px;
 }
-.timer-text {
-  color: #b45309;
-  font-size: 14px;
-}
-.timer-text strong {
-  font-size: 16px;
-  color: #d97706;
-}
+.timer-text { color: #b45309; font-size: 13px; }
+.timer-text strong { font-size: 15px; color: #d97706; }
 
 .btn-confirm {
-  height: 48px;
-  font-size: 16px;
+  height: 42px;
+  font-size: 15px;
   font-weight: 600;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(24, 160, 88, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(24, 160, 88, 0.25);
 }
 
-/* --- Trạng thái lỗi và Kết quả --- */
-.error-state {
-  padding: 40px 20px;
-}
+.error-state { padding: 28px 20px; }
 .error-text {
   color: #d03050;
   font-weight: 500;
-  margin: 16px 0 24px 0;
-  font-size: 15px;
+  margin: 12px 0 20px 0;
+  font-size: 14px;
 }
 
-.result-screen {
-  padding: 20px 10px;
-}
-.result-title {
-  margin: 16px 0 8px 0;
-  font-size: 24px;
-  font-weight: 700;
-}
-.result-msg {
-  color: #666;
-  margin-bottom: 16px;
-}
+.result-screen { padding: 16px 8px; }
+.result-title { margin: 12px 0 6px 0; font-size: 22px; font-weight: 700; }
+.result-msg { color: #666; margin-bottom: 12px; font-size: 14px; }
 .amount-result {
-  font-size: 32px;
+  font-size: 26px;
   font-weight: 800;
   color: #18a058;
   background: #f0fdf4;
-  padding: 16px 32px;
-  border-radius: 16px;
+  padding: 12px 28px;
+  border-radius: 14px;
   display: inline-block;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
-/* Animation nhỏ cho icon */
 @keyframes bounce-soft {
   0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
+  50% { transform: translateY(-8px); }
 }
-.animate-bounce {
-  animation: bounce-soft 2s infinite ease-in-out;
-}
+.animate-bounce { animation: bounce-soft 2s infinite ease-in-out; }
 </style>

@@ -212,4 +212,10 @@ public class ADBanHangController {
     public ResponseEntity<?> ganImei(@RequestBody ADGanImeiRequest request) {
         return Helper.createResponseEntity(adBanHangService.ganImei(request));
     }
+
+    @GetMapping("/imei/{idProductDetail}/available")
+    ResponseEntity<?> getImeiAvailable(@PathVariable String idProductDetail) {
+        return Helper.createResponseEntity(productDetailService.getImeiAvailableForAssign(idProductDetail));
+    }
+
 }

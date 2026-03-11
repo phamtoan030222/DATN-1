@@ -216,23 +216,25 @@ async function triggerShowQR() {
 // ==================== VNPAY STATE ====================
 const vnpayVisible = ref(false)
 const vnpayLoading = ref(false)
+// ✅ FIX - Thêm đủ thông tin như processPayment() đã có
 const currentInvoice = computed(() => {
-  if (!idHDS.value)
-    return null
   return {
-    // 1. SỬA "id" THÀNH "orderId"
     orderId: idHDS.value,
-
     code: tabs.value.find(t => t.idHD === idHDS.value)?.code || '',
     totalAmountAfterDecrease: tongTien.value,
+
+    // ✅ THÊM 3 FIELD MỚI khớp với PaymentRequest
+    tienHang: tienHang.value,
+    tienShip: shippingFee.value,
+    idPGG: selectedVoucher.value?.voucherId ?? null,
+
+    orderType: '250000',
+    language: 'vn',
+    staffId: USER_INFO?.userId,
     customerName: state.detailKhachHang?.ten || deliveryInfo.tenNguoiNhan,
     customerPhone: state.detailKhachHang?.sdt || deliveryInfo.sdtNguoiNhan,
     customerEmail: state.detailKhachHang?.email || '',
     customerAddress: formatFullAddress.value,
-
-    // 2. THÊM 2 TRƯỜNG BẮT BUỘC NÀY
-    orderType: '250000', // Mã danh mục chuẩn của VNPAY dành cho Đồ công nghệ/Máy tính
-    language: 'vn', // Ngôn ngữ hiển thị trên trang thanh toán
   }
 })
 

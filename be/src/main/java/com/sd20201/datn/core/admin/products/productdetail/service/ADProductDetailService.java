@@ -54,4 +54,6 @@ public interface ADProductDetailService {
     ResponseObject<?> checkExistVariant(ADPDExistVariantRequest request);
 
     ResponseObject<?> addImeiToExistProductDetail(ADAddSerialNumberRequest request);
+
+    ResponseObject<?> getImeiAvailableForAssign(String idProductDetail);
 }

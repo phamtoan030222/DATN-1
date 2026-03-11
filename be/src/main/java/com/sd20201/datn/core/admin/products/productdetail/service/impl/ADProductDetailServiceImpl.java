@@ -5,6 +5,7 @@ import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExis
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDImeiResponse;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBatteryRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBrandRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDCPURepository;
@@ -38,7 +39,6 @@ import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.entity.Screen;
 import com.sd20201.datn.infrastructure.constant.*;
-import com.sd20201.datn.repository.IMEIRepository;
 import com.sd20201.datn.repository.ImageProductRepository;
 import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
@@ -553,4 +553,12 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         }
         return ResponseObject.successForward(null, "Save serial success");
     }
-}
+
+    @Override
+    public ResponseObject<?> getImeiAvailableForAssign(String idProductDetail) {
+        List<ADPDImeiResponse> allImeis = imeiRepository.findByIdProductDetail(idProductDetail);
+        List<ADPDImeiResponse> activeImeis = allImeis.stream()
+                .filter(i -> "ACTIVE".equals(i.getStatus()))
+                .toList();
+        return ResponseObject.successForward(activeImeis, "OKE");
+}}
