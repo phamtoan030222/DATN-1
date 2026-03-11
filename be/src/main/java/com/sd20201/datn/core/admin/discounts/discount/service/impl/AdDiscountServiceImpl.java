@@ -10,6 +10,7 @@ import com.sd20201.datn.core.admin.discounts.discount.repository.AdDiscountSearc
 import com.sd20201.datn.core.admin.discounts.discount.service.AdDiscountService;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import com.sd20201.datn.entity.Battery;
 import com.sd20201.datn.entity.Discount;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.utils.Helper;
@@ -24,6 +25,7 @@ import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -444,6 +446,21 @@ public class AdDiscountServiceImpl implements AdDiscountService {
                 HttpStatus.OK,
                 "Lấy thành công danh sách Đợt giảm giá"
         );
+    }
+
+    @Override
+    public ResponseObject<?> updateDiscountStatus(String id) {
+        Optional<Discount> optionalDiscount = adDiscountRepossitory.findById(id);
+        if (optionalDiscount.isEmpty()) {
+            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "Đợt giảm giá không tồn tại", false, null);
+        }
+
+        Discount discount = optionalDiscount.get();
+        discount.setStatus(discount.getStatus().equals(EntityStatus.ACTIVE) ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
+        adDiscountRepossitory.save(discount);
+
+        return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật trạng thái đợt giảm giá thành công", true, null);
+
     }
 
     @Autowired

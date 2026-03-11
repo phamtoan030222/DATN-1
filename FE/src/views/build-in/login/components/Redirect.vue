@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ROLES } from '@/constants/roles'
 import { useAuthStore } from '@/store'
-import { useCartStore } from '@/store/app/card'
+import { useCartStore } from '@/store/app/cart'
 import { getUserInformation } from '@/utils/token.helper'
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'

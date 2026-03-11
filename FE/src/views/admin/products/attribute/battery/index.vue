@@ -1,21 +1,20 @@
 <script setup lang="tsx">
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import { h, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
   NCard,
-  NColorPicker,
   NDataTable,
   NForm,
   NFormItem,
   NGrid,
   NGridItem,
   NIcon,
-  NInput,
   NModal,
   NPagination,
   NPopconfirm,
   NRadio,
   NRadioGroup,
+  NSelect,
   NSpace,
   NSwitch,
   NTooltip,
@@ -25,170 +24,201 @@ import {
 import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import {
-  createColor,
-  getAllColors,
-  updateColor,
-  updateColorStatus,
-} from '@/service/api/admin/product/color.api'
-import type {
-  AdColorResponse,
-  ColorCreateUpdateRequest,
-} from '@/service/api/admin/product/color.api'
+  createBattery,
+  getAllBattery,
+  updateBattery,
+  updateBatteryStatus,
+} from '@/service/api/admin/product/battery.api'
+import type { BatteryResponse, CreateBatteryRequest } from '@/service/api/admin/product/battery.api'
 
 // ================= STATE =================
 const message = useMessage()
-const dialog = useDialog() // Init Dialog
-const formRef = ref<FormInst | null>(null) // Ref Form
-const loading = ref(false)
-
-// Data Table
-const tableData = ref<AdColorResponse[]>([])
+const dialog = useDialog()
+const formRef = ref<FormInst | null>(null)
+const tableData = ref<BatteryResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
+const loading = ref(false)
 
-// Search State
 const searchState = reactive({
   keyword: '',
   status: null as string | null,
 })
 
+// ================= ENUM OPTIONS =================
+// Đúng với backend: [SMART, REVERSE, FAST, STANDARD, WIRELESS]
+const technolyChargingOptions = [
+  { label: 'Sạc tiêu chuẩn', value: 'STANDARD' },
+  { label: 'Sạc nhanh', value: 'FAST' },
+  { label: 'Sạc không dây', value: 'WIRELESS' },
+  { label: 'Sạc thông minh', value: 'SMART' },
+  { label: 'Sạc ngược', value: 'REVERSE' },
+]
+
+const technolyChargingLabel: Record<string, string> = {
+  STANDARD: 'Tiêu chuẩn',
+  FAST: 'Sạc nhanh',
+  WIRELESS: 'Không dây',
+  SMART: 'Thông minh',
+  REVERSE: 'Sạc ngược',
+}
+
+// Đúng với backend enum TypeBattery
+const typeBatteryOptions = [
+  { label: 'Li-Ion', value: 'LI_ION' },
+  { label: 'Li-Po', value: 'LI_PO' },
+  { label: 'NiMH', value: 'NIMH' },
+  { label: 'Solid State', value: 'SOLID_STATE' },
+]
+
+const typeBatteryLabel: Record<string, string> = {
+  LI_ION: 'Li-Ion',
+  LI_PO: 'Li-Po',
+  NIMH: 'NiMH',
+  SOLID_STATE: 'Solid State',
+}
+
 // ================= MODAL STATE =================
 const showModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
 
-const formData = reactive<ColorCreateUpdateRequest>({
-  id: undefined,
+// ⚠️ Dùng "type" để khớp với ADCreateBatteryRequest backend
+const formData = reactive<CreateBatteryRequest & { id?: string }>({
   name: '',
-  code: '#000000',
-  status: 'ACTIVE',
+  brand: '',
+  type: '', // backend DTO field là "type"
+  technolyCharging: '',
+  capacity: 0,
+  removeBattery: false,
 })
 
-// 2. Định nghĩa Rules Validate
 const rules: FormRules = {
-  name: [
-    { required: true, message: 'Vui lòng nhập tên màu', trigger: ['blur', 'input'] },
-  ],
-  code: [
-    { required: true, message: 'Vui lòng chọn mã màu', trigger: ['blur', 'change'] },
+  name: [{ required: true, message: 'Vui lòng nhập tên Pin', trigger: ['blur', 'input'] }],
+  brand: [{ required: true, message: 'Vui lòng nhập hãng sản xuất', trigger: ['blur', 'input'] }],
+  type: [{ required: true, message: 'Vui lòng chọn loại pin', trigger: ['blur', 'change'] }],
+  technolyCharging: [{ required: true, message: 'Vui lòng chọn công nghệ sạc', trigger: ['blur', 'change'] }],
+  capacity: [
+    {
+      trigger: ['blur', 'input'],
+      validator: (_rule, value) => {
+        if (value === null || value === undefined || value === '')
+          return new Error('Vui lòng nhập dung lượng pin')
+        if (Number(value) <= 0)
+          return new Error('Phải lớn hơn 0')
+        return true
+      },
+    },
   ],
 }
 
-// ================= API CALLS =================
-async function fetchData() {
+// ================= API CALL =================
+async function fetchBatteries() {
   loading.value = true
   try {
-    const res = await getAllColors({
+    const res = await getAllBattery({
       page: currentPage.value,
       size: pageSize.value,
-      q: searchState.keyword || undefined,
+      key: searchState.keyword || undefined,
       status: searchState.status || undefined,
     })
-    tableData.value = res.data || []
-    total.value = res.totalElements || 0
+    tableData.value = res.items || []
+    total.value = res.totalItems || 0
   }
-  catch (e) {
-    message.error('Lỗi tải dữ liệu màu sắc')
+  catch {
+    message.error('Không thể tải dữ liệu Pin')
   }
   finally {
     loading.value = false
   }
 }
 
-onMounted(fetchData)
-
-// ================= HANDLERS =================
-function handleSearch() {
-  currentPage.value = 1
-  fetchData()
-}
-
-function handleRefresh() {
-  searchState.keyword = ''
-  searchState.status = null
-  currentPage.value = 1
-  fetchData()
-}
-
-function handlePageChange(page: number) {
-  currentPage.value = page
-  fetchData()
-}
-
-function handlePageSizeChange(size: number) {
-  pageSize.value = size
-  currentPage.value = 1
-  fetchData()
-}
+onMounted(fetchBatteries)
 
 // ================= CRUD LOGIC =================
-function openModal(mode: 'add' | 'edit', row?: AdColorResponse) {
+function openModal(mode: 'add' | 'edit', row?: BatteryResponse) {
   modalMode.value = mode
-
   if (mode === 'edit' && row) {
     Object.assign(formData, {
       id: row.id,
       name: row.name,
-      code: row.code,
-      status: row.status,
+      brand: row.brand,
+      type: row.typeBattery, // response trả "typeBattery", map vào form "type"
+      technolyCharging: row.technolyCharging,
+      capacity: row.capacity,
+      removeBattery: row.removeBattery,
     })
   }
   else {
     Object.assign(formData, {
       id: undefined,
       name: '',
-      code: '#000000',
-      status: 'ACTIVE',
+      brand: '',
+      type: '',
+      technolyCharging: '',
+      capacity: null,
+      removeBattery: false,
     })
   }
   showModal.value = true
 }
 
-// 3. Hàm lưu sử dụng Validate và Dialog
-function handleSave() {
-  formRef.value?.validate((errors) => {
-    if (errors) {
-      return // Dừng nếu có lỗi validate
-    }
+function closeModal() {
+  showModal.value = false
+}
 
-    // Hiển thị Dialog xác nhận
-    dialog.warning({
+function saveBattery() {
+  formRef.value?.validate((errors) => {
+    if (errors)
+      return
+
+    dialog.success({
       title: 'Xác nhận',
       content: modalMode.value === 'add'
-        ? 'Bạn có chắc chắn muốn thêm màu sắc này?'
-        : 'Bạn có chắc chắn muốn cập nhật thông tin màu sắc này?',
+        ? 'Bạn có chắc chắn muốn thêm Pin này?'
+        : 'Bạn có chắc chắn muốn cập nhật thông tin Pin này?',
       positiveText: 'Đồng ý',
       negativeText: 'Hủy',
       onPositiveClick: async () => {
         try {
+          const payload: CreateBatteryRequest = {
+            name: formData.name,
+            brand: formData.brand,
+            type: formData.type, // gửi đúng tên "type"
+            technolyCharging: formData.technolyCharging,
+            capacity: Number(formData.capacity),
+            removeBattery: Boolean(formData.removeBattery),
+          }
+
           if (modalMode.value === 'add') {
-            await createColor(formData)
-            message.success('Thêm màu thành công')
+            await createBattery(payload)
+            message.success('Thêm Pin thành công')
           }
           else {
             if (!formData.id)
               return
-            await updateColor(formData.id, formData)
-            message.success('Cập nhật màu thành công')
+            await updateBattery(formData.id, payload)
+            message.success('Cập nhật Pin thành công')
           }
-          showModal.value = false
-          fetchData()
+          closeModal()
+          fetchBatteries()
         }
-        catch (e) {
-          message.error('Có lỗi xảy ra')
+        catch {
+          message.error('Có lỗi xảy ra khi lưu Pin')
         }
       },
     })
   })
 }
 
-// Hàm đổi trạng thái (từ Popconfirm)
-async function handleStatusChange(row: AdColorResponse) {
+async function handleStatusChange(row: BatteryResponse) {
+  if (!row.id)
+    return
   try {
     loading.value = true
-    await updateColorStatus(row.id)
+    await updateBatteryStatus(row.id, row.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE')
     message.success(`Đã cập nhật trạng thái: ${row.name}`)
-    fetchData()
+    fetchBatteries()
   }
   catch {
     message.error('Cập nhật trạng thái thất bại')
@@ -196,49 +226,84 @@ async function handleStatusChange(row: AdColorResponse) {
   }
 }
 
-// ================= COLUMNS =================
-const columns: DataTableColumns<AdColorResponse> = [
+function refreshTable() {
+  searchState.keyword = ''
+  searchState.status = null
+  currentPage.value = 1
+  fetchBatteries()
+}
+
+function handleSearch() {
+  currentPage.value = 1
+  fetchBatteries()
+}
+
+function handlePageChange(page: number) {
+  currentPage.value = page
+  fetchBatteries()
+}
+
+function handlePageSizeChange(size: number) {
+  pageSize.value = size
+  currentPage.value = 1
+  fetchBatteries()
+}
+
+// ================= TABLE COLUMNS =================
+const columns: DataTableColumns<BatteryResponse> = [
   {
     title: 'STT',
     key: 'index',
-    width: 60, // Cố định
+    width: 60,
     align: 'center',
-    fixed: 'left', // Ghim trái
+    fixed: 'left',
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
-    title: 'Tên màu',
+    title: 'Tên Pin',
     key: 'name',
-    minWidth: 150, // Co giãn
-    fixed: 'left', // Ghim trái (tùy chọn, nếu bảng rộng)
+    minWidth: 160,
+    fixed: 'left',
     ellipsis: { tooltip: true },
-    render: row => h('strong', { class: 'text-gray-700' }, row.name),
+    render: row => h('span', {
+      class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors',
+      onClick: () => openModal('edit', row),
+    }, row.name),
+  },
+  { title: 'Hãng', key: 'brand', width: 110 },
+  {
+    title: 'Loại pin',
+    key: 'typeBattery',
+    width: 110,
+    align: 'center',
+    render: row => typeBatteryLabel[row.typeBattery] ?? row.typeBattery ?? '---',
   },
   {
-    title: 'Mã màu',
-    key: 'code',
-    width: 120, // Cố định
+    title: 'Công nghệ sạc',
+    key: 'technolyCharging',
+    width: 140,
+    render: row => technolyChargingLabel[row.technolyCharging] ?? row.technolyCharging ?? '---',
+  },
+  {
+    title: 'Dung lượng',
+    key: 'capacity',
+    width: 130,
     align: 'center',
-    render: (row) => {
-      return h('div', { class: 'flex items-center justify-center gap-2' }, [
-        h('div', {
-          style: {
-            width: '24px',
-            height: '24px',
-            backgroundColor: row.code,
-            borderRadius: '6px',
-            border: '1px solid #e5e7eb',
-            boxShadow: '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
-          },
-        }),
-        h('span', { class: 'font-mono text-xs text-gray-500' }, row.code),
-      ])
-    },
+    render: row => row.capacity ? `${row.capacity} mAh` : '---',
+  },
+  {
+    title: 'Tháo rời',
+    key: 'removeBattery',
+    width: 90,
+    align: 'center',
+    render: row => h('span', {
+      class: row.removeBattery ? 'text-green-600 font-medium' : 'text-gray-400',
+    }, row.removeBattery ? 'Có' : 'Không'),
   },
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 120, // Cố định
+    width: 120,
     align: 'center',
     render(row) {
       return h(
@@ -249,16 +314,12 @@ const columns: DataTableColumns<AdColorResponse> = [
           negativeText: 'Hủy',
         },
         {
-          trigger: () => h(
-            NSwitch,
-            {
-              value: row.status === 'ACTIVE',
-              size: 'small',
-              disabled: loading.value,
-              // Không bind update trực tiếp
-            },
-          ),
-          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} màu này?`,
+          trigger: () => h(NSwitch, {
+            value: row.status === 'ACTIVE',
+            size: 'small',
+            disabled: loading.value,
+          }),
+          default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} pin này?`,
         },
       )
     },
@@ -266,8 +327,8 @@ const columns: DataTableColumns<AdColorResponse> = [
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 100, // Cố định
-    fixed: 'right', // Ghim phải
+    width: 100,
+    fixed: 'right',
     align: 'center',
     render(row) {
       return h('div', { class: 'flex justify-center' }, [
@@ -290,36 +351,52 @@ const columns: DataTableColumns<AdColorResponse> = [
 
 <template>
   <div>
+    <!-- Header -->
     <NCard class="mb-3 shadow-sm border-none">
       <NSpace vertical :size="8">
         <NSpace align="center">
           <NIcon size="24" class="text-blue-600">
-            <Icon icon="icon-park-outline:platte" />
+            <Icon icon="carbon:battery-half" />
           </NIcon>
           <span style="font-weight: 600; font-size: 24px; color: #1f2937">
-            Quản lý Màu sắc
+            Quản lý Pin
           </span>
         </NSpace>
-        <span class="text-gray-500">Quản lý danh sách các tùy chọn màu sắc sản phẩm</span>
+        <span class="text-gray-500">Quản lý danh sách pin và thông số kỹ thuật</span>
       </NSpace>
     </NCard>
 
+    <!-- Bộ lọc -->
     <NCard title="Bộ lọc tìm kiếm" class="rounded-2xl shadow-sm mb-4 border border-gray-100">
       <template #header-extra>
-        <NButton circle secondary type="primary" @click="handleRefresh">
-          <template #icon>
-            <Icon icon="carbon:filter-reset" />
-          </template>
-        </NButton>
+        <div class="mr-5">
+          <NTooltip trigger="hover" placement="top">
+            <template #trigger>
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                @click="refreshTable"
+              >
+                <NIcon size="24">
+                  <Icon icon="carbon:filter-reset" />
+                </NIcon>
+              </NButton>
+            </template>
+            Làm mới bộ lọc
+          </NTooltip>
+        </div>
       </template>
 
-      <NForm label-placement="top" :show-feedback="false">
-        <NGrid :x-gap="24" :y-gap="12" cols="1 600:2 900:3">
-          <NGridItem>
+      <NForm label-placement="top">
+        <NGrid :x-gap="24" :y-gap="12" cols="1 600:2 800:4">
+          <NGridItem span="2">
             <NFormItem label="Tìm kiếm">
               <NInput
                 v-model:value="searchState.keyword"
-                placeholder="Nhập tên màu..."
+                placeholder="Tìm theo Tên, Hãng, Loại pin..."
                 clearable
                 @input="handleSearch"
                 @keydown.enter="handleSearch"
@@ -331,7 +408,7 @@ const columns: DataTableColumns<AdColorResponse> = [
             </NFormItem>
           </NGridItem>
 
-          <NGridItem>
+          <NGridItem span="2">
             <NFormItem label="Trạng thái">
               <NRadioGroup v-model:value="searchState.status" name="status-group" @update:value="handleSearch">
                 <NSpace>
@@ -352,18 +429,19 @@ const columns: DataTableColumns<AdColorResponse> = [
       </NForm>
     </NCard>
 
-    <NCard title="Danh sách Màu sắc" class="border border-gray-100 rounded-2xl shadow-sm">
+    <!-- Bảng dữ liệu -->
+    <NCard title="Danh sách Pin" class="border border-gray-100 rounded-2xl shadow-sm">
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
             <NButton
               type="primary"
               secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
               @click="openModal('add')"
             >
               <template #icon>
-                <NIcon size="24">
+                <NIcon size="20">
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
@@ -375,11 +453,11 @@ const columns: DataTableColumns<AdColorResponse> = [
             <NButton
               type="info"
               secondary
-              class="group rounded-full px-3 transition-all duration-300 ease-in-out"
-              @click="fetchData"
+              class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
+              @click="refreshTable"
             >
               <template #icon>
-                <NIcon size="24">
+                <NIcon size="20">
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
@@ -397,7 +475,7 @@ const columns: DataTableColumns<AdColorResponse> = [
         :loading="loading"
         :row-key="(row) => row.id"
         :pagination="false"
-        :scroll-x="800"
+        :scroll-x="1000"
         striped
         :bordered="false"
         class="rounded-lg overflow-hidden"
@@ -408,7 +486,7 @@ const columns: DataTableColumns<AdColorResponse> = [
           v-model:page="currentPage"
           v-model:page-size="pageSize"
           :item-count="total"
-          :page-sizes="[10, 20, 50]"
+          :page-sizes="[5, 10, 20, 50]"
           show-size-picker
           @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
@@ -416,55 +494,108 @@ const columns: DataTableColumns<AdColorResponse> = [
       </div>
     </NCard>
 
+    <!-- Modal Thêm / Sửa -->
     <NModal
       v-model:show="showModal"
       preset="card"
-      style="width: 500px"
-      :title="modalMode === 'add' ? 'Thêm Màu sắc' : 'Cập nhật Màu sắc'"
+      style="width: 640px"
+      :title="modalMode === 'add' ? 'Thêm mới Pin' : 'Cập nhật Pin'"
       :bordered="false"
       size="huge"
+      class="shadow-2xl rounded-2xl"
+      :closable="false"
     >
-      <NForm
-        ref="formRef"
-        label-placement="top"
-        :model="formData"
-        :rules="rules"
-      >
-        <NGrid cols="1" :y-gap="12">
-          <NGridItem>
-            <NFormItem label="Tên màu" required path="name">
-              <NInput v-model:value="formData.name" placeholder="VD: Xám không gian, Bạc..." />
-            </NFormItem>
-          </NGridItem>
+      <div class="max-h-[560px] overflow-y-auto pr-4 custom-scrollbar">
+        <NForm
+          ref="formRef"
+          label-placement="top"
+          :model="formData"
+          :rules="rules"
+        >
+          <NFormItem label="Tên Pin" path="name" required>
+            <NInput v-model:value="formData.name" placeholder="VD: Samsung 5000mAh" />
+          </NFormItem>
 
-          <NGridItem>
-            <NFormItem label="Mã màu (Hex)" required path="code">
-              <div class="w-full">
-                <NColorPicker
-                  v-model:value="formData.code"
-                  :modes="['hex']"
-                  :show-alpha="false"
-                  :swatches="[
-                    '#000000', '#FFFFFF', '#FF0000', '#00FF00', '#0000FF',
-                    '#FFFF00', '#00FFFF', '#FF00FF', '#C0C0C0', '#808080',
-                  ]"
+          <NGrid cols="2" x-gap="24" y-gap="12">
+            <NGridItem>
+              <NFormItem label="Hãng sản xuất" path="brand" required>
+                <NInput v-model:value="formData.brand" placeholder="VD: Samsung, LG, ATL" />
+              </NFormItem>
+            </NGridItem>
+
+            <!-- Loại pin dùng NSelect vì backend là Enum TypeBattery -->
+            <NGridItem>
+              <NFormItem label="Loại pin" path="type" required>
+                <NSelect
+                  v-model:value="formData.type"
+                  :options="typeBatteryOptions"
+                  placeholder="Chọn loại pin"
                 />
-              </div>
-            </NFormItem>
-          </NGridItem>
-        </NGrid>
-      </NForm>
+              </NFormItem>
+            </NGridItem>
+
+            <!-- Công nghệ sạc dùng NSelect vì backend là Enum TechnolyCharging -->
+            <NGridItem>
+              <NFormItem label="Công nghệ sạc" path="technolyCharging" required>
+                <NSelect
+                  v-model:value="formData.technolyCharging"
+                  :options="technolyChargingOptions"
+                  placeholder="Chọn công nghệ sạc"
+                />
+              </NFormItem>
+            </NGridItem>
+
+            <NGridItem>
+              <NFormItem label="Dung lượng (mAh)" path="capacity" required>
+                <NInput
+                  v-model:value="formData.capacity"
+                  type="number"
+                  placeholder="VD: 4500, 5000"
+                  class="w-full"
+                />
+              </NFormItem>
+            </NGridItem>
+
+            <NGridItem span="2">
+              <NFormItem label="Có thể tháo rời" path="removeBattery">
+                <NSpace align="center">
+                  <NSwitch v-model:value="formData.removeBattery" />
+                  <span class="text-gray-500 text-sm">
+                    {{ formData.removeBattery ? 'Pin có thể tháo rời' : 'Pin không tháo rời' }}
+                  </span>
+                </NSpace>
+              </NFormItem>
+            </NGridItem>
+          </NGrid>
+        </NForm>
+      </div>
 
       <template #footer>
         <NSpace justify="end">
-          <NButton @click="showModal = false">
+          <NButton @click="closeModal">
             Hủy
           </NButton>
-          <NButton type="primary" @click="handleSave">
-            Lưu thay đổi
+          <NButton type="primary" @click="saveBattery">
+            {{ modalMode === 'add' ? 'Thêm mới' : 'Lưu thay đổi' }}
           </NButton>
         </NSpace>
       </template>
     </NModal>
   </div>
 </template>
+
+<style scoped>
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+</style>

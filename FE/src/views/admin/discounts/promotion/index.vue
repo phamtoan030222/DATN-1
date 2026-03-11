@@ -12,32 +12,31 @@ import {
   NInput,
   NInputNumber,
   NPagination,
+  NPopconfirm,
   NRadio,
   NRadioGroup,
+  NSelect,
   NSpace,
+  NSwitch,
   NTag,
   NTooltip,
   useMessage,
 } from 'naive-ui'
 import { Icon } from '@iconify/vue'
-import { getAllDiscounts,deleteDiscount } from '@/service/api/admin/discount/discountApi'
+import { getAllDiscounts, startDiscount, updateDiscountStatus } from '@/service/api/admin/discount/discountApi'
 import type { DiscountResponse, ParamsGetDiscount } from '@/service/api/admin/discount/discountApi'
 import { useRouter } from 'vue-router'
 import * as XLSX from 'xlsx'
 
-
-
-
- // Xuất Ex
- function handleExportExcel(){
-
-  if(filteredTableData.value.length ===0){
-    message.warning("Không có dữ liệu")
+// Xuất Ex
+function handleExportExcel() {
+  if (filteredTableData.value.length === 0) {
+    message.warning('Không có dữ liệu')
     return
   }
 
-  //mao dữ liêu
-  const excelData = filteredTableData.value.map((item,index) =>{
+  // mao dữ liêu
+  const excelData = filteredTableData.value.map((item, index) => {
     const statusInfo = getStatusInfo(item)
     return {
       'STT': index + 1,
@@ -52,28 +51,27 @@ import * as XLSX from 'xlsx'
 
   // tạo worksheeet
   const worksheet = XLSX.utils.json_to_sheet(excelData)
-  
+
   //  chỉnh độ rộng cho cột
   const wscols = [
-    { wch: 5 },  
-    { wch: 15 }, 
-    { wch: 30 }, 
-    { wch: 10 }, 
-    { wch: 20 }, 
-    { wch: 20 }, 
-    { wch: 15 }, 
+    { wch: 5 },
+    { wch: 15 },
+    { wch: 30 },
+    { wch: 10 },
+    { wch: 20 },
+    { wch: 20 },
+    { wch: 15 },
   ]
   worksheet['!cols'] = wscols
 
-  //tạo workbook
+  // tạo workbook
   const workbook = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(workbook,worksheet,'Danh sách đợt giảm giá')
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Danh sách đợt giảm giá')
 
   // xuất file
-  XLSX.writeFile(workbook,`Discount_Export_${Date.now()}.xlsx`)
+  XLSX.writeFile(workbook, `Discount_Export_${Date.now()}.xlsx`)
   message.success('Đã xuất file Đợt giảm giá thành công')
- }
-
+}
 
 // ================= CONSTANTS & STATE =================
 const router = useRouter()
@@ -84,6 +82,46 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const loading = ref(false)
+const switchingId = ref<string | null>(null)
+
+async function handleStartDiscountAction(id: string) {
+  if (loading.value || switchingId.value)
+    return
+  switchingId.value = id
+  try {
+    await startDiscount(id)
+    message.success('Đã kích hoạt đợt giảm giá thành công!')
+    await fetchDiscounts()
+  }
+  catch (err) {
+    message.error('Lỗi khi kích hoạt đợt giảm giá')
+  }
+  finally {
+    switchingId.value = null
+  }
+}
+
+async function handleToggleSwitch(row: DiscountResponse) {
+  if (switchingId.value)
+    return
+  const originalStatus = row.status
+  const isCurrentlyActive = row.status === 'ACTIVE'
+
+  switchingId.value = row.id
+
+  try {
+    await updateDiscountStatus(row.id, isCurrentlyActive ? 'INACTIVE' : 'ACTIVE')
+    message.success(`Đã ${isCurrentlyActive ? 'tạm dừng' : 'tiếp tục'} đợt giảm giá!`)
+    row.status = isCurrentlyActive ? 'INACTIVE' : 'ACTIVE'
+  }
+  catch (err) {
+    row.status = originalStatus
+    message.error('Lỗi khi thay đổi trạng thái')
+  }
+  finally {
+    switchingId.value = null
+  }
+}
 
 // Filter Form
 const searchForm = reactive({
@@ -93,8 +131,6 @@ const searchForm = reactive({
   dateRange: null as [number, number] | null,
   sortBy: 'createdDate_desc',
 })
-
-
 
 // ================= HELPERS =================
 function formatDateTime(timestamp: number | undefined) {
@@ -111,13 +147,18 @@ function formatDateTime(timestamp: number | undefined) {
 
 function getStatusInfo(item: DiscountResponse) {
   const now = Date.now()
+
+  if (item.status === 'INACTIVE') {
+    return { text: 'Tạm dừng', type: 'warning', value: 2 }
+  }
+
   if (item.startTime && item.endTime) {
     if (now >= item.startTime && now <= item.endTime)
-      return { text: 'Đang diễn ra', type: 'success', value: 0 } // Active
+      return { text: 'Đang diễn ra', type: 'success', value: 0 }
     if (now < item.startTime)
-      return { text: 'Sắp diễn ra', type: 'info', value: 1 } // Upcoming
+      return { text: 'Sắp diễn ra', type: 'info', value: 1 }
   }
-  return { text: 'Đã hết hạn', type: 'default', value: 3 } // Expired
+  return { text: 'Đã kết thúc', type: 'default', value: 3 }
 }
 
 // ================= API & ACTIONS =================
@@ -204,7 +245,6 @@ const paginatedData = computed(() => {
 
 const totalFiltered = computed(() => filteredTableData.value.length)
 
-
 const columns: DataTableColumns<DiscountResponse> = [
   {
     title: 'STT',
@@ -271,28 +311,90 @@ const columns: DataTableColumns<DiscountResponse> = [
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 90,
+    width: 140, // Mở rộng width một chút để chứa 2 nút
     align: 'center',
     fixed: 'right',
     render(row) {
-      const isEditable = true
+      const id = row.id
+      if (!id)
+        return '-'
 
-      return h(
-        NTooltip,
-        { trigger: 'hover' },
-        {
+      const statusInfo = getStatusInfo(row)
+      const isUpcoming = statusInfo.value === 1
+      const isEnded = statusInfo.value === 3
+
+      const actions = []
+
+      // 1. Nút Sửa
+      actions.push(
+        h(NTooltip, { trigger: 'hover' }, {
           trigger: () => h(NButton, {
             size: 'small',
             type: 'warning',
             secondary: true,
             circle: true,
-            disabled: !isEditable,
-            class: 'transition-all hover:scale-125 hover:shadow-lg',
-            onClick: () => navigateToEditPage(row.id),
+            class: 'mr-2 transition-all hover:scale-125 hover:shadow-lg',
+            onClick: () => navigateToEditPage(id),
           }, { icon: () => h(Icon, { icon: 'carbon:edit' }) }),
           default: () => 'Chỉnh sửa chương trình',
-        },
+        }),
       )
+
+      // 2. Nút Kích hoạt ngay (Chỉ hiện khi Sắp diễn ra)
+      if (isUpcoming) {
+        actions.push(
+          h(NPopconfirm, {
+            positiveText: 'Đồng ý',
+            negativeText: 'Hủy',
+            onPositiveClick: () => handleStartDiscountAction(id),
+            disabled: !!switchingId.value,
+          }, {
+            trigger: () => h(NTooltip, { trigger: 'hover' }, {
+              trigger: () => h(NButton, {
+                size: 'small',
+                type: 'success',
+                secondary: true,
+                circle: true,
+                disabled: !!switchingId.value || loading.value,
+                class: 'mr-2 hover:scale-[1.3]',
+              }, { icon: () => h(Icon, { icon: 'carbon:play-filled-alt' }) }),
+              default: () => 'Kích hoạt ngay',
+            }),
+            default: () => 'Kích hoạt đợt giảm giá này ngay bây giờ?',
+          }),
+        )
+      }
+      // 3. Công tắc Switch (Hiện khi chưa kết thúc)
+      else if (!isEnded) {
+        const isActive = row.status === 'ACTIVE'
+        const isSwitchingThisRow = switchingId.value === row.id
+
+        actions.push(
+          h(NPopconfirm, {
+            positiveText: 'Đồng ý',
+            negativeText: 'Hủy',
+            onPositiveClick: () => handleToggleSwitch(row),
+            disabled: isSwitchingThisRow,
+          }, {
+            trigger: () => h(NTooltip, { trigger: 'hover' }, {
+              trigger: () => h('div', {
+                style: `display: inline-block; cursor: pointer; pointer-events: ${isSwitchingThisRow ? 'none' : 'auto'}`,
+              }, [
+                h(NSwitch, {
+                  value: isActive,
+                  size: 'small',
+                  loading: isSwitchingThisRow,
+                  style: { pointerEvents: 'none' }, // Khóa switch để nhường cho Popconfirm
+                }),
+              ]),
+              default: () => isActive ? 'Tạm dừng' : 'Tiếp tục',
+            }),
+            default: () => isActive ? 'Bạn có chắc chắn muốn TẠM DỪNG đợt giảm giá này?' : 'Bạn có chắc chắn muốn TIẾP TỤC đợt giảm giá này?',
+          }),
+        )
+      }
+
+      return h('div', { class: 'flex justify-center items-center' }, actions)
     },
   },
 ]
@@ -359,17 +461,18 @@ watch(searchForm, () => { currentPage.value = 1 })
           </NFormItem>
 
           <NFormItem label="Trạng thái ">
-           <NSelect
-             v-model:value="searchForm.discountStatus"
-             placeholder="Tất cả"
-            :options="[
-              { label: 'Tất cả', value: null },
-              { label: 'Sắp diễn ra', value: 1 },
-              { label: 'Đang diễn ra', value: 0 },
-              { label: 'Đã kết thúc', value: 3 }
+            <NSelect
+              v-model:value="searchForm.discountStatus"
+              placeholder="Tất cả"
+              :options="[
+                { label: 'Tất cả', value: null },
+                { label: 'Sắp diễn ra', value: 1 },
+                { label: 'Tạm dừng', value: 2 },
+                { label: 'Đang diễn ra', value: 0 },
+                { label: 'Đã kết thúc', value: 3 },
               ]"
               clearable
-              />
+            />
           </NFormItem>
 
           <NFormItem label="Mức giảm giá (%)">
@@ -421,14 +524,13 @@ watch(searchForm, () => { currentPage.value = 1 })
                 </NIcon>
               </template>
               <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                Tạo đợt giảm giá
+                Tạo mới
               </span>
             </NButton>
 
-
-              <NButton
+            <NButton
               type="success"
-               secondary
+              secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
               @click="handleExportExcel"
             >
@@ -454,7 +556,7 @@ watch(searchForm, () => { currentPage.value = 1 })
                 </NIcon>
               </template>
               <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
-                Tải lại dữ liệu
+                Tải lại
               </span>
             </NButton>
           </NSpace>
@@ -472,7 +574,6 @@ watch(searchForm, () => { currentPage.value = 1 })
         style="width: 100%; min-width: 580px;"
         class="no-scroll-table"
       />
-
 
       <div class="flex justify-end mt-4">
         <NPagination

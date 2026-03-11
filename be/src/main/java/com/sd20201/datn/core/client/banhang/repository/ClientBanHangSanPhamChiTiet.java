@@ -76,10 +76,12 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
             SELECT
                 pd.id as id
                 , pd.price as price
-                , CASE
+                , MAX(
+                  CASE
                     WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.percentage
                     ELSE NULL
-                  END AS percentage
+                  END
+                ) AS percentage
                 , pd.name as name
                 , pd.urlImage as imageUrl
                 , pd.cpu.name as cpu
@@ -92,6 +94,17 @@ public interface ClientBanHangSanPhamChiTiet extends ProductDetailRepository {
             LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
             LEFT JOIN Discount d on pdd.discount.id = d.id
             WHERE pd.id IN :ids
+            GROUP BY
+                pd.id
+                , pd.price
+                , pd.name
+                , pd.urlImage
+                , pd.cpu.name
+                , pd.ram.name
+                , pd.hardDrive.name
+                , pd.gpu.name
+                , pd.color.name
+                , pd.material.name
             """)
     List<ClientBanHangProductDetailCartResponse> findProductDetailCartResponseByIdIn(List<String> ids, Long time);
 

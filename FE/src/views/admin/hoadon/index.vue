@@ -668,7 +668,7 @@ onMounted(() => {
           <NGi :span="4">
             <NFormItem label=" ">
               <NButton
-                type="warning"
+                type="success"
                 ghost
                 :disabled="state.loading"
                 style="width: 100%"

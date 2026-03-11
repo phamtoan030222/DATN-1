@@ -1,221 +1,172 @@
 <script setup>
-import { ref, onMounted, computed, nextTick, watch } from 'vue';
-import { Client } from '@stomp/stompjs';
-import SockJS from 'sockjs-client';
-import axios from 'axios';
-import { useAuthStore } from '@/store'; 
-import { storeToRefs } from 'pinia';
+import { computed, nextTick, onMounted, ref } from 'vue'
+import axios from 'axios'
+import { useAuthStore } from '@/store'
+import { storeToRefs } from 'pinia'
+import { useChatStore } from '@/store/chatStore' // Import ChatStore vào đây
 
-const BACKEND_URL = 'http://localhost:2345'; 
-const authStore = useAuthStore();
-const { userInfoDatn } = storeToRefs(authStore);
+const BACKEND_URL = 'http://localhost:2345'
+const authStore = useAuthStore()
+const { userInfoDatn } = storeToRefs(authStore)
 
-const stompClient = ref(null);
-const currentSessionId = ref(null);
-const replyText = ref('');
-const chatWindowRef = ref(null);
+// 🔥 1. ĐỒNG BỘ 100% VỚI CHAT STORE (Chìa khóa sửa mọi lỗi)
+const chatStore = useChatStore()
+const { sessions } = storeToRefs(chatStore) // Lấy sessions từ Store ra dùng chung!
 
-const sessions = ref(JSON.parse(localStorage.getItem('admin_chat_history')) || {}); 
-
-watch(sessions, (newVal) => {
-  localStorage.setItem('admin_chat_history', JSON.stringify(newVal));
-}, { deep: true });
-
-const currentSubTab = ref('WAITING'); 
+const currentSessionId = ref(null)
+const replyText = ref('')
+const chatWindowRef = ref(null)
+const currentSubTab = ref('WAITING')
 
 const displayedSessions = computed(() => {
-  const filtered = {};
+  const filtered = {}
   for (const key in sessions.value) {
     if (sessions.value[key].status === currentSubTab.value) {
-      filtered[key] = sessions.value[key];
+      filtered[key] = sessions.value[key]
     }
   }
-  return filtered;
-});
+  return filtered
+})
 
-const currentSession = computed(() => currentSessionId.value ? sessions.value[currentSessionId.value] : null);
+const currentSession = computed(() => currentSessionId.value ? sessions.value[currentSessionId.value] : null)
 
-const countByStatus = (status) => {
-  return Object.values(sessions.value).filter(s => s.status === status).length;
-};
+function countByStatus(status) {
+  return Object.values(sessions.value).filter(s => s.status === status).length
+}
 
-const connectSocket = () => {
-  const socket = new SockJS(`${BACKEND_URL}/ws`);
-  stompClient.value = new Client({
-    webSocketFactory: () => socket,
-    onConnect: () => {
-      stompClient.value.subscribe('/topic/admin-messages', (message) => {
-        const msgBody = JSON.parse(message.body);
-        handleIncomingMessage(msgBody);
-      });
-    },
-    onStompError: (frame) => console.error('Lỗi Socket:', frame.headers['message'])
-  });
-  stompClient.value.activate();
-};
+// 🔥 2. KHI ADMIN CLICK XEM CHAT -> BÁO CHO STORE BIẾT ĐỂ NGỪNG NHẢY SỐ ĐỎ
+function selectSession(sessionId) {
+  currentSessionId.value = sessionId
+  chatStore.currentActiveSessionId = sessionId // Đồng bộ ID đang xem lên Store
+  sessions.value[sessionId].unreadCount = 0 // Xóa số đỏ ngay lập tức
+  scrollToBottom()
+}
 
-const handleIncomingMessage = (msg) => {
-  const sId = msg.sessionId;
+async function acceptSession() {
+  if (!currentSessionId.value)
+    return
+  const sId = currentSessionId.value
+  const staffName = userInfoDatn.value?.fullName || 'Admin'
+  const staffCode = userInfoDatn.value?.userCode || 'NV'
+  const msgContent = `Nhân viên ${staffName} (Mã: ${staffCode}) đã tiếp nhận hỗ trợ bạn.`
 
-  if (!sessions.value[sId]) {
-    sessions.value[sId] = {
-      id: sId,
-      customerName: msg.customer ? msg.customer.fullName || msg.customer.name : 'Khách vãng lai',
-      messages: [],
-      unreadCount: 0,
-      lastMessage: '',
-      status: 'AI',
-      lastTime: new Date().getTime()
-    };
-  }
+  sessions.value[sId].status = 'ACTIVE'
+  await sendSystemAction(sId, msgContent)
+  currentSubTab.value = 'ACTIVE'
+}
 
-  sessions.value[sId].messages.push(msg);
-  sessions.value[sId].lastTime = new Date().getTime();
-  if (msg.senderRole !== 'SYSTEM') {
-    sessions.value[sId].lastMessage = msg.content;
-  }
+// 🔥 3. KHI ADMIN BẤM KẾT THÚC -> TRỪ SỐ Ở STORE LUÔN
+async function closeSession() {
+  if (!currentSessionId.value)
+    return
+  const sId = currentSessionId.value
 
-  const content = msg.content ? msg.content.toLowerCase() : '';
-  const isRequestSupport = 
-    content.includes('gặp nhân viên') || 
-    content.includes('chat với nhân viên') ||
-    msg.senderRole === 'SYSTEM'; 
+  const msgContent = `Phiên hỗ trợ đã kết thúc. Trợ lý ảo AI đã quay trở lại để tiếp tục hỗ trợ bạn!`
 
-  if (isRequestSupport && sessions.value[sId].status === 'AI') {
-    sessions.value[sId].status = 'WAITING';
-  }
-  if (isRequestSupport && sessions.value[sId].status === 'CLOSED') {
-    sessions.value[sId].status = 'WAITING';
-  }
+  sessions.value[sId].status = 'CLOSED'
+  sessions.value[sId].unreadCount = 0 // Xóa sạch số đếm ở Store
 
-  if (sessions.value[sId].status !== 'AI') {
-    if (currentSessionId.value !== sId && msg.senderRole === 'CLIENT') {
-      sessions.value[sId].unreadCount++;
-    } else if (currentSessionId.value === sId) {
-      scrollToBottom();
-    }
-  }
-};
+  await sendSystemAction(sId, msgContent)
 
-const selectSession = (sessionId) => {
-  currentSessionId.value = sessionId;
-  sessions.value[sessionId].unreadCount = 0;
-  scrollToBottom();
-};
-
-const acceptSession = async () => {
-  if (!currentSessionId.value) return;
-  const sId = currentSessionId.value;
-  const staffName = userInfoDatn.value?.fullName || 'Admin';
-  const staffCode = userInfoDatn.value?.userCode || 'NV';
-  const msgContent = `Nhân viên ${staffName} (Mã: ${staffCode}) đã tiếp nhận hỗ trợ bạn.`;
-
-  sessions.value[sId].status = 'ACTIVE';
-  await sendSystemAction(sId, msgContent);
-  currentSubTab.value = 'ACTIVE'; 
-};
-
-const closeSession = async () => {
-  if (!currentSessionId.value) return;
-  const sId = currentSessionId.value;
-
-  // Sửa lại câu thông báo để khách hàng biết AI đã quay lại
-  const msgContent = `Phiên hỗ trợ đã kết thúc. Trợ lý ảo AI đã quay trở lại để tiếp tục hỗ trợ bạn!`;
-
-  sessions.value[sId].status = 'CLOSED';
-  await sendSystemAction(sId, msgContent);
-  
   try {
     await axios.post(`${BACKEND_URL}/api/v1/chat/end-support`, {
-      sessionId: sId
-    });
-  } catch (error) {
-    console.error("Lỗi khi kết thúc chat:", error);
+      sessionId: sId,
+    })
+  }
+  catch (error) {
+    console.error('Lỗi khi kết thúc chat:', error)
   }
 
-  currentSessionId.value = null; 
-};
+  currentSessionId.value = null
+  chatStore.currentActiveSessionId = null // Bỏ chọn
+}
 
-const sendReply = async () => {
-  if (!replyText.value.trim() || !currentSessionId.value) return;
-  const sId = currentSessionId.value;
-  const msgContent = replyText.value;
-  await sendSystemAction(sId, msgContent);
-  replyText.value = '';
-};
+async function sendReply() {
+  if (!replyText.value.trim() || !currentSessionId.value)
+    return
+  const sId = currentSessionId.value
+  const msgContent = replyText.value
+  await sendSystemAction(sId, msgContent)
+  replyText.value = ''
+}
 
-const sendSystemAction = async (sId, content) => {
-  const staffId = userInfoDatn.value?.userId || 'NV001';
-  
+async function sendSystemAction(sId, content) {
+  const staffId = userInfoDatn.value?.userId || 'NV001'
+
   sessions.value[sId].messages.push({
     senderRole: 'STAFF',
-    content: content,
-    createdDate: new Date().getTime()
-  });
-  scrollToBottom();
+    content,
+    createdDate: new Date().getTime(),
+  })
+  scrollToBottom()
 
   try {
     await axios.post(`${BACKEND_URL}/api/v1/chat/staff/reply`, {
       sessionId: sId,
       message: content,
-      staffId: staffId 
-    });
-  } catch (error) {
-    console.error("Lỗi gửi tin:", error);
+      staffId,
+    })
   }
-};
+  catch (error) {
+    console.error('Lỗi gửi tin:', error)
+  }
+}
 
-const formatTime = (timestamp) => {
-  if (!timestamp) return '';
-  const now = Date.now();
-  const diff = now - timestamp;
-  if (diff < 60000) return 'Vừa xong';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
-  return new Date(timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
+function formatTime(timestamp) {
+  if (!timestamp)
+    return ''
+  const now = Date.now()
+  const diff = now - timestamp
+  if (diff < 60000)
+    return 'Vừa xong'
+  if (diff < 3600000)
+    return `${Math.floor(diff / 60000)} phút trước`
+  return new Date(timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
 
-const formatMsgTime = (timestamp) => {
-  if (!timestamp) return '';
-  return new Date(timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-};
+function formatMsgTime(timestamp) {
+  if (!timestamp)
+    return ''
+  return new Date(timestamp).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+}
 
-const scrollToBottom = () => {
-  nextTick(() => { if (chatWindowRef.value) chatWindowRef.value.scrollTop = chatWindowRef.value.scrollHeight; });
-};
-
-onMounted(() => connectSocket());
+function scrollToBottom() {
+  nextTick(() => {
+    if (chatWindowRef.value)
+      chatWindowRef.value.scrollTop = chatWindowRef.value.scrollHeight
+  })
+}
 </script>
 
 <template>
   <div class="admin-chat">
-
     <!-- SIDEBAR -->
     <div class="sidebar">
       <div class="sidebar-head">
         <div class="sidebar-title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           Quản lý Chat
         </div>
 
         <div class="tab-bar">
           <button
-            :class="['tab-btn', { active: currentSubTab === 'WAITING' }]"
+            class="tab-btn" :class="[{ active: currentSubTab === 'WAITING' }]"
             @click="currentSubTab = 'WAITING'"
           >
             Chờ nhận
             <span v-if="countByStatus('WAITING') > 0" class="badge badge-red">{{ countByStatus('WAITING') }}</span>
           </button>
           <button
-            :class="['tab-btn', { active: currentSubTab === 'ACTIVE' }]"
+            class="tab-btn" :class="[{ active: currentSubTab === 'ACTIVE' }]"
             @click="currentSubTab = 'ACTIVE'"
           >
             Đang xử lý
             <span v-if="countByStatus('ACTIVE') > 0" class="badge badge-green">{{ countByStatus('ACTIVE') }}</span>
           </button>
           <button
-            :class="['tab-btn', { active: currentSubTab === 'CLOSED' }]"
+            class="tab-btn" :class="[{ active: currentSubTab === 'CLOSED' }]"
             @click="currentSubTab = 'CLOSED'"
           >
             Đã đóng
@@ -248,7 +199,7 @@ onMounted(() => connectSocket());
 
         <div v-if="Object.keys(displayedSessions).length === 0" class="empty-state">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="40" height="40" style="opacity:0.3">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
           <p>Không có cuộc trò chuyện nào</p>
         </div>
@@ -258,22 +209,27 @@ onMounted(() => connectSocket());
     <!-- MAIN CHAT AREA -->
     <div class="chat-main">
       <template v-if="currentSession">
-
         <!-- CHAT HEADER -->
         <div class="chat-head">
           <div class="chat-head-left">
-            <div class="chat-avatar">{{ currentSession.customerName.charAt(0).toUpperCase() }}</div>
+            <div class="chat-avatar">
+              {{ currentSession.customerName.charAt(0).toUpperCase() }}
+            </div>
             <div>
-              <div class="chat-name">{{ currentSession.customerName }}</div>
+              <div class="chat-name">
+                {{ currentSession.customerName }}
+              </div>
               <div class="chat-status">
-                <span v-if="currentSession.status === 'ACTIVE'" class="status-dot dot-green"></span>
-                <span v-if="currentSession.status === 'WAITING'" class="status-dot dot-amber"></span>
-                <span v-if="currentSession.status === 'CLOSED'" class="status-dot dot-gray"></span>
-                <span :class="{
-                  'status-label--green': currentSession.status === 'ACTIVE',
-                  'status-label--amber': currentSession.status === 'WAITING',
-                  'status-label--gray': currentSession.status === 'CLOSED',
-                }">
+                <span v-if="currentSession.status === 'ACTIVE'" class="status-dot dot-green" />
+                <span v-if="currentSession.status === 'WAITING'" class="status-dot dot-amber" />
+                <span v-if="currentSession.status === 'CLOSED'" class="status-dot dot-gray" />
+                <span
+                  :class="{
+                    'status-label--green': currentSession.status === 'ACTIVE',
+                    'status-label--amber': currentSession.status === 'WAITING',
+                    'status-label--gray': currentSession.status === 'CLOSED',
+                  }"
+                >
                   {{ currentSession.status === 'ACTIVE' ? 'Đang xử lý' : currentSession.status === 'WAITING' ? 'Đang chờ tiếp nhận' : 'Đã đóng' }}
                 </span>
               </div>
@@ -285,7 +241,7 @@ onMounted(() => connectSocket());
         </div>
 
         <!-- MESSAGES -->
-        <div class="messages-area" ref="chatWindowRef">
+        <div ref="chatWindowRef" class="messages-area">
           <div
             v-for="(msg, index) in currentSession.messages"
             :key="index"
@@ -294,23 +250,29 @@ onMounted(() => connectSocket());
               'is-client': msg.senderRole === 'CLIENT',
               'is-staff': msg.senderRole === 'STAFF',
               'is-system': msg.senderRole === 'SYSTEM',
-              'is-ai': msg.senderRole === 'AI'
+              'is-ai': msg.senderRole === 'AI',
             }"
           >
             <!-- SYSTEM -->
             <div v-if="msg.senderRole === 'SYSTEM'" class="sys-divider">
-              <div class="sys-line"></div>
+              <div class="sys-line" />
               <span class="sys-text">{{ msg.content }}</span>
-              <div class="sys-line"></div>
+              <div class="sys-line" />
             </div>
 
             <!-- CLIENT -->
             <template v-else-if="msg.senderRole === 'CLIENT'">
-              <div class="msg-avatar msg-avatar--client">K</div>
+              <div class="msg-avatar msg-avatar--client">
+                K
+              </div>
               <div class="msg-body">
-                <div class="role-tag">Khách hàng</div>
-                <div class="bubble bubble--client" v-html="msg.content.replace(/\n/g, '<br>')"></div>
-                <div class="msg-time">{{ formatMsgTime(msg.createdDate) }}</div>
+                <div class="role-tag">
+                  Khách hàng
+                </div>
+                <div class="bubble bubble--client" v-html="msg.content.replace(/\n/g, '<br>')" />
+                <div class="msg-time">
+                  {{ formatMsgTime(msg.createdDate) }}
+                </div>
               </div>
             </template>
 
@@ -318,26 +280,34 @@ onMounted(() => connectSocket());
             <template v-else-if="msg.senderRole === 'AI'">
               <div class="msg-avatar msg-avatar--ai">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                  <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z" />
                 </svg>
               </div>
               <div class="msg-body">
-                <div class="role-tag">Trợ lý AI</div>
-                <div class="bubble bubble--ai" v-html="msg.content.replace(/\n/g, '<br>')"></div>
-                <div class="msg-time">{{ formatMsgTime(msg.createdDate) }}</div>
+                <div class="role-tag">
+                  Trợ lý AI
+                </div>
+                <div class="bubble bubble--ai" v-html="msg.content.replace(/\n/g, '<br>')" />
+                <div class="msg-time">
+                  {{ formatMsgTime(msg.createdDate) }}
+                </div>
               </div>
             </template>
 
             <!-- STAFF -->
             <template v-else-if="msg.senderRole === 'STAFF'">
               <div class="msg-body msg-body--right">
-                <div class="role-tag role-tag--right">Nhân viên</div>
-                <div class="bubble bubble--staff" v-html="msg.content.replace(/\n/g, '<br>')"></div>
-                <div class="msg-time msg-time--right">{{ formatMsgTime(msg.createdDate) }}</div>
+                <div class="role-tag role-tag--right">
+                  Nhân viên
+                </div>
+                <div class="bubble bubble--staff" v-html="msg.content.replace(/\n/g, '<br>')" />
+                <div class="msg-time msg-time--right">
+                  {{ formatMsgTime(msg.createdDate) }}
+                </div>
               </div>
               <div class="msg-avatar msg-avatar--staff">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
                 </svg>
               </div>
             </template>
@@ -346,18 +316,17 @@ onMounted(() => connectSocket());
 
         <!-- INPUT SECTION -->
         <div class="input-section">
-
           <!-- WAITING: accept button -->
           <div v-if="currentSession.status === 'WAITING'" class="accept-bar">
             <div class="accept-info">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18" style="color:#f59e0b">
-                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
               Khách hàng đang chờ được hỗ trợ
             </div>
             <button class="btn-accept" @click="acceptSession">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
-                <polyline points="20 6 9 17 4 12"/>
+                <polyline points="20 6 9 17 4 12" />
               </svg>
               Tiếp nhận
             </button>
@@ -368,7 +337,7 @@ onMounted(() => connectSocket());
             <div class="active-top">
               <button class="btn-close-session" @click="closeSession">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
                 Kết thúc phiên
               </button>
@@ -376,13 +345,13 @@ onMounted(() => connectSocket());
             <div class="active-input">
               <input
                 v-model="replyText"
-                @keyup.enter="sendReply"
                 type="text"
                 placeholder="Nhập phản hồi của bạn..."
-              />
-              <button class="btn-send" @click="sendReply" :disabled="!replyText.trim()">
+                @keyup.enter="sendReply"
+              >
+              <button class="btn-send" :disabled="!replyText.trim()" @click="sendReply">
                 <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18">
-                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
                 </svg>
               </button>
             </div>
@@ -391,7 +360,7 @@ onMounted(() => connectSocket());
           <!-- CLOSED -->
           <div v-if="currentSession.status === 'CLOSED'" class="closed-bar">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
             Phiên chat đã kết thúc — chỉ xem lịch sử
           </div>
@@ -402,7 +371,7 @@ onMounted(() => connectSocket());
       <div v-else class="no-session">
         <div class="no-session-icon">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="52" height="52">
-            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
         </div>
         <h3>Chọn cuộc trò chuyện</h3>
@@ -413,8 +382,6 @@ onMounted(() => connectSocket());
 </template>
 
 <style scoped>
-/* ===== TOKENS ===== */
-
 /* ===== LAYOUT ===== */
 .admin-chat {
   display: flex;

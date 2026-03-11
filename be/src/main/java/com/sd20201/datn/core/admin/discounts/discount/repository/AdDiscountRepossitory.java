@@ -22,26 +22,25 @@ public interface AdDiscountRepossitory  extends DiscountRepository {
                   c.endDate AS endTime,
                   c.percentage AS percentage,
                   c.description AS description,
-                  c.status AS discountStatus ,
+                  c.status AS status ,
                (SELECT COUNT(DISTINCT pdd.productDetail.product.id)\s
                                      FROM ProductDetailDiscount pdd\s
                                      WHERE pdd.discount.id = c.id AND pdd.status=0) AS productCount
            FROM Discount c 
            WHERE (:discountName IS NULL OR c.name LIKE CONCAT('%', :discountName, '%'))
-                 AND (:discountStatus IS NULL OR c.status = :discountStatus)
-                 AND c.status = 0
+                 AND (:status IS NULL OR c.status = :status)
            ORDER BY c.startDate DESC
     """,
             countQuery = """
            SELECT COUNT(c.id)
            FROM Discount c 
            WHERE (:discountName IS NULL OR c.name LIKE CONCAT('%', :discountName, '%'))
-                 AND (:discountStatus IS NULL OR c.status = :discountStatus)
+                 AND (:status IS NULL OR c.status = :status)
     """
     )
     Page<AdDiscountResponse> getAllDiscount(Pageable pageable,
                                             @Param("discountName") String discountName,
-                                            @Param("discountStatus") Integer discountStatus);
+                                            @Param("status") Integer status);
 
     List<Discount> findAlDiscountByCode(String code);
     List<Discount> findAllDiscountByName(String name);

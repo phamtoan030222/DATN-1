@@ -38,12 +38,14 @@ import com.sd20201.datn.entity.Invoice;
 import com.sd20201.datn.entity.InvoiceDetail;
 import com.sd20201.datn.entity.LichSuThanhToan;
 import com.sd20201.datn.entity.LichSuTrangThaiHoaDon;
+import com.sd20201.datn.entity.Product;
 import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.entity.Staff;
 import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
 import com.sd20201.datn.infrastructure.constant.ImeiStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import com.sd20201.datn.infrastructure.constant.TypeInvoice;
 import com.sd20201.datn.infrastructure.constant.TypePayment;
 import com.sd20201.datn.infrastructure.constant.TypeVoucher;
@@ -53,8 +55,10 @@ import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.InvoiceRepository;
 import com.sd20201.datn.repository.LichSuThanhToanRepository;
 import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
+import com.sd20201.datn.repository.VoucherRepository;
 import com.sd20201.datn.utils.Helper;
 import com.sd20201.datn.utils.UserContextHelper;
+import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
@@ -63,16 +67,26 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
+import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.text.NumberFormat;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Service
 @RequiredArgsConstructor
@@ -103,6 +117,9 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final CustomerRepository customerRepository;
 
     private final ClientBanHangProductDetailDiscountRepository productDetailDiscountRepository;
+
+    private final JavaMailSender mailSender;
+    private final VoucherRepository voucherRepository;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -139,11 +156,35 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             invoice.setTypeInvoice(TypeInvoice.ONLINE);
             invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
             invoice.setCreatedDate(System.currentTimeMillis());
-            invoice.setEmail(request.getEmail());
+            invoice.setEmail(
+                    request.getEmail()
+            );
+
+            invoice.setVoucher(
+                    Optional.ofNullable(request.getIdPGG())
+                            .flatMap(voucherRepository::findById)
+                            .orElse(null)
+            );
+
+            invoice.setTrangThaiThanhToan(
+                    switch (request.getPhuongThucThanhToan()) {
+                        case "0" -> TrangThaiThanhToan.CHUA_THANH_TOAN;
+                        case "1" -> TrangThaiThanhToan.DA_THANH_TOAN;
+                        default -> TrangThaiThanhToan.CHUA_THANH_TOAN;
+                    }
+            );
+
+            invoice.setTypePayment(
+                    switch (request.getPhuongThucThanhToan()) {
+                        case "0" -> TypePayment.TIEN_MAT;
+                        case "1" -> TypePayment.CHUYEN_KHOAN;
+                        default -> TypePayment.TIEN_MAT;
+                    }
+            );
 
             // Lưu hóa đơn trước để có ID
             invoice = invoiceRepository.save(invoice);
-
+            List<InvoiceDetail> invoiceDetails = new ArrayList<>();
             for (ClientProductItemRequest item : request.getProducts()) {
 
                 // a. Tìm thông tin sản phẩm trong DB
@@ -159,6 +200,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 
                 invoiceDetailRepository.saveAndFlush(detail);
+                invoiceDetails.add(detail);
             }
 
             // 3. Ghi log lịch sử trạng thái
@@ -169,12 +211,197 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             history.setNote("Khách đặt hàng Online mới");
             lichSuTrangThaiHoaDonRepository.save(history);
 
-            return ResponseObject.successForward(invoice, "Đặt hàng thành công");
+            sendEmail(invoice, invoiceDetails, request.getEmail(), request);
 
+            return ResponseObject.successForward(invoice, "Đặt hàng thành công");
         } catch (Exception e) {
             log.error("Lỗi đặt hàng: ", e);
             throw new BusinessException(e.getMessage()); // Throw ra để Controller bắt lỗi trả về 400
         }
+    }
+
+    private void sendEmail(Invoice invoice, List<InvoiceDetail> invoiceDetails, String email, ClientThanhToanRequest request) throws Exception {
+        String html = """
+                         <table width="700" align="center" cellpadding="0" cellspacing="0" style="background:#fff; border:1px solid #ccc; padding:20px;">
+                             <!-- Customer Info -->
+                             <tr>
+                                 <td>
+                                     <h3 style="margin-bottom:10px;">Thông tin khách hàng</h3>
+                                     <table width="100%" cellpadding="6" cellspacing="0" style="border:1px dashed #ccc;">
+                                         <tr>
+                                             <td width="200"><b>Khách hàng:</b></td>
+                                             <td><<CUSTOMER_NAME>></td>
+                                         </tr>
+                                         <tr>
+                                             <td width="200"><b>Khách hàng:</b></td>
+                                             <td><<MA_HOA_DON>></td>
+                                         </tr>
+                                         <tr>
+                                             <td><b>Ngày lập:</b></td>
+                                             <td><<NGAY_TAO>></td>
+                                         </tr>
+                                         <tr>
+                                             <td><b>Hình thức thanh toán:</b></td>
+                                             <td><<HINH_THUC_CHUYEN_KHOAN>></td>
+                                         </tr>
+                                         <tr>
+                                             <td><b>Tổng thành tiền:</b></td>
+                                             <td><b><<TONG_TIEN>> vnd</b></td>
+                                         </tr>
+                                     </table>
+                                 </td>
+                             </tr>
+                             <!-- Space -->
+                             <tr>
+                                 <td height="20"></td>
+                             </tr>
+                             <!-- Order Details -->
+                             <tr>
+                                 <td>
+                                     <h3>Chi tiết đơn hàng</h3>
+                                     <table width="100%" border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse; text-align:center;">
+                                         <tr style="background:#eee;">
+                                             <th width="50">STT</th>
+                                             <th>Sản phẩm</th>
+                                             <th width="100">Số lượng</th>
+                                             <th width="150">Đơn giá</th>
+                                             <th width="150">Thành tiền</th>
+                                         </tr>
+                                         <<DANH_SACH_SAN_PHAM>>
+                                         <tr>
+                                             <td colspan="4" style="text-align:left;"><b>Tổng thành tiền</b></td>
+                                             <td><b><<TONG_TIEN>> vnd</b></td>
+                                         </tr>
+                                         <tr>
+                                             <td colspan="4" style="text-align:left;"><b>Giảm giá</b></td>
+                                             <td><b><<VOUCHER_VALUE>> vnd</b></td>
+                                         </tr>
+                                         <tr>
+                                             <td colspan="4" style="text-align:left;"><b>Tổng thành tiền sau giảm</b></td>
+                                             <td><b><<TONG_TIEN_SAU_GIAM>> vnd</b></td>
+                                         </tr>
+                                     </table>
+                                 </td>
+                             </tr>
+                             <!-- Footer -->
+                             <tr>
+                                 <td height="30"></td>
+                             </tr>
+                             <tr>
+                                 <td style="text-align:center; border-top:1px dashed #ccc; padding-top:10px;">
+                                     Xin cảm ơn Quý khách đã ủng hộ Cửa hàng. Chúc Quý khách An Khang, Thịnh Vượng!
+                                 </td>
+                             </tr>
+                         </table>
+                """;
+        String htmlProductDetail = """
+                <tr>
+                <td><<STT>></td>
+                <td style="text-align:left">
+                <b><<NAME_PRODUCT>></b><br>
+                <span style="font-size:12px;color:#555"><<ATTRIBUTE>></span>
+                </td>
+                <td><<SO_LUONG>></td>
+                <td><<DON_GIA>> vnd</td>
+                <td><<THANH_TIEN>> vnd</td>
+                </tr>
+                """;
+
+        String attribute = """
+                Hãng: %s<br>
+                Pin: %s<br>
+                Hệ điều hành: %s<br>
+                CPU: %s<br>
+                RAM: %s<br>
+                SSD: %s<br>
+                GPU: %s<br>
+                Màu: %s<br>
+                Chất liệu: %s<br>
+                Màn hình: %s<br>
+                """;
+
+        NumberFormat formatterMoney = NumberFormat.getInstance(new Locale("vi", "VN"));
+
+        AtomicInteger index = new AtomicInteger(0);
+        List<String> htmlProductDetailReplace =
+                invoiceDetails.stream()
+                        .map(invoiceDetail -> {
+
+                                    index.getAndIncrement();
+                                    ProductDetail pd = invoiceDetail.getProductDetail();
+                                    Product product = pd.getProduct();
+                                    return htmlProductDetail
+                                            .replace("<<STT>>", String.valueOf(index.get()))
+                                            .replace("<<NAME_PRODUCT>>", invoiceDetail.getProductDetail().getProduct().getName() + " - " + invoiceDetail.getProductDetail().getName())
+                                            .replace("<<SO_LUONG>>", String.valueOf(invoiceDetail.getQuantity()))
+                                            .replace("<<DON_GIA>>", formatterMoney.format(invoiceDetail.getPrice()))
+                                            .replace("<<ATTRIBUTE>>",
+                                                    attribute
+                                                            .formatted(
+                                                                    product.getBrand().getName(),
+                                                                    product.getBattery().getName(),
+                                                                    product.getOperatingSystem().getName(),
+                                                                    pd.getCpu().getName(),
+                                                                    pd.getRam().getName(),
+                                                                    pd.getHardDrive().getName(),
+                                                                    pd.getGpu().getName(),
+                                                                    pd.getColor().getName(),
+                                                                    pd.getMaterial().getName(),
+                                                                    product.getScreen().getName()
+                                                            ))
+                                            .replace("<<THANH_TIEN>>",
+                                                    formatterMoney.format(
+                                                            invoiceDetail.getPrice()
+                                                                    .multiply(
+                                                                            BigDecimal.valueOf(invoiceDetail.getQuantity())
+                                                                    )
+                                                    )
+                                            );
+                                }
+                        )
+                        .toList();
+
+        LocalDateTime dateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(invoice.getCreatedDate()),
+                ZoneId.systemDefault()
+        );
+
+        DateTimeFormatter formatterTime = DateTimeFormatter.ofPattern("HH:mm:ss dd/MM/yyyy");
+
+        String invoiceCreateDateFormat = dateTime.format(formatterTime);
+
+        String giaTriVoucher = "0";
+
+        if (request.getIdPGG() != null) {
+            giaTriVoucher = voucherRepository.findById(request.getIdPGG())
+                    .map(v -> v.getTypeVoucher() == TypeVoucher.FIXED_AMOUNT ?
+                            formatterMoney.format(v.getDiscountValue()) :
+                            formatterMoney.format(
+                                    v.getDiscountValue()
+                                            .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
+                                            .multiply(invoice.getTotalAmount())
+                            ))
+                    .orElse("0");
+        }
+
+        String htmlReplace = html
+                .replace("<<CUSTOMER_NAME>>", Optional.ofNullable(invoice.getCustomer()).map(Customer::getName).orElse(request.getTen()))
+                .replace("<<MA_HOA_DON>>", invoice.getCode())
+                .replace("<<NGAY_TAO>>", invoiceCreateDateFormat)
+                .replace("<<HINH_THUC_CHUYEN_KHOAN>>", "Thanh toán khi nhận hàng")
+                .replace("<<TONG_TIEN>>", formatterMoney.format(invoice.getTotalAmount()))
+                .replace("<<VOUCHER_VALUE>>", giaTriVoucher)
+                .replace("<<TONG_TIEN_SAU_GIAM>>", formatterMoney.format(invoice.getTotalAmountAfterDecrease()))
+                .replace("<<DANH_SACH_SAN_PHAM>>", htmlProductDetailReplace.stream().reduce("", (a, b) -> a + b));
+
+        MimeMessage message = mailSender.createMimeMessage();
+        MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+        helper.setTo(email);
+        helper.setSubject("Thông tin đơn hàng");
+        helper.setText(htmlReplace, true);
+
+        mailSender.send(message);
     }
 
     @Override
@@ -391,7 +618,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
 
             hoaDonToUpdate.setTypeInvoice(TypeInvoice.ONLINE);
-
 
             // 6. CHỐT ĐƠN: Luôn set trạng thái CHỜ XÁC NHẬN với đơn Online
             hoaDonToUpdate.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);

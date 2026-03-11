@@ -106,7 +106,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
             SELECT
                     p.id as id
                         , p.code as code
-                        , pt.name as name
+                        , CONCAT(p.name, ' - ', p.product.name) as name
                         , p.hardDrive.name as hardDrive
                         , p.material.name as material
                         , p.color.name as color

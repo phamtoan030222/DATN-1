@@ -19,10 +19,9 @@ public class ClientThanhToanRequest {
     // Thông tin khách hàng
     private String ten;
     private String sdt;
-    private String email;
     private String diaChi;
     private String ghiChu;
-//    private String email;
+    private String email;
 
     // Tiền nong (Dùng BigDecimal để chính xác)
     private BigDecimal tongTien; // Tổng thanh toán cuối cùng
@@ -37,5 +36,7 @@ public class ClientThanhToanRequest {
     private Integer check; // 0 hoặc 1
 
     private List<ClientProductItemRequest> products;
+
+    private String cartId;
 }
 

@@ -1,6 +1,9 @@
 
 import { API_ADMIN_DISCOUNT, API_ADMIN_DISCOUNTS } from '@/constants/url'
-import { DefaultResponse, PaginationParams } from '@/typings/api/api.common'
+import type {
+  DefaultResponse,
+  PaginationParams
+} from '@/typings/api/api.common'
 import request from '@/service/request'
 
 export interface ParamsGetDiscount extends PaginationParams {
@@ -20,7 +23,7 @@ export interface DiscountResponse {
   endTime: number
   percentage: number
   description: string
-
+  status: string
   productCount?: number;   
 }
 
@@ -414,4 +417,13 @@ export const deleteDiscount = async (id: string) => {
 export const sendEmail = async (id: string) => {
   const res = await request.post(`${API_ADMIN_DISCOUNT}/sendEmail/${id}`)
   return res.data
+}
+
+
+export async function updateDiscountStatus(id: string, status: 'ACTIVE' | 'INACTIVE') {
+  return request({
+    url: `${API_ADMIN_DISCOUNT}/${id}/status`,
+    method: 'PATCH',
+    data: { status },
+  })
 }

@@ -5,7 +5,10 @@ import com.sd20201.datn.core.client.products.productdetail.model.request.ClientP
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDVariantRequest;
+import com.sd20201.datn.core.client.products.productdetail.model.request.SanPhamChiTietGiamGiaRepuest;
+import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -53,4 +56,8 @@ public interface ClientProductDetailService {
     ResponseObject<?> checkExistVariant(ClientPDExistVariantRequest request);
 
     ResponseObject<?> addImeiToExistProductDetail(ClientAddSerialNumberRequest request);
+
+    ResponseObject<?> getOngoingDiscounts(SanPhamChiTietGiamGiaRepuest request);
+
+    ResponseObject<?> getNearestUpcomingDiscounts(SanPhamChiTietGiamGiaRepuest request);
 }

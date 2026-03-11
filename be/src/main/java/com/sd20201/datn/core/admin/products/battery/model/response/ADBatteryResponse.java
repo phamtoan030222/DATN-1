@@ -11,7 +11,7 @@ public interface ADBatteryResponse {
     TechnolyCharging getTechnolyCharging(); // công nghệ sạc
     Integer getCapacity();   // dung lượng (mAh)
     Boolean getRemoveBattery(); // có tháo rời không
-    TypeBattery getType(); // loại pin
+    TypeBattery getTypeBattery(); // loại pin
     String getStatus();
 
 

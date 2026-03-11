@@ -5,7 +5,9 @@ import com.sd20201.datn.core.client.products.productdetail.model.request.ClientP
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDVariantRequest;
+import com.sd20201.datn.core.client.products.productdetail.model.request.SanPhamChiTietGiamGiaRepuest;
 import com.sd20201.datn.core.client.products.productdetail.service.ClientProductDetailService;
+import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
@@ -105,4 +107,19 @@ public class ClientProductDetailController {
         return Helper.createResponseEntity(productDetailService.checkExistVariant(request));
     }
 
+    @GetMapping("/a/ongoing")
+    // Thêm PageableRequest vào đây để Spring Boot tự động map query parameters
+    public ResponseEntity<?> getOngoingDiscounts(SanPhamChiTietGiamGiaRepuest request) {
+        // Truyền request xuống tầng Service
+        return Helper.createResponseEntity(productDetailService.getOngoingDiscounts(request));
+    }
+
+    @GetMapping("/a/upcoming")
+    // Tương tự, hứng request từ client
+    public ResponseEntity<?> getNearestUpcomingDiscounts(SanPhamChiTietGiamGiaRepuest request) {
+        // Bọc kết quả và truyền request xuống
+        return Helper.createResponseEntity(productDetailService.getNearestUpcomingDiscounts(request));
+    }
+
 }
+

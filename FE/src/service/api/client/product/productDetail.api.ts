@@ -41,6 +41,7 @@ export interface ADProductDetailResponse {
   readonly batteryName?: string
   readonly operatingSystemName?: string
   readonly endDate?: number
+  readonly startDate?: number
 }
 
 export interface ADProductDetailDetailResponse {
@@ -84,6 +85,29 @@ export interface ADPDImeiResponse {
 export interface IMEIExcelResponse {
   readonly imei: string
   readonly isExist: boolean
+}
+
+// Dùng chung PaginationParams hoặc tạo type riêng nếu SanPhamChiTietGiamGiaRepuest có thêm field khác
+export type DiscountProductRequest = PaginationParams & {
+  // Nếu request có tìm kiếm hay filter gì thêm thì khai báo ở đây
+  // readonly q?: string
+}
+
+// Interface hứng dữ liệu từ ClientDiscountProductProjection của Backend
+export interface DiscountProductResponse {
+  readonly discountName: string
+  readonly startDate: number
+  readonly endDate: number
+  readonly percentage: number
+  readonly productName: string
+  readonly productDetailId: string
+  readonly cpu?: string
+  readonly gpu?: string
+  readonly ram?: string
+  readonly hardDrive?: string
+  readonly originalPrice: number
+  readonly salePrice: number
+  readonly urlImage: string
 }
 
 export async function getProductDetails(params: ADProductDetailRequest) {
@@ -238,6 +262,27 @@ export async function checkExistVariant(productId: string, listPropertiesVariant
       'Content-Type': 'application/json',
     },
   })) as AxiosResponse<DefaultResponse<Array<boolean>>>
+
+  return res.data
+}
+
+// Lấy sản phẩm theo đợt giảm giá
+export async function getOngoingDiscounts(params: DiscountProductRequest) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/a/ongoing`,
+    method: 'GET',
+    params,
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<DiscountProductResponse>>>>
+
+  return res.data
+}
+
+export async function getNearestUpcomingDiscounts(params: DiscountProductRequest) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/a/upcoming`,
+    method: 'GET',
+    params,
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<DiscountProductResponse>>>>
 
   return res.data
 }

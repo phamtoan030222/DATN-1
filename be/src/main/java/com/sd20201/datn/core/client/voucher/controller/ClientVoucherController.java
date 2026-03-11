@@ -107,5 +107,8 @@ public class ClientVoucherController {
         );
     }
 
-
+    @GetMapping("/user")
+    ResponseEntity<?> getAllVouchersByUser() {
+        return Helper.createResponseEntity(voucherService.getVouchersByUsers());
+    }
 }

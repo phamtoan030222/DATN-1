@@ -1,9 +1,6 @@
 <script setup lang="ts">
 import {
-  AddOutline,
-  CardOutline,
   CashOutline,
-  CheckmarkCircleOutline,
   CloseOutline,
   LocationOutline,
   StorefrontOutline,
@@ -14,9 +11,7 @@ import type { FormInst } from 'naive-ui'
 import {
   NButton,
   NCard,
-  NCheckbox,
   NDivider,
-  NEmpty,
   NForm,
   NFormItem,
   NGi,
@@ -28,7 +23,6 @@ import {
   NRadio,
   NRadioGroup,
   NSelect,
-  NSpin,
   NTag,
   useMessage,
 } from 'naive-ui'
@@ -47,7 +41,7 @@ import {
   updateAddress,
 } from '@/service/api/client/customer/address.api'
 
-import { useCartStore } from '@/store/app/card'
+import { useCartStore } from '@/store/app/cart'
 import { localStorageAction } from '@/utils'
 
 const router = useRouter()
@@ -61,7 +55,7 @@ const processing = ref(false)
 // }
 // const cartItems = ref<CartItemExt[]>([])
 
-const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { cartId, cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
 const { removeCart } = useCartStore()
 
 const cartItemsRef = computed(() => cartItemBuyNow.value ? [cartItemBuyNow.value] : cartItems.value)
@@ -71,6 +65,7 @@ const userInfo = ref<any>(null)
 const STORE_ADDRESS = 'Phố Trịnh Văn Bô, Nam Từ Liêm, Hà Nội'
 const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
+const isOpenModalSelectVouchers = ref(false)
 
 // ====================================================
 // FORM THANH TOÁN CHÍNH (ÁP DỤNG RULES NATIVE-UI)
@@ -115,6 +110,8 @@ function hydrateCustomerInfoFromProfile() {
       checkoutForm.ten = userInfo.value.fullName || ''
     if (!checkoutForm.sdt)
       checkoutForm.sdt = userInfo.value.phone || ''
+    if (!checkoutForm.email)
+      checkoutForm.email = userInfo.value.email || ''
   }
 }
 
@@ -404,12 +401,13 @@ onMounted(async () => {
   if (userInfo.value) {
     await fetchMyAddresses()
   }
+  loadVouchers()
 })
 
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
-const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.price * i.quantity), 0))
-const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? 0 : 0)
+const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.percentage ? (i.price * (1 - i.percentage / 100)) * i.quantity : i.price * i.quantity), 0))
+const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? (isFreeShipping.value ? 0 : 30000) : 0)
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -441,12 +439,20 @@ function handleSelectVoucher(voucherId: string | null) {
   }
   const voucher = availableVouchers.value.find(v => v.voucherId === voucherId)
   if (voucher) {
-    discountAmount.value = voucher.giamGiaThucTe || 0
+    discountAmount.value = voucher.discountValue > 100 ? voucher.discountValue : subTotal.value * (voucher.discountValue / 100)
     message.success(`Đã áp dụng mã: ${voucher.code}`)
   }
 }
 
-watch(subTotal, () => loadVouchers())
+watch(subTotal, (total) => {
+  if (total <= 0) {
+    availableVouchers.value = []
+    selectedVoucher.value = null
+    discountAmount.value = 0
+    return
+  }
+  loadVouchers()
+})
 
 async function handleCheckout() {
   try {
@@ -479,7 +485,7 @@ async function handleCheckout() {
     const productPayload = cartItemsRef.value.map(item => ({
       productDetailId: item.productDetailId,
       quantity: item.quantity,
-      price: item.price,
+      price: item.percentage ? item.price * (1 - item.percentage / 100) : item.price,
     }))
 
     const payload = {
@@ -496,21 +502,28 @@ async function handleCheckout() {
       loaiHoaDon: deliveryType.value,
       idPGG: selectedVoucher.value || null,
       products: productPayload,
+      cartId: cartId.value || null,
     }
 
     const res: any = await createOrder(payload)
     if (res.status === 200 || res.status === 'OK' || res.data) {
       message.success('Đặt hàng thành công!')
-      router.push('/order-success')
+      router.push({
+        name: 'OrderSuccess',
+        query: {
+          'ma-hoa-don': res.data?.data?.code || '',
+        },
+      })
     }
 
     if (cartItemBuyNow.value) {
-      removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+      await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
     }
     else {
-      cartItemsRef.value.forEach((item) => {
-        removeCart(item.productDetailId)
+      const removeRequests = cartItemsRef.value.map((item) => {
+        return removeCart(item.productDetailId)
       })
+      await Promise.all(removeRequests)
     }
   }
   catch (error: any) {
@@ -519,6 +532,41 @@ async function handleCheckout() {
   finally {
     processing.value = false
   }
+}
+
+const isFreeShipping = computed(() => deliveryType.value === 'GIAO_HANG' && subTotal.value >= 5000000) // Ví dụ: Miễn phí ship cho đơn trên 5 triệu
+
+function formatCurrencyInput(value: number) {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
+
+function parseCurrency(value: string) {
+  if (!value)
+    return 0
+  let str = String(value).replace(/[^0-9nghìtrieu]/g, '').trim().toLowerCase()
+  let number = Number.parseInt(str.replace(/\D/g, '')) || 0
+  if (str.includes('nghìn'))
+    number *= 1000
+  else if (str.includes('triệu'))
+    number *= 1000000
+  return number
+}
+
+function handleCloseVoucherModal() {
+  isOpenModalSelectVouchers.value = false
+}
+
+function handleOpenVoucherModal() {
+  if (availableVouchers.value.length === 0) {
+    message.info('Không có mã giảm giá nào áp dụng được cho đơn hàng này')
+    return
+  }
+  isOpenModalSelectVouchers.value = true
+}
+
+function handleSelectVoucherInModal(voucherId: string) {
+  handleSelectVoucher(voucherId)
+  isOpenModalSelectVouchers.value = false
 }
 </script>
 
@@ -689,10 +737,10 @@ async function handleCheckout() {
                   </div>
                   <div
                     class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'"
+                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '2' }"
+                    @click="paymentMethod = '2'"
                   >
-                    <NRadio value="1" class="w-full">
+                    <NRadio value="2" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="25" src="../../../../../images/vnpay.png" />
                         VNPAY
@@ -701,10 +749,10 @@ async function handleCheckout() {
                   </div>
                   <div
                     class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '1' }"
-                    @click="paymentMethod = '1'"
+                    :class="{ 'ring-1 ring-blue-500 border-blue-500 bg-blue-50/30': paymentMethod === '3' }"
+                    @click="paymentMethod = '3'"
                   >
-                    <NRadio value="1" class="w-full">
+                    <NRadio value="3" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
                         <n-image width="40" src="../../../../../images/vietqr.png" />
                         VietQR
@@ -764,12 +812,16 @@ async function handleCheckout() {
                   <TicketOutline />
                 </NIcon> Khuyến mãi
               </div>
-              <NSelect
-                v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
+              <!-- <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
                 value-field="voucherId" placeholder="Chọn mã giảm giá của shop" clearable
                 :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
-                @update:value="handleSelectVoucher"
-              />
+                @update:value="handleSelectVoucher" /> -->
+              <NButton class="w-full" @click="handleOpenVoucherModal">
+                {{ selectedVoucher
+                  ? `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
+                  : 'Chọn mã giảm giá'
+                }}
+              </NButton>
             </div>
 
             <div class="space-y-3 text-[15px] text-gray-600">
@@ -781,12 +833,20 @@ async function handleCheckout() {
                   <span>Phí vận chuyển:</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <span class="font-medium text-gray-800">
+                  <span v-if="isFreeShipping" class="font-medium text-gray-800">
                     {{ formatCurrency(shippingFee) }}
                   </span>
+                  <NInputNumber
+                    v-else v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
+                    :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
+                    placeholder="Nhập phí ship" :show-button="false"
+                  />
                   <n-image width="80" src="../../../../../images/ghn-logo.webp" />
                 </div>
               </div>
+              <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
+                Miễn phí vận chuyển (Đơn hàng trên 5.000.000đ)
+              </NAlert>
               <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
                 <span>Voucher giảm:</span><span>-{{ formatCurrency(discountAmount) }}</span>
               </div>
@@ -814,8 +874,7 @@ async function handleCheckout() {
                 <NButton
                   block type="success" size="large"
                   class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
-                  :loading="processing"
-                  :disabled="cartItemsRef.length === 0 || processing"
+                  :loading="processing" :disabled="cartItemsRef.length === 0 || processing"
                 >
                   Đặt hàng ngay
                 </NButton>
@@ -827,134 +886,73 @@ async function handleCheckout() {
       </NGrid>
     </div>
 
-    <NModal v-model:show="showAddressModal" preset="card" title="Sổ Địa Chỉ Của Bạn" style="width: 650px" size="huge">
-      <NSpin :show="isFetchingAddresses">
-        <div v-if="!showAddAddressForm">
-          <div class="flex justify-end mb-4">
-            <NButton type="primary" dashed @click="handleOpenAddForm">
-              <template #icon>
-                <NIcon>
-                  <AddOutline />
-                </NIcon>
-              </template>
-              Thêm địa chỉ mới
-            </NButton>
-          </div>
+    <NModal :show="isOpenModalSelectVouchers">
+      <NCard
+        style="width: 850px; max-width: 95vw;" title="Chọn phiếu giảm giá" :bordered="false" size="huge"
+        role="dialog" aria-modal="true"
+      >
+        <template #header-extra>
+          <NButton text @click="handleCloseVoucherModal">
+            <NIcon size="24">
+              <CloseOutline />
+            </NIcon>
+          </NButton>
+        </template>
 
-          <div v-if="myAddresses.length === 0" class="py-10 text-center">
-            <NEmpty description="Bạn chưa có địa chỉ nào lưu sẵn." />
-          </div>
-
-          <div v-else class="space-y-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+        <div :style="{ maxHeight: '500px', overflowY: 'auto' }" class="custom-scrollbar pr-2 py-2">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
-              v-for="addr in myAddresses" :key="addr.id"
-              class="border p-4 rounded-lg transition-all relative group bg-white"
-              :class="{ 'border-green-500 bg-green-50/30 ring-1 ring-green-200': selectedAddressId === addr.id, 'border-gray-200': selectedAddressId !== addr.id }"
+              v-for="voucher in availableVouchers"
+              :key="voucher.voucherId"
+              class="relative flex bg-white border rounded-md shadow-sm overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+              :class="selectedVoucher === voucher.voucherId ? 'border-[#16a34a] ring-1 ring-[#16a34a] bg-[#f0fdf4]' : 'border-gray-200'"
+              @click="handleSelectVoucherInModal(voucher.voucherId)"
             >
-              <div class="flex justify-between items-start">
-                <div class="flex-1 pr-4">
-                  <div class="flex items-center gap-2 mb-1">
-                    <span class="font-bold text-gray-800 text-[15px]">{{ userInfo?.fullName }}</span>
-                    <span class="text-gray-400">|</span>
-                    <span class="text-gray-600">{{ userInfo?.phone }}</span>
-                    <NTag v-if="String(addr.status) === '1' || addr.isDefault" type="success" size="small" class="ml-2">
-                      Mặc định
-                    </NTag>
-                  </div>
-                  <div class="text-gray-600 text-sm mt-2 leading-relaxed">
-                    {{ formatFullAddress(addr) }}
-                  </div>
+              <div class="flex-1 p-3 pl-4 relative bg-white flex flex-col justify-center">
+                <div class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md z-10 shadow-sm">
+                  {{ voucher.code }}
                 </div>
 
-                <div class="flex flex-col items-end gap-3 shrink-0">
-                  <div class="flex items-center gap-2 text-blue-600">
-                    <span
-                      class="cursor-pointer hover:underline text-sm font-medium"
-                      @click="handleEditAddress(addr)"
-                    >Sửa</span>
-                    <span v-if="!(String(addr.status) === '1' || addr.isDefault)" class="text-gray-300">|</span>
-                    <NPopconfirm
-                      v-if="!(String(addr.status) === '1' || addr.isDefault)" positive-text="Xóa"
-                      negative-text="Hủy" @positive-click="handleDeleteAddress(addr.id)"
-                    >
-                      <template #trigger>
-                        <span class="cursor-pointer text-red-500 hover:underline text-sm font-medium">Xóa</span>
-                      </template>
-                      Xóa địa chỉ này khỏi sổ của bạn?
-                    </NPopconfirm>
+                <div class="mt-4">
+                  <h4 class="text-[#16a34a] font-bold text-[15px] truncate mb-1.5">
+                    {{ voucher.ten || (voucher.typeVoucher === 'PERCENTAGE' ? `Giảm giá ${voucher.discountValue}%` : `Giảm ${formatCurrency(voucher.discountValue)}`) }}
+                  </h4>
+
+                  <div class="text-[12px] text-black-500 leading-relaxed pr-2">
+                    <div>Đơn tối thiểu: {{ formatCurrency(voucher.dieuKien || 0) }}</div>
+                    <div v-if="voucher.typeVoucher === 'PERCENTAGE' && voucher.maxValue && voucher.maxValue > 0">
+                      Giảm tối đa: {{ formatCurrency(voucher.maxValue) }}
+                    </div>
                   </div>
+                </div>
+              </div>
 
-                  <NButton
-                    v-if="selectedAddressId !== addr.id" type="primary" ghost size="small"
-                    @click="selectAddressFromModal(addr)"
-                  >
-                    Giao đến địa chỉ này
-                  </NButton>
+              <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2">
+                <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
 
-                  <div
-                    v-else
-                    class="text-green-600 font-bold flex items-center gap-1 text-sm bg-green-100 px-2 py-1 rounded"
-                  >
-                    <NIcon size="16">
-                      <CheckmarkCircleOutline />
-                    </NIcon> Đang chọn
-                  </div>
-
-                  <NButton
-                    v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text type="primary"
-                    class="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                    @click="handleSetDefault(addr.id)"
-                  >
-                    Thiết lập mặc định
-                  </NButton>
+                <div class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none">
+                  <template v-if="voucher.typeVoucher === 'PERCENTAGE'">
+                    {{ voucher.discountValue }}<span class="text-sm ml-0.5">%</span>
+                  </template>
+                  <template v-else>
+                    {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span class="text-sm ml-0.5">đ</span>
+                  </template>
+                </div>
+                <div class="text-[10px] uppercase font-bold mt-1.5 tracking-wider opacity-90">
+                  {{ voucher.typeVoucher === 'PERCENTAGE' ? 'OFF' : 'VALUE' }}
                 </div>
               </div>
             </div>
           </div>
+
+          <div v-if="availableVouchers.length === 0" class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg">
+            <NIcon size="48" color="#d1d5db">
+              <TicketOutline />
+            </NIcon>
+            <span class="mt-3 font-medium text-gray-500">Không có mã giảm giá nào phù hợp</span>
+          </div>
         </div>
-
-        <div v-else>
-          <h3 class="font-bold text-gray-800 mb-4 border-l-4 border-green-500 pl-2">
-            {{ editingAddressId ? 'Cập Nhật Địa Chỉ' : 'Thêm Địa Chỉ Mới' }}
-          </h3>
-
-          <NForm ref="addressFormRef" :model="newAddress" :rules="addressRules" label-placement="top">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
-              <NFormItem path="provinceName" label="Tỉnh/Thành phố">
-                <NSelect
-                  v-model:value="newAddress.provinceName" :options="provinceOptions" filterable
-                  placeholder="Chọn Tỉnh/Thành" @update:value="onModalProvinceChange"
-                />
-              </NFormItem>
-              <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
-                <NSelect
-                  v-model:value="newAddress.wardName" :options="modalWardOptions" filterable
-                  placeholder="Chọn Phường/Xã" :disabled="!newAddress.provinceName"
-                />
-              </NFormItem>
-            </div>
-
-            <NFormItem path="detail" label="Địa chỉ chi tiết">
-              <NInput v-model:value="newAddress.detail" placeholder="Số nhà, Tên đường, Tòa nhà..." />
-            </NFormItem>
-
-            <div class="pt-1">
-              <NCheckbox v-model:checked="newAddress.isDefault">
-                Đặt làm địa chỉ mặc định
-              </NCheckbox>
-            </div>
-
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
-              <NButton @click="showAddAddressForm = false">
-                Trở lại
-              </NButton>
-              <NButton type="primary" :loading="isSavingAddress" @click="saveNewAddress">
-                Lưu địa chỉ
-              </NButton>
-            </div>
-          </NForm>
-        </div>
-      </NSpin>
+      </NCard>
     </NModal>
   </div>
 </template>

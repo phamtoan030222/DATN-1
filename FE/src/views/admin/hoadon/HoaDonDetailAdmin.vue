@@ -607,6 +607,7 @@ const productColumns = computed<DataTableColumns<any>>(() => {
           return h('span', { class: 'text-gray-300 text-sm' }, '—')
         }
 
+
         const originalProduct = invoiceItems.value.find(p => p.id === row.id)
         if (!originalProduct)
           return h('span', { class: 'text-gray-300' }, '—')
@@ -625,6 +626,7 @@ const productColumns = computed<DataTableColumns<any>>(() => {
         }
 
         // ✅ Chưa có serial → nút "Bổ sung Serial" (màu xanh)
+
         return h(NButton, {
           size: 'small',
           type: 'primary',
@@ -632,6 +634,7 @@ const productColumns = computed<DataTableColumns<any>>(() => {
           onClick: () => openSerialSelectionModal(originalProduct),
         }, {
           icon: () => h(NIcon, { size: 15 }, { default: () => h(ScanOutline) }),
+
           default: () => 'Bổ sung Serial',
         })
       },
@@ -1707,6 +1710,7 @@ fun<template>
           </p>
         </div>
 
+
         <div v-else class="rounded-xl bg-white shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <NDataTable
@@ -1719,6 +1723,7 @@ fun<template>
             />
           </div>
           <div class="p-6 bg-gray-50/30">
+
             <!-- Chỉ hiển thị tổng số serial, không có nút bổ sung -->
             <div class="flex items-center mb-4">
               <NTag size="small" type="success" round class="font-medium px-3">

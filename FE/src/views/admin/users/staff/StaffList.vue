@@ -249,7 +249,10 @@ const columns = [
     width: 120,
     fixed: 'right',
     render(row: StaffResponse) {
-      return h(NPopconfirm, { onPositiveClick: () => handleStatusChange(row) }, {
+      return h(NPopconfirm, { 
+            positiveText: 'Đồng ý', 
+            negativeText: 'Hủy', 
+             onPositiveClick: () => handleStatusChange(row) }, {
         trigger: () => h(NSwitch, { value: row.status === 'ACTIVE', size: 'small', disabled: loading.value }),
         default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} nhân viên này?`,
       })

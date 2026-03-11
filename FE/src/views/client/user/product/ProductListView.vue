@@ -171,6 +171,8 @@ async function fetchProducts() {
       minPrice: filters.value.priceRange[0],
       maxPrice: filters.value.priceRange[1],
       idBrand: filters.value.idBrand,
+      // [THÊM]: Gửi kèm thời gian hiện tại để backend lọc discount chuẩn
+      time: new Date().getTime(),
     }
 
     const res = await getProductDetails(params)
@@ -244,8 +246,16 @@ onMounted(async () => {
   await fetchProducts()
 })
 
-function handleClickProduct(id: string) {
-  router.push(`/product-detail/${id}`)
+// [SỬA]: Truyền toàn bộ thông tin giảm giá (nếu có) sang URL trang chi tiết
+function handleClickProduct(item: ADProductDetailResponse) {
+  router.push({
+    path: `/product-detail/${item.id}`,
+    query: {
+      pct: item.percentage,
+      sd: item.startDate,
+      ed: item.endDate,
+    },
+  })
 }
 </script>
 
@@ -385,7 +395,7 @@ function handleClickProduct(id: string) {
                 <NCard
                   hoverable class="product-card"
                   content-style="padding: 16px; display: flex; flex-direction: column; height: 100%;"
-                  @click="handleClickProduct(item.id)"
+                  @click="handleClickProduct(item)"
                 >
                   <div v-if="item.percentage" class="discount-badge">
                     -{{ item.percentage }}%
@@ -425,7 +435,7 @@ function handleClickProduct(id: string) {
                         </NEllipsis>
                       </div>
                       <div v-if="item.gpu" class="spec-item">
-                        <span class="spec-label">VGA:</span>
+                        <span class="spec-label">CPU:</span>
                         <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
                           {{ item.gpu }}
                         </NEllipsis>
@@ -434,7 +444,7 @@ function handleClickProduct(id: string) {
 
                     <div class="price-section">
                       <div class="old-price">
-                        {{ item.percentage ? formatCurrency(item.price) : '&nbsp;' }}
+                        {{ item.percentage ? formatCurrency(item.price) : '' }}
                       </div>
                       <div class="current-price">
                         {{ formatCurrency(item.price * (1 - (item.percentage || 0) / 100)) }}
@@ -583,6 +593,9 @@ function handleClickProduct(id: string) {
   border-radius: 4px;
 }
 
+/* =========================================
+   CUSTOM CSS: CHECKBOX HOVER MÀU XANH LÁ
+   ========================================= */
 :deep(.n-checkbox.n-checkbox--checked .n-checkbox-box) {
   background-color: #00a651;
   border-color: #00a651;
@@ -621,9 +634,10 @@ function handleClickProduct(id: string) {
 .product-card {
   height: 100%;
   border-radius: 12px;
-  border: 1px solid #ebebeb;
+  border: 1px solid #2c53172e;
   background: #fff;
   position: relative;
+  cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;
 }
 
@@ -686,7 +700,7 @@ function handleClickProduct(id: string) {
   border-radius: 8px;
   margin-bottom: 16px;
   flex-grow: 1;
-  border: 1px solid #f0f0f0;
+  border: 1px solid #ccf6e1;
 }
 
 .spec-item {
@@ -740,14 +754,30 @@ function handleClickProduct(id: string) {
   padding-bottom: 20px;
 }
 
+/* =========================================
+   CUSTOM CSS: PAGINATION THEO YÊU CẦU
+   ========================================= */
+
+/* Trạng thái trang đang được chọn (Active) -> Xanh lá */
 :deep(.n-pagination .n-pagination-item--active) {
-  color: #00a651;
-  border-color: #00a651;
+  color: #00a651 !important;
+  border-color: #00a651 !important;
+  background-color: #ecfdf5 !important; /* Thêm tí nền xanh nhạt cho đẹp */
 }
 
+/* Trạng thái Hover vào bất kỳ trang nào (kể cả trang Active) -> Đỏ */
 :deep(.n-pagination .n-pagination-item:hover) {
-  color: #00a651;
-  border-color: #00a651;
+  color: #ef4444 !important;
+  border-color: #ef4444 !important;
+  background-color: #fff1f2 !important; /* Thêm tí nền đỏ nhạt cho nổi bật */
+  transition: all 0.3s ease;
+}
+
+/* Đổi màu hover cho 2 nút Prev / Next (Mũi tên sang trái/phải) thành Đỏ */
+:deep(.n-pagination .n-pagination-quick-jumper:hover),
+:deep(.n-pagination .n-pagination-item--button:hover) {
+  color: #ef4444 !important;
+  border-color: #ef4444 !important;
 }
 
 @media (max-width: 992px) {

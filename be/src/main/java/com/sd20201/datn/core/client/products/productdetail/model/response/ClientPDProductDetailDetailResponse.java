@@ -56,4 +56,6 @@ public interface ClientPDProductDetailDetailResponse extends IsIdentify {
 
     Long getEndDate();
 
+    Long getStartDate();
+
 }

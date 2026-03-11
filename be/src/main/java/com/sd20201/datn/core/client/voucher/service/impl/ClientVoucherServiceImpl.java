@@ -17,6 +17,7 @@ import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
 import com.sd20201.datn.repository.CustomerRepository;
 import com.sd20201.datn.utils.Helper;
+import com.sd20201.datn.utils.UserContextHelper;
 import jakarta.mail.internet.MimeMessage;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -45,6 +46,7 @@ public class ClientVoucherServiceImpl implements ClientVoucherService {
     private final CustomerRepository customerRepository;
     private final AdVoucherDetailRepository voucherDetailRepository;
     private final JavaMailSender mailSender;
+    private final UserContextHelper userContextHelper;
 
     /* ===================== QUERY LIST VOUCHER ===================== */
     @Override
@@ -361,4 +363,13 @@ public class ClientVoucherServiceImpl implements ClientVoucherService {
         );
     }
 
+    @Override
+    public ResponseObject<?> getVouchersByUsers() {
+        return userContextHelper.getCurrentUserId()
+                .map(userId -> ResponseObject.successForward(
+                        voucherRepository.getVoucherByUserId(userId),
+                        "OKE"
+                ))
+                .orElse(ResponseObject.errorForward("Not found", HttpStatus.NOT_FOUND));
+    }
 }
