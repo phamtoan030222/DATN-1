@@ -355,6 +355,13 @@ function calculateTotalAmounts() {
 // ==================== COMPUTED ====================
 const hasCartItems = computed(() => state.gioHang.length > 0)
 
+function getTabSoLuong(tab: typeof tabs.value[number]) {
+  if (tab.idHD === idHDS.value) {
+    return state.gioHang.length
+  }
+  return tab.soLuong
+}
+
 const formatFullAddress = computed(() => {
   if (!deliveryInfo.tinhThanhPho && !deliveryInfo.diaChiCuThe)
     return 'Chưa có địa chỉ'
@@ -1009,6 +1016,7 @@ async function fetchHoaDon() {
         loaiHoaDon: invoice.loaiHoaDon,
         products: invoice.data?.products || [],
       }))
+      nextTabId = tabs.value.length + 1
       if (tabs.value.length > 0) {
         activeTab.value = tabs.value[0].id
         await switchInvoice(tabs.value[0].id, tabs.value[0].idHD, tabs.value[0].loaiHoaDon)
@@ -1706,7 +1714,7 @@ function formatCurrencyInput(value: number) {
                       Chờ xử lý
                     </NTag>
                     <NText size="12" depth="3">
-                      {{ tab.soLuong || 0 }} sản phẩm
+                      {{ getTabSoLuong(tab) }} sản phẩm
                     </NText>
                   </NSpace>
                 </div>
