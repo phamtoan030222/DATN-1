@@ -10,4 +10,5 @@ public interface AdDiscountResponse {
     Integer getPercentage();
     String getDescription();
     Long getProductCount();
+    String getStatus();
 }

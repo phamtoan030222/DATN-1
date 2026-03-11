@@ -7,13 +7,11 @@ import type {
 } from '@/typings/api/api.common'
 import request from '@/service/request'
 
-// Tham số truy vấn
 export interface ParamsGetBrand extends PaginationParams {
   name?: string
   status?: string
 }
 
-// Kiểu dữ liệu Brand trả về
 export interface BrandResponse extends ResponseList {
   id: string
   code: string
@@ -21,7 +19,6 @@ export interface BrandResponse extends ResponseList {
   status: string
 }
 
-// Payload tạo Brand
 export interface CreateBrandRequest {
   name: string
   code: string
