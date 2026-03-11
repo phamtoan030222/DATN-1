@@ -75,7 +75,6 @@ public class PaymentController {
                     "<style>" +
                     "body{font-family:Arial,sans-serif;text-align:center;padding:50px;}" +
                     ".success{color:#28a745;}.info{margin:20px 0;}" +
-                    ".btn{display:inline-block;padding:10px 20px;background:#007bff;color:white;text-decoration:none;border-radius:5px;}" +
                     "</style></head>" +
                     "<body>" +
                     "<h1 class='success'>✅ Thanh toán thành công!</h1>" +
@@ -83,22 +82,11 @@ public class PaymentController {
                     "<p>Mã hóa đơn: <strong>" + response.getOrderId() + "</strong></p>" +
                     "<p>Mã giao dịch: <strong>" + response.getTransactionId() + "</strong></p>" +
                     "<p>Số tiền: <strong>" + String.format("%,d", response.getAmount().longValue()) + " VND</strong></p>" +
+                    "<p>Đang chuyển về trang bán hàng...</p>" +
                     "</div>" +
-                    "<p><a href='#' class='btn' onclick='window.close()'>Đóng trang</a></p>" +
                     "<script>" +
-                    // ← THÊM ĐOẠN NÀY: Gửi message về tab cha
-                    "try {" +
-                    "  if (window.opener && !window.opener.closed) {" +
-                    "    window.opener.postMessage({" +
-                    "      type: 'VNPAY_SUCCESS'," +
-                    "      orderId: '" + response.getOrderId() + "'," +
-                    "      transactionId: '" + response.getTransactionId() + "'," +
-                    "      amount: " + response.getAmount().longValue() +
-                    "    }, '*');" +
-                    "  }" +
-                    "} catch(e) { console.error('postMessage error', e); }" +
-                    "setTimeout(() => window.close(), 3000);" +  // ← Tự đóng sau 3s
-                    "<script>" +
+                    "setTimeout(() => { window.location.href = 'http://localhost:6788/dashboard/sales'; }, 2000);" +
+                    "</script>" +
                     "</body></html>";
         } else {
             return "<html>" +
@@ -109,7 +97,7 @@ public class PaymentController {
                     ".btn{display:inline-block;padding:10px 20px;background:#007bff;color:white;text-decoration:none;border-radius:5px;}" +
                     "</style></head>" +
                     "<body>" +
-                    "<h1 class='error'>❌ Thanh toán thất bại!</h1>" +
+                    "<h1 class='error'>Thanh toán thất bại!</h1>" +
                     "<div class='info'>" +
                     "<p>Mã lỗi: <strong>" + response.getCode() + "</strong></p>" +
                     "<p>Chi tiết: <strong>" + response.getMessage() + "</strong></p>" +
@@ -141,5 +129,16 @@ public class PaymentController {
         }
 
         return ResponseEntity.badRequest().body("Không tìm thấy hóa đơn");
+    }
+
+    @PostMapping("/manual-confirm/{invoiceId}")
+    public ResponseEntity<?> manualConfirm(@PathVariable String invoiceId) {
+        try {
+            Map<String, Object> result = vnPayService.manualConfirm(invoiceId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("Lỗi manual confirm: ", e);
+            return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
+        }
     }
 }

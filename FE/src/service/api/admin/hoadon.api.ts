@@ -647,3 +647,38 @@ export function getTrangThaiText(trangThai: string | number): string {
 
   return statusMap[trangThai] || 'Không xác định'
 }
+
+// Thêm vào cuối file hoadon.api.ts
+
+export interface UpdateCustomerInvoiceRequest {
+  maHoaDon: string
+  tenKhachHang: string
+  sdtKH: string
+  email: string
+  diaChi: string
+}
+
+export async function updateCustomerInvoice(
+  data: UpdateCustomerInvoiceRequest,
+): Promise<DefaultResponse<any>> {
+  try {
+    const res = await request({
+      url: `${API_HOA_DON}/cap-nhat-khach-hang`,
+      method: 'PUT',
+      data,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    return res.data
+  }
+  catch (error: any) {
+    return {
+      status: 'ERROR',
+      data: null,
+      message: error?.response?.data?.message || 'Lỗi không xác định',
+      timestamp: new Date().toISOString(),
+      success: false,
+    }
+  }
+}

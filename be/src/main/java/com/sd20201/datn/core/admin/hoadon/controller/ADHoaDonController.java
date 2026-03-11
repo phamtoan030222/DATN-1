@@ -1,9 +1,6 @@
 package com.sd20201.datn.core.admin.hoadon.controller;
 
-import com.sd20201.datn.core.admin.hoadon.model.request.ADChangeStatusRequest;
-import com.sd20201.datn.core.admin.hoadon.model.request.ADDoiImeiRequest;
-import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonDetailRequest;
-import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonSearchRequest;
+import com.sd20201.datn.core.admin.hoadon.model.request.*;
 import com.sd20201.datn.core.admin.hoadon.service.ADHoaDonService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
@@ -50,5 +47,13 @@ public class ADHoaDonController {
     @PutMapping("/doi-imei")
     public ResponseEntity<?> doiImei(@RequestBody ADDoiImeiRequest request) {
         return Helper.createResponseEntity(service.doiImei(request));
+    }
+
+    @PutMapping("/cap-nhat-khach-hang")
+    public ResponseEntity<?> capNhatKhachHang(
+            @RequestBody ADCapNhatKhachHangRequest request) {
+        return Helper.createResponseEntity(
+                service.capNhatThongTinKhachHang(request)
+        );
     }
 }

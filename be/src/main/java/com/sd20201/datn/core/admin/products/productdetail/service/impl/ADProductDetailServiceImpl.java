@@ -5,6 +5,7 @@ import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDExis
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDVariantRequest;
+import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDImeiResponse;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBatteryRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDBrandRepository;
 import com.sd20201.datn.core.admin.products.productdetail.repository.ADPDCPURepository;
@@ -38,7 +39,6 @@ import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.entity.Screen;
 import com.sd20201.datn.infrastructure.constant.*;
-import com.sd20201.datn.repository.IMEIRepository;
 import com.sd20201.datn.repository.ImageProductRepository;
 import com.sd20201.datn.utils.FileUploadUtil;
 import com.sd20201.datn.utils.Helper;
@@ -94,19 +94,12 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     @Override
     public ResponseObject<?> getProductDetails(ADPDProductDetailRequest request) {
         Long currentTime = System.currentTimeMillis();
-        List<String> idCurrentDiscounts = productDetailDiscountRepository.getIdByDate(currentTime);
-
-        if (!idCurrentDiscounts.isEmpty()) {
-            return ResponseObject.successForward(
-                    PageableObject.of(productDetailRepository.getProductDetailsDiscount(Helper.createPageable(request), request, idCurrentDiscounts)),
-                    "OKE"
-            );
-        }
 
         return ResponseObject.successForward(
-                PageableObject.of(productDetailRepository.getProductDetails(Helper.createPageable(request), request)),
+                PageableObject.of(productDetailRepository.getProductDetailsDiscount(Helper.createPageable(request), request, currentTime)),
                 "OKE"
         );
+
     }
 
     @Override
@@ -298,7 +291,7 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
         if (existProductDetailOptional.isPresent()) {
             addImeiToProductDetail(existProductDetailOptional.get(), variant.getImei());
-            return ResponseObject.successForward(existProductDetailOptional.get().getId(),"Variant is exist. Update quantity variant to exist variant");
+            return ResponseObject.successForward(existProductDetailOptional.get().getId(), "Variant is exist. Update quantity variant to exist variant");
         }
 
         ProductDetail productDetail = new ProductDetail();
@@ -338,7 +331,7 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         return ResponseObject.successForward(imeiRepository.findByCode(ids), "OKE");
     }
 
-    private void addImeiToProductDetail(ProductDetail productDetail,List<String> imeiVariants) {
+    private void addImeiToProductDetail(ProductDetail productDetail, List<String> imeiVariants) {
         imeiRepository.saveAll(
                 imeiVariants.stream()
                         .filter(imeiValue -> imeiRepository.findByCode(imeiValue).isEmpty())
@@ -359,7 +352,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     public ResponseObject<?> quickAddPropertiesProduct(Map<String, ?> request) {
         String nameProperty = String.valueOf(request.get("nameProperty")).trim();
 
-        if (nameProperty.isBlank()) return ResponseObject.errorForward("Name property must be not blank", HttpStatus.CONFLICT);
+        if (nameProperty.isBlank())
+            return ResponseObject.errorForward("Name property must be not blank", HttpStatus.CONFLICT);
 
         ProductPropertiesType type = ProductPropertiesType.valueOf((String) request.get("type"));
         switch (type) {
@@ -542,7 +536,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
     @Override
     public ResponseObject<?> addImeiToExistProductDetail(ADAddSerialNumberRequest request) {
         Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getIdProductDetail());
-        if (productDetailOptional.isEmpty()) return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
+        if (productDetailOptional.isEmpty())
+            return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
 
         ProductDetail productDetail = productDetailOptional.get();
 
@@ -552,5 +547,14 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
             return ResponseObject.errorForward(e.getMessage(), HttpStatus.CONFLICT);
         }
         return ResponseObject.successForward(null, "Save serial success");
+    }
+
+    @Override
+    public ResponseObject<?> getImeiAvailableForAssign(String idProductDetail) {
+        List<ADPDImeiResponse> allImeis = imeiRepository.findByIdProductDetail(idProductDetail);
+        List<ADPDImeiResponse> activeImeis = allImeis.stream()
+                .filter(i -> "ACTIVE".equals(i.getStatus()))
+                .toList();
+        return ResponseObject.successForward(activeImeis, "OKE");
     }
 }

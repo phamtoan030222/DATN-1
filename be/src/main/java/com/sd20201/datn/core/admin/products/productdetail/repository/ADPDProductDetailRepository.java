@@ -38,7 +38,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                 , p.ram.name as ram
                 , p.price as price
                 , p.status as status
-                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0)) as quantity
+                , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0 AND i.status = 0) as quantity
                 , p.urlImage as urlImage
                  , p.product.name as productName
     FROM ProductDetail p
@@ -117,8 +117,12 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                         , p.status as status
                         , (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND (i.imeiStatus = 0)) as quantity
                         , p.urlImage as urlImage
-                        , MAX(d.percentage) as percentage
-                        , MAX(d.endDate) as endDate
+                , MAX(
+                  CASE
+                    WHEN (pdd.id IS NOT NULL AND (d.startDate <= :time and :time <= d.endDate) AND pdd.status = 0 AND d.status = 0) THEN d.percentage
+                    ELSE NULL
+                  END
+                ) AS percentage
             FROM ProductDetail p
                 LEFT join Product pt on p.product.id = pt.id 
                 LEFT join ProductDetailDiscount pdd on p.id = pdd.productDetail.id
@@ -134,7 +138,6 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                  AND ((pdd.id IN :idProductDetailDiscount AND d.status=0) OR d.id IS NULL)
             GROUP BY     p.id,
                          p.code,
                          p.name,
@@ -166,7 +169,6 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                   AND (:#{#request.idHardDrive} is NULL OR p.hardDrive.id like concat('%',:#{#request.idHardDrive},'%'))
                   AND (:#{#request.idRAM} is NULL OR p.ram.id like concat('%',:#{#request.idRAM},'%'))
                   AND (:#{#request.idProduct} is NULL OR p.product.id like concat('%',:#{#request.idProduct},'%'))
-                    AND ((pdd.id IN :idProductDetailDiscount AND d.status=0) OR d.id IS NULL)
             GROUP BY     p.id,
                          p.code,
                          p.name,
@@ -181,7 +183,7 @@ public interface ADPDProductDetailRepository extends ProductDetailRepository {
                          p.urlImage
             HAVING (:#{#request.minPrice} <= MIN(p.price) AND MAX(p.price) <= :#{#request.maxPrice})
     """)
-    Page<ADPDProductDetailResponse> getProductDetailsDiscount(Pageable pageable, ADPDProductDetailRequest request, List<String> idProductDetailDiscount);
+    Page<ADPDProductDetailResponse> getProductDetailsDiscount(Pageable pageable, ADPDProductDetailRequest request,Long time);
 
     @Query(value = """
         SELECT

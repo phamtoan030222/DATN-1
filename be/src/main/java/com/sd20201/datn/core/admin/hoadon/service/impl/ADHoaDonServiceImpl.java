@@ -1,12 +1,9 @@
 package com.sd20201.datn.core.admin.hoadon.service.impl;
 
-import com.sd20201.datn.core.admin.hoadon.model.request.ADDoiImeiRequest;
+import com.sd20201.datn.core.admin.hoadon.model.request.*;
 import com.sd20201.datn.core.admin.shift.repository.AdShiftHandoverRepository;
 import com.sd20201.datn.entity.ShiftHandover;
 import com.sd20201.datn.core.admin.banhang.repository.ADBanHangIMEIRepository;
-import com.sd20201.datn.core.admin.hoadon.model.request.ADChangeStatusRequest;
-import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonDetailRequest;
-import com.sd20201.datn.core.admin.hoadon.model.request.ADHoaDonSearchRequest;
 import com.sd20201.datn.core.admin.hoadon.model.response.ADHoaDonChiTietResponseDetail;
 import com.sd20201.datn.core.admin.hoadon.model.response.HoaDonPageResponse;
 import com.sd20201.datn.core.admin.hoadon.repository.ADHoaDonChiTietRepository;
@@ -731,6 +728,48 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
         } catch (Exception e) {
             log.error("Lỗi hệ thống khi đổi Serial: {}", e.getMessage(), e);
             throw new RuntimeException("Lỗi hệ thống: " + e.getMessage(), e);
+        }
+    }
+
+
+    @Override
+    @Transactional
+    public ResponseObject<?> capNhatThongTinKhachHang(ADCapNhatKhachHangRequest request) {
+        try {
+            Invoice hoaDon = adHoaDonRepository.findByMa(request.getMaHoaDon())
+                    .orElseThrow(() -> new RuntimeException(
+                            "Không tìm thấy hóa đơn: " + request.getMaHoaDon()
+                    ));
+
+            // Chỉ cho phép cập nhật khi đơn ở trạng thái CHỜ XÁC NHẬN
+            if (hoaDon.getEntityTrangThaiHoaDon() != EntityTrangThaiHoaDon.CHO_XAC_NHAN) {
+                throw new RuntimeException(
+                        "Chỉ được cập nhật thông tin khi đơn hàng ở trạng thái Chờ xác nhận"
+                );
+            }
+
+            if (request.getTenKhachHang() != null && !request.getTenKhachHang().isBlank())
+                hoaDon.setNameReceiver(request.getTenKhachHang());
+
+            if (request.getSdtKH() != null && !request.getSdtKH().isBlank())
+                hoaDon.setPhoneReceiver(request.getSdtKH());
+
+            if (request.getEmail() != null)
+                hoaDon.setEmail(request.getEmail());
+
+            if (request.getDiaChi() != null)
+                hoaDon.setAddressReceiver(request.getDiaChi());
+
+            adHoaDonRepository.save(hoaDon);
+
+            log.info("Đã cập nhật thông tin khách hàng cho hóa đơn: {}", request.getMaHoaDon());
+
+            return new ResponseObject<>(null, HttpStatus.OK,
+                    "Cập nhật thông tin khách hàng thành công");
+
+        } catch (RuntimeException e) {
+            log.error("Lỗi cập nhật thông tin khách hàng: {}", e.getMessage(), e);
+            throw e;
         }
     }
 }

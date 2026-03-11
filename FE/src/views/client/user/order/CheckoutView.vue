@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import {
-  AddOutline,
   CashOutline,
-  CheckmarkCircleOutline,
   CloseOutline,
   LocationOutline,
   StorefrontOutline,
@@ -14,9 +12,7 @@ import {
   NAlert,
   NButton,
   NCard,
-  NCheckbox,
   NDivider,
-  NEmpty,
   NForm,
   NFormItem,
   NGi,
@@ -30,7 +26,6 @@ import {
   NRadio,
   NRadioGroup,
   NSelect,
-  NSpin,
   NTag,
   useMessage,
 } from 'naive-ui'
@@ -1057,11 +1052,8 @@ function handleSelectVoucherInModal(voucherId: string) {
               <NInput v-model:value="newAddress.detail" placeholder="Số nhà, Tên đường, Tòa nhà..." />
             </NFormItem>
 
-            <div class="pt-1">
-              <NCheckbox v-model:checked="newAddress.isDefault">
-                Đặt làm địa chỉ mặc định
-              </NCheckbox>
-            </div>
+              <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2">
+                <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
 
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
               <NButton @click="showAddAddressForm = false">

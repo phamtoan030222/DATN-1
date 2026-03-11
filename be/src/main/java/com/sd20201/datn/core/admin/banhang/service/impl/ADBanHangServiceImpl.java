@@ -663,6 +663,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
         boolean invalidImei = imeis.stream().anyMatch(
                 imei -> imei.getImeiStatus() != ImeiStatus.AVAILABLE ||
+                        Integer.valueOf(1).equals(imei.getStatus()) ||
                         !imei.getProductDetail().getId().equals(productDetail.getId())
         );
 
@@ -1285,6 +1286,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         // 3. Kiểm tra IMEI phải AVAILABLE và đúng sản phẩm
         boolean invalidImei = imeis.stream().anyMatch(imei ->
                 imei.getImeiStatus() != ImeiStatus.AVAILABLE ||
+                        Integer.valueOf(1).equals(imei.getStatus()) ||
                         !imei.getProductDetail().getId().equals(invoiceDetail.getProductDetail().getId())
         );
 

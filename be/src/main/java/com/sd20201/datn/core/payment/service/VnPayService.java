@@ -116,21 +116,62 @@ public class VnPayService {
 
             // ✅ THÊM: Cập nhật total amount vào invoice trước khi tạo payment URL
             BigDecimal requestAmount = request.getTotalAmountAfterDecrease();
-            if (invoice.getTotalAmountAfterDecrease() == null
-                    || invoice.getTotalAmountAfterDecrease().compareTo(BigDecimal.ZERO) == 0) {
-                invoice.setTotalAmountAfterDecrease(requestAmount);
-                logger.info("Cập nhật totalAmountAfterDecrease: {}", requestAmount);
+            // ✅ THAY BẰNG ĐOẠN NÀY
+
+// 1. Tiền hàng gốc (trước giảm giá, chưa cộng ship)
+            if (request.getTienHang() != null
+                    && request.getTienHang().compareTo(BigDecimal.ZERO) > 0) {
+                invoice.setTotalAmount(request.getTienHang());
+            } else {
+                invoice.setTotalAmount(requestAmount); // fallback nếu FE không truyền
             }
-            if (invoice.getTotalAmount() == null
-                    || invoice.getTotalAmount().compareTo(BigDecimal.ZERO) == 0) {
-                invoice.setTotalAmount(requestAmount);
-                logger.info("Cập nhật totalAmount: {}", requestAmount);
+
+// 2. Phí vận chuyển
+            if (request.getTienShip() != null
+                    && request.getTienShip().compareTo(BigDecimal.ZERO) > 0) {
+                invoice.setShippingFee(request.getTienShip());
             }
+
+// 3. Gán voucher vào invoice
+            if (request.getIdPGG() != null && !request.getIdPGG().isBlank()) {
+                adVoucherRepository.findById(request.getIdPGG()).ifPresent(voucher -> {
+                    invoice.setVoucher(voucher);
+                    logger.info("Đã gán voucher {} vào hóa đơn VNPAY", voucher.getCode());
+                });
+            }
+
+// 4. Tổng tiền thực tế thanh toán (sau giảm + ship)
+            invoice.setTotalAmountAfterDecrease(requestAmount);
+
+            logger.info("Đã lưu đầy đủ: tienHang={}, ship={}, voucher={}, total={}",
+                    invoice.getTotalAmount(),
+                    invoice.getShippingFee(),
+                    invoice.getVoucher() != null ? invoice.getVoucher().getCode() : "không có",
+                    requestAmount);
 
 
             String ipAddr = getClientIpAddress(httpRequest);
             String maGiaoDich = "VNPAY" + System.currentTimeMillis();
             String paymentUrl = buildPaymentUrl(request, ipAddr, maGiaoDich);
+
+            // Gán ca làm việc ngay lúc tạo payment — khi nhân viên còn đang đứng quầy
+            if (invoice.getShiftHandover() == null && request.getStaffId() != null) {
+                try {
+                    adNhanVienRepository.findById(request.getStaffId()).ifPresent(staff -> {
+                        if (staff.getAccount() != null) {
+                            adShiftHandoverRepository
+                                    .findOpenShiftByAccountId(staff.getAccount().getId())
+                                    .ifPresent(shift -> {
+                                        invoice.setShiftHandover(shift);
+                                        logger.info("Đã gán ca làm việc: {} cho nhân viên: {}",
+                                                shift.getId(), staff.getId());
+                                    });
+                        }
+                    });
+                } catch (Exception e) {
+                    logger.error("Lỗi gán ca làm việc lúc tạo payment: ", e);
+                }
+            }
 
             saveLichSuThanhToan(invoice, request, maGiaoDich, paymentUrl);
 
@@ -491,9 +532,10 @@ public class VnPayService {
         invoice.setBankCode(bankCode);
 
         Invoice savedInvoice = adTaoHoaDonRepository.save(invoice);
+        Staff staff = savedInvoice.getStaff();
 
         createStatusHistory(savedInvoice, EntityTrangThaiHoaDon.DA_XAC_NHAN,
-                "Hóa đơn giao hàng đã được thanh toán qua VNPAY", null);
+                "Hóa đơn giao hàng đã được thanh toán qua VNPAY", staff);
 
         // ✅ Truyền amount xuống
         createPaymentHistoryVNPay(savedInvoice, maGiaoDich, bankCode, amount);
@@ -515,9 +557,10 @@ public class VnPayService {
         invoice.setBankCode(bankCode);
 
         Invoice savedInvoice = adTaoHoaDonRepository.save(invoice);
+        Staff staff = savedInvoice.getStaff();
 
         createStatusHistory(savedInvoice, EntityTrangThaiHoaDon.HOAN_THANH,
-                "Hóa đơn đã được thanh toán qua VNPAY tại quầy", null);
+                "Hóa đơn đã được thanh toán qua VNPAY tại quầy", staff);
 
         // ✅ Truyền amount xuống
         createPaymentHistoryVNPay(savedInvoice, maGiaoDich, bankCode, amount);
@@ -715,5 +758,30 @@ public class VnPayService {
         lichSu.setGhiChu("Tạo thanh toán VNPAY - URL: " + shortUrl);
 
         lichSuThanhToanRepository.save(lichSu);
+    }
+
+    @Transactional
+    public Map<String, Object> manualConfirm(String invoiceId) throws BadRequestException {
+        Invoice invoice = invoiceRepository.findById(invoiceId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn: " + invoiceId));
+
+        if (invoice.getTrangThaiThanhToan() == TrangThaiThanhToan.DA_THANH_TOAN) {
+            return Map.of(
+                    "trangThai", "DA_THANH_TOAN",
+                    "message", "Hóa đơn đã thanh toán trước đó"
+            );
+        }
+
+        // Lấy số tiền từ invoice (đã được lưu lúc createPayment)
+        BigDecimal amount = invoice.getTotalAmountAfterDecrease();
+        String maGiaoDich = "MANUAL_" + System.currentTimeMillis();
+
+        // Gọi đúng method xử lý — y hệt callback VNPAY
+        xuLyThanhToanThanhCongVNPay(invoice, maGiaoDich, "MANUAL", amount);
+
+        return Map.of(
+                "trangThai", "DA_THANH_TOAN",
+                "message", "Xác nhận thành công"
+        );
     }
 }
