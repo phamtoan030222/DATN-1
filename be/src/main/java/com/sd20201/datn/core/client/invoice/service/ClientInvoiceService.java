@@ -5,4 +5,8 @@ import com.sd20201.datn.core.common.base.ResponseObject;
 public interface ClientInvoiceService {
 
     ResponseObject<?> getById(String code);
+
+    ResponseObject<?> getHistoryInvoiceById(String id);
+
+    ResponseObject<?> getInvoiceDetailsById(String id);
 }
