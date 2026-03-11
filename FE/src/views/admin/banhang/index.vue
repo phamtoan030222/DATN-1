@@ -1245,8 +1245,10 @@ function closeBarcodeModal() {
 
 async function addSerialByCode(serialCode: string) {
   const code = serialCode.trim()
-  if (!/^\d{15,17}$/.test(code)) { toast.error('Mã SERIAL không hợp lệ! SERIAL phải là 15-17 chữ số.'); return }
-
+  if (!/^[A-Z0-9\-]{5,30}$/i.test(code)) {
+    toast.error('Mã SERIAL không hợp lệ! SERIAL phải từ 5-30 ký tự (chữ và số).')
+    return
+  }
   toast.info(`Đang tìm SERIAL: ${code}...`)
   try {
     for (const product of stateSP.products) {
@@ -1716,7 +1718,7 @@ function formatCurrencyInput(value: number) {
                       Chờ xử lý
                     </NTag>
                     <NText size="12" depth="3">
-                      {{ getTabSoLuong(tab) }} sản phẩm
+                      {{ getTabSoLuong(tab) || 0 }} sản phẩm
                     </NText>
                   </NSpace>
                 </div>
@@ -2791,8 +2793,10 @@ function formatCurrencyInput(value: number) {
   width: 100%;
 }
 
+/* Sau */
 .pending-invoices-wrapper {
   width: 100%;
+  padding-bottom: 15px;
 }
 
 .pending-invoice-card {
