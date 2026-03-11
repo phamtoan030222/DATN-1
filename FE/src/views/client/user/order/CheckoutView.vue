@@ -22,6 +22,7 @@ import {
   NGi,
   NGrid,
   NIcon,
+  NImage,
   NInput,
   NInputNumber,
   NModal,
@@ -608,7 +609,9 @@ function handleSelectVoucherInModal(voucherId: string) {
                     @click="openAddressModal"
                   >
                     <template #icon>
-                      <NIcon><LocationOutline /></NIcon>
+                      <NIcon>
+                        <LocationOutline />
+                      </NIcon>
                     </template>
                     Sổ địa chỉ của bạn
                   </NButton>
@@ -705,7 +708,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   >
                     <NRadio value="1" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
-                        <n-image width="25" src="../../../../../images/momo.png" />
+                        <NImage width="25" src="../../../../../images/momo.png" />
                         Momo
                       </div>
                     </NRadio>
@@ -717,7 +720,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   >
                     <NRadio value="2" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
-                        <n-image width="25" src="../../../../../images/vnpay.png" />
+                        <NImage width="25" src="../../../../../images/vnpay.png" />
                         VNPAY
                       </div>
                     </NRadio>
@@ -729,7 +732,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   >
                     <NRadio value="3" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
-                        <n-image width="40" src="../../../../../images/vietqr.png" />
+                        <NImage width="40" src="../../../../../images/vietqr.png" />
                         VietQR
                       </div>
                     </NRadio>
@@ -761,7 +764,8 @@ function handleSelectVoucherInModal(voucherId: string) {
                 </div>
                 <div class="text-right flex flex-col items-end justify-center shrink-0">
                   <div class="font-bold text-red-600 text-[15px]">
-                    {{ formatCurrency((item.percentage && item.percentage > 0 ? item.price * (1 - item.percentage / 100) : item.price) * item.quantity) }}
+                    {{ formatCurrency((item.percentage && item.percentage > 0 ? item.price * (1 - item.percentage / 100)
+                      : item.price) * item.quantity) }}
                   </div>
                   <div v-if="(item.percentage ?? 0) > 0" class="text-[11px] text-gray-400 line-through mt-0.5">
                     {{ formatCurrency((item.price ?? 0) * item.quantity) }}
@@ -772,21 +776,29 @@ function handleSelectVoucherInModal(voucherId: string) {
                     circle size="tiny" tertiary
                     @click="removeCart(item.productDetailId, { buyNow: !!cartItemBuyNow })"
                   >
-                    <NIcon><CloseOutline /></NIcon>
+                    <NIcon>
+                      <CloseOutline />
+                    </NIcon>
                   </NButton>
                 </div>
               </div>
             </div>
 
-            <div class="mb-5 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-              <div class="text-sm font-semibold mb-2 flex items-center gap-2 text-gray-800">
-                <NIcon color="#d03050" size="18">
+            <div class="mb-5 mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div class="text-sm font-semibold mb-2 flex items-center gap-2 text-green-800">
+                <NIcon color="#16a34a" size="18">
                   <TicketOutline />
                 </NIcon> Khuyến mãi
               </div>
-              <NButton class="w-full" @click="handleOpenVoucherModal">
+              <NButton
+                class="w-full font-medium"
+                type="success"
+                dashed
+                @click="handleOpenVoucherModal"
+              >
                 {{ selectedVoucher
-                  ? `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
+                  ? `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm
+    ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
                   : 'Chọn mã giảm giá'
                 }}
               </NButton>
@@ -807,7 +819,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                     :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
                     placeholder="Nhập phí ship" :show-button="false"
                   />
-                  <n-image width="80" src="../../../../../images/ghn-logo.webp" />
+                  <NImage width="80" src="../../../../../images/ghn-logo.webp" />
                 </div>
               </div>
               <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
@@ -874,13 +886,19 @@ function handleSelectVoucherInModal(voucherId: string) {
               @click="handleSelectVoucherInModal(voucher.voucherId)"
             >
               <div class="flex-1 p-3 pl-4 relative bg-white flex flex-col justify-center">
-                <div class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md z-10 shadow-sm">
+                <div
+                  class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md z-10 shadow-sm"
+                >
                   {{ voucher.code }}
                 </div>
+
                 <div class="mt-4">
                   <h4 class="text-[#16a34a] font-bold text-[15px] truncate mb-1.5">
-                    {{ voucher.ten || (voucher.typeVoucher === 'PERCENTAGE' ? `Giảm giá ${voucher.discountValue}%` : `Giảm ${formatCurrency(voucher.discountValue)}`) }}
+                    {{ voucher.ten || (voucher.typeVoucher === 'PERCENTAGE' ? `Giảm giá ${voucher.discountValue}%`
+                      : `Giảm
+                    ${formatCurrency(voucher.discountValue)}`) }}
                   </h4>
+
                   <div class="text-[12px] text-black-500 leading-relaxed pr-2">
                     <div>Đơn tối thiểu: {{ formatCurrency(voucher.dieuKien || 0) }}</div>
                     <div v-if="voucher.typeVoucher === 'PERCENTAGE' && voucher.maxValue && voucher.maxValue > 0">
@@ -889,14 +907,24 @@ function handleSelectVoucherInModal(voucherId: string) {
                   </div>
                 </div>
               </div>
-              <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2">
-                <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
-                <div class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none">
+
+              <div
+                class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2"
+              >
+                <div
+                  class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white"
+                />
+
+                <div
+                  class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none"
+                >
                   <template v-if="voucher.typeVoucher === 'PERCENTAGE'">
                     {{ voucher.discountValue }}<span class="text-sm ml-0.5">%</span>
                   </template>
                   <template v-else>
-                    {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span class="text-sm ml-0.5">đ</span>
+                    {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span
+                      class="text-sm ml-0.5"
+                    >đ</span>
                   </template>
                 </div>
                 <div class="text-[10px] uppercase font-bold mt-1.5 tracking-wider opacity-90">
@@ -905,7 +933,11 @@ function handleSelectVoucherInModal(voucherId: string) {
               </div>
             </div>
           </div>
-          <div v-if="availableVouchers.length === 0" class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg">
+
+          <div
+            v-if="availableVouchers.length === 0"
+            class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg"
+          >
             <NIcon size="48" color="#d1d5db">
               <TicketOutline />
             </NIcon>
@@ -914,14 +946,15 @@ function handleSelectVoucherInModal(voucherId: string) {
         </div>
       </NCard>
     </NModal>
-
     <NModal v-model:show="showAddressModal" preset="card" title="Sổ Địa Chỉ Của Bạn" style="width: 650px" size="huge">
       <NSpin :show="isFetchingAddresses">
         <div v-if="!showAddAddressForm">
           <div class="flex justify-end mb-4">
             <NButton type="primary" dashed @click="handleOpenAddForm">
               <template #icon>
-                <NIcon><AddOutline /></NIcon>
+                <NIcon>
+                  <AddOutline />
+                </NIcon>
               </template>
               Thêm địa chỉ mới
             </NButton>
@@ -1042,6 +1075,8 @@ function handleSelectVoucherInModal(voucherId: string) {
         </div>
       </NSpin>
     </NModal>
+
+    <NModal />
   </div>
 </template>
 
@@ -1049,6 +1084,7 @@ function handleSelectVoucherInModal(voucherId: string) {
 .custom-scrollbar::-webkit-scrollbar {
   width: 5px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background-color: #cbd5e1;
   border-radius: 4px;
