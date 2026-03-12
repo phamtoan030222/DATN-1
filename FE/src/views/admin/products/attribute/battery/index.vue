@@ -68,26 +68,23 @@ const technolyChargingLabel: Record<string, string> = {
 const typeBatteryOptions = [
   { label: 'Li-Ion', value: 'LI_ION' },
   { label: 'Li-Po', value: 'LI_PO' },
-  { label: 'NiMH', value: 'NIMH' },
-  { label: 'Solid State', value: 'SOLID_STATE' },
+
 ]
 
 const typeBatteryLabel: Record<string, string> = {
   LI_ION: 'Li-Ion',
   LI_PO: 'Li-Po',
-  NIMH: 'NiMH',
-  SOLID_STATE: 'Solid State',
 }
 
 // ================= MODAL STATE =================
 const showModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
 
-// ⚠️ Dùng "type" để khớp với ADCreateBatteryRequest backend
+//  Dùng "type" để khớp với ADCreateBatteryRequest backend
 const formData = reactive<CreateBatteryRequest & { id?: string }>({
   name: '',
   brand: '',
-  type: '', // backend DTO field là "type"
+  type: '', 
   technolyCharging: '',
   capacity: 0,
   removeBattery: false,
@@ -143,7 +140,7 @@ function openModal(mode: 'add' | 'edit', row?: BatteryResponse) {
       id: row.id,
       name: row.name,
       brand: row.brand,
-      type: row.typeBattery, // response trả "typeBattery", map vào form "type"
+      type: row.typeBattery,
       technolyCharging: row.technolyCharging,
       capacity: row.capacity,
       removeBattery: row.removeBattery,
@@ -184,7 +181,7 @@ function saveBattery() {
           const payload: CreateBatteryRequest = {
             name: formData.name,
             brand: formData.brand,
-            type: formData.type, // gửi đúng tên "type"
+            type: formData.type, 
             technolyCharging: formData.technolyCharging,
             capacity: Number(formData.capacity),
             removeBattery: Boolean(formData.removeBattery),
