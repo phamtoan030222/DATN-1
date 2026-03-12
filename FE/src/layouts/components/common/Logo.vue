@@ -20,7 +20,7 @@ const hidenLogoText = computed(() => {
 <template>
   <div
     class="h-60px text-xl flex-center cursor-pointer gap-2 p-x-2"
-    @click="router.push('/')"
+    @click="router.push('/monitor/stats')"
   >
     <svg-icons-logo class="text-1.5em" />
     <span
