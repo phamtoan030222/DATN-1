@@ -1245,10 +1245,10 @@ function closeBarcodeModal() {
 
 async function addSerialByCode(serialCode: string) {
   const code = serialCode.trim()
-  if (!/^[A-Z0-9\-]{5,30}$/i.test(code)) {
-    toast.error('Mã SERIAL không hợp lệ! SERIAL phải từ 5-30 ký tự (chữ và số).')
-    return
-  }
+  // if (!/^[A-Z0-9\-]{5,30}$/i.test(code)) {
+  //   toast.error('Mã SERIAL không hợp lệ! SERIAL phải từ 5-30 ký tự (chữ và số).')
+  //   return
+  // }
   toast.info(`Đang tìm SERIAL: ${code}...`)
   try {
     for (const product of stateSP.products) {
@@ -1526,7 +1526,7 @@ const columnsGiohang: DataTableColumns<any> = [
     width: 110,
     render: (row) => {
       if (row.imel)
-        return h(NTag, { type: 'success', size: 'small', onClick: () => toast.info(`IMEI: ${row.imel}`) }, () => `${row.imel}`)
+        return h(NTag, { type: 'success', size: 'small', onClick: () => toast.info(`Serialgit : ${row.imel}`) }, () => `${row.imel}`)
       const imeiItem = imeiDaChon.value.find(item => item.idHoaDonChiTiet === row.idHDCT)
       if (imeiItem && imeiItem.danhSachImei.length > 0) {
         return h(NTag, { type: 'success', size: 'small', onClick: () => toast.info(`Đã chọn ${imeiItem.danhSachImei.length} SERIAL: ${imeiItem.danhSachImei.join(', ')}`) }, () => `${imeiItem.danhSachImei.length} SERIAL`)
@@ -1743,7 +1743,7 @@ function formatCurrencyInput(value: number) {
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
-              Quét SERIAL
+              Quét Barcode
             </NButton>
           </NSpace>
         </template>
@@ -2529,7 +2529,7 @@ function formatCurrencyInput(value: number) {
     <NModal
       v-model:show="isBarcodeModalVisible"
       preset="dialog"
-      title="Quét SERIAL"
+      title="Quét Barcode"
       :mask-closable="false"
       @update:show="(val) => { if (!val) closeBarcodeModal() }"
     >

@@ -235,47 +235,41 @@ public class ADBanHangServiceImpl implements ADBanHangService {
 
     private void processVoucher(ADThanhToanRequest id, Invoice hoaDon) throws BadRequestException {
         if (id.getIdPGG() != null && !id.getIdPGG().trim().isEmpty()) {
-            try {
-                Voucher phieuGiamGia1 = adVoucherRepository.findById(id.getIdPGG())
-                        .orElseThrow(() -> new BadRequestException("Voucher không tồn tại"));
 
-                if (phieuGiamGia1.getRemainingQuantity() <= 0) {
-                    throw new BadRequestException("Voucher đã hết số lượng");
-                }
+            Voucher phieuGiamGia1 = adVoucherRepository.findById(id.getIdPGG())
+                    .orElseThrow(() -> new BadRequestException("Voucher không tồn tại"));
 
-                // Tạo request để kiểm tra voucher
-                ChonPhieuGiamGiaRequest chonPhieuGiamGiaRequest = new ChonPhieuGiamGiaRequest();
-                chonPhieuGiamGiaRequest.setTongTien(id.getTienHang());
+            if (phieuGiamGia1.getRemainingQuantity() <= 0) {
+                throw new BadRequestException("Voucher đã hết số lượng");
+            }
 
-                if (hoaDon.getCustomer() != null && hoaDon.getCustomer().getId() != null) {
-                    chonPhieuGiamGiaRequest.setIdKH(hoaDon.getCustomer().getId());
-                }
+            // Kiểm tra voucher tốt hơn (chỉ khi check = 1)
+            if (id.getCheck() != null && id.getCheck() == 1) {
+                try {
+                    ChonPhieuGiamGiaRequest chonPhieuGiamGiaRequest = new ChonPhieuGiamGiaRequest();
+                    chonPhieuGiamGiaRequest.setTongTien(id.getTienHang());
 
-                // Kiểm tra xem có voucher tốt hơn không (chỉ khi check = 1)
-                if (id.getCheck() != null && id.getCheck() == 1) {
-                    try {
-                        List<Voucher> list = danhSachPhieuGiamGia1(chonPhieuGiamGiaRequest);
-
-                        if (!list.isEmpty() && list.get(0) != null && list.get(0).getGiaTriGiamThucTe() != null
-                                && phieuGiamGia1.getGiaTriGiamThucTe() != null
-                                && list.get(0).getGiaTriGiamThucTe().compareTo(phieuGiamGia1.getGiaTriGiamThucTe()) > 0) {
-                            throw new BadRequestException("Đã có 1 phiếu giảm giá tốt hơn");
-                        }
-                    } catch (Exception e) {
-                        System.out.println("Lỗi khi kiểm tra voucher tốt hơn: " + e.getMessage());
+                    if (hoaDon.getCustomer() != null && hoaDon.getCustomer().getId() != null) {
+                        chonPhieuGiamGiaRequest.setIdKH(hoaDon.getCustomer().getId());
                     }
-                }
 
-            } catch (BadRequestException e) {
-                throw e;
-            } catch (Exception e) {
-                System.out.println("Lỗi khi xử lý voucher: " + e.getMessage());
-                id.setIdPGG(null);
-                id.setCheck(0);
+                    List<Voucher> list = danhSachPhieuGiamGia1(chonPhieuGiamGiaRequest);
+
+                    if (!list.isEmpty() && list.get(0) != null
+                            && list.get(0).getGiaTriGiamThucTe() != null
+                            && phieuGiamGia1.getGiaTriGiamThucTe() != null
+                            && list.get(0).getGiaTriGiamThucTe().compareTo(phieuGiamGia1.getGiaTriGiamThucTe()) > 0) {
+                        throw new BadRequestException("Đã có 1 phiếu giảm giá tốt hơn");
+                    }
+                } catch (BadRequestException e) {
+                    throw e; // ← chỉ re-throw BadRequestException thật sự
+                } catch (Exception e) {
+                    // Lỗi khi kiểm tra voucher tốt hơn → bỏ qua, KHÔNG xóa idPGG
+                    log.warn("Không kiểm tra được voucher tốt hơn, tiếp tục dùng voucher đã chọn: {}", e.getMessage());
+                }
             }
         }
     }
-
     private void validateProducts(ADThanhToanRequest id) throws BadRequestException {
         try {
             List<String> idHDCTS = adTaoHoaDonChiTietRepository.getHoaDonChiTiet(id.getIdHD());

@@ -908,35 +908,35 @@ function handleSelectVoucherInModal(voucherId: string) {
               >
                 <div
                   class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white"
-                />
-
-                <div
-                  class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none"
                 >
-                  <template v-if="voucher.typeVoucher === 'PERCENTAGE'">
-                    {{ voucher.discountValue }}<span class="text-sm ml-0.5">%</span>
-                  </template>
-                  <template v-else>
-                    {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span
-                      class="text-sm ml-0.5"
-                    >đ</span>
-                  </template>
-                </div>
-                <div class="text-[10px] uppercase font-bold mt-1.5 tracking-wider opacity-90">
-                  {{ voucher.typeVoucher === 'PERCENTAGE' ? 'OFF' : 'VALUE' }}
+                  <div
+                    class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none"
+                  >
+                    <template v-if="voucher.typeVoucher === 'PERCENTAGE'">
+                      {{ voucher.discountValue }}<span class="text-sm ml-0.5">%</span>
+                    </template>
+                    <template v-else>
+                      {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span
+                        class="text-sm ml-0.5"
+                      >đ</span>
+                    </template>
+                  </div>
+                  <div class="text-[10px] uppercase font-bold mt-1.5 tracking-wider opacity-90">
+                    {{ voucher.typeVoucher === 'PERCENTAGE' ? 'OFF' : 'VALUE' }}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <div
-            v-if="availableVouchers.length === 0"
-            class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg"
-          >
-            <NIcon size="48" color="#d1d5db">
-              <TicketOutline />
-            </NIcon>
-            <span class="mt-3 font-medium text-gray-500">Không có mã giảm giá nào phù hợp</span>
+            <div
+              v-if="availableVouchers.length === 0"
+              class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg"
+            >
+              <NIcon size="48" color="#d1d5db">
+                <TicketOutline />
+              </NIcon>
+              <span class="mt-3 font-medium text-gray-500">Không có mã giảm giá nào phù hợp</span>
+            </div>
           </div>
         </div>
       </NCard>
@@ -1052,16 +1052,21 @@ function handleSelectVoucherInModal(voucherId: string) {
               <NInput v-model:value="newAddress.detail" placeholder="Số nhà, Tên đường, Tòa nhà..." />
             </NFormItem>
 
-              <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2">
-                <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
+            <div class="w-[135px] shrink-0 rgb(255 255 255) flex flex-col items-center justify-center text-white relative px-2">
+              <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
 
-            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
-              <NButton @click="showAddAddressForm = false">
-                Trở lại
-              </NButton>
-              <NButton type="primary" :loading="isSavingAddress" @click="saveNewAddress">
-                Lưu địa chỉ
-              </NButton>
+              <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
+                <NButton @click="showAddAddressForm = false">
+                  Trở lại
+                </NButton>
+                <NButton
+                  class="!bg-white !border-[#00AA00] !text-[#00AA00] hover:!bg-[#00AA00] hover:!text-white hover:!border-[#00AA00]"
+                  :loading="isSavingAddress"
+                  @click="saveNewAddress"
+                >
+                  Lưu địa chỉ
+                </NButton>
+              </div>
             </div>
           </NForm>
         </div>

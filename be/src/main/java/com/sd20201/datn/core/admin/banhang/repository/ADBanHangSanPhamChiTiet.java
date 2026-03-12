@@ -54,7 +54,7 @@ AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
 AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
 AND p.status = 0
 AND pd.status = 0
-AND (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0) > 0
+AND (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0 AND i.status = 0) > 0
 ORDER BY p.createdDate DESC
 """,
             countQuery = """
@@ -77,7 +77,7 @@ AND (:#{#request.minPrice} IS NULL OR p.price >= :#{#request.minPrice})
 AND (:#{#request.maxPrice} IS NULL OR p.price <= :#{#request.maxPrice})
 AND p.status = 0
 AND pd.status = 0
-AND (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0) > 0
+AND (SELECT COUNT(i.id) FROM IMEI i WHERE i.productDetail.id = p.id AND i.imeiStatus = 0 AND i.status = 0) > 0
 """)
     Page<ADPDProductDetailResponse> getProductDetails(
             Pageable pageable,
