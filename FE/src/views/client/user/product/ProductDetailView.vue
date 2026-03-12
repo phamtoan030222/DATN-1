@@ -6,7 +6,6 @@ import {
   CheckmarkCircle,
   Flash,
   RefreshOutline,
-  TicketOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
 import {
@@ -17,7 +16,9 @@ import {
   NGrid,
   NGridItem,
   NIcon,
+  NInputNumber,
   NModal,
+  NPopconfirm,
   NRate,
   NSpin,
   NTag,
@@ -25,16 +26,18 @@ import {
 } from 'naive-ui'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
 import {
-  getColors,
-  getCPUs,
-  getGPUs,
-  getHardDrives,
+  getColorsByPD,
+  getCpuByPD,
+  getGpuByPD,
+  getHardDriveByPD,
   getImeiProductDetail,
   getProductDetailById,
   getProductDetails,
-  getRAMs,
+  getRamByPD,
+  getSPCTBy, // <-- ĐÃ IMPORT HÀM GỌI API TÌM CẤU HÌNH Ở ĐÂY
 } from '@/service/api/client/product/productDetail.api'
 
 import type { ADVoucherResponse } from '@/service/api/client/discount/api.voucher'
@@ -49,7 +52,11 @@ const message = useMessage()
 // --- STATE ---
 const loading = ref(false)
 const loadingCart = ref(false)
-const { addToCart } = useCartStore()
+
+// Khởi tạo Store và lấy dữ liệu giỏ hàng
+const cartStore = useCartStore()
+const { cartItems } = storeToRefs(cartStore)
+const { addToCart } = cartStore
 
 // Product Data
 const product = ref<any>(null)
@@ -73,6 +80,7 @@ const selectedColor = ref<string | null>(null)
 
 // Stock Check
 const isOutOfStock = ref(false)
+const stockQuantity = ref(0) // Số lượng tồn kho thực tế
 
 // Voucher & Timer
 const showVoucherModal = ref(false)
@@ -87,16 +95,69 @@ const isUpcomingSale = ref(false)
 const isOngoingSale = ref(false)
 
 // ==========================================
-// 1. LOGIC GIỎ HÀNG
+// 1. LOGIC GIỎ HÀNG (Đã fix kiểm tra Tồn kho, Max 5 SP & Bắt lỗi 500tr)
 // ==========================================
 
-function handleAddToCart() {
-  addToCart(product.value.id, quantity.value)
-  message.success('Đã thêm sản phẩm vào giỏ hàng')
+function validateCartAddition() {
+  const existingItem = cartItems.value.find((item: any) => item.productDetailId === product.value.id)
+  const qtyInCart = existingItem ? existingItem.quantity : 0
+  const totalWanted = quantity.value + qtyInCart
+
+  if (totalWanted > stockQuantity.value) {
+    if (qtyInCart > 0) {
+      message.error(`Kho chỉ còn ${stockQuantity.value} sản phẩm. Bạn đã có ${qtyInCart} sản phẩm trong giỏ!`)
+    }
+    else {
+      message.error(`Rất tiếc, kho chỉ còn ${stockQuantity.value} sản phẩm!`)
+    }
+    return false
+  }
+
+  if (totalWanted > 5) {
+    if (qtyInCart > 0) {
+      message.error(`Tối đa 5 sản phẩm/đơn. Bạn đã có ${qtyInCart} máy cấu hình này trong giỏ!`)
+    }
+    else {
+      message.error(`Chỉ được mua tối đa 5 sản phẩm cho mỗi cấu hình!`)
+    }
+    return false
+  }
+
+  return true
 }
-function handleBuyNow() {
-  addToCart(product.value.id, quantity.value)
-  router.push({ name: 'Cart' })
+
+async function handleAddToCart() {
+  if (!validateCartAddition())
+    return
+
+  loadingCart.value = true
+  try {
+    await addToCart(product.value.id, quantity.value)
+    message.success('Đã thêm sản phẩm vào giỏ hàng')
+  }
+  catch (error: any) {
+    message.error(error.message || 'Không thể thêm vào giỏ hàng')
+  }
+  finally {
+    loadingCart.value = false
+  }
+}
+
+async function handleBuyNow() {
+  if (!validateCartAddition())
+    return
+
+  loadingCart.value = true
+  try {
+    await addToCart(product.value.id, quantity.value)
+    router.push({ name: 'Cart' })
+  }
+  catch (error: any) {
+    message.error(error.message || 'Không thể thực hiện mua ngay')
+  }
+  finally {
+    loadingCart.value = false
+  }
 }
 
 // ==========================================
@@ -110,7 +171,7 @@ async function fetchData(id: string) {
     if (res.data) {
       product.value = res.data
 
-      // [THAY ĐỔI QUAN TRỌNG]: Ghi đè dữ liệu giảm giá từ URL (truyền từ Home sang)
+      // Ghi đè dữ liệu giảm giá từ URL
       if (route.query.pct)
         product.value.percentage = Number(route.query.pct)
       if (route.query.sd)
@@ -120,29 +181,19 @@ async function fetchData(id: string) {
 
       selectedImage.value = product.value.urlImage || 'https://via.placeholder.com/500'
 
-      // Set options mặc định theo sản phẩm đang xem
+      // Set options mặc định
       selectedGpu.value = product.value.idGPU || null
       selectedCpu.value = product.value.idCPU || null
       selectedRam.value = product.value.idRAM || null
       selectedHardDrive.value = product.value.idHardDrive || null
       selectedColor.value = product.value.idColor || null
 
-      // Lấy tất cả các biến thể chung idProduct
       await Promise.all([
         loadGlobalOptions(),
+        // Vẫn giữ mảng variants này nếu bạn cần dùng cho chức năng khác (ví dụ: đếm xem có bao nhiêu phiên bản)
         loadAllVariants(product.value.idProduct),
       ])
 
-      // Lọc các tuỳ chọn chỉ hiển thị nếu nó có tồn tại trong biến thể
-      if (allVariants.value.length > 0) {
-        gpuOptions.value = gpuOptions.value.filter(opt => allVariants.value.some((v: any) => v.idGPU === opt.value))
-        cpuOptions.value = cpuOptions.value.filter(opt => allVariants.value.some((v: any) => v.idCPU === opt.value))
-        ramOptions.value = ramOptions.value.filter(opt => allVariants.value.some((v: any) => v.idRAM === opt.value))
-        hardDriveOptions.value = hardDriveOptions.value.filter(opt => allVariants.value.some((v: any) => v.idHardDrive === opt.value))
-        colorOptions.value = colorOptions.value.filter(opt => allVariants.value.some((v: any) => v.idColor === opt.value))
-      }
-
-      // Gán startDate và endDate từ variant (Chỉ fallback nếu trên URL KHÔNG có)
       if (!product.value.endDate && !route.query.ed && allVariants.value.length > 0) {
         const currentVariant = allVariants.value.find((v: any) => v.id === product.value.id)
         if (currentVariant && currentVariant.endDate) {
@@ -167,6 +218,7 @@ async function fetchData(id: string) {
 
 async function checkStock(productDetailId: string) {
   isOutOfStock.value = false
+  stockQuantity.value = 0
   try {
     const res = await getImeiProductDetail(productDetailId)
     const arr = Array.isArray(res?.data) ? res.data : (res?.data as any)?.data || []
@@ -176,6 +228,7 @@ async function checkStock(productDetailId: string) {
       return s === undefined || s === null || String(s) === '0' || String(s).toUpperCase() === 'ACTIVE'
     }).length
 
+    stockQuantity.value = count
     if (count === 0) {
       isOutOfStock.value = true
     }
@@ -208,11 +261,11 @@ async function loadGlobalOptions() {
 
   try {
     const [gpus, cpus, rams, hds, colors] = await Promise.all([
-      getGPUs(),
-      getCPUs(),
-      getRAMs(),
-      getHardDrives(),
-      getColors(),
+      getGpuByPD(product.value.id),
+      getCpuByPD(product.value.id),
+      getRamByPD(product.value.id),
+      getHardDriveByPD(product.value.id),
+      getColorsByPD(product.value.id),
     ])
     gpuOptions.value = mapOpt(gpus)
     cpuOptions.value = mapOpt(cpus)
@@ -220,9 +273,7 @@ async function loadGlobalOptions() {
     hardDriveOptions.value = mapOpt(hds)
     colorOptions.value = mapOpt(colors)
   }
-  catch (e) {
-    console.warn('Lỗi tải thuộc tính chung', e)
-  }
+  catch (e) { console.warn('Lỗi tải thuộc tính chung', e) }
 }
 
 async function loadAllVariants(idProduct: string) {
@@ -242,16 +293,18 @@ async function loadAllVariants(idProduct: string) {
     }
     allVariants.value = list
   }
-  catch (e) {
-    console.error('Lỗi tải variants', e)
-  }
+  catch (e) { console.error('Lỗi tải variants', e) }
 }
 
+// =========================================================================
+// 🚀 ĐÃ SỬA: Hàm chọn phiên bản sử dụng API gọi thẳng xuống Backend
+// =========================================================================
 async function selectVariantOption(type: string, val: string) {
-  if (type === 'GPU')
-    selectedGpu.value = val
+  // 1. Cập nhật state tùy chọn
   if (type === 'CPU')
     selectedCpu.value = val
+  if (type === 'GPU')
+    selectedGpu.value = val
   if (type === 'RAM')
     selectedRam.value = val
   if (type === 'HDD')
@@ -259,35 +312,41 @@ async function selectVariantOption(type: string, val: string) {
   if (type === 'COLOR')
     selectedColor.value = val
 
-  let match = allVariants.value.find(v =>
-    (!selectedGpu.value || v.idGPU === selectedGpu.value)
-    && (!selectedCpu.value || v.idCPU === selectedCpu.value)
-    && (!selectedRam.value || v.idRAM === selectedRam.value)
-    && (!selectedHardDrive.value || v.idHardDrive === selectedHardDrive.value)
-    && (!selectedColor.value || v.idColor === selectedColor.value),
-  )
+  // Bật loading mờ ảo cho xịn
+  loading.value = true
 
-  if (!match) {
-    match = allVariants.value.find((v) => {
-      if (type === 'GPU')
-        return v.idGPU === val
-      if (type === 'CPU')
-        return v.idCPU === val
-      if (type === 'RAM')
-        return v.idRAM === val
-      if (type === 'HDD')
-        return v.idHardDrive === val
-      if (type === 'COLOR')
-        return v.idColor === val
-      return false
+  try {
+    // 2. GỌI API ĐỂ LẤY SẢN PHẨM KHỚP VỚI CẤU HÌNH VỪA CHỌN
+    const res = await getSPCTBy({
+      idProduct: product.value.idProduct,
+      idRam: selectedRam.value,
+      idCpu: selectedCpu.value,
+      idGpu: selectedGpu.value,
+      idColor: selectedColor.value,
+      idHardDrive: selectedHardDrive.value,
     })
-  }
 
-  if (match && match.id !== product.value.id) {
-    // Kèm theo query params hiện tại (nếu có) để khi đổi màu vẫn nhớ đang xem flash sale
-    await router.replace({ params: { id: match.id }, query: route.query })
+    // 3. Nếu tìm thấy sản phẩm
+    if (res.data && res.data.id) {
+      if (res.data.id !== product.value.id) {
+        // Đổi đường dẫn URL để reload lại trang chi tiết với ID mới
+        await router.replace({ params: { id: res.data.id }, query: route.query })
+      }
+      else {
+        loading.value = false
+      }
+    }
+    else {
+      message.warning('Phiên bản cấu hình này hiện không khả dụng.')
+      loading.value = false
+    }
+  }
+  catch (error) {
+    message.error('Không tìm thấy cấu hình phù hợp với lựa chọn của bạn.')
+    loading.value = false
   }
 }
+// =========================================================================
 
 function handleResetFilter() {
   selectedGpu.value = null
@@ -311,9 +370,6 @@ async function fetchAvailableVouchers() {
       const hasQuantity = v.remainingQuantity === null || v.remainingQuantity > 0
       return isTimeValid && hasQuantity
     })
-    if (validVouchers.value.length > 0) {
-      selectedVoucher.value = validVouchers.value[0]
-    }
   }
   catch (e) { console.error(e) }
 }
@@ -344,21 +400,11 @@ function calcDiscount(v: ADVoucherResponse, total: number) {
   return disc
 }
 
-const voucherDiscountAmount = computed(() => {
-  if (!selectedVoucher.value)
-    return 0
-  const total = currentOrderTotal.value
-  if (selectedVoucher.value.conditions && total < selectedVoucher.value.conditions)
-    return 0
-  return calcDiscount(selectedVoucher.value, total)
-})
-
 const finalTotalPrice = computed(() => {
-  const total = currentOrderTotal.value - voucherDiscountAmount.value
+  const total = currentOrderTotal.value
   return total > 0 ? total : 0
 })
 
-// [THAY ĐỔI QUAN TRỌNG]: Logic đếm ngược đồng bộ hoàn toàn với Home.vue
 function startCountdown() {
   if (timerInterval)
     clearInterval(timerInterval)
@@ -371,7 +417,7 @@ function startCountdown() {
       return 0
     const safeStr = typeof dateStr === 'string' ? dateStr.replace(/-/g, '/') : dateStr
     const timestamp = new Date(safeStr).getTime()
-    return isNaN(timestamp) ? 0 : timestamp
+    return Number.isNaN(timestamp) ? 0 : timestamp
   }
 
   const startTimestamp = parseSafeDate(rawStartDate)
@@ -390,23 +436,16 @@ function startCountdown() {
     let distance = 0
 
     if (now < startTimestamp) {
-      isUpcomingSale.value = true
-      isOngoingSale.value = false
-      isFlashSaleEnded.value = false
+      isUpcomingSale.value = true; isOngoingSale.value = false; isFlashSaleEnded.value = false
       distance = startTimestamp - now
     }
     else if (now >= startTimestamp && now <= endTimestamp) {
-      isUpcomingSale.value = false
-      isOngoingSale.value = true
-      isFlashSaleEnded.value = false
+      isUpcomingSale.value = false; isOngoingSale.value = true; isFlashSaleEnded.value = false
       distance = endTimestamp - now
     }
     else {
-      isUpcomingSale.value = false
-      isOngoingSale.value = false
-      isFlashSaleEnded.value = true
-      clearInterval(timerInterval)
-      timeLeft.value = ''
+      isUpcomingSale.value = false; isOngoingSale.value = false; isFlashSaleEnded.value = true
+      clearInterval(timerInterval); timeLeft.value = ''
       return
     }
 
@@ -420,10 +459,8 @@ function startCountdown() {
   }
 
   updateTimer()
-
-  if (!isFlashSaleEnded.value) {
+  if (!isFlashSaleEnded.value)
     timerInterval = setInterval(updateTimer, 1000)
-  }
 }
 
 function formatCurrency(val: number | undefined) {
@@ -463,11 +500,8 @@ onUnmounted(() => {
       <div class="mb-4">
         <NButton text @click="router.back()">
           <template #icon>
-            <NIcon>
-              <ArrowBack />
-            </NIcon>
-          </template>
-          Quay lại
+            <NIcon><ArrowBack /></NIcon>
+          </template> Quay lại
         </NButton>
       </div>
 
@@ -505,21 +539,14 @@ onUnmounted(() => {
               <NDescriptionsItem label="CPU">
                 {{ product.cpuName || product.cpu || product.idCPU || 'Đang cập nhật' }}
               </NDescriptionsItem>
-
               <NDescriptionsItem label="GPU">
                 {{ product.gpuName || product.gpu || product.idGPU || 'Đang cập nhật' }}
               </NDescriptionsItem>
-
               <NDescriptionsItem label="RAM">
                 {{ product.ramName || product.ram || product.idRAM || 'Đang cập nhật' }}
               </NDescriptionsItem>
               <NDescriptionsItem label="Ổ cứng">
-                {{
-                  product.hardDriveName
-                    || product.hardDrive
-                    || product.idHardDrive
-                    || 'Đang cập nhật'
-                }}
+                {{ product.hardDriveName || product.hardDrive || product.idHardDrive || 'Đang cập nhật' }}
               </NDescriptionsItem>
               <NDescriptionsItem label="Màn hình">
                 {{ product.screenName || product.screen || product.idScreen || 'Đang cập nhật' }}
@@ -543,9 +570,7 @@ onUnmounted(() => {
         <NGridItem>
           <div class="info-box">
             <h1 class="text-2xl font-bold text-gray-800 mb-2 leading-tight">
-              {{ product.productName || product.name }} {{ product.cpuName }} {{ product.ramName }} {{
-                product.hardDriveName
-              }}
+              {{ product.productName || product.name }} {{ product.cpuName }} {{ product.ramName }} {{ product.hardDriveName }}
             </h1>
             <div class="flex items-center gap-2 mb-4 text-sm text-gray-500">
               <NRate readonly :default-value="5" size="small" />
@@ -582,9 +607,7 @@ onUnmounted(() => {
             >
               <div v-if="isOngoingSale && rawPercent > 0" class="flex items-center gap-2 mb-1">
                 <span class="text-gray-400 text-sm">Giá niêm yết:</span>
-                <span class="text-gray-400 text-lg line-through font-medium">{{
-                  formatCurrency(listPrice)
-                }}</span>
+                <span class="text-gray-400 text-lg line-through font-medium">{{ formatCurrency(listPrice) }}</span>
                 <span class="text-red-600 text-xs font-bold bg-red-100 px-2 py-0.5 rounded-full">-{{ rawPercent }}%</span>
               </div>
 
@@ -609,29 +632,12 @@ onUnmounted(() => {
                 </div>
                 <NButton size="tiny" tertiary round @click="handleResetFilter">
                   <template #icon>
-                    <NIcon>
-                      <RefreshOutline />
-                    </NIcon>
-                  </template>
-                  Làm mới
+                    <NIcon><RefreshOutline /></NIcon>
+                  </template> Làm mới
                 </NButton>
               </div>
 
               <div class="grid gap-4">
-                <div v-if="gpuOptions.length > 0">
-                  <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
-                    GPU
-                  </div>
-                  <div class="flex flex-wrap gap-2">
-                    <button
-                      v-for="opt in gpuOptions" :key="opt.value" class="chip"
-                      :class="{ active: selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-
                 <div v-if="cpuOptions.length > 0">
                   <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
                     CPU
@@ -640,6 +646,20 @@ onUnmounted(() => {
                     <button
                       v-for="opt in cpuOptions" :key="opt.value" class="chip"
                       :class="{ active: selectedCpu === opt.value }" @click="selectVariantOption('CPU', opt.value)"
+                    >
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="gpuOptions.length > 0">
+                  <div class="text-xs font-semibold text-gray-500 mb-1 uppercase">
+                    GPU
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <button
+                      v-for="opt in gpuOptions" :key="opt.value" class="chip"
+                      :class="{ active: selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
@@ -667,8 +687,7 @@ onUnmounted(() => {
                   <div class="flex flex-wrap gap-2">
                     <button
                       v-for="opt in hardDriveOptions" :key="opt.value" class="chip"
-                      :class="{ active: selectedHardDrive === opt.value }"
-                      @click="selectVariantOption('HDD', opt.value)"
+                      :class="{ active: selectedHardDrive === opt.value }" @click="selectVariantOption('HDD', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
@@ -691,36 +710,20 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <div
-              class="voucher-section mb-6 border border-dashed border-red-300 bg-red-50 p-4 rounded-lg hover:bg-red-100/50 transition-colors"
-            >
-              <div class="flex justify-between items-center">
-                <div class="flex items-center gap-2 text-red-700 font-bold">
-                  <NIcon size="20">
-                    <TicketOutline />
-                  </NIcon>
-                  Mã ưu đãi
-                </div>
-                <NButton size="small" type="error" ghost @click="showVoucherModal = true">
-                  {{ selectedVoucher ? 'Đổi mã khác' : 'Chọn mã giảm giá' }}
-                </NButton>
+            <div class="flex items-center gap-4 mb-6 bg-gray-50 p-4 rounded-lg border border-gray-100">
+              <div class="font-bold text-gray-700">
+                Số lượng:
               </div>
-              <div
-                v-if="selectedVoucher"
-                class="mt-3 bg-white border border-red-200 p-3 rounded flex justify-between items-center shadow-sm"
-              >
-                <div>
-                  <div class="font-bold text-red-600">
-                    {{ selectedVoucher.code }}
-                  </div>
-                  <div class="text-sm text-gray-600">
-                    Đã giảm:
-                    <span class="font-bold text-red-600">-{{ formatCurrency(voucherDiscountAmount) }}</span>
-                  </div>
-                </div>
-                <NIcon color="#d03050" size="24">
-                  <CheckmarkCircle />
-                </NIcon>
+              <NInputNumber
+                v-model:value="quantity"
+                :min="1"
+                :max="Math.min(5, stockQuantity)"
+                class="w-20"
+                button-placement="both"
+                :disabled="isOutOfStock"
+              />
+              <div v-if="stockQuantity > 0" class="text-sm text-gray-500 font-medium">
+                (Sẵn sàng giao: <span class="text-green-600 font-bold">{{ stockQuantity }}</span> máy)
               </div>
             </div>
 
@@ -740,7 +743,7 @@ onUnmounted(() => {
               </div>
 
               <div class="flex gap-4 h-12">
-                <n-popconfirm
+                <NPopconfirm
                   :positive-button-props="{ type: 'success' }" :disabled="isOutOfStock"
                   positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleBuyNow"
                 >
@@ -757,16 +760,14 @@ onUnmounted(() => {
                       class="flex-1 h-full text-lg font-bold bg-gray-300 text-gray-500 cursor-not-allowed"
                     >
                       <template #icon>
-                        <NIcon>
-                          <AlertCircleOutline />
-                        </NIcon>
-                      </template>
-                      HẾT HÀNG
+                        <NIcon><AlertCircleOutline /></NIcon>
+                      </template> HẾT HÀNG
                     </NButton>
                   </template>
                   Bạn chắc chắn muốn thao tác
-                </n-popconfirm>
-                <n-popconfirm
+                </NPopconfirm>
+
+                <NPopconfirm
                   :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
                   @positive-click="handleAddToCart"
                 >
@@ -777,15 +778,12 @@ onUnmounted(() => {
                       :disabled="isOutOfStock" :loading="loadingCart"
                     >
                       <template #icon>
-                        <NIcon>
-                          <CartOutline />
-                        </NIcon>
-                      </template>
-                      Thêm giỏ
+                        <NIcon><CartOutline /></NIcon>
+                      </template> Thêm giỏ
                     </NButton>
                   </template>
                   Bạn chắc chắn muốn thao tác
-                </n-popconfirm>
+                </NPopconfirm>
               </div>
               <div v-if="isOutOfStock" class="text-red-500 text-sm mt-2 text-center italic">
                 Sản phẩm hiện tại chưa có sẵn trong kho.
@@ -817,9 +815,7 @@ onUnmounted(() => {
           <div class="flex justify-between items-start">
             <div class="flex-1">
               <div class="flex items-center gap-2">
-                <span class="font-bold text-lg text-red-600 group-hover:text-red-700">{{
-                  v.code
-                }}</span>
+                <span class="font-bold text-lg text-red-600 group-hover:text-red-700">{{ v.code }}</span>
                 <NTag size="tiny" type="error" bordered>
                   {{ v.typeVoucher === 'PERCENTAGE' ? 'Giảm %' : 'Giảm tiền' }}
                 </NTag>
@@ -828,14 +824,7 @@ onUnmounted(() => {
                 {{ v.name }}
               </div>
               <div class="mt-2 text-xs text-gray-500 bg-gray-50 p-2 rounded inline-block">
-                <div>
-                  • Giảm:
-                  {{
-                    v.typeVoucher === 'PERCENTAGE'
-                      ? `${v.discountValue}%`
-                      : formatCurrency(v.discountValue || 0)
-                  }}
-                </div>
+                <div>• Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue || 0) }}</div>
                 <div v-if="v.maxValue">
                   • Tối đa: {{ formatCurrency(v.maxValue) }}
                 </div>

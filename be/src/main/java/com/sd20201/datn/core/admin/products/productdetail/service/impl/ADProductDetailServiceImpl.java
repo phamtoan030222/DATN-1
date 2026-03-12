@@ -297,7 +297,7 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         ProductDetail productDetail = new ProductDetail();
 
         productDetail.setCode(Helper.generateCodeProductDetail());
-        productDetail.setName(productDetail.getCode());
+        productDetail.setName(product.getName());
         productDetail.setProduct(product);
         productDetail.setRam(ramOptional.get());
         productDetail.setMaterial(materialOptional.get());

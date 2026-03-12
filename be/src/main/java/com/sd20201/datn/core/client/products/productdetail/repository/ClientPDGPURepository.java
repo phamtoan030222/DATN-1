@@ -4,6 +4,7 @@ import com.sd20201.datn.core.client.products.productdetail.model.response.Client
 import com.sd20201.datn.entity.GPU;
 import com.sd20201.datn.repository.GPURepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,4 +22,18 @@ public interface ClientPDGPURepository extends GPURepository {
         WHERE LOWER(g.name) = LOWER(:name)
     """)
     Optional<GPU> findByName(String name);
+
+    @Query(value = """ 
+                SELECT DISTINCT g.id as value, g.name as label, g.code as code
+                FROM ProductDetail pd
+                JOIN pd.gpu g
+                WHERE pd.product.id = (
+                    SELECT pd2.product.id
+                    FROM ProductDetail pd2
+                    WHERE pd2.id = :pdId
+                )
+                ORDER BY g.name ASC
+            """)
+    List<ClientPDPropertyComboboxResponse> getCpuByPD(@Param("pdId") String pdId);
+
 }

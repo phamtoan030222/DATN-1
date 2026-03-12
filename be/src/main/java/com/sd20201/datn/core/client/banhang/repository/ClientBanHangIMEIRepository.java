@@ -53,12 +53,15 @@ public interface ClientBanHangIMEIRepository extends JpaRepository<IMEI, String>
     int updateImeiStatusIdIn(List<String> ids, ImeiStatus status, String idInvoiceDetail);
 
     @Query("""
-    SELECT
-        pd.id as idProductDetail
-        , COUNT(i.id) as quantity
-     FROM IMEI i
-    LEFT JOIN ProductDetail pd on i.productDetail.id = pd.id
-    WHERE i.productDetail.id in :ids
-    """)
+            SELECT
+                pd.id as idProductDetail
+                , COUNT(i.id) as quantity
+             FROM IMEI i
+            LEFT JOIN ProductDetail pd on i.productDetail.id = pd.id
+            WHERE 
+                i.productDetail.id in :ids
+                and i.imeiStatus = 0
+            GROUP BY pd.id
+            """)
     List<ClientBHQuantityProductDetailsResponse> getQuantityByProductDetails(List<String> ids);
 }

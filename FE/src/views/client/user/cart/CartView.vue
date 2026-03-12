@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { getQuantityProdudtDetail } from '@/service/api/client/banhang.api'
 import { useCartStore } from '@/store/app/cart'
+import { storeToRefs } from 'pinia'
 import {
   AddOutline,
   ArrowForward,
@@ -10,40 +11,121 @@ import {
 } from '@vicons/ionicons5'
 import {
   NButton,
+  NCheckbox,
+  NCheckboxGroup,
   NEmpty,
   NIcon,
   NPopconfirm,
   NSpin,
-  NTag
+  NTag,
+  useNotification,
 } from 'naive-ui'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const loading = ref(false)
 const notification = useNotification()
 
-const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
-const { addToCart, removeCart } = useCartStore()
+const cartStore = useCartStore()
+const { cartItems, cartItemBuyNow } = storeToRefs(cartStore)
+const { updateCartQuantity, removeCart } = cartStore
 
-async function validateIncreaseToCart(idProductDetail: string, quantity: number) {
-  const quantityProductDetailsResponse = await getQuantityProdudtDetail([idProductDetail])
-  if (quantityProductDetailsResponse.data.length > 0 && quantityProductDetailsResponse.data[0].quantity < quantity + 1) {
+// --- LOGIC CHỌN SẢN PHẨM THANH TOÁN ---
+const selectedItemIds = ref<string[]>([])
+const isInitialLoaded = ref(false)
+
+// Theo dõi giỏ hàng, load xong data là tự động tick chọn tất cả lần đầu
+watch(() => cartItems.value, (newItems) => {
+  if (newItems.length > 0 && !isInitialLoaded.value) {
+    selectedItemIds.value = newItems.map(item => item.productDetailId)
+    isInitialLoaded.value = true
+  }
+  else if (isInitialLoaded.value) {
+    selectedItemIds.value = selectedItemIds.value.filter(id =>
+      newItems.some(item => item.productDetailId === id),
+    )
+  }
+}, { immediate: true })
+
+const isSelectAll = computed({
+  get: () => cartItems.value.length > 0 && selectedItemIds.value.length === cartItems.value.length,
+  set: (val) => {
+    if (val) {
+      selectedItemIds.value = cartItems.value.map(item => item.productDetailId)
+    }
+    else {
+      selectedItemIds.value = []
+    }
+  },
+})
+
+// --- TÍNH TỔNG SỐ LƯỢNG MÁY (Thay vì đếm số dòng) ---
+const totalCartQuantity = computed(() => {
+  return cartItems.value.reduce((total, item) => total + (item.quantity || 0), 0)
+})
+
+const totalSelectedQuantity = computed(() => {
+  return cartItems.value
+    .filter(item => selectedItemIds.value.includes(item.productDetailId))
+    .reduce((total, item) => total + (item.quantity || 0), 0)
+})
+
+// --- LOGIC TÍNH TỔNG TIỀN (Chỉ tính những món được tick chọn) ---
+const subTotal = computed(() => {
+  return cartItems.value
+    .filter(item => selectedItemIds.value.includes(item.productDetailId))
+    .reduce((total, item) => {
+      return total + ((item.percentage ? item.price * (1 - item.percentage / 100) : item.price) * item.quantity)
+    }, 0)
+})
+
+const MAX_TOTAL_AMOUNT = 500000000 // 500 triệu VNĐ
+
+async function handleUpdateQuantity(item: any, newQuantity: number | null) {
+  if (newQuantity === null || newQuantity < 1)
+    newQuantity = 1
+
+  if (newQuantity > 5) {
+    notification.warning({ content: 'Tối đa 5 sản phẩm/đơn', duration: 3000 })
+    newQuantity = 5
+  }
+
+  const unitPrice = item.percentage ? item.price * (1 - item.percentage / 100) : item.price
+
+  // Tính tổng để chặn 500tr
+  const currentCartTotal = cartItems.value.reduce((total, cartItem) => {
+    const p = cartItem.percentage ? cartItem.price * (1 - cartItem.percentage / 100) : cartItem.price
+    return total + (p * cartItem.quantity)
+  }, 0)
+
+  const expectedTotal = currentCartTotal - (unitPrice * item.quantity) + (unitPrice * newQuantity)
+
+  if (expectedTotal > MAX_TOTAL_AMOUNT) {
     notification.error({
-      content: 'Đã vượt quá số lượng sản phẩm',
-      duration: 3000,
+      content: `Không thể thêm! Tổng giá trị giỏ hàng tối đa là ${formatCurrency(MAX_TOTAL_AMOUNT)}`,
+      duration: 4000,
     })
     return
   }
 
-  addToCart(idProductDetail, quantity)
+  try {
+    const response = await getQuantityProdudtDetail([item.productDetailId])
+    const stock = response.data.length > 0 ? response.data[0].quantity : 0
+
+    if (newQuantity > stock) {
+      notification.error({ content: `Rất tiếc, kho chỉ còn ${stock} sản phẩm`, duration: 3000 })
+      newQuantity = stock
+    }
+
+    if (newQuantity > 0) {
+      await updateCartQuantity(item.productDetailId, newQuantity)
+    }
+  }
+  catch (error) {
+    notification.error({ content: 'Không thể cập nhật số lượng lúc này' })
+  }
 }
-// Tính tổng tiền
-const subTotal = computed(() => {
-  return cartItems.value.reduce((total, item) => {
-    return total + ((item.percentage ? item.price * (1 - item.percentage / 100) : item.price) * item.quantity)
-  }, 0)
-})
 
 function formatCurrency(val: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val)
@@ -53,7 +135,14 @@ function handleClickCheckout() {
   if (cartItemBuyNow.value) {
     removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
   }
+
+  localStorage.setItem('SELECTED_CART_ITEMS', JSON.stringify(selectedItemIds.value))
+
   router.push('/checkout')
+}
+
+function goToDetail(idProductDetail: string) {
+  router.push(`/product-detail/${idProductDetail}`)
 }
 </script>
 
@@ -69,8 +158,10 @@ function handleClickCheckout() {
       <NSpin size="large" />
     </div>
 
-    <div v-else-if="cartItems.length === 0"
-      class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100">
+    <div
+      v-else-if="cartItems.length === 0"
+      class="text-center py-16 bg-white rounded-lg shadow-sm border border-gray-100"
+    >
       <NEmpty description="Giỏ hàng đang trống" size="large">
         <template #extra>
           <NButton type="primary" color="#d70018" @click="router.push('/home')">
@@ -81,110 +172,172 @@ function handleClickCheckout() {
     </div>
 
     <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2 space-y-4">
-        <div v-for="item in cartItems" :key="item.productDetailId"
-          class="flex gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm relative group hover:shadow-md transition-all">
-          <img :src="item.imageUrl || 'https://via.placeholder.com/100'"
-            class="w-28 h-28 object-contain border rounded-lg p-2 bg-gray-50">
+      <div class="lg:col-span-2">
+        <div class="flex justify-between items-center mb-4 bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
+          <NCheckbox v-model:checked="isSelectAll" size="large">
+            <span class="font-semibold text-gray-700 ml-1">
+              Chọn tất cả ({{ totalCartQuantity }} sản phẩm)
+            </span>
+          </NCheckbox>
+        </div>
 
-          <div class="flex-1 flex flex-col justify-between py-1">
-            <div>
-              <h3 class="font-bold text-gray-800 text-lg">
-                {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
-              </h3>
-              <div class="text-xs text-gray-500 mt-2 flex flex-wrap gap-2">
-                <NTag v-if="item.ram" size="small" :bordered="false" type="info">
-                  {{ item.ram }}
-                </NTag>
-                <NTag v-if="item.hardDrive" size="small" :bordered="false" type="info">
-                  {{ item.hardDrive }}
-                </NTag>
-                <NTag v-if="item.color" size="small" :bordered="false" type="warning">
-                  {{ item.color }}
-                </NTag>
-                <NTag v-if="item.gpu" size="small" :bordered="false" type="primary">
-                  {{ item.gpu }}
-                </NTag>
+        <NCheckboxGroup v-model:value="selectedItemIds" class="w-full space-y-4">
+          <div
+            v-for="item in cartItems" :key="item.productDetailId"
+            class="flex gap-4 p-4 bg-white rounded-xl border border-gray-100 shadow-sm relative group hover:shadow-md transition-all"
+          >
+            <div class="flex items-center pr-3">
+              <NCheckbox :value="item.productDetailId" size="large" />
+            </div>
+
+            <div class="relative w-28 h-28 shrink-0">
+              <img
+                :src="item.imageUrl || 'https://via.placeholder.com/100'"
+                class="w-full h-full object-contain border rounded-lg p-2 bg-gray-50 cursor-pointer hover:border-red-300 transition-colors"
+                @click="goToDetail(item.productDetailId)"
+              >
+              <div
+                v-if="item.percentage > 0"
+                class="absolute top-0 left-0 bg-red-600 text-white text-[11px] font-bold px-2 py-0.5 rounded-tl-lg rounded-br-lg shadow-sm z-10"
+              >
+                -{{ item.percentage }}%
               </div>
             </div>
 
-            <div class="flex justify-between items-end mt-4">
+            <div class="flex-1 flex flex-col justify-between py-1">
               <div>
-                <template v-if="item.percentage > 0">
-                  <div class="text-gray-400 text-xs line-through">
-                    {{ formatCurrency(item.price) }}
-                  </div>
-                  <div v-if="item.percentage > 0" class="text-red-600 font-bold text-xl">
-                    {{ formatCurrency(item.price - (item.price * item.percentage / 100)) }}
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="text-gray-800 font-bold text-xl">
-                    {{ formatCurrency(item.price) }}
-                  </div>
-                </template>
+                <h3
+                  class="font-bold text-gray-800 text-lg cursor-pointer hover:text-red-600 transition-colors line-clamp-2"
+                  @click="goToDetail(item.productDetailId)"
+                >
+                  {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
+                </h3>
+                <div class="text-xs text-gray-500 mt-2 flex flex-wrap gap-2">
+                  <NTag v-if="item.ram" size="small" :bordered="false" type="info">
+                    {{ item.ram }}
+                  </NTag>
+                  <NTag v-if="item.hardDrive" size="small" :bordered="false" type="info">
+                    {{ item.hardDrive }}
+                  </NTag>
+                  <NTag v-if="item.color" size="small" :bordered="false" type="warning">
+                    {{ item.color }}
+                  </NTag>
+                  <NTag v-if="item.gpu" size="small" :bordered="false" type="primary">
+                    {{ item.gpu }}
+                  </NTag>
+                </div>
               </div>
 
-              <div class="flex items-center gap-3">
-                  <NButton strong secondary circle size="small" :disabled="item.quantity === 1"
-                    @click="addToCart(item.productDetailId, item.quantity - 1)">
-                    <template #icon>
-                      <NIcon>
+              <div class="flex justify-between items-end mt-4">
+                <div>
+                  <template v-if="item.percentage > 0">
+                    <div class="text-gray-400 text-xs line-through">
+                      {{ formatCurrency(item.price) }}
+                    </div>
+                    <div class="text-red-600 font-bold text-xl">
+                      {{ formatCurrency(item.price - (item.price * item.percentage / 100)) }}
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="text-gray-800 font-bold text-xl">
+                      {{ formatCurrency(item.price) }}
+                    </div>
+                  </template>
+                </div>
+
+                <div class="flex items-center gap-3">
+                  <div class="flex items-center border border-gray-300 rounded-md overflow-hidden h-9 shadow-sm">
+                    <button
+                      class="w-9 h-full flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      :disabled="item.quantity <= 1"
+                      @click.stop="handleUpdateQuantity(item, item.quantity - 1)"
+                    >
+                      <NIcon size="16">
                         <RemoveOutline />
                       </NIcon>
-                    </template>
-                  </NButton>
-                  <n-input-number v-model:value="item.quantity" :min="1" :max="5" class="w-8" :show-button="false" :bordered="false" placeholder="" />
-                  <NButton strong secondary circle size="small"
-                    @click="validateIncreaseToCart(item.productDetailId, item.quantity + 1)"
-                    :disabled="item.quantity >= 5"
+                    </button>
+
+                    <n-input-number
+                      :value="item.quantity"
+                      :min="1"
+                      :max="5"
+                      class="w-12 custom-qty-input border-x border-gray-300"
+                      :show-button="false"
+                      :bordered="false"
+                      @update:value="(val) => handleUpdateQuantity(item, val)"
+                    />
+
+                    <button
+                      class="w-9 h-full flex items-center justify-center bg-gray-50 text-gray-600 hover:bg-green-50 hover:text-green-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      :disabled="item.quantity >= 5"
+                      @click.stop="handleUpdateQuantity(item, item.quantity + 1)"
                     >
-                    <template #icon>
-                      <NIcon>
+                      <NIcon size="16">
                         <AddOutline />
                       </NIcon>
-                    </template>
-                  </NButton>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <NPopconfirm positive-text="Xóa" negative-text="Hủy" @positive-click="removeCart(item.productDetailId)">
-            <template #trigger>
-              <button
-                class="absolute top-3 right-3 text-gray-400 hover:text-red-500 p-1 transition-colors rounded-full hover:bg-red-50">
-                <NIcon size="20">
-                  <TrashOutline />
-                </NIcon>
-              </button>
-            </template>
-            Xóa sản phẩm này khỏi giỏ?
-          </NPopconfirm>
-        </div>
+            <NPopconfirm positive-text="Xóa" negative-text="Hủy" @positive-click="removeCart(item.productDetailId)">
+              <template #trigger>
+                <button
+                  class="absolute top-3 right-3  hover:text-red-400 p-1 transition-colors rounded-full bg-white text-gray-400"
+                >
+                  <NIcon size="20">
+                    <TrashOutline />
+                  </NIcon>
+                </button>
+              </template>
+              Xóa sản phẩm này khỏi giỏ?
+            </NPopconfirm>
+          </div>
+        </NCheckboxGroup>
       </div>
 
       <div class="lg:col-span-1">
         <div class="bg-white p-6 rounded-xl border shadow-sm sticky top-4">
           <div class="flex justify-between mb-4 text-gray-600">
-            <span>Tạm tính:</span><span class="font-bold text-gray-800">{{ formatCurrency(subTotal) }}</span>
+            <span>Tạm tính (<span class="font-bold text-red-600">{{ totalSelectedQuantity }}</span> SP):</span>
+            <span class="font-bold text-gray-800">{{ formatCurrency(subTotal) }}</span>
           </div>
           <div class="border-t pt-4">
             <div class="flex justify-between items-center mb-6">
               <span class="font-bold text-lg text-gray-800">Tổng tiền:</span>
               <span class="font-bold text-xl text-red-600">{{ formatCurrency(subTotal) }}</span>
             </div>
-              <NButton block type="success" size="large" class="font-bold h-12 shadow-lg"
-                @click="handleClickCheckout">
-                Thanh toán <NIcon class="ml-2">
-                  <ArrowForward />
-                </NIcon>
-              </NButton>
-              <NButton block class="mt-3" @click="router.push('/san-pham')">
-                Chọn thêm sản phẩm khác
-              </NButton>
+            <NButton
+              block type="success" size="large" class="font-bold h-12 shadow-lg"
+              :disabled="selectedItemIds.length === 0"
+              @click="handleClickCheckout"
+            >
+              Thanh toán <NIcon class="ml-2">
+                <ArrowForward />
+              </NIcon>
+            </NButton>
+            <NButton block class="mt-3" @click="router.push('/san-pham')">
+              Chọn thêm sản phẩm khác
+            </NButton>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Tùy chỉnh cho ô input số lượng mới để nội dung nằm chính giữa, nền trong suốt */
+:deep(.custom-qty-input .n-input__input-el) {
+  text-align: center !important;
+  font-weight: 600;
+  color: #1f2937; /* gray-800 */
+}
+:deep(.custom-qty-input .n-input) {
+  background-color: transparent !important;
+}
+:deep(.custom-qty-input.n-input--focus) {
+  background-color: transparent !important;
+}
+</style>
