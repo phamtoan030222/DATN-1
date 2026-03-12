@@ -286,3 +286,70 @@ export async function getNearestUpcomingDiscounts(params: DiscountProductRequest
 
   return res.data
 }
+
+export async function getColorsByPD(pdId: string) {
+  const res = (await request({
+    // Đảm bảo URL này khớp với @GetMapping("/{id}/colors") ở Controller Backend
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/${pdId}/colors`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getCpuByPD(pdId: string) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/${pdId}/cpus`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getGpuByPD(pdId: string) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/${pdId}/gpus`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getRamByPD(pdId: string) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/${pdId}/rams`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+export async function getHardDriveByPD(pdId: string) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/${pdId}/hardDrives`,
+    method: 'GET',
+  })) as AxiosResponse<DefaultResponse<Array<ADPRPropertiesComboboxResponse>>>
+
+  return res.data
+}
+
+// 1. Sửa lại Interface cho khớp 100% với class LayThuocTinhRequest trong Java
+export interface RequestGetProductDetails {
+  readonly idProduct: string
+  readonly idColor?: string | null
+  readonly idRam?: string | null
+  readonly idHardDrive?: string | null
+  readonly idCpu?: string | null
+  readonly idGpu?: string | null
+}
+
+// 2. Sửa lại hàm gọi API để trả về đúng 1 Object (ADProductDetailDetailResponse)
+export async function getSPCTBy(params: RequestGetProductDetails) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/variant`,
+    method: 'GET',
+    params, // Truyền thẳng params xuống Axios
+  })) as AxiosResponse<DefaultResponse<ADProductDetailDetailResponse>>
+
+  return res.data
+}

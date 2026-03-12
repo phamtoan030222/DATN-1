@@ -43,7 +43,7 @@ const quickBenefits = ref([
   { id: 1, icon: 'icon-park-outline:delivery', title: 'Giao nhanh', desc: 'Toàn quốc 1–3 ngày' },
   { id: 2, icon: 'icon-park-outline:protect', title: 'Bảo hành', desc: 'Minh bạch, rõ ràng' },
   { id: 3, icon: 'icon-park-outline:customer', title: 'Tư vấn', desc: 'Đúng nhu cầu' },
-  { id: 4, icon: 'icon-park-outline:cgreenit', title: 'Trả góp', desc: '0% lãi suất' },
+  { id: 4, icon: 'icon-park-outline:paper-money', title: 'Trả góp', desc: '0% lãi suất' },
 ])
 
 // --- QUẢN LÝ DANH SÁCH HÃNG (BRAND) ĐỘNG ---
@@ -91,6 +91,23 @@ async function fetchBrands() {
   }
   catch (error) {
     console.error('Lỗi khi tải danh sách hãng:', error)
+  }
+}
+
+// --- XỬ LÝ SỰ KIỆN CUỘN CHO HÃNG (MỚI THÊM) ---
+const brandGridRef = ref<HTMLElement | null>(null)
+
+function scrollBrands(direction: number) {
+  if (brandGridRef.value) {
+    const scrollAmount = 300 * direction
+    brandGridRef.value.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+  }
+}
+
+function handleWheel(e: WheelEvent) {
+  if (brandGridRef.value) {
+    e.preventDefault()
+    brandGridRef.value.scrollLeft += e.deltaY
   }
 }
 
@@ -245,7 +262,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1300px] px-4 py-8 bg-[#f4f6f8] min-h-screen font-sans">
+  <div class="mx-auto max-w-[1300px] px-4 py-8 rgb(255 255 255) min-h-screen font-sans">
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12">
       <div class="lg:col-span-8 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.08)] bg-white relative group">
         <NCarousel show-arrow autoplay draggable dot-type="line" class="h-[250px] md:h-[400px]">
@@ -301,7 +318,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <div class="mb-14">
+    <div class="mb-10 px-2 md:px-6 py-6 bg-green-10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100">
       <div class="flex flex-col items-center justify-center mb-8">
         <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wider relative flex items-center gap-2">
           <NovaIcon icon="icon-park-solid:category-management" class="text-green-600" />
@@ -310,21 +327,35 @@ onUnmounted(() => {
         <div class="w-16 h-1 bg-red-600 mt-3 rounded-full" />
       </div>
 
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 md:gap-5 px-2 md:px-0">
-        <button
-          v-for="b in brands" :key="b.id"
-          class="bg-white rounded-2xl h-16 md:h-20 flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_25px_rgba(215,0,24,0.15)] hover:-translate-y-1 transition-all duration-300 border border-gray-100 hover:border-green-200 group"
-          @click="goProducts(b.id)"
+      <div class="brand-scroll-wrapper">
+        <button class="scroll-btn left-btn" @click="scrollBrands(-1)">
+          <NovaIcon icon="icon-park-outline:left" :size="20" />
+        </button>
+
+        <div
+          ref="brandGridRef"
+          class="grid grid-rows-2 grid-flow-col gap-3 md:gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory auto-cols-[calc((100%-36px)/2.5)] md:auto-cols-[calc((100%-64px)/5)] py-2 w-full"
+          style="scroll-behavior: smooth;"
+          @wheel.prevent="handleWheel"
         >
-          <img v-if="b.logoUrl" :src="b.logoUrl" :alt="b.name" class="max-h-10 object-contain px-4 group-hover:scale-110 transition-transform">
-          <div v-else class="flex items-center gap-2 group-hover:scale-110 transition-transform">
-            <NovaIcon v-if="b.icon" :icon="b.icon" :size="28" class="text-gray-800" />
-            <span v-else :class="b.textStyling">{{ b.name }}</span>
-          </div>
+          <button
+            v-for="b in brands" :key="b.id"
+            class="snap-start bg-white rounded-2xl h-16 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,166,81,0.15)] hover:-translate-y-1 transition-all duration-300 border-[1.5px] border-gray-100 hover:border-green-500 group px-2"
+            @click="goProducts(b.id)"
+          >
+            <img v-if="b.logoUrl" :src="b.logoUrl" :alt="b.name" class="max-h-8 object-contain px-2 group-hover:scale-110 transition-transform">
+            <div v-else class="flex items-center gap-2 group-hover:scale-110 transition-transform">
+              <NovaIcon v-if="b.icon" :icon="b.icon" :size="28" class="text-gray-800" />
+              <span v-else :class="b.textStyling" class="truncate px-2">{{ b.name }}</span>
+            </div>
+          </button>
+        </div>
+
+        <button class="scroll-btn right-btn" @click="scrollBrands(1)">
+          <NovaIcon icon="icon-park-outline:right" :size="20" />
         </button>
       </div>
     </div>
-
     <div v-if="ongoingDiscountInfo" class="mb-14">
       <div class="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 rounded-2xl p-4 md:p-5 shadow-[0_10px_40px_rgba(239,68,68,0.3)] relative overflow-hidden">
         <div class="absolute -top-20 -right-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl" />
@@ -503,8 +534,11 @@ onUnmounted(() => {
             Cập nhật xu hướng công nghệ hàng đầu
           </p>
         </div>
-        <button class="text-blue-600 font-semibold hover:text-blue-800 hover:underline flex items-center gap-1 transition-colors" @click="goProducts()">
-          Xem tất cả <NovaIcon icon="icon-park-outline:right" />
+        <button
+          class="flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl shadow-md transition-all duration-300 hover:bg-green-500 hover:shadow-[0_6px_16px_rgba(22,163,74,0.4)] hover:-translate-y-1 active:scale-95"
+          @click="goProducts()"
+        >
+          Khám phá ngay
         </button>
       </div>
 
@@ -560,11 +594,71 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+/* =========================================
+   ẨN THANH CUỘN MẶC ĐỊNH CHO CONTAINER NGANG
+   ========================================= */
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .hide-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* =========================================
+   WRAPPER VÀ NÚT BẤM CUỘN NGANG (CÙNG PHONG CÁCH)
+   ========================================= */
+.brand-scroll-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* Chừa 2 khoảng trống 2 bên cho nút lùi ra xa */
+  padding: 0 24px;
+}
+
+.scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 30px;  /* Nút hẹp hình chữ nhật đứng */
+  height: 50px;
+  border-radius: 12px; /* Bo góc mềm mại */
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-btn:hover {
+  background-color: #48d58c; /* Màu xanh lá chuẩn theme */
+  color: #ffffff;
+  border-color: #00a651;
+  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.25);
+  transform: translateY(-50%) scale(1.15);
+}
+
+/* Đẩy 2 nút ra sát mép màn hình / mép container */
+.left-btn {
+  left: -10px;
+}
+
+.right-btn {
+  right: -10px;
+}
+
+/* Dành riêng cho thiết bị lớn thì có thể đẩy lùi nút ra xa thêm chút nữa nếu thích */
+@media (min-width: 768px) {
+  .left-btn {
+    left: -16px;
+  }
+  .right-btn {
+    right: -16px;
+  }
 }
 </style>

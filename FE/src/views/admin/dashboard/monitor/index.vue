@@ -374,7 +374,7 @@ onMounted(() => {
             </n-table>
           </n-card>
 
-          <n-card title="Sản Phẩm sắp hết hàng" :bordered="false" class="shadow-sm">
+          <!-- <n-card title="Sản Phẩm sắp hết hàng" :bordered="false" class="shadow-sm">
             <n-table :single-line="false" size="small">
               <thead>
                 <tr>
@@ -412,7 +412,7 @@ onMounted(() => {
                 </tr>
               </tbody>
             </n-table>
-          </n-card>
+          </n-card> -->
         </n-space>
       </n-gi>
       <n-gi span="6">

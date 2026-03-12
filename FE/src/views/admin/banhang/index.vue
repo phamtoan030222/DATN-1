@@ -1596,12 +1596,44 @@ const columnsGiohang: DataTableColumns<any> = [
     },
   },
   { title: 'Thành tiền', key: 'total', width: 120, align: 'right', render: row => h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.giaGoc * (1 - (row.percentage || 0) / 100))) },
-  { title: 'Thao tác', key: 'action', width: 100, align: 'center', render: row => h(NButton, { type: 'error', size: 'tiny', text: true, onClick: () => deleteProduct(row) }, { icon: () => h(NIcon, null, () => h(TrashOutline)) }) },
+  { 
+    title: 'Thao tác',
+     key: 'action',
+      width: 100,
+       align: 'center',
+        render: row =>
+         h(NPopconfirm,{
+          onPositiveClick : ()=> deleteProduct(row),
+          negativeText : 'Hủy',
+           positiveText : 'Xóa'
+         }, {
+        trigger: () =>
+          h(
+            NButton,
+            { type: 'error', size: 'tiny', text: true },
+            {
+              icon: () => h(NIcon, null, () => h(TrashOutline)),
+            }
+          ),
+        default: () => 'Bạn có chắc chắn muốn xóa SERIAL này ra khỏi giỏ hàng không?'
+      }
+          )
+  },
 ]
 
 const columns: DataTableColumns<ADProductDetailResponse> = [
   { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`) },
-  { title: 'Ảnh', key: 'image', width: 100, align: 'center', render: row => (!row.urlImage ? h(NText, { depth: 3 }, () => 'Không có') : h(NImage, { width: 80, height: 60, src: row.urlImage, objectFit: 'cover', style: { borderRadius: '4px' } })) },
+  // { title: 'Ảnh', key: 'image', width: 100, align: 'center',
+  //  render: row => (!row.urlImage ? h(NText, { depth: 3 }, () => 'Không có') : h(NImage, { width: 80, height: 60, src: row.urlImage, objectFit: 'cover', style: { borderRadius: '4px' } })) },
+  {
+    title: 'Ảnh',
+    key: 'image',
+    width: 100,
+    align: 'center',
+    render: row => h(NBadge, { value: row.percentage ? `-${row.percentage}%` : undefined, type: 'error', offset: [-5, 0], style: { transform: 'scale(0.85)', transformOrigin: 'top right' } }, {
+      default: () => h(NImage, { width: 100, height: 70, src: row.urlImage || row.image, objectFit: 'cover', style: { 'border-radius': '4px', 'border': '1px solid #eee' } }),
+    }),
+  },
   { title: 'Mã', key: 'code', width: 100, render: row => h(NText, { strong: true }, () => row.code) },
   { title: 'Tên sản phẩm', key: 'name', width: 150, ellipsis: { tooltip: true } },
   {
@@ -1743,7 +1775,11 @@ function formatCurrencyInput(value: number) {
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
+<<<<<<< HEAD
               Quét Barcode
+=======
+              Quét BARCODE
+>>>>>>> e0e55dedd8a36e363f5ad362b38dbe0e3fab79c1
             </NButton>
           </NSpace>
         </template>

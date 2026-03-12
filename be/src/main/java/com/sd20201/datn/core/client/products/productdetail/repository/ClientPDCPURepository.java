@@ -29,4 +29,17 @@ public interface ClientPDCPURepository extends CPURepository {
             """, nativeQuery = true)
     List<CPU> findCPUsByProductDetailId(@Param("productDetailId") Long productDetailId);
 
+    @Query(value = """ 
+                SELECT DISTINCT c.id as value, c.name as label, c.code as code
+                FROM ProductDetail pd
+                JOIN pd.cpu c
+                WHERE pd.product.id = (
+                    SELECT pd2.product.id
+                    FROM ProductDetail pd2
+                    WHERE pd2.id = :pdId
+                )
+                ORDER BY c.name ASC
+            """)
+    List<ClientPDPropertyComboboxResponse> getCpuByPD(@Param("pdId") String pdId);
+
 }

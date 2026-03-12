@@ -40,6 +40,30 @@ import { getBrands, getScreens } from '@/service/api/client/product/product.api'
 const route = useRoute()
 const router = useRouter()
 
+// MÀU CHỦ ĐẠO CHO TOÀN BỘ TRANG SẢN PHẨM: XANH LÁ TƯƠI MÁT
+const themeOverrides = {
+  common: {
+    primaryColor: '#16a34a',
+    primaryColorHover: '#15803d',
+    primaryColorPressed: '#166534',
+    primaryColorSuppl: '#15803d',
+  },
+  Input: {
+    borderHover: '1px solid #16a34a',
+    borderFocus: '1px solid #16a34a',
+    boxShadowFocus: '0 0 0 2px rgba(22, 163, 74, 0.2)',
+  },
+  Select: {
+    peers: {
+      InternalSelection: {
+        borderHover: '1px solid #16a34a',
+        borderFocus: '1px solid #16a34a',
+        boxShadowFocus: '0 0 0 2px rgba(22, 163, 74, 0.2)',
+      },
+    },
+  },
+}
+
 // --- STATE QUẢN LÝ DỮ LIỆU ---
 const productDetails = ref<ADProductDetailResponse[]>([])
 const loading = ref(false)
@@ -194,6 +218,28 @@ async function fetchProducts() {
   }
 }
 
+// Thêm ref để trỏ tới thẻ div chứa danh sách hãng
+const brandGridRef = ref<HTMLElement | null>(null)
+
+// Hàm xử lý khi bấm nút trái/phải
+function scrollBrands(direction: number) {
+  if (brandGridRef.value) {
+    // Mỗi lần bấm sẽ cuộn khoảng 300px (tương đương 2 cột)
+    const scrollAmount = 300 * direction
+    brandGridRef.value.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+  }
+}
+
+// Hàm chuyển đổi lăn chuột dọc thành cuộn ngang
+function handleWheel(e: WheelEvent) {
+  if (brandGridRef.value) {
+    // Chặn cuộn trang dọc khi đang lăn chuột trong khu vực hãng
+    e.preventDefault()
+    // Cộng dồn khoảng cách lăn chuột vào thanh cuộn ngang
+    brandGridRef.value.scrollLeft += e.deltaY
+  }
+}
+
 function toggleBrand(brandId: string) {
   filters.value.idBrand = filters.value.idBrand === brandId ? null : brandId
 }
@@ -260,218 +306,237 @@ function handleClickProduct(item: ADProductDetailResponse) {
 </script>
 
 <template>
-  <div class="product-page-wrapper">
-    <div class="brand-horizontal-section">
-      <h2 class="section-title">
-        <span class="text-red-500 mr-2">|</span>CHỌN THEO HÃNG
-      </h2>
-      <NSpin :show="isFetchingOptions">
-        <div class="brand-grid">
-          <button
-            v-for="b in brandOptions" :key="b.value" class="brand-card"
-            :class="{ active: filters.idBrand === b.value }" @click="toggleBrand(b.value as string)"
-          >
-            <template v-if="brandVisual(b.label as string).type === 'icon'">
-              <NovaIcon :icon="brandVisual(b.label as string).icon" :size="26" class="text-black" />
-            </template>
-            <template v-else>
-              <span :class="brandVisual(b.label as string).textClass">{{ b.label }}</span>
-            </template>
-          </button>
-        </div>
-      </NSpin>
-    </div>
-
-    <div class="main-content-layout">
-      <div class="left-sidebar">
-        <div class="sidebar-header">
-          <h3 class="sidebar-title">
-            BỘ LỌC SẢN PHẨM
-          </h3>
-          <NButton text type="error" style="font-size: 13px;" @click="resetFilters">
-            Xóa tất cả
-          </NButton>
-        </div>
-
+  <NConfigProvider :theme-overrides="themeOverrides">
+    <div class="product-page-wrapper">
+      <div class="brand-horizontal-section">
+        <h2 class="section-title">
+          <span class="text-red-500 mr-2">|</span>CHỌN THEO HÃNG
+        </h2>
         <NSpin :show="isFetchingOptions">
-          <div class="filter-group">
-            <label class="filter-label">Mức giá</label>
-            <NSelect
-              v-model:value="selectedPriceDropdown" :options="priceOptions" placeholder="Chọn mức giá" clearable
-              @update:value="handlePriceSelect"
-            />
-          </div>
+          <div class="brand-scroll-wrapper">
+            <button class="scroll-btn left-btn" @click="scrollBrands(-1)">
+              <NovaIcon icon="icon-park-outline:left" :size="20" />
+            </button>
 
-          <NDivider style="margin: 16px 0;" />
-
-          <div class="filter-group">
-            <label class="filter-label">Dung lượng RAM</label>
-            <div class="checkbox-scroll-area">
-              <NCheckboxGroup v-model:value="filters.idRAM">
-                <NSpace vertical>
-                  <NCheckbox v-for="opt in ramOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                  </NCheckbox>
-                </NSpace>
-              </NCheckboxGroup>
+            <div
+              ref="brandGridRef"
+              class="brand-grid"
+              @wheel.prevent="handleWheel"
+            >
+              <button
+                v-for="b in brandOptions" :key="b.value" class="brand-card"
+                :class="{ active: filters.idBrand === b.value }" @click="toggleBrand(b.value as string)"
+              >
+                <template v-if="brandVisual(b.label as string).type === 'icon'">
+                  <NovaIcon :icon="brandVisual(b.label as string).icon" :size="26" class="text-black" />
+                </template>
+                <template v-else>
+                  <span :class="brandVisual(b.label as string).textClass">{{ b.label }}</span>
+                </template>
+              </button>
             </div>
-          </div>
 
-          <div class="filter-group">
-            <label class="filter-label">Dòng CPU</label>
-            <div class="checkbox-scroll-area">
-              <NCheckboxGroup v-model:value="filters.idCPU">
-                <NSpace vertical>
-                  <NCheckbox v-for="opt in cpuOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                  </NCheckbox>
-                </NSpace>
-              </NCheckboxGroup>
-            </div>
-          </div>
-
-          <div class="filter-group">
-            <label class="filter-label">Card đồ họa (VGA)</label>
-            <div class="checkbox-scroll-area">
-              <NCheckboxGroup v-model:value="filters.idGPU">
-                <NSpace vertical>
-                  <NCheckbox v-for="opt in gpuOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                  </NCheckbox>
-                </NSpace>
-              </NCheckboxGroup>
-            </div>
-          </div>
-
-          <div class="filter-group">
-            <label class="filter-label">Ổ cứng</label>
-            <div class="checkbox-scroll-area">
-              <NCheckboxGroup v-model:value="filters.idHardDrive">
-                <NSpace vertical>
-                  <NCheckbox v-for="opt in hardDriveOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                  </NCheckbox>
-                </NSpace>
-              </NCheckboxGroup>
-            </div>
-          </div>
-
-          <div class="filter-group">
-            <label class="filter-label">Màn hình</label>
-            <div class="checkbox-scroll-area">
-              <NCheckboxGroup v-model:value="filters.idScreen">
-                <NSpace vertical>
-                  <NCheckbox v-for="opt in screenOptions" :key="opt.value" :value="opt.value">
-                    {{ opt.label }}
-                  </NCheckbox>
-                </NSpace>
-              </NCheckboxGroup>
-            </div>
+            <button class="scroll-btn right-btn" @click="scrollBrands(1)">
+              <NovaIcon icon="icon-park-outline:right" :size="20" />
+            </button>
           </div>
         </NSpin>
       </div>
 
-      <main class="product-list-section">
-        <div class="list-header" style="justify-content: space-between; align-items: center;">
-          <h3 v-if="filters.q" style="margin: 0; font-size: 16px; color: #333;">
-            Kết quả cho: <span style="color: #049d14;">"{{ filters.q }}"</span>
-          </h3>
-          <div v-else />
-          <span class="result-text">Tìm thấy <strong>{{ productDetails.length }}</strong> sản phẩm</span>
-        </div>
-
-        <div v-if="loading" class="loading-container">
-          <NSpin size="large" description="Đang tải danh sách sản phẩm..." />
-        </div>
-
-        <template v-else>
-          <div v-if="productDetails.length === 0" class="empty-state">
-            <NEmpty description="Không có sản phẩm nào khớp với tiêu chí tìm kiếm." />
+      <div class="main-content-layout">
+        <div class="left-sidebar">
+          <div class="sidebar-header">
+            <h3 class="sidebar-title">
+              BỘ LỌC SẢN PHẨM
+            </h3>
+            <NButton text type="error" style="font-size: 13px;" @click="resetFilters">
+              Xóa tất cả
+            </NButton>
           </div>
 
-          <div v-else>
-            <NGrid x-gap="16" y-gap="16" cols="1 s:2 m:3 lg:4" responsive="screen">
-              <NGridItem v-for="item in productDetails" :key="item.id">
-                <NCard
-                  hoverable class="product-card"
-                  content-style="padding: 16px; display: flex; flex-direction: column; height: 100%;"
-                  @click="handleClickProduct(item)"
-                >
-                  <div v-if="item.percentage" class="discount-badge">
-                    -{{ item.percentage }}%
-                  </div>
-
-                  <div class="image-wrapper">
-                    <img
-                      :src="item.urlImage || 'https://via.placeholder.com/300'" :alt="item.name"
-                      class="product-image"
-                    >
-                  </div>
-
-                  <div class="product-info">
-                    <h3 class="product-name">
-                      <NEllipsis :line-clamp="2" :tooltip="{ placement: 'top', style: 'max-width: 300px' }">
-                        {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
-                      </NEllipsis>
-                    </h3>
-
-                    <div class="specs-list">
-                      <div v-if="item.cpu" class="spec-item">
-                        <span class="spec-label">CPU:</span>
-                        <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
-                          {{ item.cpu }}
-                        </NEllipsis>
-                      </div>
-                      <div v-if="item.ram" class="spec-item">
-                        <span class="spec-label">RAM:</span>
-                        <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
-                          {{ item.ram }}
-                        </NEllipsis>
-                      </div>
-                      <div v-if="item.hardDrive" class="spec-item">
-                        <span class="spec-label">Ổ cứng:</span>
-                        <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
-                          {{ item.hardDrive }}
-                        </NEllipsis>
-                      </div>
-                      <div v-if="item.gpu" class="spec-item">
-                        <span class="spec-label">CPU:</span>
-                        <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
-                          {{ item.gpu }}
-                        </NEllipsis>
-                      </div>
-                    </div>
-
-                    <div class="price-section">
-                      <div class="old-price">
-                        {{ item.percentage ? formatCurrency(item.price) : '' }}
-                      </div>
-                      <div class="current-price">
-                        {{ formatCurrency(item.price * (1 - (item.percentage || 0) / 100)) }}
-                      </div>
-                    </div>
-                  </div>
-                </NCard>
-              </NGridItem>
-            </NGrid>
-
-            <div v-if="pagination.totalPages > 1" class="pagination-container">
-              <NPagination
-                v-model:page="pagination.page" :page-count="pagination.totalPages" size="large"
-                @update:page="handlePageChange"
+          <NSpin :show="isFetchingOptions">
+            <div class="filter-group">
+              <label class="filter-label">Mức giá</label>
+              <NSelect
+                v-model:value="selectedPriceDropdown" :options="priceOptions" placeholder="Chọn mức giá" clearable
+                @update:value="handlePriceSelect"
               />
             </div>
+
+            <NDivider style="margin: 16px 0;" />
+
+            <div class="filter-group">
+              <label class="filter-label">Dòng CPU</label>
+              <div class="checkbox-scroll-area">
+                <NCheckboxGroup v-model:value="filters.idCPU">
+                  <NSpace vertical>
+                    <NCheckbox v-for="opt in cpuOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </NCheckbox>
+                  </NSpace>
+                </NCheckboxGroup>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label">Card đồ họa (VGA)</label>
+              <div class="checkbox-scroll-area">
+                <NCheckboxGroup v-model:value="filters.idGPU">
+                  <NSpace vertical>
+                    <NCheckbox v-for="opt in gpuOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </NCheckbox>
+                  </NSpace>
+                </NCheckboxGroup>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label">Dung lượng RAM</label>
+              <div class="checkbox-scroll-area">
+                <NCheckboxGroup v-model:value="filters.idRAM">
+                  <NSpace vertical>
+                    <NCheckbox v-for="opt in ramOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </NCheckbox>
+                  </NSpace>
+                </NCheckboxGroup>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label">Ổ cứng</label>
+              <div class="checkbox-scroll-area">
+                <NCheckboxGroup v-model:value="filters.idHardDrive">
+                  <NSpace vertical>
+                    <NCheckbox v-for="opt in hardDriveOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </NCheckbox>
+                  </NSpace>
+                </NCheckboxGroup>
+              </div>
+            </div>
+
+            <div class="filter-group">
+              <label class="filter-label">Màn hình</label>
+              <div class="checkbox-scroll-area">
+                <NCheckboxGroup v-model:value="filters.idScreen">
+                  <NSpace vertical>
+                    <NCheckbox v-for="opt in screenOptions" :key="opt.value" :value="opt.value">
+                      {{ opt.label }}
+                    </NCheckbox>
+                  </NSpace>
+                </NCheckboxGroup>
+              </div>
+            </div>
+          </NSpin>
+        </div>
+
+        <main class="product-list-section">
+          <div class="list-header" style="justify-content: space-between; align-items: center;">
+            <h3 v-if="filters.q" style="margin: 0; font-size: 16px; color: #333;">
+              Kết quả cho: <span style="color: #049d14;">"{{ filters.q }}"</span>
+            </h3>
+            <div v-else />
+            <span class="result-text">Tìm thấy <strong>{{ productDetails.length }}</strong> sản phẩm</span>
           </div>
-        </template>
-      </main>
+
+          <div v-if="loading" class="loading-container">
+            <NSpin size="large" description="Đang tải danh sách sản phẩm..." />
+          </div>
+
+          <template v-else>
+            <div v-if="productDetails.length === 0" class="empty-state">
+              <NEmpty description="Không có sản phẩm nào khớp với tiêu chí tìm kiếm." />
+            </div>
+
+            <div v-else>
+              <NGrid x-gap="16" y-gap="16" cols="1 s:2 m:3 lg:4" responsive="screen">
+                <NGridItem v-for="item in productDetails" :key="item.id">
+                  <NCard
+                    hoverable class="product-card"
+                    content-style="padding: 16px; display: flex; flex-direction: column; height: 100%;"
+                    @click="handleClickProduct(item)"
+                  >
+                    <div v-if="item.percentage" class="discount-badge">
+                      -{{ item.percentage }}%
+                    </div>
+
+                    <div class="image-wrapper">
+                      <img
+                        :src="item.urlImage || 'https://via.placeholder.com/300'" :alt="item.name"
+                        class="product-image"
+                      >
+                    </div>
+
+                    <div class="product-info">
+                      <h3 class="product-name">
+                        <NEllipsis :line-clamp="2" :tooltip="{ placement: 'top', style: 'max-width: 300px' }">
+                          {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
+                        </NEllipsis>
+                      </h3>
+
+                      <div class="specs-list">
+                        <div v-if="item.cpu" class="spec-item">
+                          <span class="spec-label">CPU:</span>
+                          <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
+                            {{ item.cpu }}
+                          </NEllipsis>
+                        </div>
+
+                        <div v-if="item.gpu" class="spec-item">
+                          <span class="spec-label">CPU:</span>
+                          <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
+                            {{ item.gpu }}
+                          </NEllipsis>
+                        </div>
+
+                        <div v-if="item.ram" class="spec-item">
+                          <span class="spec-label">RAM:</span>
+                          <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
+                            {{ item.ram }}
+                          </NEllipsis>
+                        </div>
+
+                        <div v-if="item.hardDrive" class="spec-item">
+                          <span class="spec-label">Ổ cứng:</span>
+                          <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
+                            {{ item.hardDrive }}
+                          </NEllipsis>
+                        </div>
+                      </div>
+
+                      <div class="price-section">
+                        <div class="old-price">
+                          {{ item.percentage ? formatCurrency(item.price) : '' }}
+                        </div>
+                        <div class="current-price">
+                          {{ formatCurrency(item.price * (1 - (item.percentage || 0) / 100)) }}
+                        </div>
+                      </div>
+                    </div>
+                  </NCard>
+                </NGridItem>
+              </NGrid>
+
+              <div v-if="pagination.totalPages > 1" class="pagination-container">
+                <NPagination
+                  v-model:page="pagination.page" :page-count="pagination.totalPages" size="large"
+                  @update:page="handlePageChange"
+                />
+              </div>
+            </div>
+          </template>
+        </main>
+      </div>
     </div>
-  </div>
+  </NConfigProvider>
 </template>
 
 <style scoped>
 .product-page-wrapper {
   padding: 5px;
-  background-color: #ffff;
+  background-color: #ffffff;
   min-height: 100vh;
   max-width: 1400px;
   margin: 0 auto;
@@ -492,46 +557,123 @@ function handleClickProduct(item: ADProductDetailResponse) {
   margin: 0 0 16px 0;
 }
 
-.brand-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
+/* =========================================
+   WRAPPER VÀ NÚT BẤM CUỘN NGANG (CHỮ NHẬT ĐỨNG, RA XA HƠN)
+   ========================================= */
+.brand-scroll-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* Tăng khoảng lề hai bên để có không gian nhét nút bấm ra xa */
+  padding: 0 24px;
 }
 
-@media (min-width: 640px) {
-  .brand-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+.scroll-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 10;
+  width: 30px;  /* Nút hẹp lại */
+  height: 50px; /* Nút cao lên thành hình chữ nhật đứng */
+  border-radius: 10px; /* Bo góc mềm mại */
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6b7280;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.scroll-btn:hover {
+  background-color: #00a651;
+  color: #ffffff;
+  border-color: #54b683;
+  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.25);
+  /* Hiệu ứng trồi lên một chút khi hover cho sống động */
+  transform: translateY(-50%) scale(1.15);
+}
+
+/* Kéo nút ra hẳn bên ngoài mép để thoáng thẻ bên trong */
+.left-btn {
+  left: -15px;
+}
+
+.right-btn {
+  right: -15px;
+}
+
+/* =========================================
+   GIAO DIỆN LƯỚI 5x2 CUỘN NGANG
+   ========================================= */
+.brand-grid {
+  display: grid;
+  grid-template-rows: repeat(2, 60px);
+  grid-auto-flow: column;
+  gap: 12px;
+
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  padding: 4px 0;
+  width: 100%;
+
+  grid-auto-columns: calc((100% - 24px) / 2.5);
+
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 @media (min-width: 768px) {
   .brand-grid {
-    grid-template-columns: repeat(5, 1fr);
+    grid-auto-columns: calc((100% - 48px) / 5);
   }
 }
 
+.brand-grid::-webkit-scrollbar {
+  display: none;
+}
+
+/* =========================================
+   STYLE CHO TỪNG Ô (BO TRÒN, MỀM MẠI)
+   ========================================= */
 .brand-card {
-  height: 56px;
-  background: #fff;
-  border-radius: 12px;
+  scroll-snap-align: start;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1.5px solid #e5e7eb;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid transparent;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 8px 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  padding: 0 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-align: center;
+}
+
+.brand-card span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
 }
 
 .brand-card:hover {
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-  border-color: #e5e7eb;
+  border-color: #00a651;
+  background-color: #f8fafc;
+  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.1);
+  transform: translateY(-2px);
 }
 
 .brand-card.active {
+  background: #ecfdf5;
   border-color: #00a651;
-  box-shadow: 0 0 0 2px rgba(0, 166, 81, 0.12), 0 6px 16px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0 0 1px #00a651;
 }
 
 .main-content-layout {
@@ -762,14 +904,14 @@ function handleClickProduct(item: ADProductDetailResponse) {
 :deep(.n-pagination .n-pagination-item--active) {
   color: #00a651 !important;
   border-color: #00a651 !important;
-  background-color: #ecfdf5 !important; /* Thêm tí nền xanh nhạt cho đẹp */
+  background-color: #ecfdf5 !important;
 }
 
 /* Trạng thái Hover vào bất kỳ trang nào (kể cả trang Active) -> Đỏ */
 :deep(.n-pagination .n-pagination-item:hover) {
   color: #ef4444 !important;
   border-color: #ef4444 !important;
-  background-color: #fff1f2 !important; /* Thêm tí nền đỏ nhạt cho nổi bật */
+  background-color: #fff1f2 !important;
   transition: all 0.3s ease;
 }
 

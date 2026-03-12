@@ -169,7 +169,7 @@ function scrollToBottom() {
             class="tab-btn" :class="[{ active: currentSubTab === 'CLOSED' }]"
             @click="currentSubTab = 'CLOSED'"
           >
-            Đã đóng
+            Đã kết thúc
           </button>
         </div>
       </div>
@@ -263,11 +263,11 @@ function scrollToBottom() {
             <!-- CLIENT -->
             <template v-else-if="msg.senderRole === 'CLIENT'">
               <div class="msg-avatar msg-avatar--client">
-                K
+                 {{ currentSession.customerName.charAt(0).toUpperCase() }}
               </div>
               <div class="msg-body">
                 <div class="role-tag">
-                  Khách hàng
+                   {{ currentSession.customerName }}
                 </div>
                 <div class="bubble bubble--client" v-html="msg.content.replace(/\n/g, '<br>')" />
                 <div class="msg-time">
