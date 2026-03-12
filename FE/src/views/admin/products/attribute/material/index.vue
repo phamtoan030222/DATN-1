@@ -227,7 +227,7 @@ const columns: DataTableColumns<MaterialResponse> = [
   {
     title: 'Mã',
     key: 'code',
-    width: 120, // Cố định chiều rộng
+    width: 150, // Cố định chiều rộng
     fixed: 'left', // Ghim bên trái
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },
@@ -325,12 +325,8 @@ const columns: DataTableColumns<MaterialResponse> = [
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
               <NButton
-                size="large"
-                circle
-                secondary
-                type="primary"
-                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
-                @click="refreshTable"
+                size="large" circle secondary type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="refreshTable"
               >
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
@@ -347,11 +343,8 @@ const columns: DataTableColumns<MaterialResponse> = [
           <NGridItem span="1 600:1 1200:2">
             <NFormItem label="Tìm kiếm chung">
               <NInput
-                v-model:value="searchState.keyword"
-                placeholder="Nhập tên, mã chất liệu..."
-                clearable
-                @input="handleSearch"
-                @keydown.enter="handleSearch"
+                v-model:value="searchState.keyword" placeholder="Nhập tên, mã chất liệu..." clearable
+                @input="handleSearch" @keydown.enter="handleSearch"
               >
                 <template #prefix>
                   <Icon icon="carbon:search" class="text-gray-400" />
@@ -386,8 +379,7 @@ const columns: DataTableColumns<MaterialResponse> = [
         <div class="mr-5">
           <NSpace>
             <NButton
-              type="primary"
-              secondary
+              type="primary" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
               @click="openModal('add')"
             >
@@ -396,14 +388,15 @@ const columns: DataTableColumns<MaterialResponse> = [
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
                 Thêm mới
               </span>
             </NButton>
 
             <NButton
-              type="info"
-              secondary
+              type="info" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
               @click="refreshTable"
             >
@@ -412,7 +405,9 @@ const columns: DataTableColumns<MaterialResponse> = [
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
                 Tải lại
               </span>
             </NButton>
@@ -421,47 +416,26 @@ const columns: DataTableColumns<MaterialResponse> = [
       </template>
 
       <NDataTable
-        :columns="columns"
-        :data="tableData"
-        :loading="loading"
-        :row-key="(row) => row.id"
-        :pagination="false"
-        :scroll-x="1000"
-        striped
-        :bordered="false"
-        class="rounded-lg overflow-hidden"
+        :columns="columns" :data="tableData" :loading="loading" :row-key="(row) => row.id" :pagination="false"
+        :scroll-x="1000" striped :bordered="false" class="rounded-lg overflow-hidden"
       />
 
       <div class="flex justify-end mt-4">
         <NPagination
-          v-model:page="currentPage"
-          v-model:page-size="pageSize"
-          :item-count="total"
-          :page-sizes="[5, 10, 20, 50]"
-          show-size-picker
-          @update:page="handlePageChange"
+          v-model:page="currentPage" v-model:page-size="pageSize" :item-count="total"
+          :page-sizes="[5, 10, 20, 50]" show-size-picker @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
       </div>
     </NCard>
 
     <NModal
-      v-model:show="showModal"
-      preset="card"
-      style="width: 600px"
-      :title="modalMode === 'add' ? 'Thêm mới Chất liệu' : 'Cập nhật Chất liệu'"
-      :bordered="false"
-      size="huge"
-      class="shadow-2xl rounded-2xl"
-      :closable="false"
+      v-model:show="showModal" preset="card" style="width: 600px"
+      :title="modalMode === 'add' ? 'Thêm mới Chất liệu' : 'Cập nhật Chất liệu'" :bordered="false" size="huge"
+      class="shadow-2xl rounded-2xl" :closable="false"
     >
       <div class="max-h-[600px] overflow-y-auto pr-4 custom-scrollbar">
-        <NForm
-          ref="formRef"
-          label-placement="top"
-          :model="formData"
-          :rules="rules"
-        >
+        <NForm ref="formRef" label-placement="top" :model="formData" :rules="rules">
           <NFormItem label="Chất liệu mặt trên (Top Case)" required path="topCaseMaterial">
             <NInput v-model:value="formData.topCaseMaterial" placeholder="VD: Nhôm nguyên khối..." />
           </NFormItem>
@@ -494,13 +468,16 @@ const columns: DataTableColumns<MaterialResponse> = [
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: #f1f1f1;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }

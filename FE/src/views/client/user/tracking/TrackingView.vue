@@ -1,31 +1,35 @@
 <template>
-  <div class="container mx-auto px-4 py-6">
+  <div class="container mx-auto px-4">
     <!-- Search Card -->
-    <NCard class="shadow-sm border-0 rounded-xl mb-6 no-print" content-class="p-6">
-      <div class="flex gap-4 items-end">
-        <n-form-item path="searchInvoiceCode" class="flex-1 mb-0">
-          <n-input v-model:value="searchInvoiceCode" placeholder="Nhập mã hóa đơn để tìm kiếm" clearable />
-        </n-form-item>
-        <n-form-item>
-          <n-button type="primary" @click="handleSearch">
-            <template #icon>
-              <n-icon>
-                <SearchOutline />
-              </n-icon>
-            </template>
-            Tìm kiếm
-          </n-button>
-        </n-form-item>
-      </div>
-    </NCard>
+    <div class="flex gap-2 flex-1 items-end">
+      <n-form-item path="searchInvoiceCode" class="flex-1 mb-0">
+        <n-input v-model:value="searchInvoiceCode" placeholder="Nhập mã hóa đơn để tìm kiếm" clearable />
+      </n-form-item>
+      <n-form-item>
+        <n-button type="success" @click="handleSearch">
+          <template #icon>
+            <n-icon>
+              <SearchOutline />
+            </n-icon>
+          </template>
+          Tìm kiếm
+        </n-button>
+      </n-form-item>
+    </div>
 
     <!-- Progress Timeline -->
-    <NCard v-if="invoice" class="shadow-sm border-0 rounded-xl no-print" content-class="p-6">
+    <NCard v-if="invoice" class="" :bordered="false">
       <template #header>
         <n-space justify="space-between" class="m-y-2">
           <!-- Header with invoice code -->
-          <div v-if="invoice" class="mb-4">
-            <h2 class="text-2xl font-bold">Tiến độ đơn hàng {{ invoice.code }}</h2>
+          <div v-if="invoice" class="mb-4 p-2 flex">
+            <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
+            <h2 class="text-2xl font-bold">
+              Tiến độ đơn hàng -
+              <div class="inline-block rounded">
+                {{ invoice.code }}
+              </div>
+            </h2>
           </div>
 
           <NButton type="error" block ghost @click="openCancelModal" :disabled="+(invoice.invoiceStatus) !== 0"
@@ -50,7 +54,7 @@
 
         <!-- Steps -->
         <div class="relative flex justify-between z-20">
-          <div v-for="(step, index) in filteredSteps" :key="step.key" class="flex flex-col items-center flex-1">
+          <div v-for="(step, _) in filteredSteps" :key="step.key" class="flex flex-col items-center flex-1">
             <!-- Step circle -->
             <div
               class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110"
@@ -73,6 +77,162 @@
               <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
                 {{ step.title }}
               </p>
+              <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-gray-500">
+                {{isStepCompleted(step.key) ? formatTime(historiesStatusInvoice.find(h => h.trangThai ==
+                  +(step.key))?.thoiGian) : ''}}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- customer info panel -->
+        <div class="flex gap-5">
+          <div class="flex-1">
+            <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px]">
+              <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
+              <h2 class="text-2xl font-bold">
+                Thông tin khách hàng
+              </h2>
+            </div>
+            <!-- <div class="mt-4 p-4 rounded-lg">
+          <div class="flex justify-between gap-5 text-sm pb-2 mb-2">
+            <div class="border-b border-gray-300/30 p-2 flex-1">
+              <span class="font-medium mr-2">Khách hàng:</span>
+              <span>{{ invoice.nameReceiver }}</span>
+            </div>
+            <div class="border-b border-gray-300/30 p-2 flex-1">
+              <span class="font-medium mr-2">SĐT:</span>
+              <span>{{ invoice.phoneReceiver }}</span>
+            </div>
+            <div class="border-b border-gray-300/30 p-2 flex-1">
+              <span class="font-medium mr-2">Email:</span>
+              <span>{{ invoice.email }}</span>
+            </div>
+            <div class="border-b border-gray-300/30 p-2 flex-1">
+              <span class="font-medium mr-2">Ngày đặt:</span>
+              <span>{{ convertTimeMillis(invoice.createDate) }}</span>
+            </div>
+          </div>
+          <div v-if="invoice.description" class="text-sm pb-2 mb-2">
+            <div class="border-b border-gray-300/30 p-2 flex-1">
+              <span class="font-medium mr-2">Ghi chú:</span>
+              <span>{{ invoice.description }}</span>
+            </div>
+          </div>
+          <div class="text-sm">
+            <div class="border-b border-gray-300/30 p-2 flex-1">
+              <span class="font-medium mr-2">Địa chỉ:</span>
+              <span class="break-words">{{ invoice.addressReceiver }}</span>
+            </div>
+          </div>
+        </div> -->
+            <div class="p-4 rounded-lg flex flex-col gap-3">
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Khách hàng:</span>
+                <span>{{ invoice.nameReceiver }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">SĐT:</span>
+                <span>{{ invoice.phoneReceiver }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Email:</span>
+                <span>{{ invoice.email }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Ngày đặt:</span>
+                <span>{{ convertTimeMillis(invoice.createDate) }}</span>
+              </div>
+              <div v-if="invoice.description" class="text-sm pb-2">
+                <div class="border-b border-gray-300/30 p-2 flex-1">
+                  <span class="font-medium mr-2">Ghi chú:</span>
+                  <span>{{ invoice.description }}</span>
+                </div>
+              </div>
+              <div class="text-sm">
+                <div class="border-b border-gray-300/30 p-2 flex-1">
+                  <span class="font-medium mr-2">Địa chỉ:</span>
+                  <span class="break-words">{{ invoice.addressReceiver }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flex-1">
+            <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px]">
+              <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
+              <h2 class="text-2xl font-bold">
+                Trạng thái thanh toán
+              </h2>
+            </div>
+            <div class="p-4 rounded-lg flex flex-col gap-3">
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Phương thức thanh toán:</span>
+                <span>{{ convertTextFromTypePayment(invoice.typePayment) }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Trạng thái thanh toán:</span>
+                <n-tag :type="statusPayment">
+                  {{ convertTextFromTrangThaiThanhToan(invoice.trangThaiThanhToan) }}
+                </n-tag>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px]">
+          <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
+          <h2 class="text-2xl font-bold">
+            Sản phẩm đã đặt
+          </h2>
+        </div>
+
+        <!-- product list -->
+        <div v-if="invoiceDetails.length > 0" class="space-y-4">
+          <div v-for="detail in invoiceDetails" :key="detail.id" class="flex items-center border-b border-gray-300 p-4">
+            <img :src="detail.urlImage" alt="product" class="w-20 h-20 object-contain rounded" />
+            <div class="flex-1 ml-4">
+              <div class="text-base font-medium">
+                {{ detail.product }} {{ detail.nameProductDetail }}
+              </div>
+              <div class="flex flex-wrap text-xs text-gray-500 mt-1 gap-2">
+                <span v-if="detail.color" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.color }}</span>
+                <span v-if="detail.ram" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.ram }}</span>
+                <span v-if="detail.hardDrive" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.hardDrive }}</span>
+                <span v-if="detail.cpu" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.cpu }}</span>
+                <span v-if="detail.gpu" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.gpu }}</span>
+                <span v-if="detail.material" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.material }}</span>
+              </div>
+            </div>
+            <div class="text-lg font-semibold text-red-600">
+              {{ formatCurrency(detail.totalAmount) }}
+            </div>
+          </div>
+        </div>
+
+        <!-- totals summary -->
+        <div v-if="invoice" class="mt-6 p-4 ">
+          <div class="max-w-xs ml-auto text-sm space-y-3">
+            <div class="flex justify-between">
+              <span>Tạm tính:</span>
+              <span>{{ formatCurrency(subtotal) }}</span>
+            </div>
+            <div class="flex justify-between text-red-600">
+              <span>Giảm giá:</span>
+              <span>-{{ formatCurrency(discount) }}</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Phí vận chuyển:</span>
+              <span>{{ formatCurrency(shippingFee) }}</span>
+            </div>
+            <div class="flex justify-between font-bold text-lg border-t border-gray-300 p-2">
+              <span>Tổng cộng:</span>
+              <span class="text-red-600">{{ formatCurrency(total) }}</span>
             </div>
           </div>
         </div>
@@ -98,12 +258,11 @@ import {
   NInput,
   NSpace,
   useDialog,
-  useMessage,
-  type SelectOption
+  useMessage
 } from 'naive-ui'
 
 // Icons
-import { ClientInvoiceDetailResponse, getInvoiceById } from '@/service/api/invoice.api'
+import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, LichSuTrangThaiHoaDonResponse } from '@/service/api/invoice.api'
 import {
   CartOutline,
   CheckmarkCircleOutline,
@@ -121,70 +280,27 @@ const notification = useNotification()
 
 // State
 const invoice = ref<ClientInvoiceDetailResponse | null>(null)
-const showStatusModal = ref(false)
-const selectedStatus = ref<number | null>(null)
-const statusNote = ref('')
-const isUpdating = ref(false)
 const searchInvoiceCode = ref('')
+
+const historiesStatusInvoice = ref<LichSuTrangThaiHoaDonResponse[]>([])
+const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
 
 // Lấy dữ liệu tổng hợp từ danh sách sản phẩm
 const currentStatus = computed(() => {
-  return parseInt(invoice.value?.invoiceStatus || '0')
+  return invoice.value?.invoiceStatus ?? 0
 })
+
+// pricing computations
+const subtotal = computed(() => invoice.value?.totalAmount ?? 0)
+const discount = computed(() => {
+  if (!invoice.value) return 0
+  return subtotal.value - (invoice.value.totalAmountAfterDecrease ?? subtotal.value)
+})
+const shippingFee = computed(() => invoice.value?.shippingFee ?? 0)
+const total = computed(() => invoice.value?.totalAmountAfterDecrease ?? subtotal.value + shippingFee.value)
 
 // Computed values
-const isCompleted = computed(() => currentStatus.value === 4)
 const isCancelled = computed(() => currentStatus.value === 5)
-
-const availableStatusOptions = computed<SelectOption[]>(() => {
-  const current = currentStatus.value
-
-  // Map trạng thái
-  const statusMap: Record<number, { label: string; disabled: boolean }> = {
-    0: { label: 'Chờ xác nhận', disabled: false },
-    1: { label: 'Đã xác nhận', disabled: false },
-    2: { label: 'Chờ giao hàng', disabled: false },
-    3: { label: 'Đang giao hàng', disabled: false },
-    4: { label: 'Hoàn thành', disabled: true },
-    5: { label: 'Đã hủy', disabled: true }
-  }
-
-  // Nếu đã hoàn thành, chỉ hiển thị tất cả trạng thái đã đi qua
-  if (isCompleted.value) {
-    const options: SelectOption[] = []
-    // Tạo array từ 0 đến 4 (hoàn thành)
-    for (let i = 0; i <= 4; i++) {
-      options.push({
-        value: i,
-        label: statusMap[i].label,
-        disabled: true
-      })
-    }
-    return options
-  }
-
-  // Nếu đã hủy, chỉ hiển thị trạng thái cuối cùng là hủy
-  if (isCancelled.value) {
-    return [{
-      value: 5,
-      label: statusMap[5].label,
-      disabled: true
-    }]
-  }
-
-  // Đơn đang xử lý: hiển thị các trạng thái từ hiện tại trở đi
-  const options: SelectOption[] = []
-  for (let i = current; i <= 5; i++) {
-    const isCurrentStatus = i === current
-    options.push({
-      value: i,
-      label: statusMap[i].label,
-      disabled: isCurrentStatus // Có thể disable trạng thái hiện tại
-    })
-  }
-
-  return options
-})
 
 const filteredSteps = computed(() => {
   return timelineSteps
@@ -193,7 +309,7 @@ const filteredSteps = computed(() => {
 // Progress
 const progressWidth = computed(() => {
   const currentStep = currentStatus.value
-  return `${( currentStep < 5 ? (((currentStep + 1) / 5) * 100) : 100)}%` // 4 là số bước tối đa (0-4)
+  return `${(currentStep < 5 ? (((currentStep + 1) / 5) * 100) : 100)}%` // 4 là số bước tối đa (0-4)
 })
 
 // Timeline steps
@@ -216,54 +332,32 @@ const formatCurrency = (value: number | undefined | null): string => {
   }).format(value)
 }
 
-const formatDateTime = (timestamp: number | undefined): string => {
-  if (!timestamp) return "N/A"
-  try {
-    const date = new Date(timestamp)
-    return date.toLocaleString("vi-VN", {
-      hour: "2-digit",
-      minute: "2-digit",
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-    })
-  } catch {
-    return "N/A"
-  }
+// convert Java LocalDateTime string to "HH:mm:ss dd/mm/yyyy"
+function formatTime(datetime: string | undefined | null): string {
+  if (!datetime) return ''
+  const d = new Date(datetime)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(
+    d.getMonth() + 1
+  )}/${d.getFullYear()}`
 }
 
-const getStatusText = (status: string | number | undefined): string => {
-  const statusMap: Record<string, string> = {
-    '0': 'Chờ xác nhận',
-    '1': 'Đã xác nhận',
-    '2': 'Chờ giao hàng',
-    '3': 'Đang giao hàng',
-    '4': 'Hoàn thành',
-    '5': 'Đã hủy'
-  }
-
-  const statusStr = typeof status === 'number' ? status.toString() : status
-  return statusMap[statusStr || '0'] || 'Không xác định'
-}
-
-const getStatusIcon = (status: string | number | undefined): any => {
-  const statusMap: Record<string, any> = {
-    '0': TimeOutline,
-    '1': CheckmarkCircleOutline,
-    '2': CartOutline,
-    '3': CheckmarkCircleOutline,
-    '4': CheckmarkDoneOutline,
-    '5': CloseCircleOutline
-  }
-
-  const statusStr = typeof status === 'number' ? status.toString() : status
-  return statusMap[statusStr || '0'] || TimeOutline
+// convert milliseconds since epoch to "HH:mm:ss dd/mm/yyyy"
+function convertTimeMillis(ms: number | undefined | null): string {
+  if (ms == null) return ''
+  const d = new Date(ms)
+  if (isNaN(d.getTime())) return ''
+  const pad = (n: number) => n.toString().padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(
+    d.getMonth() + 1
+  )}/${d.getFullYear()}`
 }
 
 // Timeline functions
 const isStepCompleted = (stepKey: string): boolean => {
   const stepIndex = parseInt(stepKey)
-  return stepIndex < currentStatus.value && stepKey !== '5'
+  return stepIndex <= currentStatus.value && stepKey !== '5'
 }
 
 const isStepCurrent = (stepKey: string): boolean => {
@@ -300,50 +394,6 @@ const getStepTextClass = (stepKey: string): string => {
   }
 }
 
-const getStepTime = (stepKey: string): string | null => {
-  if (!invoice.value?.historyStatusInvoice) {
-    return null
-  }
-
-  try {
-    const lichSuArray = JSON.parse(invoice.value.historyStatusInvoice)
-    const targetItem = lichSuArray.find(
-      (item: any) => item.trangThai?.toString() === stepKey
-    )
-
-    if (targetItem?.thoiGian) {
-      const [datePart, timePart] = targetItem.thoiGian.split(' ')
-      if (!datePart || !timePart) return targetItem.thoiGian
-
-      const [year, month, day] = datePart.split('-')
-      const [hours, minutes] = timePart.split(':')
-      return `${day}/${month}/${year} ${hours}:${minutes}`
-    }
-
-    return null
-  } catch (error) {
-    console.error('Error parsing lichSuTrangThai:', error)
-    return null
-  }
-}
-
-const getCurrentStatusTextClass = (): string => {
-  const classMap: Record<string, string> = {
-    '0': 'text-yellow-600',
-    '1': 'text-blue-600',
-    '2': 'text-purple-600',
-    '3': 'text-blue-600',
-    '4': 'text-green-600',
-    '5': 'text-red-600'
-  }
-
-  const statusStr = currentStatus.value.toString()
-  return classMap[statusStr] || 'text-gray-600'
-}
-
-const getCurrentStepIcon = (): any => {
-  return getStatusIcon(currentStatus.value)
-}
 
 // Actions
 
@@ -354,26 +404,6 @@ const handleSearch = (): void => {
   }
 
   fetchInvoice()
-}
-
-const confirmStatusUpdate = async (): Promise<void> => {
-  if (selectedStatus.value === null || !invoice.value?.code) {
-    notification.error({ content: 'Vui lòng chọn trạng thái mới', duration: 3000 })
-    return
-  }
-
-  isUpdating.value = true
-  try {
-    // TODO: Gọi API changeOrderStatus tại đây
-    message.success('Cập nhật trạng thái thành công')
-    showStatusModal.value = false
-    // TODO: Reload dữ liệu
-  } catch (error: any) {
-    console.error('Error updating status:', error)
-    message.error(error.message || 'Đã xảy ra lỗi khi cập nhật')
-  } finally {
-    isUpdating.value = false
-  }
 }
 
 const openCancelModal = (): void => {
@@ -402,14 +432,83 @@ const fetchInvoice = async (): Promise<void> => {
     const response = await getInvoiceById(searchInvoiceCode.value)
 
     invoice.value = response.data
+    // load history statuses and details concurrently
+    if (invoice.value?.id) {
+      try {
+        const [histRes, detailRes] = await Promise.all([
+          getHistoryStatusInvoice(invoice.value.id),
+          getInvoiceDetails(invoice.value.id)
+        ])
+        historiesStatusInvoice.value = histRes.data || []
+        invoiceDetails.value = detailRes.data || []
+      } catch (e) {
+        console.error('Error fetching invoice meta:', e)
+        historiesStatusInvoice.value = []
+        invoiceDetails.value = []
+      }
+    }
   } catch (error: any) {
     invoice.value = null
+    historiesStatusInvoice.value = []
   }
 }
 
+function convertTextFromTypePayment(payment: string): string {
+  switch (payment) {
+    case 'TIEN_MAT':
+      return 'Tiền mặt'
+    case 'VNPAY':
+      return 'VNPay'
+    case 'CHUYEN_KHOAN':
+      return 'Chuyển khoản'
+    case 'THE_TIN_DUNG':
+      return 'Thẻ tín dụng/Thẻ ghi nợ'
+    case 'VI_DIEN_TU':
+      return 'Ví điện tử'
+    case 'TIEN_MAT_CHUYEN_KHOAN':
+      return 'Tiền mặt + Chuyển khoản'
+    default:
+      return ''
+  }
+}
+
+function convertTextFromTrangThaiThanhToan(status: string): string {
+  switch (status) {
+    case 'CHUA_THANH_TOAN':
+      return 'Chưa thanh toán'
+    case 'CHO_THANH_TOAN_VNPAY':
+      return 'Chờ thanh toán VNPay'
+    case 'DA_THANH_TOAN':
+      return 'Đã thanh toán'
+    case 'THANH_TOAN_MOT_PHAN':
+      return 'Thanh toán một phần'
+    case 'THANH_TOAN_THAT_BAI':
+      return 'Thanh toán thất bại'
+    default:
+      return ''
+  }
+}
+
+const statusPayment = computed(() => {
+  switch (invoice.value?.trangThaiThanhToan) {
+    case 'CHUA_THANH_TOAN':
+      return 'error'
+    case 'CHO_THANH_TOAN_VNPAY':
+      return 'warning'
+    case 'DA_THANH_TOAN':
+      return 'success'
+    case 'THANH_TOAN_MOT_PHAN':
+      return 'success'
+    case 'THANH_TOAN_THAT_BAI':
+      return 'error'
+    default:
+      return 'success'
+  }
+})
+
 // Lifecycle
 onMounted(() => {
-  console.log("Tracking View loaded")
+
 })
 </script>
 

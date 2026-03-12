@@ -217,7 +217,7 @@ const columns: DataTableColumns<AdColorResponse> = [
   {
     title: 'Mã màu',
     key: 'code',
-    width: 120, // Cố định
+    width: 150, // Cố định
     align: 'center',
     render: (row) => {
       return h('div', { class: 'flex items-center justify-center gap-2' }, [

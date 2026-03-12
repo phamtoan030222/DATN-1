@@ -9,6 +9,7 @@ import {
 import axios from 'axios'
 import type { FormInst } from 'naive-ui'
 import {
+  NAlert,
   NButton,
   NCard,
   NDivider,
@@ -17,7 +18,9 @@ import {
   NGi,
   NGrid,
   NIcon,
+  NImage,
   NInput,
+  NInputNumber,
   NModal,
   NPopconfirm,
   NRadio,
@@ -28,6 +31,7 @@ import {
 } from 'naive-ui'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
 
 // Import Store & API
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
@@ -48,13 +52,6 @@ const router = useRouter()
 const message = useMessage()
 const processing = ref(false)
 
-// --- Data Cart ---
-// interface CartItemExt extends CartItemResponse {
-//   originalPrice?: number
-//   percentage?: number
-// }
-// const cartItems = ref<CartItemExt[]>([])
-
 const { cartId, cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
 const { removeCart } = useCartStore()
 
@@ -68,7 +65,7 @@ const paymentMethod = ref('0')
 const isOpenModalSelectVouchers = ref(false)
 
 // ====================================================
-// FORM THANH TOÁN CHÍNH (ÁP DỤNG RULES NATIVE-UI)
+// FORM THANH TOÁN CHÍNH
 // ====================================================
 const checkoutFormRef = ref<FormInst | null>(null)
 const checkoutForm = reactive({
@@ -76,13 +73,11 @@ const checkoutForm = reactive({
   sdt: '',
   email: '',
   ghiChu: '',
-  // Fields cho Khách Vãng Lai (chưa đăng nhập)
   provinceName: null as string | null,
   wardName: null as string | null,
   addressDetail: '',
 })
 
-// Rules Validation: Tự động thay đổi điều kiện bắt buộc tùy vào loại khách
 const checkoutRules = computed(() => {
   const rules: any = {
     ten: { required: true, message: 'Vui lòng nhập họ và tên', trigger: ['blur', 'input'] },
@@ -116,7 +111,7 @@ function hydrateCustomerInfoFromProfile() {
 }
 
 // ====================================================
-// API ĐỊA CHỈ & COMBOBOX (CHUNG CHO CẢ MODAL VÀ KHÁCH)
+// API ĐỊA CHỈ & COMBOBOX
 // ====================================================
 interface Option { label: string, value: string, code?: number }
 const provinceOptions = ref<Option[]>([])
@@ -129,7 +124,6 @@ async function loadProvinces() {
   catch (e) { console.error(e) }
 }
 
-// Hàm gộp Phường/Xã của tất cả Quận/Huyện trong Tỉnh vào chung 1 danh sách
 async function fetchWardsFromAPI(provName: string): Promise<Option[]> {
   const p = provinceOptions.value.find(x => x.value === provName)
   if (!p || !p.code)
@@ -141,22 +135,15 @@ async function fetchWardsFromAPI(provName: string): Promise<Option[]> {
 
     if (res.data.wards && Array.isArray(res.data.wards)) {
       res.data.wards.forEach((w: any) => {
-        if (w && w.name) {
-          allWards.push({
-            label: w.name.trim(),
-            value: w.name.trim(),
-          })
-        }
+        if (w && w.name)
+          allWards.push({ label: w.name.trim(), value: w.name.trim() })
       })
     }
     else if (res.data.districts && Array.isArray(res.data.districts)) {
       res.data.districts.forEach((d: any) => {
         if (d.wards && Array.isArray(d.wards)) {
           d.wards.forEach((w: any) => {
-            allWards.push({
-              label: `${w.name} (${d.name})`, // Gắn tên Huyện để không bị trùng Phường 1
-              value: w.name.trim(),
-            })
+            allWards.push({ label: `${w.name} (${d.name})`, value: w.name.trim() })
           })
         }
       })
@@ -169,7 +156,6 @@ async function fetchWardsFromAPI(provName: string): Promise<Option[]> {
   }
 }
 
-// Event Khách vãng lai chọn Tỉnh
 const guestWardOptions = ref<Option[]>([])
 async function onGuestProvinceChange(val: string | null) {
   checkoutForm.wardName = null
@@ -184,7 +170,7 @@ const guestFullAddress = computed(() => {
 })
 
 // ====================================================
-// QUẢN LÝ SỔ ĐỊA CHỈ (MODAL CHO USER ĐÃ ĐĂNG NHẬP)
+// QUẢN LÝ SỔ ĐỊA CHỈ
 // ====================================================
 const showAddressModal = ref(false)
 const showAddAddressForm = ref(false)
@@ -195,7 +181,6 @@ const myAddresses = ref<any[]>([])
 const selectedAddressId = ref<string | null>(null)
 const editingAddressId = ref<string | null>(null)
 
-// Format chung
 function formatFullAddress(addr: any) {
   if (!addr)
     return ''
@@ -205,7 +190,6 @@ function formatFullAddress(addr: any) {
   return [d, w, p].filter(Boolean).join(', ')
 }
 
-// Form Modal Địa chỉ & Validation
 const addressFormRef = ref<FormInst | null>(null)
 const newAddress = reactive({
   provinceName: null as string | null,
@@ -229,7 +213,6 @@ async function onModalProvinceChange(val: string | null) {
   }
 }
 
-// Hàm trích xuất mảng triệt để
 function extractArrayFromResponse(res: any): any[] {
   if (!res)
     return []
@@ -248,7 +231,6 @@ function extractArrayFromResponse(res: any): any[] {
   return []
 }
 
-// LẤY DANH SÁCH ĐỊA CHỈ TỪ API
 async function fetchMyAddresses() {
   const customerId = userInfo.value?.userId
   if (!customerId)
@@ -259,7 +241,6 @@ async function fetchMyAddresses() {
     const list = extractArrayFromResponse(res)
     myAddresses.value = list
 
-    // Đặt mặc định nếu chưa chọn
     if (!selectedAddressId.value && myAddresses.value.length > 0) {
       const defaultAddr = myAddresses.value.find((a: any) => String(a.status) === '1' || a.isDefault === true || a.isDefault === 1)
       if (defaultAddr) {
@@ -305,13 +286,9 @@ async function handleEditAddress(addr: any) {
   newAddress.provinceName = pName
 
   if (pName) {
-    // 1. Tạo "mồi" dữ liệu giả để NSelect chấp nhận giá trị ngay lập tức
-    if (wName) {
+    if (wName)
       modalWardOptions.value = [{ label: wName, value: wName }]
-    }
-    // 2. Gán giá trị vào v-model
     newAddress.wardName = wName
-    // 3. Chạy ngầm API để load lại danh sách chuẩn đầy đủ
     fetchWardsFromAPI(pName).then((options) => {
       modalWardOptions.value = options
     })
@@ -330,7 +307,7 @@ async function saveNewAddress() {
     await addressFormRef.value?.validate()
   }
   catch {
-    return // Dừng nếu lỗi validate
+    return
   }
 
   isSavingAddress.value = true
@@ -338,7 +315,7 @@ async function saveNewAddress() {
     const payload = {
       customerId: userInfo.value.userId,
       provinceCity: newAddress.provinceName,
-      district: '', // Gửi rỗng để pass DTO bên backend
+      district: '',
       wardCommune: newAddress.wardName,
       addressDetail: newAddress.detail,
       isDefault: newAddress.isDefault,
@@ -346,7 +323,6 @@ async function saveNewAddress() {
     }
 
     if (editingAddressId.value) {
-      // ĐÃ FIX: Truyền customerId vào API updateAddress theo file khai báo mới
       await updateAddress(userInfo.value.userId, editingAddressId.value, payload)
       message.success('Cập nhật địa chỉ thành công')
     }
@@ -368,7 +344,6 @@ async function saveNewAddress() {
 
 async function handleDeleteAddress(id: string) {
   try {
-    // ĐÃ FIX: Truyền customerId vào API deleteAddress
     await deleteAddress(userInfo.value.userId, id)
     message.success('Đã xóa địa chỉ')
     if (selectedAddressId.value === id)
@@ -520,9 +495,7 @@ async function handleCheckout() {
       await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
     }
     else {
-      const removeRequests = cartItemsRef.value.map((item) => {
-        return removeCart(item.productDetailId)
-      })
+      const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
       await Promise.all(removeRequests)
     }
   }
@@ -534,7 +507,7 @@ async function handleCheckout() {
   }
 }
 
-const isFreeShipping = computed(() => deliveryType.value === 'GIAO_HANG' && subTotal.value >= 5000000) // Ví dụ: Miễn phí ship cho đơn trên 5 triệu
+const isFreeShipping = computed(() => deliveryType.value === 'GIAO_HANG' && subTotal.value >= 5000000)
 
 function formatCurrencyInput(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
@@ -730,7 +703,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   >
                     <NRadio value="1" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
-                        <n-image width="25" src="../../../../../images/momo.png" />
+                        <NImage width="25" src="../../../../../images/momo.png" />
                         Momo
                       </div>
                     </NRadio>
@@ -742,7 +715,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   >
                     <NRadio value="2" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
-                        <n-image width="25" src="../../../../../images/vnpay.png" />
+                        <NImage width="25" src="../../../../../images/vnpay.png" />
                         VNPAY
                       </div>
                     </NRadio>
@@ -754,7 +727,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   >
                     <NRadio value="3" class="w-full">
                       <div class="flex items-center gap-3 font-medium text-gray-800">
-                        <n-image width="40" src="../../../../../images/vietqr.png" />
+                        <NImage width="40" src="../../../../../images/vietqr.png" />
                         VietQR
                       </div>
                     </NRadio>
@@ -806,19 +779,21 @@ function handleSelectVoucherInModal(voucherId: string) {
               </div>
             </div>
 
-            <div class="mb-5 mt-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-              <div class="text-sm font-semibold mb-2 flex items-center gap-2 text-gray-800">
-                <NIcon color="#d03050" size="18">
+            <div class="mb-5 mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div class="text-sm font-semibold mb-2 flex items-center gap-2 text-green-800">
+                <NIcon color="#16a34a" size="18">
                   <TicketOutline />
                 </NIcon> Khuyến mãi
               </div>
-              <!-- <NSelect v-model:value="selectedVoucher" :options="availableVouchers" label-field="code"
-                value-field="voucherId" placeholder="Chọn mã giảm giá của shop" clearable
-                :render-label="(option: any) => `${option.code} - Giảm ${formatCurrency(option.giamGiaThucTe)}`"
-                @update:value="handleSelectVoucher" /> -->
-              <NButton class="w-full" @click="handleOpenVoucherModal">
+              <NButton
+                class="w-full font-medium"
+                type="success"
+                dashed
+                @click="handleOpenVoucherModal"
+              >
                 {{ selectedVoucher
-                  ? `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
+                  ? `${availableVouchers.find(v => v.voucherId === selectedVoucher)?.code || ''} - Giảm
+    ${formatCurrency(availableVouchers.find(v => v.voucherId === selectedVoucher)?.giamGiaThucTe || 0)}`
                   : 'Chọn mã giảm giá'
                 }}
               </NButton>
@@ -829,9 +804,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                 <span>Tạm tính:</span><span class="font-medium text-gray-800">{{ formatCurrency(subTotal) }}</span>
               </div>
               <div class="flex justify-between">
-                <div>
-                  <span>Phí vận chuyển:</span>
-                </div>
+                <div><span>Phí vận chuyển:</span></div>
                 <div class="flex items-center gap-2">
                   <span v-if="isFreeShipping" class="font-medium text-gray-800">
                     {{ formatCurrency(shippingFee) }}
@@ -841,7 +814,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                     :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
                     placeholder="Nhập phí ship" :show-button="false"
                   />
-                  <n-image width="80" src="../../../../../images/ghn-logo.webp" />
+                  <NImage width="80" src="../../../../../images/ghn-logo.webp" />
                 </div>
               </div>
               <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
@@ -902,20 +875,23 @@ function handleSelectVoucherInModal(voucherId: string) {
         <div :style="{ maxHeight: '500px', overflowY: 'auto' }" class="custom-scrollbar pr-2 py-2">
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div
-              v-for="voucher in availableVouchers"
-              :key="voucher.voucherId"
+              v-for="voucher in availableVouchers" :key="voucher.voucherId"
               class="relative flex bg-white border rounded-md shadow-sm overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
               :class="selectedVoucher === voucher.voucherId ? 'border-[#16a34a] ring-1 ring-[#16a34a] bg-[#f0fdf4]' : 'border-gray-200'"
               @click="handleSelectVoucherInModal(voucher.voucherId)"
             >
               <div class="flex-1 p-3 pl-4 relative bg-white flex flex-col justify-center">
-                <div class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md z-10 shadow-sm">
+                <div
+                  class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md z-10 shadow-sm"
+                >
                   {{ voucher.code }}
                 </div>
 
                 <div class="mt-4">
                   <h4 class="text-[#16a34a] font-bold text-[15px] truncate mb-1.5">
-                    {{ voucher.ten || (voucher.typeVoucher === 'PERCENTAGE' ? `Giảm giá ${voucher.discountValue}%` : `Giảm ${formatCurrency(voucher.discountValue)}`) }}
+                    {{ voucher.ten || (voucher.typeVoucher === 'PERCENTAGE' ? `Giảm giá ${voucher.discountValue}%`
+                      : `Giảm
+                    ${formatCurrency(voucher.discountValue)}`) }}
                   </h4>
 
                   <div class="text-[12px] text-black-500 leading-relaxed pr-2">
@@ -927,15 +903,23 @@ function handleSelectVoucherInModal(voucherId: string) {
                 </div>
               </div>
 
-              <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2">
-                <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
+              <div
+                class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2"
+              >
+                <div
+                  class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white"
+                />
 
-                <div class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none">
+                <div
+                  class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none"
+                >
                   <template v-if="voucher.typeVoucher === 'PERCENTAGE'">
                     {{ voucher.discountValue }}<span class="text-sm ml-0.5">%</span>
                   </template>
                   <template v-else>
-                    {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span class="text-sm ml-0.5">đ</span>
+                    {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span
+                      class="text-sm ml-0.5"
+                    >đ</span>
                   </template>
                 </div>
                 <div class="text-[10px] uppercase font-bold mt-1.5 tracking-wider opacity-90">
@@ -945,7 +929,10 @@ function handleSelectVoucherInModal(voucherId: string) {
             </div>
           </div>
 
-          <div v-if="availableVouchers.length === 0" class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg">
+          <div
+            v-if="availableVouchers.length === 0"
+            class="text-center text-gray-400 py-12 flex flex-col items-center bg-gray-50 rounded-lg"
+          >
             <NIcon size="48" color="#d1d5db">
               <TicketOutline />
             </NIcon>
@@ -954,6 +941,134 @@ function handleSelectVoucherInModal(voucherId: string) {
         </div>
       </NCard>
     </NModal>
+    <NModal v-model:show="showAddressModal" preset="card" title="Sổ Địa Chỉ Của Bạn" style="width: 650px" size="huge">
+      <NSpin :show="isFetchingAddresses">
+        <div v-if="!showAddAddressForm">
+          <div class="flex justify-end mb-4">
+            <NButton type="primary" dashed @click="handleOpenAddForm">
+              <template #icon>
+                <NIcon>
+                  <AddOutline />
+                </NIcon>
+              </template>
+              Thêm địa chỉ mới
+            </NButton>
+          </div>
+
+          <div v-if="myAddresses.length === 0" class="py-10 text-center">
+            <NEmpty description="Bạn chưa có địa chỉ nào lưu sẵn." />
+          </div>
+
+          <div v-else class="space-y-4 max-h-[450px] overflow-y-auto pr-2 custom-scrollbar">
+            <div
+              v-for="addr in myAddresses" :key="addr.id"
+              class="border p-4 rounded-lg transition-all relative group bg-white"
+              :class="{ 'border-green-500 bg-green-50/30 ring-1 ring-green-200': selectedAddressId === addr.id, 'border-gray-200': selectedAddressId !== addr.id }"
+            >
+              <div class="flex justify-between items-start">
+                <div class="flex-1 pr-4">
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="font-bold text-gray-800 text-[15px]">{{ userInfo?.fullName }}</span>
+                    <span class="text-gray-400">|</span>
+                    <span class="text-gray-600">{{ userInfo?.phone }}</span>
+                    <NTag v-if="String(addr.status) === '1' || addr.isDefault" type="success" size="small" class="ml-2">
+                      Mặc định
+                    </NTag>
+                  </div>
+                  <div class="text-gray-600 text-sm mt-2 leading-relaxed">
+                    {{ formatFullAddress(addr) }}
+                  </div>
+                </div>
+
+                <div class="flex flex-col items-end gap-3 shrink-0">
+                  <div class="flex items-center gap-2 text-blue-600">
+                    <span
+                      class="cursor-pointer hover:underline text-sm font-medium"
+                      @click="handleEditAddress(addr)"
+                    >Sửa</span>
+                    <span v-if="!(String(addr.status) === '1' || addr.isDefault)" class="text-gray-300">|</span>
+                    <NPopconfirm
+                      v-if="!(String(addr.status) === '1' || addr.isDefault)" positive-text="Xóa"
+                      negative-text="Hủy" @positive-click="handleDeleteAddress(addr.id)"
+                    >
+                      <template #trigger>
+                        <span class="cursor-pointer text-red-500 hover:underline text-sm font-medium">Xóa</span>
+                      </template>
+                      Xóa địa chỉ này khỏi sổ của bạn?
+                    </NPopconfirm>
+                  </div>
+
+                  <NButton
+                    v-if="selectedAddressId !== addr.id" type="primary" ghost size="small"
+                    @click="selectAddressFromModal(addr)"
+                  >
+                    Giao đến địa chỉ này
+                  </NButton>
+
+                  <div
+                    v-else
+                    class="text-green-600 font-bold flex items-center gap-1 text-sm bg-green-100 px-2 py-1 rounded"
+                  >
+                    <NIcon size="16">
+                      <CheckmarkCircleOutline />
+                    </NIcon> Đang chọn
+                  </div>
+
+                  <NButton
+                    v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text type="primary"
+                    class="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    @click="handleSetDefault(addr.id)"
+                  >
+                    Thiết lập mặc định
+                  </NButton>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-else>
+          <h3 class="font-bold text-gray-800 mb-4 border-l-4 border-green-500 pl-2">
+            {{ editingAddressId ? 'Cập Nhật Địa Chỉ' : 'Thêm Địa Chỉ Mới' }}
+          </h3>
+
+          <NForm ref="addressFormRef" :model="newAddress" :rules="addressRules" label-placement="top">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-x-4">
+              <NFormItem path="provinceName" label="Tỉnh/Thành phố">
+                <NSelect
+                  v-model:value="newAddress.provinceName" :options="provinceOptions" filterable
+                  placeholder="Chọn Tỉnh/Thành" @update:value="onModalProvinceChange"
+                />
+              </NFormItem>
+              <NFormItem path="wardName" label="Phường/Xã/Thị trấn">
+                <NSelect
+                  v-model:value="newAddress.wardName" :options="modalWardOptions" filterable
+                  placeholder="Chọn Phường/Xã" :disabled="!newAddress.provinceName"
+                />
+              </NFormItem>
+            </div>
+
+            <NFormItem path="detail" label="Địa chỉ chi tiết">
+              <NInput v-model:value="newAddress.detail" placeholder="Số nhà, Tên đường, Tòa nhà..." />
+            </NFormItem>
+
+              <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2">
+                <div class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white" />
+
+            <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
+              <NButton @click="showAddAddressForm = false">
+                Trở lại
+              </NButton>
+              <NButton type="primary" :loading="isSavingAddress" @click="saveNewAddress">
+                Lưu địa chỉ
+              </NButton>
+            </div>
+          </NForm>
+        </div>
+      </NSpin>
+    </NModal>
+
+    <NModal />
   </div>
 </template>
 

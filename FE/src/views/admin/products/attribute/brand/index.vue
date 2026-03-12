@@ -203,6 +203,7 @@ const columns: DataTableColumns<BrandResponse> = [
     title: 'Mã',
     key: 'code',
     width: 150,
+    fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code),
   },
   {

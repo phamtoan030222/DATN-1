@@ -5,7 +5,6 @@ import com.sd20201.datn.core.client.invoice.service.ClientInvoiceService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.utils.UserContextHelper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -27,5 +26,21 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         return invoiceRepository.getInvoiceByCode(code, customerIdOptional.get())
                 .map(invoice -> ResponseObject.successForward(invoice, "Fetch invoice success"))
                 .orElse(ResponseObject.errorForward("Fetch invoice failure", HttpStatus.NOT_FOUND));
+    }
+
+    @Override
+    public ResponseObject<?> getHistoryInvoiceById(String idHoaDon) {
+        return ResponseObject.successForward(
+                invoiceRepository.getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(idHoaDon),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getInvoiceDetailsById(String id) {
+        return ResponseObject.successForward(
+                invoiceRepository.getInvoiceDetailsByInvoiceId(id),
+                "OKE"
+        );
     }
 }

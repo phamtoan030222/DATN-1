@@ -260,6 +260,13 @@ const columns: DataTableColumns<BatteryResponse> = [
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
+    title: 'Mã pin',
+    key: 'code',
+    width: 150,
+    fixed: 'left',
+    render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
+  },
+  {
     title: 'Tên Pin',
     key: 'name',
     minWidth: 160,
@@ -373,12 +380,8 @@ const columns: DataTableColumns<BatteryResponse> = [
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
               <NButton
-                size="large"
-                circle
-                secondary
-                type="primary"
-                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
-                @click="refreshTable"
+                size="large" circle secondary type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="refreshTable"
               >
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
@@ -395,11 +398,8 @@ const columns: DataTableColumns<BatteryResponse> = [
           <NGridItem span="2">
             <NFormItem label="Tìm kiếm">
               <NInput
-                v-model:value="searchState.keyword"
-                placeholder="Tìm theo Tên, Hãng, Loại pin..."
-                clearable
-                @input="handleSearch"
-                @keydown.enter="handleSearch"
+                v-model:value="searchState.keyword" placeholder="Tìm theo Tên, Hãng, Loại pin..." clearable
+                @input="handleSearch" @keydown.enter="handleSearch"
               >
                 <template #prefix>
                   <Icon icon="carbon:search" class="text-gray-400" />
@@ -435,8 +435,7 @@ const columns: DataTableColumns<BatteryResponse> = [
         <div class="mr-5">
           <NSpace>
             <NButton
-              type="primary"
-              secondary
+              type="primary" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
               @click="openModal('add')"
             >
@@ -445,14 +444,15 @@ const columns: DataTableColumns<BatteryResponse> = [
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
                 Thêm mới
               </span>
             </NButton>
 
             <NButton
-              type="info"
-              secondary
+              type="info" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
               @click="refreshTable"
             >
@@ -461,7 +461,9 @@ const columns: DataTableColumns<BatteryResponse> = [
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+              <span
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
+              >
                 Tải lại
               </span>
             </NButton>
@@ -470,25 +472,14 @@ const columns: DataTableColumns<BatteryResponse> = [
       </template>
 
       <NDataTable
-        :columns="columns"
-        :data="tableData"
-        :loading="loading"
-        :row-key="(row) => row.id"
-        :pagination="false"
-        :scroll-x="1000"
-        striped
-        :bordered="false"
-        class="rounded-lg overflow-hidden"
+        :columns="columns" :data="tableData" :loading="loading" :row-key="(row) => row.id" :pagination="false"
+        :scroll-x="1000" striped :bordered="false" class="rounded-lg overflow-hidden"
       />
 
       <div class="flex justify-end mt-4">
         <NPagination
-          v-model:page="currentPage"
-          v-model:page-size="pageSize"
-          :item-count="total"
-          :page-sizes="[5, 10, 20, 50]"
-          show-size-picker
-          @update:page="handlePageChange"
+          v-model:page="currentPage" v-model:page-size="pageSize" :item-count="total"
+          :page-sizes="[5, 10, 20, 50]" show-size-picker @update:page="handlePageChange"
           @update:page-size="handlePageSizeChange"
         />
       </div>
@@ -496,22 +487,12 @@ const columns: DataTableColumns<BatteryResponse> = [
 
     <!-- Modal Thêm / Sửa -->
     <NModal
-      v-model:show="showModal"
-      preset="card"
-      style="width: 640px"
-      :title="modalMode === 'add' ? 'Thêm mới Pin' : 'Cập nhật Pin'"
-      :bordered="false"
-      size="huge"
-      class="shadow-2xl rounded-2xl"
-      :closable="false"
+      v-model:show="showModal" preset="card" style="width: 640px"
+      :title="modalMode === 'add' ? 'Thêm mới Pin' : 'Cập nhật Pin'" :bordered="false" size="huge"
+      class="shadow-2xl rounded-2xl" :closable="false"
     >
       <div class="max-h-[560px] overflow-y-auto pr-4 custom-scrollbar">
-        <NForm
-          ref="formRef"
-          label-placement="top"
-          :model="formData"
-          :rules="rules"
-        >
+        <NForm ref="formRef" label-placement="top" :model="formData" :rules="rules">
           <NFormItem label="Tên Pin" path="name" required>
             <NInput v-model:value="formData.name" placeholder="VD: Samsung 5000mAh" />
           </NFormItem>
@@ -526,11 +507,7 @@ const columns: DataTableColumns<BatteryResponse> = [
             <!-- Loại pin dùng NSelect vì backend là Enum TypeBattery -->
             <NGridItem>
               <NFormItem label="Loại pin" path="type" required>
-                <NSelect
-                  v-model:value="formData.type"
-                  :options="typeBatteryOptions"
-                  placeholder="Chọn loại pin"
-                />
+                <NSelect v-model:value="formData.type" :options="typeBatteryOptions" placeholder="Chọn loại pin" />
               </NFormItem>
             </NGridItem>
 
@@ -538,8 +515,7 @@ const columns: DataTableColumns<BatteryResponse> = [
             <NGridItem>
               <NFormItem label="Công nghệ sạc" path="technolyCharging" required>
                 <NSelect
-                  v-model:value="formData.technolyCharging"
-                  :options="technolyChargingOptions"
+                  v-model:value="formData.technolyCharging" :options="technolyChargingOptions"
                   placeholder="Chọn công nghệ sạc"
                 />
               </NFormItem>
@@ -547,12 +523,7 @@ const columns: DataTableColumns<BatteryResponse> = [
 
             <NGridItem>
               <NFormItem label="Dung lượng (mAh)" path="capacity" required>
-                <NInput
-                  v-model:value="formData.capacity"
-                  type="number"
-                  placeholder="VD: 4500, 5000"
-                  class="w-full"
-                />
+                <NInput v-model:value="formData.capacity" type="number" placeholder="VD: 4500, 5000" class="w-full" />
               </NFormItem>
             </NGridItem>
 
@@ -588,13 +559,16 @@ const columns: DataTableColumns<BatteryResponse> = [
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: #f1f1f1;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #c1c1c1;
   border-radius: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #a8a8a8;
 }

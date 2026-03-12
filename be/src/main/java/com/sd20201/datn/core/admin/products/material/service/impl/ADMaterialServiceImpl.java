@@ -62,6 +62,7 @@ public class ADMaterialServiceImpl implements ADMaterialService {
         }
 
         Material material = optionalMaterial.get();
+        System.out.println(material.getCode());
         material.setStatus(material.getStatus().equals(EntityStatus.ACTIVE) ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
         adMaterialRepository.save(material);
 
@@ -76,7 +77,7 @@ public class ADMaterialServiceImpl implements ADMaterialService {
         }
 
         Material material = optionalMaterial.get();
-        material.setCode(request.getCode());
+//        material.setCode(request.getCode());
         material.setTopCaseMaterial(request.getTopCaseMaterial());
         material.setBottomCaseMaterial(request.getBottomCaseMaterial());
         material.setKeyboardMaterial(request.getKeyboardMaterial());
