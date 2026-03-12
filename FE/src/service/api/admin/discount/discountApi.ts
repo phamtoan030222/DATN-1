@@ -135,8 +135,8 @@ export const getAppliedProducts = async (
   discountId: string,
   params: PaginationParams
 ) => {
-  console.log('🚀 Fetching applied products for discount:', discountId);
-  console.log('📤 API params:', params);
+  console.log(' Fetching applied products for discount:', discountId);
+  console.log(' API params:', params);
   
   const page = (params.page && params.page > 0) ? params.page - 1 : 0; 
   const size = params.size || 10;
@@ -156,7 +156,7 @@ export const getAppliedProducts = async (
       `${API_ADMIN_DISCOUNTS}/detail/applied-products`,
       { params: queryParams }
     );
-    console.log('📥 Applied products API response:', res.data);
+    console.log('Applied products API response:', res.data);
     const responseData = res.data.data;
     if (!responseData) {
       console.warn('⚠️ No responseData found');
@@ -172,7 +172,7 @@ export const getAppliedProducts = async (
                  Array.isArray(responseData.content) ? responseData.content :
                  Array.isArray(responseData) ? responseData : [];
 
-    console.log('✅ Applied products items:', items);
+    console.log('Applied products items:', items);
 
     return {
       items: items,
@@ -190,8 +190,8 @@ export const getUnappliedProducts = async (
   discountId: string,
   params: PaginationParams
 ) => {
-  console.log('🚀 Fetching unapplied products for discount:', discountId);
-  console.log('📤 API params:', params);
+  console.log('Fetching unapplied products for discount:', discountId);
+  console.log('API params:', params);
   
   const page = (params.page && params.page > 0) ? params.page - 1 : 0;
   const size = params.size || 10;
@@ -212,11 +212,11 @@ export const getUnappliedProducts = async (
       { params: queryParams }
     );
 
-    console.log('📥 Unapplied products API response:', res.data);
+    console.log('Unapplied products API response:', res.data);
 
     const responseData = res.data.data;
     if (!responseData) {
-      console.warn('⚠️ No responseData found');
+      console.warn('No responseData found');
       return {
         items: [],
         totalItems: 0,
@@ -229,7 +229,7 @@ export const getUnappliedProducts = async (
                  Array.isArray(responseData.content) ? responseData.content :
                  Array.isArray(responseData) ? responseData : [];
 
-    console.log('✅ Unapplied products items:', items);
+    console.log('Unapplied products items:', items);
 
     return {
       items: items,
@@ -238,7 +238,7 @@ export const getUnappliedProducts = async (
       currentPage: (responseData.currentPage ?? responseData.number ?? 0) + 1,
     };
   } catch (error) {
-    console.error('❌ Error fetching unapplied products:', error);
+    console.error('Error fetching unapplied products:', error);
     throw error;
   }
 };
@@ -371,7 +371,6 @@ export const getAllProducts = async (params: PaginationParams) => {
   }
 }
 
-
 export const getProductDetailsByProductId = async (productId: string) => {
   try {
     const res = await request.get<DefaultResponse<ProductDetailResponse[]>>(
@@ -379,44 +378,60 @@ export const getProductDetailsByProductId = async (productId: string) => {
     )
     return res.data
   } catch (error) {
-    console.error(`❌ Error fetching product details for productId=${productId}:`, error)
+    console.error(`Error fetching product details for productId=${productId}:`, error)
     throw error
   }
 }
-
-
 
 export const createDiscount = async (data: CreateDiscountRequest) => {
   const res = await request.post(`${API_ADMIN_DISCOUNT}/addDiscount`, data)
   return res.data
 }
 
-
 export const updateDiscount = async (id: string, data: UpdateDiscountRequest) => {
   const res = await request.put(`${API_ADMIN_DISCOUNT}/updateDiscount/${id}`, data)
   return res.data
 }
-
 
 export const deactivateDiscount = async (id: string) => {
   const res = await request.put(`${API_ADMIN_DISCOUNT}/end/${id}`)
   return res.data
 }
 
-export const startDiscount = async (id: string) => {
-  const res = await request.put(`${API_ADMIN_DISCOUNT}/start/${id}`)
-  return res.data
+// export const startDiscount = async (id: string) => {
+//   const res = await request.put(`${API_ADMIN_DISCOUNT}/start/${id}`)
+//   return res.data
+// }
+
+export async function startDiscount(id:string){
+  return request({
+    url: `${API_ADMIN_DISCOUNT}/start/${id}`,
+    method: 'PUT',
+  })
 }
 
+// export const deleteDiscount = async (id: string) => {
+//   const res = await request.delete(`${API_ADMIN_DISCOUNT}/delete/${id}`)
+//   return res.data
+// }
 
-export const deleteDiscount = async (id: string) => {
-  const res = await request.delete(`${API_ADMIN_DISCOUNT}/delete/${id}`)
-  return res.data
+export async function deleteDiscount(id:string){
+  return request({
+    url:`${API_ADMIN_DISCOUNT}/delete/${id}`,
+    method: 'DELETE',
+  })
 }
 
-export const sendEmail = async (id: string) => {
-  const res = await request.post(`${API_ADMIN_DISCOUNT}/sendEmail/${id}`)
-  return res.data
+// export const sendEmail = async (id: string) => {
+//   const res = await request.post(`${API_ADMIN_DISCOUNT}/sendEmail/${id}`)
+//   return res.data
+// }
+
+export async function sendEmail(id:string){
+  return request({
+    url: `${API_ADMIN_DISCOUNT}/sendEmail/${id}`,
+    method: 'POST',
+  })
 }
 
 
