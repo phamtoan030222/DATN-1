@@ -32,7 +32,7 @@ const showSuggestions = ref(true)
 
 const chatMode = ref('AI') // 'AI' | 'WAITING' | 'STAFF'
 
-// 🔥 Biến lưu tên nhân viên
+//  Biến lưu tên nhân viên
 const currentStaffName = ref(localStorage.getItem('ml_staff_name') || '')
 
 const headerTitle = computed(() => {
@@ -85,7 +85,7 @@ function connectSocket() {
         if (msgBody.senderRole === 'STAFF') {
           messages.value.push({ sender: 'STAFF', content: msgBody.content })
 
-          // 🔥 1. TRÍCH XUẤT TÊN NHÂN VIÊN TỪ CÂU CHÀO
+          // 1. TRÍCH XUẤT TÊN NHÂN VIÊN TỪ CÂU CHÀO
           if (msgBody.content.includes('đã tiếp nhận hỗ trợ bạn')) {
             const match = msgBody.content.match(/Nhân viên (.*?) \(Mã:/)
             if (match && match[1]) {
@@ -94,13 +94,13 @@ function connectSocket() {
             }
             chatMode.value = 'STAFF'
           }
-          // 🔥 2. NẾU LÀ CÂU KẾT THÚC CỦA ADMIN -> ĐỔI TRẠNG THÁI VỀ AI
+          // 2. NẾU LÀ CÂU KẾT THÚC CỦA ADMIN -> ĐỔI TRẠNG THÁI VỀ AI
           else if (msgBody.content.includes('Phiên hỗ trợ đã kết thúc')) {
             chatMode.value = 'AI'
             currentStaffName.value = '' // Xóa tên đi
             localStorage.removeItem('ml_staff_name')
           }
-          // 🔥 3. TIN NHẮN BÌNH THƯỜNG
+          // 3. TIN NHẮN BÌNH THƯỜNG
           else {
             chatMode.value = 'STAFF'
           }

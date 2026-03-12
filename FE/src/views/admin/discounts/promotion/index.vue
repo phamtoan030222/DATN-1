@@ -384,7 +384,7 @@ const columns: DataTableColumns<DiscountResponse> = [
                   value: isActive,
                   size: 'small',
                   loading: isSwitchingThisRow,
-                  style: { pointerEvents: 'none' }, // Khóa switch để nhường cho Popconfirm
+                  style: { pointerEvents: 'none' }, 
                 }),
               ]),
               default: () => isActive ? 'Tạm dừng' : 'Tiếp tục',

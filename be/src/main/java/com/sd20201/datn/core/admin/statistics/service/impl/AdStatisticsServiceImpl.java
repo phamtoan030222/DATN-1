@@ -223,7 +223,7 @@ public class AdStatisticsServiceImpl implements AdStatisticsService {
     }
 
     // =========================================================================
-    // 3. TỐC ĐỘ TĂNG TRƯỞNG (ĐÃ FIX LỖI 97%)
+    // 3. TỐC ĐỘ TĂNG TRƯỞNG 
     // =========================================================================
     @Override
     public List<AdGrowthStatResponse> getGrowthStatistics() {
