@@ -124,7 +124,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
   {
     title: 'Ảnh sản phẩm',
     key: 'brand',
-    width: 80,
+    width: 150,
     align: 'center',
     render: (data: ADProductDetailResponse) => {
       return h(NBadge, { value: data.percentage ? `-${data.percentage}%` : undefined }, [
@@ -136,6 +136,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     title: 'Tên sản phẩm',
     key: 'name',
     width: 200,
+
     ellipsis: { tooltip: true },
   },
   {
@@ -143,7 +144,7 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     key: 'configuration',
     width: 300,
     align: 'left',
-    titleAlign: 'center',
+
     render: (rowData: ADProductDetailResponse) => h('div', { class: 'flex flex-col gap-y-2' }, [
       // h('div', [
       h('div', { style: { display: 'flex', alignItems: 'center', margin: '4px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
