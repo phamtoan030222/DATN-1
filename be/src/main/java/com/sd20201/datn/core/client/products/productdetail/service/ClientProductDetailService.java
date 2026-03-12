@@ -5,6 +5,7 @@ import com.sd20201.datn.core.client.products.productdetail.model.request.ClientP
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailCreateUpdateRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDProductDetailRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.ClientPDVariantRequest;
+import com.sd20201.datn.core.client.products.productdetail.model.request.LayThuocTinhRequest;
 import com.sd20201.datn.core.client.products.productdetail.model.request.SanPhamChiTietGiamGiaRepuest;
 import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
@@ -60,4 +61,6 @@ public interface ClientProductDetailService {
     ResponseObject<?> getOngoingDiscounts(SanPhamChiTietGiamGiaRepuest request);
 
     ResponseObject<?> getNearestUpcomingDiscounts(SanPhamChiTietGiamGiaRepuest request);
+
+    ResponseObject<?> laySanPhamTheoThuocTinh(LayThuocTinhRequest request);
 }
