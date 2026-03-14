@@ -209,12 +209,11 @@ const IMEI_STATUS_CONFIG: Record<string, { type: any, text: string }> = {
 const TIMELINE_STEPS = [
   { key: '0', title: 'Chờ xác nhận', icon: TimeOutline, color: 'yellow' },
   { key: '1', title: 'Đã xác nhận', icon: CheckmarkCircleOutline, color: 'blue' },
+  { key: '6', title: 'Sẵn sàng nhận hàng', icon: StorefrontOutline, color: 'teal' },
   { key: '2', title: 'Chờ giao hàng', icon: CartOutline, color: 'purple' },
   { key: '3', title: 'Đang giao hàng', icon: CheckmarkCircleOutline, color: 'info' },
   { key: '4', title: 'Hoàn thành', icon: CheckmarkDoneOutline, color: 'green' },
   { key: '5', title: 'Đã hủy', icon: CloseCircleOutline, color: 'red' },
-  // THÊM MỚI
-  { key: '6', title: 'Sẵn sàng nhận hàng', icon: StorefrontOutline, color: 'teal' },
 ]
 
 const router = useRouter()
@@ -361,6 +360,23 @@ const productViewMode = ref('products')
 const showRefundModal = ref(false)
 const isProcessingRefund = ref(false)
 
+// ==================== CHỌN THỜI GIAN NHẬN HÀNG (SAN_SANG_NHAN_HANG) ====================
+const showPickupDateModal = ref(false)
+const pickupDateFrom = ref<string>('')
+const pickupDateTo = ref<string>('')
+
+const pickupDateFromFormatted = computed(() => {
+  if (!pickupDateFrom.value)
+    return ''
+  return new Date(pickupDateFrom.value).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+})
+
+const pickupDateToFormatted = computed(() => {
+  if (!pickupDateTo.value)
+    return ''
+  return new Date(pickupDateTo.value).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+})
+
 // ==================== Computed Properties ====================
 const invoiceCode = computed(() => route.params.id as string || 'N/A')
 
@@ -401,7 +417,7 @@ const needsRefund = computed(() => {
 const currentStatus = computed(() => Number(hoaDonData.value?.trangThaiHoaDon || '0'))
 const isCompleted = computed(() => currentStatus.value === 4)
 const isCancelled = computed(() => currentStatus.value === 5)
-const canChangeImei = computed(() => isOnlineInvoice.value && currentStatus.value === 0)
+const canChangeImei = computed(() => (isOnlineInvoice.value || isOnlinePickupInvoice.value) && currentStatus.value === 0)
 
 const showCancelButton = computed(() => {
   if (isCompleted.value || isCancelled.value)
@@ -508,7 +524,13 @@ const nextStatusToUpdate = computed<number | null>(() => {
   }
 })
 
-const currentVisibleSteps = computed(() => filteredSteps.value.filter(step => Number(step.key) <= currentStatus.value || (isCancelled.value && step.key === '5')))
+const currentVisibleSteps = computed(() => {
+  const steps = filteredSteps.value
+  const currentIndex = steps.findIndex(step => step.key === currentStatus.value.toString())
+  if (currentIndex === -1)
+    return steps // fallback: hiện tất cả nếu không tìm thấy
+  return steps.filter((step, index) => index <= currentIndex || (isCancelled.value && step.key === '5'))
+})
 
 function getDynamicIconSizeClass(stepKey: string) {
   if (currentStatus.value.toString() === stepKey)
@@ -659,7 +681,7 @@ const productColumns = computed<DataTableColumns<any>>(() => {
       align: 'center',
       render: (row) => {
         // Không phải online invoice hoặc không được phép thao tác → hiện dấu gạch
-        if (!isOnlineInvoice.value || !canChangeImei.value) {
+        if ((!isOnlineInvoice.value && !isOnlinePickupInvoice.value) || !canChangeImei.value) {
           return h('span', { class: 'text-gray-300 text-sm' }, '—')
         }
 
@@ -894,6 +916,16 @@ function openStatusModalNext(): void {
         return
       }
     }
+    // Nếu chuyển sang Sẵn sàng nhận hàng → mở modal chọn thời gian trước
+    if (nextStatusToUpdate.value === 6) {
+      const today = new Date()
+      const threeDaysLater = new Date()
+      threeDaysLater.setDate(today.getDate() + 3)
+      pickupDateFrom.value = today.toISOString().split('T')[0]
+      pickupDateTo.value = threeDaysLater.toISOString().split('T')[0]
+      showPickupDateModal.value = true
+      return
+    }
     selectedStatus.value = nextStatusToUpdate.value
     showStatusModal.value = true
   }
@@ -901,7 +933,7 @@ function openStatusModalNext(): void {
 
 // ✅ Mở modal BỔ SUNG serial (chưa có serial)
 async function openSerialSelectionModal(product: HoaDonChiTietItem) {
-  if (!isOnlineInvoice.value)
+  if (!isOnlineInvoice.value && !isOnlinePickupInvoice.value)
     return
 
   // Reset changingImei để đảm bảo là luồng bổ sung
@@ -1157,6 +1189,45 @@ function openCancelModal(): void {
   selectedStatus.value = 5
   statusNote.value = ''
   showStatusModal.value = true
+}
+
+async function confirmPickupDate(): Promise<void> {
+  if (!pickupDateFrom.value || !pickupDateTo.value) {
+    message.error('Vui lòng chọn đầy đủ khoảng thời gian nhận hàng')
+    return
+  }
+  if (new Date(pickupDateTo.value) < new Date(pickupDateFrom.value)) {
+    message.error('Ngày kết thúc phải sau ngày bắt đầu')
+    return
+  }
+
+  isUpdating.value = true
+  try {
+    const response = await changeOrderStatus({
+      maHoaDon: hoaDonData.value!.maHoaDon,
+      statusTrangThaiHoaDon: 6,
+      note: statusNote.value || '',
+      idNhanVien: idNV.userId,
+      tuNgayNhanHang: pickupDateFrom.value,
+      denNgayNhanHang: pickupDateTo.value,
+    } as any)
+
+    if (response.success) {
+      message.success('Đã chuyển sang Sẵn sàng nhận hàng và gửi thông báo cho khách')
+      showPickupDateModal.value = false
+      statusNote.value = ''
+      await fetchInvoiceDetails()
+    }
+    else {
+      message.error(response.message || 'Cập nhật thất bại')
+    }
+  }
+  catch (error: any) {
+    message.error(error.message || 'Đã xảy ra lỗi')
+  }
+  finally {
+    isUpdating.value = false
+  }
 }
 
 // ==================== HOÀN PHÍ ====================
@@ -1523,6 +1594,9 @@ onMounted(async () => {
                 </p>
                 <p class="text-xs text-gray-500 mt-1">
                   {{ getStepTime(step.key) || 'Vừa xong' }}
+                </p>
+                <p v-if="step.key === '6'" class="text-xs text-orange-500 mt-1 italic leading-snug">
+                  Hóa đơn sẽ tự động xóa nếu khách hàng không nhận hàng sau 3 ngày.
                 </p>
               </div>
               <div
@@ -2374,6 +2448,116 @@ onMounted(async () => {
         </div>
       </template>
     </NModal>
+    <!-- ==================== MODAL: CHỌN THỜI GIAN NHẬN HÀNG ==================== -->
+    <NModal
+      v-model:show="showPickupDateModal"
+      preset="card"
+      class="no-print !w-[460px] !max-w-[90vw] !rounded-2xl shadow-2xl"
+      :bordered="false"
+      size="huge"
+      content-style="padding-top: 0;"
+    >
+      <template #header>
+        <div class="flex items-center gap-3 pt-2">
+          <div class="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center">
+            <NIcon size="22" color="#0d9488">
+              <StorefrontOutline />
+            </NIcon>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 leading-tight">
+              Chọn thời gian nhận hàng
+            </h3>
+            <p class="text-xs text-gray-500 font-normal mt-0.5">
+              Vui lòng chọn khoảng thời gian để khách hàng đến nhận hàng tại cửa hàng
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <div class="py-4 space-y-4">
+        <!-- Từ ngày -->
+        <div class="space-y-1">
+          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <span class="text-teal-500">📅</span> Từ ngày
+          </label>
+          <input
+            v-model="pickupDateFrom"
+            type="date"
+            :min="new Date().toISOString().split('T')[0]"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+          >
+        </div>
+
+        <!-- Đến ngày -->
+        <div class="space-y-1">
+          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <span class="text-teal-500">📅</span> Đến ngày
+          </label>
+          <input
+            v-model="pickupDateTo"
+            type="date"
+            :min="pickupDateFrom || new Date().toISOString().split('T')[0]"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+          >
+        </div>
+
+        <!-- Preview khoảng thời gian -->
+        <div v-if="pickupDateFrom && pickupDateTo" class="bg-teal-50 border border-teal-200 rounded-xl p-4 space-y-1">
+          <p class="text-sm font-semibold text-teal-700 mb-2">
+            Khoảng thời gian nhận hàng đã chọn:
+          </p>
+          <p class="text-sm font-bold text-teal-800">
+            Từ {{ pickupDateFromFormatted }}
+          </p>
+          <p class="text-sm font-bold text-teal-800">
+            Đến {{ pickupDateToFormatted }}
+          </p>
+        </div>
+
+        <!-- Ghi chú -->
+        <div class="space-y-1">
+          <label class="text-sm font-semibold text-gray-700">Ghi chú thêm <span class="text-gray-400 font-normal text-xs">(Không bắt buộc)</span></label>
+          <NInput
+            v-model:value="statusNote"
+            type="textarea"
+            placeholder="Nhập ghi chú cho khách hàng..."
+            :rows="2"
+            class="!rounded-lg"
+          />
+        </div>
+
+        <!-- Lưu ý -->
+        <div class="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
+          <NIcon size="16" color="#3b82f6" class="flex-shrink-0 mt-0.5">
+            <InformationCircleOutline />
+          </NIcon>
+          <span>Khoảng thời gian này sẽ được gửi cho khách hàng qua email để họ biết khi nào có thể đến cửa hàng nhận hàng.</span>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end pt-2">
+          <NButton size="large" class="!rounded-lg font-medium" @click="showPickupDateModal = false">
+            Hủy
+          </NButton>
+          <NButton
+            type="primary"
+            size="large"
+            class="!rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
+            :loading="isUpdating"
+            :disabled="!pickupDateFrom || !pickupDateTo"
+            @click="confirmPickupDate"
+          >
+            <template #icon>
+              <NIcon><CheckmarkCircleOutline /></NIcon>
+            </template>
+            Xác nhận và gửi thông báo
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+
     <!-- ==================== MODAL: XÁC NHẬN HOÀN PHÍ ==================== -->
     <NModal
       v-model:show="showRefundModal"

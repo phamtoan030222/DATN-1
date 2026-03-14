@@ -153,6 +153,10 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
                     hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
+                case SAN_SANG_NHAN_HANG:
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
+                    break;
+
                 default:
                     break;
             }
@@ -281,11 +285,13 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
         validTransitions.put(EntityTrangThaiHoaDon.CHO_XAC_NHAN,
                 Arrays.asList(EntityTrangThaiHoaDon.DA_XAC_NHAN, EntityTrangThaiHoaDon.DA_HUY));
         validTransitions.put(EntityTrangThaiHoaDon.DA_XAC_NHAN,
-                Arrays.asList(EntityTrangThaiHoaDon.CHO_GIAO, EntityTrangThaiHoaDon.DA_HUY));
+                Arrays.asList(EntityTrangThaiHoaDon.CHO_GIAO, EntityTrangThaiHoaDon.SAN_SANG_NHAN_HANG, EntityTrangThaiHoaDon.DA_HUY));
         validTransitions.put(EntityTrangThaiHoaDon.CHO_GIAO,
                 Arrays.asList(EntityTrangThaiHoaDon.DANG_GIAO, EntityTrangThaiHoaDon.DA_HUY));
         validTransitions.put(EntityTrangThaiHoaDon.DANG_GIAO,
-                Arrays.asList(EntityTrangThaiHoaDon.HOAN_THANH));
+                Arrays.asList(EntityTrangThaiHoaDon.HOAN_THANH, EntityTrangThaiHoaDon.DA_HUY));
+        validTransitions.put(EntityTrangThaiHoaDon.SAN_SANG_NHAN_HANG,
+                Arrays.asList(EntityTrangThaiHoaDon.HOAN_THANH, EntityTrangThaiHoaDon.DA_HUY));
 
         List<EntityTrangThaiHoaDon> allowedTransitions = validTransitions.get(trangThaiCu);
         if (allowedTransitions == null || !allowedTransitions.contains(trangThaiMoi)) {
@@ -598,7 +604,8 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             case DANG_GIAO: return "Đang giao hàng";
             case HOAN_THANH: return "Hoàn thành";
             case DA_HUY: return "Đã hủy";
-            default: return "Đang xử lý";
+            case SAN_SANG_NHAN_HANG: return "Sẵn sàng nhận hàng";
+            default: return "Không xác định";
         }
     }
 

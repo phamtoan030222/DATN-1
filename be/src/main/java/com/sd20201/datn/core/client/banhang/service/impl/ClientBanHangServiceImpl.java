@@ -153,7 +153,11 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             invoice.setShippingFee(request.getTienShip());
 //            invoice.setDiscountAmount(request.getGiamGia());
             invoice.setTotalAmountAfterDecrease(request.getTongTien());
-            invoice.setTypeInvoice(TypeInvoice.ONLINE);
+            if (request.getLoaiHoaDon().equals("TAI_QUAY")) {
+                invoice.setTypeInvoice(TypeInvoice.ONLINE_TAI_QUAY);
+            } else{
+                invoice.setTypeInvoice(TypeInvoice.ONLINE);
+            }
             invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
             invoice.setCreatedDate(System.currentTimeMillis());
             invoice.setEmail(
