@@ -1650,7 +1650,7 @@ onMounted(async () => {
                 Tổng tiền
               </p>
               <p class="font-semibold text-red-600">
-                {{ formatCurrency(hoaDonData?.tongTienSauGiam) }}
+                {{ formatCurrency(hoaDonData?.tongTien) }}
               </p>
             </div>
           </div>
@@ -1771,7 +1771,7 @@ onMounted(async () => {
             </div>
             <div class="flex justify-between items-center pt-4">
               <span class="text-lg font-bold text-gray-900">TỔNG CỘNG:</span>
-              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
           <div v-if="hoaDonData?.maVoucher" class="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
@@ -1827,7 +1827,7 @@ onMounted(async () => {
           <div class="space-y-3 pt-4 border-t border-gray-100">
             <div class="flex justify-between items-center">
               <span class="text-gray-600">Tổng tiền thanh toán:</span>
-              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
             <div v-if="hoaDonData?.duNo" class="flex justify-between items-center">
               <span class="text-gray-600">Còn nợ:</span>
@@ -1939,7 +1939,7 @@ onMounted(async () => {
             </div>
             <div class="flex justify-between items-center pt-3 border-t border-gray-200">
               <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
-              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
         </div>

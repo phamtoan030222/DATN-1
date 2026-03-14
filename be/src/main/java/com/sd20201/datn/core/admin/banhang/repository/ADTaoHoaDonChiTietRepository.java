@@ -17,29 +17,20 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
 
     @Query(value = """
 SELECT
-    ROW_NUMBER() OVER (ORDER BY hdct.created_date DESC) AS stt,
+    ROW_NUMBER() OVER (ORDER BY hdct.created_date DESC, i.code) AS stt,
 
     hdct.id                                             AS idHDCT,
     spct.code                                           AS ma,
     spct.id                                             AS id,
     CONCAT(sp.name, ' - ', cl.name)                    AS ten,
 
-    (
-        SELECT COUNT(*)
-        FROM imei ii
-        WHERE ii.id_invoice_detail = hdct.id
-    )                                                   AS soLuong,
+    -- mỗi dòng = 1 serial → soLuong luôn = 1
+    1                                                   AS soLuong,
 
-    -- giá gốc chưa giảm lúc thêm vào giỏ
     hdct.gia_goc                                        AS giaGoc,
-
-    -- giá bán thực tế lúc thêm vào giỏ (không tính lại theo discount hiện tại)
     hdct.price                                          AS giaBan,
-
-    -- giá hiện tại của sản phẩm (để so sánh cảnh báo)
     spct.price                                          AS giaHienTai,
 
-    -- cờ giá thay đổi: so với giá gốc lúc thêm
     CASE
         WHEN hdct.gia_goc <> spct.price THEN 1
         ELSE 0
@@ -53,11 +44,14 @@ SELECT
     g.name                                              AS gpu,
     cl.name                                             AS color,
 
-    -- gom tất cả IMEI của dòng chi tiết thành 1 chuỗi
-    GROUP_CONCAT(i.code ORDER BY i.code SEPARATOR ', ') AS imel,
+    -- mỗi dòng hiển thị 1 serial riêng
+    i.id                                                AS imeiId,
+    i.code                                              AS imel,
 
-    -- % giảm giá hiện tại (chỉ để hiển thị tham khảo)
-    discount_info.max_percentage                        AS percentage,
+    CASE
+        WHEN hdct.gia_goc = 0 OR hdct.gia_goc IS NULL THEN 0
+        ELSE ROUND((hdct.gia_goc - hdct.price) * 100.0 / hdct.gia_goc, 2)
+    END                                                 AS percentage,
 
     CASE
         WHEN hd.trang_thai_hoa_don IS NOT NULL
@@ -76,6 +70,10 @@ JOIN product_detail spct
 JOIN product sp
     ON spct.id_product = sp.id
 
+-- ✅ INNER JOIN thay vì LEFT JOIN: chỉ lấy dòng có serial, mỗi serial = 1 dòng
+JOIN imei i
+    ON i.id_invoice_detail = hdct.id
+
 LEFT JOIN (
     SELECT
         pdd.id_product_detail,
@@ -91,45 +89,16 @@ LEFT JOIN (
 ) discount_info
     ON spct.id = discount_info.id_product_detail
 
-LEFT JOIN cpu c
-    ON spct.id_cpu = c.id
-
-LEFT JOIN ram r
-    ON spct.id_ram = r.id
-
-LEFT JOIN hard_drive hd2
-    ON spct.id_hard_drive = hd2.id
-
-LEFT JOIN gpu g
-    ON spct.id_gpu = g.id
-
-LEFT JOIN color cl
-    ON spct.id_color = cl.id
-
-LEFT JOIN imei i
-    ON i.id_invoice_detail = hdct.id
+LEFT JOIN cpu c       ON spct.id_cpu        = c.id
+LEFT JOIN ram r       ON spct.id_ram        = r.id
+LEFT JOIN hard_drive hd2 ON spct.id_hard_drive = hd2.id
+LEFT JOIN gpu g       ON spct.id_gpu        = g.id
+LEFT JOIN color cl    ON spct.id_color      = cl.id
 
 WHERE hd.id = :rep
 
-GROUP BY
-    hdct.id,
-    hdct.created_date,
-    hdct.gia_goc,
-    hdct.price,
-    spct.id,
-    spct.code,
-    spct.price,
-    spct.url_image,
-    sp.name,
-    c.name,
-    r.name,
-    hd2.name,
-    g.name,
-    cl.name,
-    hd.trang_thai_hoa_don,
-    discount_info.max_percentage
-
-ORDER BY hdct.created_date DESC
+-- ✅ Không cần GROUP BY nữa vì không còn aggregate
+ORDER BY hdct.created_date DESC, i.code ASC
 """, nativeQuery = true)
     List<ADGioHangResponse> getAllGioHang(
             @Param("rep") String rep,

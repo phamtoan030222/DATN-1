@@ -42,20 +42,14 @@ SELECT
     END                                      AS giaDaThayDoi,
 
     -- ===== THÀNH TIỀN (tính theo giá sau giảm) =====
-    (
-        CASE
-            WHEN discount_info.max_percentage IS NOT NULL
-            THEN (hdct.price * (100 - discount_info.max_percentage)) / 100
-            ELSE hdct.price
-        END * hdct.quantity
-    )                                        AS tongTien,
+    hd.total_amount                                      AS tongTien,
 
     hd.total_amount_after_decrease           AS tongTienSauGiam,
 
     -- ===== VOUCHER =====
     v.code                                   AS maVoucher,
     v.name                                   AS tenVoucher,
-    COALESCE(hd.total_amount - hd.total_amount_after_decrease, 0) AS giaTriVoucher,
+    hd.giam_gia AS giaTriVoucher,
 
     -- ===== NHÂN VIÊN =====
     s.name                                   AS tenNhanVien,
