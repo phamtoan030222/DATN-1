@@ -8,7 +8,6 @@ import com.sd20201.datn.core.admin.banhang.model.response.ListHoaDon;
 import com.sd20201.datn.core.admin.banhang.model.response.VoucherSuggestionResponse;
 import com.sd20201.datn.core.admin.banhang.service.ADBanHangService;
 import com.sd20201.datn.core.admin.products.productdetail.model.request.ADPDProductDetailRequest;
-import com.sd20201.datn.core.admin.products.productdetail.model.response.ADPDImeiResponse;
 import com.sd20201.datn.core.admin.products.productdetail.service.ADProductDetailService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
@@ -17,8 +16,13 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-import java.util.concurrent.CopyOnWriteArrayList;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeRequest;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeResponse;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeService;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -31,6 +35,8 @@ public class ADBanHangController {
     private final ADProductDetailService productDetailService;
 
     private final java.util.concurrent.CopyOnWriteArrayList<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> emitters = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    private final ShippingFeeService shippingFeeService;
 
     @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamPOS() {
@@ -218,4 +224,20 @@ public class ADBanHangController {
         return Helper.createResponseEntity(productDetailService.getImeiAvailableForAssign(idProductDetail));
     }
 
+    @PostMapping("/shipping-fee")
+    public ResponseEntity<?> calculateShippingFee(@RequestBody ShippingFeeRequest req) {
+        log.info("Shipping fee request: province='{}', ward='{}'",
+                req.getProvinceName(), req.getWardName());
+        try {
+            ShippingFeeResponse fee = shippingFeeService.calculateFee(req);
+            return ResponseEntity.ok(fee);
+        } catch (Exception e) {
+            log.error("Shipping fee error: {}", e.getMessage());
+            return ResponseEntity.ok(ShippingFeeResponse.builder()
+                    .fee(0)
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
 }

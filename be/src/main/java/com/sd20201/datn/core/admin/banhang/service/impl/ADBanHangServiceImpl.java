@@ -338,6 +338,19 @@ public class ADBanHangServiceImpl implements ADBanHangService {
                 invoice.setAddressReceiver(request.getDiaChi());
                 System.out.println("Đã cập nhật địa chỉ: " + request.getDiaChi());
             }
+            // 🟢 THÊM XỬ LÝ LƯU EMAIL CHO ĐƠN GIAO HÀNG
+            if (request.getEmail() != null && !request.getEmail().trim().isEmpty()) {
+                invoice.setEmail(request.getEmail());
+                System.out.println("Đã cập nhật Email giao hàng: " + request.getEmail());
+            } else {
+                // Nếu khách không nhập email ở modal, lấy email gốc của khách hàng (nếu có)
+                Customer kh = invoice.getCustomer();
+                if (kh != null && kh.getEmail() != null && !kh.getEmail().trim().isEmpty()) {
+                    invoice.setEmail(kh.getEmail());
+                } else {
+                    invoice.setEmail(null); // Để null thay vì "" để data được sạch
+                }
+            }
         } else {
             // Hóa đơn tại quầy: lấy từ request nếu có, fallback sang customer
             Customer kh = invoice.getCustomer();
@@ -354,9 +367,15 @@ public class ADBanHangServiceImpl implements ADBanHangService {
                     ? request.getDiaChi()
                     : "";
 
+            // 🟢 THÊM XỬ LÝ LƯU EMAIL CHO ĐƠN TẠI QUẦY
+            String email = (request.getEmail() != null && !request.getEmail().trim().isEmpty())
+                    ? request.getEmail()
+                    : (kh != null ? kh.getEmail() : null);
+
             invoice.setNameReceiver(ten);
             invoice.setPhoneReceiver(sdt);
             invoice.setAddressReceiver(diaChi);
+            invoice.setEmail(email); // Gán email vào entity Invoice
         }
 
         // Cập nhật thông tin tài chính

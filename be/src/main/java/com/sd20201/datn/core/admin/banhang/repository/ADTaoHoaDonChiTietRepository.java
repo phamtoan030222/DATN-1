@@ -123,7 +123,7 @@ ORDER BY hdct.created_date DESC
             @Param("currentTime") Long currentTime
     );
     @Query( value = """
-        SELECT kh.id AS id, kh.name AS ten, kh.phone AS sdt
+        SELECT kh.id AS id, kh.name AS ten, kh.phone AS sdt , kh.email AS email
         FROM Customer kh
         WHERE kh.status = 0
         AND ((:#{#req.q} IS NULL OR :#{#req.q} = '' OR kh.name LIKE CONCAT('%', :#{#req.q}, '%') OR kh.phone LIKE CONCAT('%', :#{#req.q}, '%'))
@@ -147,6 +147,7 @@ ORDER BY hdct.created_date DESC
         kh.id AS id,
         kh.name AS ten,
         kh.phone AS sdt,
+        kh.email AS email,
         adr.addressDetail AS diaChi,
         adr.provinceCity AS tinh,
         adr.district AS huyen,
