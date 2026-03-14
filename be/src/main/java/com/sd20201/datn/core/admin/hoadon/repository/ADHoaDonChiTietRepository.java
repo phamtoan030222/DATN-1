@@ -44,6 +44,7 @@ SELECT
     hd.trang_thai_hoa_don AS trangThaiHoaDon,
     hd.trang_thai_thanh_toan AS trangThaiThanhToan,
     hd.created_date AS ngayTao,
+    hd.last_modified_date AS ngayCapNhat,
     COALESCE(hd.shipping_fee, 0) AS phiVanChuyen,
     CASE hd.phuong_thuc_thanh_toan
                                                            WHEN 0 THEN 'TIEN_MAT'

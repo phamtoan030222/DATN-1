@@ -125,28 +125,33 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
                 case CHO_XAC_NHAN:
                 case DA_XAC_NHAN:
                     khoaIMEIKhiChoXacNhan(hoaDonDaCapNhat);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case CHO_GIAO:
                     danhDauIMEIDaBan(hoaDonDaCapNhat);
                     luuLichSuThanhToan(hoaDonDaCapNhat, nhanVien);
                     danhDauVoucherDaSuDung(hoaDonDaCapNhat);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case DANG_GIAO:
                     // Không phát sinh nghiệp vụ mới
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case HOAN_THANH:
                     // Kết thúc vòng đời hóa đơn
                     hoaDon.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
                     danhDauIMEIDaBan(hoaDonDaCapNhat);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case DA_HUY:
                     traIMEIVeKho(hoaDonDaCapNhat);
                     hoanTraVoucher(hoaDonDaCapNhat);
                     hoanTienNeuCan(hoaDonDaCapNhat, nhanVien);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 default:

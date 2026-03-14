@@ -44,6 +44,7 @@ public interface ADHoaDonChiTietResponseDetail {
     String getTrangThaiHoaDon();
     LocalDateTime getThoiGian();
     Long getNgayTao();
+    Long getNgayCapNhat();
     BigDecimal getPhiVanChuyen();
 
     // Thông tin voucher

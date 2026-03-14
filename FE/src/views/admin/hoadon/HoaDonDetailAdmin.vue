@@ -1359,7 +1359,7 @@ fun<template>
           <h3 class="text-lg font-semibold text-gray-900">
             Tiến trình đơn hàng
           </h3>
-          <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.thoiGianCapNhatCuoi || hoaDonData?.ngayTao) }}</span>
+          <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.ngayCapNhat || hoaDonData?.ngayTao) }}</span>
         </div>
         <NButton
           v-if="showCancelButton"
@@ -1659,7 +1659,7 @@ fun<template>
                   <TimeOutline />
                 </NIcon>
                 <span v-if="hoaDonData?.trangThaiThanhToan === 'DA_THANH_TOAN'">
-                  {{ formatDateTime(hoaDonData?.ngayTao) }}
+                  {{ formatDateTime(hoaDonData?.ngayCapNhat) }}
                 </span>
                 <span v-else class="text-gray-400 italic">
                   Chưa thanh toán
