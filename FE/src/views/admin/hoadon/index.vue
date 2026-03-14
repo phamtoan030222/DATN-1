@@ -411,8 +411,8 @@ onMounted(() => {
     <NCard class="shadow-sm border-none">
       <NSpace vertical :size="8">
         <NSpace align="center">
-          <NIcon size="24" class="text-black-600">
-            <Icon icon="carbon:document-list" />
+          <NIcon size="24" class="text-green-600">
+            <Icon icon="carbon:document" />
           </NIcon>
           <span style="font-weight: 600; font-size: 24px; color: #1f2937">Quản lý Hóa Đơn</span>
         </NSpace>

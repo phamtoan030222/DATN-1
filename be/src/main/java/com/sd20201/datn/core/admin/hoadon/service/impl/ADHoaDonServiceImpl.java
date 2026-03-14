@@ -57,7 +57,8 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
                     .orElseThrow(() ->
                             new RuntimeException("Không tìm thấy hóa đơn: " + request.getMaHoaDon())
                     );
-
+            Staff nv = staffRepository.findById(request.getIdNhanVien()).orElseThrow();
+            hoaDon.setStaff(nv);
             EntityTrangThaiHoaDon trangThaiCu = hoaDon.getEntityTrangThaiHoaDon();
             EntityTrangThaiHoaDon trangThaiMoi = request.getStatusTrangThaiHoaDon();
 
