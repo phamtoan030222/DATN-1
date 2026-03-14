@@ -178,6 +178,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                     switch (request.getPhuongThucThanhToan()) {
                         case "0" -> TypePayment.TIEN_MAT;
                         case "1" -> TypePayment.CHUYEN_KHOAN;
+                        case "2" -> TypePayment.CHUYEN_KHOAN;
+                        case "3" -> TypePayment.CHUYEN_KHOAN;
                         default -> TypePayment.TIEN_MAT;
                     }
             );
