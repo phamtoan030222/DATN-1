@@ -773,20 +773,20 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
       align: 'center',
       render: row => h('span', { class: 'font-bold text-gray-800 text-base' }, row.soLuong),
     },
-    {
-      title: 'Đơn giá',
-      key: 'price',
-      width: 180,
-      align: 'right',
-      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
-    },
-    {
-      title: 'Thành tiền',
-      key: 'total',
-      width: 180,
-      align: 'right',
-      render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)),
-    },
+    // {
+    //   title: 'Đơn giá',
+    //   key: 'price',
+    //   width: 180,
+    //   align: 'right',
+    //   render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
+    // },
+    // {
+    //   title: 'Thành tiền',
+    //   key: 'total',
+    //   width: 180,
+    //   align: 'right',
+    //   render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)),
+    // },
     {
       title: 'Thao tác',
       key: 'action',
@@ -1974,7 +1974,7 @@ onMounted(async () => {
                 Tổng {{ imeiProductsCount }} SERIAL đã gán
               </NTag>
             </div>
-            <div class="max-w-md ml-auto space-y-3">
+            <!-- <div class="max-w-md ml-auto space-y-3">
               <div class="flex justify-between items-center">
                 <span class="text-gray-600">Tạm tính:</span>
                 <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
@@ -1991,7 +1991,7 @@ onMounted(async () => {
                 <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
                 <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
               </div>
-            </div>
+            </div> -->
           </div>
         </div>
       </div>
