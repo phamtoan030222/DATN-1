@@ -233,8 +233,15 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                                              <td><<CUSTOMER_NAME>></td>
                                          </tr>
                                          <tr>
-                                             <td width="200"><b>Khách hàng:</b></td>
-                                             <td><<MA_HOA_DON>></td>
+                                             <td width="200"><b>Mã hóa đơn:</b></td>
+                                             <td>
+                                             <a
+                                                href="http://localhost:6788/tra-cuu?q=<<ID_INVOICE>>"
+                                                style="font-style: italic; text-decoration: none; color: #049d14;"
+                                             >
+                                                <<MA_HOA_DON>> (Bấm để theo dõi đơn hàng)
+                                             </a>
+                                             </td>
                                          </tr>
                                          <tr>
                                              <td><b>Ngày lập:</b></td>
@@ -392,7 +399,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 .replace("<<TONG_TIEN>>", formatterMoney.format(invoice.getTotalAmount()))
                 .replace("<<VOUCHER_VALUE>>", giaTriVoucher)
                 .replace("<<TONG_TIEN_SAU_GIAM>>", formatterMoney.format(invoice.getTotalAmountAfterDecrease()))
-                .replace("<<DANH_SACH_SAN_PHAM>>", htmlProductDetailReplace.stream().reduce("", (a, b) -> a + b));
+                .replace("<<DANH_SACH_SAN_PHAM>>", htmlProductDetailReplace.stream().reduce("", (a, b) -> a + b))
+                .replace("<<ID_INVOICE>>", invoice.getId());
 
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

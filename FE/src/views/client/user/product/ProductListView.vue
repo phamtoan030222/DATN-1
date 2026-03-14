@@ -535,7 +535,6 @@ function handleClickProduct(item: ADProductDetailResponse) {
 
 <style scoped>
 .product-page-wrapper {
-  padding: 5px;
   background-color: #ffffff;
   min-height: 100vh;
   max-width: 1400px;
