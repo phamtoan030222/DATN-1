@@ -142,6 +142,16 @@ const state = reactive({
   currentPaymentMethod: '',
   paginationParams: { page: 1, size: 10 },
   totalItemsKH: 0,
+  search: {
+    q: undefined as string | undefined | null,
+    cpu: undefined as string | undefined | null,
+    gpu: undefined as string | undefined | null,
+    hardDrive: undefined as string | undefined | null,
+    ram: undefined as string | undefined | null,
+    color: undefined as string | undefined | null,
+    material: undefined as string | undefined | null,
+    price: [10000, 50000000],
+  },
 })
 
 // ==================== PRODUCT STATE ====================
@@ -1143,7 +1153,10 @@ function calculateMinMaxPrice(products: ADProductDetailResponse[]) {
     stateMinMaxPrice.priceMin = 0; stateMinMaxPrice.priceMax = 1000000; priceRange.value = [0, 1000000]
     return
   }
-  const prices = products.map(p => p.price).filter(price => price > 0)
+  // Dùng effectivePrice (giá sau giảm) thay vì p.price (giá gốc)
+  const prices = products
+    .map(p => p.percentage > 0 ? p.price * (1 - p.percentage / 100) : p.price)
+    .filter(price => price > 0)
   if (prices.length === 0) {
     stateMinMaxPrice.priceMin = 0; stateMinMaxPrice.priceMax = 1000000; priceRange.value = [0, 1000000]
     return
@@ -2172,13 +2185,9 @@ function formatCurrencyInput(value: number) {
                 <NInput v-model:value="localSearchQuery" placeholder="Tìm kiếm sản phẩm..." clearable />
               </NGi>
               <NGi :span="12">
-                <NSlider
-                  v-model:value="priceRange"
-                  range
-                  :step="100000"
-                  :min="priceRange[0]"
-                  :max="priceRange[1]"
-                  :format-tooltip="formatCurrency"
+                <n-slider
+                  v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range :step="1000"
+                  :min="stateMinMaxPrice.priceMin ?? 0" :max="stateMinMaxPrice.priceMax ?? 50000000"
                 />
               </NGi>
             </NGrid>
