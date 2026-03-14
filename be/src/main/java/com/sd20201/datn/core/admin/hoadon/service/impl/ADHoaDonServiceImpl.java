@@ -11,10 +11,7 @@ import com.sd20201.datn.core.admin.hoadon.repository.ADInvoiceRepository;
 import com.sd20201.datn.core.admin.hoadon.service.ADHoaDonService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.*;
-import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
-import com.sd20201.datn.infrastructure.constant.ImeiStatus;
-import com.sd20201.datn.infrastructure.constant.TargetType;
-import com.sd20201.datn.infrastructure.constant.TypeInvoice;
+import com.sd20201.datn.infrastructure.constant.*;
 import com.sd20201.datn.repository.*;
 import com.sd20201.datn.utils.EmailService;
 import com.sd20201.datn.utils.Helper;
@@ -142,6 +139,7 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
 
                 case HOAN_THANH:
                     // Kết thúc vòng đời hóa đơn
+                    hoaDon.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
                     danhDauIMEIDaBan(hoaDonDaCapNhat);
                     break;
 

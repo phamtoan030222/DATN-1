@@ -361,6 +361,12 @@ const isCounterInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '0')
 const isDeliveryInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '2')
 const isCounterOrDelivery = computed(() => isCounterInvoice.value || isDeliveryInvoice.value)
 
+// Đơn online + thanh toán tiền mặt → cần tự động chuyển sang "Đã thanh toán" khi hoàn thành
+const isCashOnlineOrder = computed(() => {
+  const pt = hoaDonData.value?.phuongThucThanhToan
+  return isOnlineInvoice.value && (pt === 'TIEN_MAT' || pt === 'CASH')
+})
+
 const currentStatus = computed(() => Number(hoaDonData.value?.trangThaiHoaDon || '0'))
 const isCompleted = computed(() => currentStatus.value === 4)
 const isCancelled = computed(() => currentStatus.value === 5)
@@ -1058,14 +1064,25 @@ async function confirmStatusUpdate(): Promise<void> {
 
   isUpdating.value = true
   try {
+    // ✅ Đơn online + tiền mặt + chuyển sang Hoàn thành → tự động cập nhật trạng thái thanh toán
+    const shouldAutoMarkPaid = isCashOnlineOrder.value
+      && selectedStatus.value === 4
+      && hoaDonData.value.trangThaiThanhToan !== 'DA_THANH_TOAN'
+
     const response = await changeOrderStatus({
       maHoaDon: hoaDonData.value.maHoaDon,
       statusTrangThaiHoaDon: selectedStatus.value,
       note: statusNote.value || '',
       idNhanVien: idNV.userId,
+      ...(shouldAutoMarkPaid && { trangThaiThanhToan: 'DA_THANH_TOAN' }),
     })
     if (response.success) {
-      message.success(selectedStatus.value === 5 ? 'Đã hủy đơn hàng thành công' : 'Cập nhật trạng thái thành công')
+      if (shouldAutoMarkPaid) {
+        message.success('Hoàn thành đơn hàng và cập nhật trạng thái thanh toán thành Đã thanh toán')
+      }
+      else {
+        message.success(selectedStatus.value === 5 ? 'Đã hủy đơn hàng thành công' : 'Cập nhật trạng thái thành công')
+      }
       await fetchInvoiceDetails()
       selectedStatus.value = null
       statusNote.value = ''
