@@ -1308,6 +1308,12 @@ async function xacNhan(check: number) {
     }
   }
 
+  // 1. Kiểm tra phương thức thanh toán
+  if (!state.currentPaymentMethod) {
+    toast.error('Vui lòng chọn phương thức thanh toán!')
+    return
+  }
+
   // 3. 🆕 KIỂM TRA VOUCHER TRƯỚC KHI THANH TOÁN
   toast.info('Đang kiểm tra voucher...')
   const voucherCheck = await validateVoucherBeforeCheckout()
