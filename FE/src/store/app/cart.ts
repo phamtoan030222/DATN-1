@@ -5,6 +5,7 @@ import { ref } from 'vue'
 import { useAuthStore } from '../auth'
 import { localStorageAction } from '@/utils/storage.helper'
 import { GetGioHang, getProductDetailCart, themSanPham } from '@/service/api/client/banhang.api'
+import { createDiscreteApi } from 'naive-ui'
 
 export interface CardItem {
   id: string
@@ -28,18 +29,19 @@ export const useCartStore = defineStore('cart', () => {
 
   const cartItemBuyNow = ref<CardItem | null>(null)
 
-  const { userInfoDatn } = useAuthStore()
+  const authStore = useAuthStore()
 
   const fetchCartId = async () => {
     try {
-      if (userInfoDatn?.rolesCodes?.includes('KHACH_HANG')) {
-        const res = await getCartByCustomer(userInfoDatn.userId as string)
+      if (authStore.userInfoDatn?.rolesCodes?.includes('KHACH_HANG')) {
+        const res = await getCartByCustomer(authStore.userInfoDatn.userId as string)
         cartId.value = res.data || null
         if (cartId.value) {
           localStorageAction.set(CUSTOMER_CART_ID, cartId.value)
         }
       }
       else {
+        cartId.value = null
         localStorageAction.remove(CUSTOMER_CART_ID)
       }
     }
@@ -73,24 +75,33 @@ export const useCartStore = defineStore('cart', () => {
 
   const fetchCartItem = async () => {
     try {
+      await fetchCartId()
+
       if (cartId.value) {
         // Trường hợp ĐÃ ĐĂNG NHẬP (Lấy từ DB)
         const res = await GetGioHang(cartId.value as string)
-        const rawData = res.data || []
+
+        const rawData = (res.data || []).map((item: any) => {
+          return {
+            ...item,
+            productDetailId: item.productDetailId || item.productDetail?.id || item.id,
+          }
+        })
         cartItems.value = mergeDuplicateCartItems(rawData)
       }
       else {
         // Trường hợp CHƯA ĐĂNG NHẬP (Lấy từ LocalStorage)
         const cartItemStorage = localStorageAction.get(CUSTOMER_CART_ITEM)
-        if (!cartItemStorage)
+        if (!cartItemStorage || Object.keys(cartItemStorage).length === 0) {
+          cartItems.value = []
           return
+        }
 
         const res = await getProductDetailCart(Object.keys(cartItemStorage))
         const rawData = (res.data || []).map((item: any) => {
           return { ...item, quantity: cartItemStorage[item.id] || 0, productDetailId: item.id }
         })
 
-        // Lọc trùng lặp do Backend trả ra 2 đợt khuyến mãi
         cartItems.value = mergeDuplicateCartItems(rawData)
       }
     }
@@ -119,7 +130,7 @@ export const useCartStore = defineStore('cart', () => {
   }) => {
     try {
       const { buyNow } = option || {}
-      const MAX_TOTAL_AMOUNT = 500000000 // Chốt chặn 500 triệu
+      const MAX_TOTAL_AMOUNT = 200000000 // Chốt chặn 200 triệu
 
       if (buyNow) {
         const productResponse = await getProductDetailCart([idProductDetail])
@@ -133,7 +144,7 @@ export const useCartStore = defineStore('cart', () => {
         const price = product.percentage ? product.price * (1 - product.percentage / 100) : product.price
 
         if (price * quantity > MAX_TOTAL_AMOUNT) {
-          return Promise.reject(new Error('Giá trị đơn mua ngay không được vượt quá 500.000.000đ'))
+          return Promise.reject(new Error('Giá trị đơn mua ngay không được vượt quá 200.000.000đ'))
         }
 
         cartItemBuyNow.value = { ...product, productDetailId: idProductDetail, quantity }
@@ -176,7 +187,7 @@ export const useCartStore = defineStore('cart', () => {
       }
 
       if (expectedTotal > MAX_TOTAL_AMOUNT) {
-        return Promise.reject(new Error('Tổng giá trị giỏ hàng không được vượt quá 500.000.000đ'))
+        return Promise.reject(new Error('Tổng giá trị giỏ hàng không được vượt quá 200.000.000đ'))
       }
 
       if (existingItem) {
@@ -219,7 +230,7 @@ export const useCartStore = defineStore('cart', () => {
    */
   const updateCartQuantity = async (idProductDetail: string, newQuantity: number) => {
     try {
-      const MAX_TOTAL_AMOUNT = 500000000
+      const MAX_TOTAL_AMOUNT = 200000000
       const existingItem = cartItems.value.find(
         cartItem => cartItem.productDetailId === idProductDetail,
       )
@@ -239,7 +250,7 @@ export const useCartStore = defineStore('cart', () => {
       const expectedTotal = currentTotal - (itemPrice * oldQuantity) + (itemPrice * newQuantity)
 
       if (expectedTotal > MAX_TOTAL_AMOUNT) {
-        return Promise.reject(new Error('Tổng giá trị giỏ hàng không được vượt quá 500.000.000đ'))
+        return Promise.reject(new Error('Tổng giá trị giỏ hàng không được vượt quá 200.000.000đ'))
       }
 
       // 1. Cập nhật UI ngay lập tức để cảm giác mượt mà
@@ -302,6 +313,85 @@ export const useCartStore = defineStore('cart', () => {
     }
   }
 
+  const syncLocalCartToDb = async () => {
+    try {
+      const localCart = localStorageAction.get(CUSTOMER_CART_ITEM)
+
+      if (!localCart || Object.keys(localCart).length === 0) {
+        await fetchCartItem()
+        return
+      }
+
+      await fetchCartId()
+      if (!cartId.value)
+        return
+
+      await fetchCartItem()
+
+      const localProductIds = Object.keys(localCart)
+      const localProductsRes = await getProductDetailCart(localProductIds)
+      const localProducts = mergeDuplicateCartItems(localProductsRes.data || [])
+
+      const MAX_TOTAL_AMOUNT = 200000000
+      const MAX_PER_ITEM = 5
+
+      for (const localProduct of localProducts) {
+        const pdId = localProduct.productDetailId || localProduct.id
+        const localQty = localCart[pdId] // Lấy số lượng mới từ khách vãng lai
+        const price = localProduct.percentage ? localProduct.price * (1 - localProduct.percentage / 100) : localProduct.price
+
+        const existingItem = cartItems.value.find(item => item.productDetailId === pdId)
+        const dbQty = existingItem ? existingItem.quantity : 0 // Số lượng cũ trong DB
+
+        // SỰ THAY ĐỔI 1: Lấy luôn số lượng mới (localQty) làm chuẩn, KHÔNG CỘNG DỒN nữa
+        let targetQty = localQty
+        if (targetQty > MAX_PER_ITEM) {
+          targetQty = MAX_PER_ITEM
+        }
+
+        // Tính tổng tiền giỏ hàng hiện tại trên UI
+        const currentTotal = cartItems.value.reduce((total, item) => {
+          const itemPrice = item.percentage ? item.price * (1 - item.percentage / 100) : item.price
+          return total + (itemPrice * item.quantity)
+        }, 0)
+
+        // SỰ THAY ĐỔI 2: Tính tiền theo kiểu "Trừ đi tiền của số lượng cũ, cộng vào tiền của số lượng mới"
+        const expectedTotal = currentTotal - (dbQty * price) + (targetQty * price)
+
+        // Nếu tổng tiền không lố 200 triệu thì mới cho ghi đè
+        if (expectedTotal <= MAX_TOTAL_AMOUNT) {
+          await themSanPham({
+            cartId: cartId.value as string,
+            productDetailId: pdId,
+            quantity: targetQty, // Gửi thẳng con số mới xuống DB để Backend ghi đè
+          })
+
+          // Cập nhật lại UI ngay lập tức để vòng lặp sau tính toán cho chuẩn
+          if (existingItem) {
+            existingItem.quantity = targetQty
+          }
+          else {
+            cartItems.value.push({ ...localProduct, productDetailId: pdId, quantity: targetQty })
+          }
+        }
+      }
+
+      // Xóa giỏ rác Local đi
+      localStorageAction.remove(CUSTOMER_CART_ITEM)
+
+      // Tải lại giao diện lần cuối
+      await fetchCartItem()
+    }
+    catch (error) {
+      console.error('Lỗi đồng bộ giỏ hàng:', error)
+    }
+  }
+  const clearCartState = () => {
+    cartId.value = null
+    cartItems.value = []
+    cartItemBuyNow.value = null
+  }
+
   return {
     // State
     cartId,
@@ -311,7 +401,9 @@ export const useCartStore = defineStore('cart', () => {
     fetchCartId,
     fetchCartItem,
     addToCart,
-    updateCartQuantity, // Đã export hàm mới
+    updateCartQuantity,
     removeCart,
+    syncLocalCartToDb,
+    clearCartState,
   }
 })

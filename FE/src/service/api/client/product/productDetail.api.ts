@@ -99,7 +99,7 @@ export interface DiscountProductResponse {
   readonly startDate: number
   readonly endDate: number
   readonly percentage: number
-  readonly productName: string
+  readonly name: string
   readonly productDetailId: string
   readonly cpu?: string
   readonly gpu?: string
