@@ -72,6 +72,7 @@ import {
   ReceiptOutline,
   RefreshOutline,
   ScanOutline,
+  StorefrontOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
 
@@ -165,12 +166,14 @@ const STATUS_MAP: Record<number, { label: string, type: string, icon: any }> = {
   3: { label: 'Đang giao hàng', type: 'info', icon: CheckmarkCircleOutline },
   4: { label: 'Hoàn thành', type: 'success', icon: CheckmarkDoneOutline },
   5: { label: 'Đã hủy', type: 'error', icon: CloseCircleOutline },
+  6: { label: 'Sẵn sàng nhận hàng', type: 'info', icon: StorefrontOutline },
 }
 
 const INVOICE_TYPE_MAP: Record<string, { text: string, type: string }> = {
   0: { text: 'Tại quầy', type: 'success' },
   1: { text: 'Online', type: 'primary' },
   2: { text: 'Giao hàng', type: 'info' },
+  3: { text: 'Nhận tại cửa hàng', type: 'warning' },
 }
 
 const PAYMENT_METHOD_MAP: Record<string, string> = {
@@ -204,6 +207,8 @@ const TIMELINE_STEPS = [
   { key: '3', title: 'Đang giao hàng', icon: CheckmarkCircleOutline, color: 'info' },
   { key: '4', title: 'Hoàn thành', icon: CheckmarkDoneOutline, color: 'green' },
   { key: '5', title: 'Đã hủy', icon: CloseCircleOutline, color: 'red' },
+  // THÊM MỚI
+  { key: '6', title: 'Sẵn sàng nhận hàng', icon: StorefrontOutline, color: 'teal' },
 ]
 
 const router = useRouter()
@@ -359,7 +364,7 @@ const hoaDonData = computed(() => invoiceItems.value?.[0] || null)
 const isOnlineInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '1')
 const isCounterInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '0')
 const isDeliveryInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '2')
-const isCounterOrDelivery = computed(() => isCounterInvoice.value || isDeliveryInvoice.value)
+const isOnlinePickupInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '3') // THÊM MỚI
 
 // Đơn online + thanh toán tiền mặt → cần tự động chuyển sang "Đã thanh toán" khi hoàn thành
 const isCashOnlineOrder = computed(() => {
@@ -436,6 +441,8 @@ const filteredSteps = computed(() => {
     return TIMELINE_STEPS.filter(step => ['0', '4'].includes(step.key))
   if (isDeliveryInvoice.value)
     return TIMELINE_STEPS.filter(step => ['0', '1', '2', '3', '4'].includes(step.key))
+  if (isOnlinePickupInvoice.value)
+    return TIMELINE_STEPS.filter(step => ['0', '1', '6', '4'].includes(step.key))
   return TIMELINE_STEPS.filter(step => step.key !== '5')
 })
 
@@ -455,6 +462,16 @@ const nextStatusToUpdate = computed<number | null>(() => {
     if (currentStatus.value === 2)
       return 3
     if (currentStatus.value === 3)
+      return 4
+    return null
+  }
+  // THÊM MỚI
+  else if (isOnlinePickupInvoice.value) {
+    if (currentStatus.value === 0)
+      return 1
+    if (currentStatus.value === 1)
+      return 6
+    if (currentStatus.value === 6)
       return 4
     return null
   }
