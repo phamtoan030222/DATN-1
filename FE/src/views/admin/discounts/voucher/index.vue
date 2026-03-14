@@ -406,7 +406,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
               h(NSwitch, {
                 value: isChecked,
                 size: 'small',
-                loading: isSwitchingThisRow, 
+                loading: isSwitchingThisRow,
                 style: { pointerEvents: 'none' },
               }),
             ]),
@@ -453,76 +453,69 @@ onMounted(() => fetchData())
         </div>
       </template>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <div class="lg:col-span-3">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Tìm kiếm chung
-          </div>
-          <NInput v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
-            <template #prefix>
-              <NIcon><Icon icon="carbon:search" class="text-gray-600" /></NIcon>
-            </template>
-          </NInput>
-        </div>
-        <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Kiểu voucher
-          </div>
-          <NSelect v-model:value="filters.typeVoucher" :options="typeVoucherOptions" placeholder="Tất cả" />
-        </div>
-        <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Đối tượng
-          </div>
-          <NSelect v-model:value="filters.targetType" :options="targetTypeOptions" placeholder="Tất cả" />
-        </div>
-        <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Trạng thái
-          </div>
-          <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Tất cả" />
-        </div>
-      </div>
-    </NCard>
-
-    <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-2xl shadow-sm border-gray-100">
-      <template #header-extra>
-        <div class="mr-5">
-          <NSpace>
-            <NButton type="primary" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="openAddPage">
-              <template #icon>
-                <NIcon size="20">
-                  <Icon icon="carbon:add" />
-                </NIcon>
+      <NCard>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+          <NFormItem label="Tìm kiếm chung" class="lg:col-span-3">
+            <NInput v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
+              <template #prefix>
+                <NIcon><Icon icon="carbon:search" class="text-gray-600" /></NIcon>
               </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tạo mới</span>
-            </NButton>
-            <NButton type="success" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" :loading="exportLoading" :disabled="loading" @click="handleExportExcel">
-              <template #icon>
-                <NIcon size="20">
-                  <Icon icon="file-icons:microsoft-excel" />
-                </NIcon>
-              </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất Excel</span>
-            </NButton>
-            <NButton type="info" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="fetchData">
-              <template #icon>
-                <NIcon size="20">
-                  <Icon icon="carbon:rotate" />
-                </NIcon>
-              </template>
-              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tải lại</span>
-            </NButton>
-          </NSpace>
+            </NInput>
+          </NFormItem>
+
+          <NFormItem label="Kiểu voucher" class="lg:col-span-1">
+            <NSelect v-model:value="filters.typeVoucher" :options="typeVoucherOptions" placeholder="Tất cả" />
+          </NFormItem>
+
+          <NFormItem label="Đối tượng" class="lg:col-span-1">
+            <NSelect v-model:value="filters.targetType" :options="targetTypeOptions" placeholder="Tất cả" />
+          </NFormItem>
+
+          <NFormItem label="Trạng thái" class="lg:col-span-1">
+            <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Tất cả" />
+          </NFormItem>
         </div>
-      </template>
+      </NCard>
 
-      <NDataTable v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading" :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" class="rounded-lg overflow-hidden" />
+      <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-2xl shadow-sm border-gray-100">
+        <template #header-extra>
+          <div class="mr-5">
+            <NSpace>
+              <NButton type="primary" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="openAddPage">
+                <template #icon>
+                  <NIcon size="20">
+                    <Icon icon="carbon:add" />
+                  </NIcon>
+                </template>
+                <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tạo mới</span>
+              </NButton>
+              <NButton type="success" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" :loading="exportLoading" :disabled="loading" @click="handleExportExcel">
+                <template #icon>
+                  <NIcon size="20">
+                    <Icon icon="file-icons:microsoft-excel" />
+                  </NIcon>
+                </template>
+                <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Xuất Excel</span>
+              </NButton>
+              <NButton type="info" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="fetchData">
+                <template #icon>
+                  <NIcon size="20">
+                    <Icon icon="carbon:rotate" />
+                  </NIcon>
+                </template>
+                <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">Tải lại</span>
+              </NButton>
+            </NSpace>
+          </div>
+        </template>
 
-      <div class="flex justify-end mt-4">
-        <NPagination v-model:page="pagination.page" v-model:page-size="pagination.pageSize" :item-count="pagination.itemCount" :page-sizes="[5, 10, 20, 50]" :show-size-picker="true" />
-      </div>
-    </NCard>
+        <NDataTable v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading" :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" class="rounded-lg overflow-hidden" />
+
+        <div class="flex justify-end mt-4">
+          <NPagination v-model:page="pagination.page" v-model:page-size="pagination.pageSize" :item-count="pagination.itemCount" :page-sizes="[5, 10, 20, 50]" :show-size-picker="true" />
+        </div>
+      </NCard>
+    </ncard>
   </div>
 </template>
 

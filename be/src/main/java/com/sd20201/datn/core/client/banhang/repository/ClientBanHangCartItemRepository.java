@@ -6,6 +6,7 @@ import com.sd20201.datn.entity.CartItem;
 import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.repository.CartItemRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -17,7 +18,7 @@ public interface ClientBanHangCartItemRepository extends CartItemRepository {
         ci.id as id
         , ci.quantity as quantity
         , pd.price as price
-        , d.percentage as percentage
+        , MAX(d.percentage) as percentage
         , pd.name as name
         , pd.urlImage as imageUrl
         , pd.cpu.name as cpu
@@ -28,14 +29,30 @@ public interface ClientBanHangCartItemRepository extends CartItemRepository {
         , pd.material.name as material
         , pd.id as productDetailId
     FROM CartItem ci
-    LEFT JOIN ProductDetail pd on ci.productDetail.id = pd.id
-    LEFT join ProductDetailDiscount pdd on pd.id = pdd.productDetail.id
-    LEFT JOIN Discount d on pdd.discount.id = d.id
+    LEFT JOIN ci.productDetail pd
+    LEFT JOIN ProductDetailDiscount pdd ON pdd.productDetail.id = pd.id AND pdd.id IN :idsProductDetailDiscount
+    LEFT JOIN pdd.discount d
     WHERE
         ci.cart.id = :idCart
-        AND (pdd.id IN :idsProductDetailDiscount OR pdd.id IS NULL)
+    GROUP BY
+        ci.id
+        , ci.quantity
+        , pd.price
+        , pd.name
+        , pd.urlImage
+        , pd.cpu.name
+        , pd.ram.name
+        , pd.hardDrive.name
+        , pd.gpu.name
+        , pd.color.name
+        , pd.material.name
+        , pd.id
+    ORDER BY ci.lastModifiedDate DESC
     """)
-    List<ClientCartItemResponse> getCartItemsContainDiscountById(String idCart, List<String> idsProductDetailDiscount);
+    List<ClientCartItemResponse> getCartItemsContainDiscountById(
+            @Param("idCart") String idCart,
+            @Param("idsProductDetailDiscount") List<String> idsProductDetailDiscount
+    );
 
     @Query("""
     SELECT
@@ -52,12 +69,12 @@ public interface ClientBanHangCartItemRepository extends CartItemRepository {
         , pd.material.name as material
         , pd.id as productDetailId
     FROM CartItem ci
-    LEFT JOIN ProductDetail pd on ci.productDetail.id = pd.id
+    LEFT JOIN ci.productDetail pd
     WHERE
         ci.cart.id = :idCart
+    ORDER BY ci.lastModifiedDate DESC
     """)
-    List<ClientCartItemResponse> getCartItemsById(String idCart);
+    List<ClientCartItemResponse> getCartItemsById(@Param("idCart") String idCart);
 
     Optional<CartItem> findByCartAndProductDetail(Cart cart, ProductDetail productDetail);
-
 }

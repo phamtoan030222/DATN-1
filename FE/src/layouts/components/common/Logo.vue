@@ -19,8 +19,8 @@ const hidenLogoText = computed(() => {
 
 <template>
   <div
-    class="h-60px text-xl flex-center cursor-pointer gap-2 p-x-2"
-    @click="router.push('/monitor/stats')"
+    class="h-60px text-xl flex-center cursor-pointer gap-2 p-x-2 brand-text"
+    @click="router.push('/dashboard/sales')"
   >
     <svg-icons-logo class="text-1.5em" />
     <span
@@ -30,4 +30,12 @@ const hidenLogoText = computed(() => {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.brand-text {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #049d14;
+  margin-left: 10px;
+  letter-spacing: -0.5px;
+}
+</style>

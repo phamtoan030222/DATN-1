@@ -144,7 +144,6 @@ const columns: DataTableColumns<ADProductDetailResponse> = [
     key: 'configuration',
     width: 300,
     align: 'left',
-
     render: (rowData: ADProductDetailResponse) => h('div', { class: 'flex flex-col gap-y-2' }, [
       // h('div', [
       h('div', { style: { display: 'flex', alignItems: 'center', margin: '4px 0' } }, [h(Icon, { icon: 'icon-park-outline:platte' }), h('span', { style: { marginLeft: '8px' }, innerText: `Màu: ${rowData.color}` })]),
@@ -383,7 +382,7 @@ async function updateSerialvariantHandler(payload: { idProductDetail: string, im
               <Icon icon="icon-park-outline:list" />
             </NIcon>
             <span style="font-weight: 600; font-size: 24px">
-              Quản lý biến thể sản phẩm {{ idProduct ? `${product?.code} - ${product?.name}` : '' }}
+              Quản lý biến thể sản phẩm <span class="text-green">{{ idProduct ? `${product?.code} - ${product?.name}` : '' }}</span>
             </span>
           </div>
           <div>

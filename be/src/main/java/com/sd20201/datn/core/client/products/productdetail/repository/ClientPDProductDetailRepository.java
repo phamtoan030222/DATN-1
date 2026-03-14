@@ -222,15 +222,15 @@ public interface ClientPDProductDetailRepository extends ProductDetailRepository
         
                 WHERE p.product.id = :#{#req.idProduct}
                   AND (:#{#req.idRam} IS NULL OR p.ram.id = :#{#req.idRam})
-                  AND (:#{#req.idCPU} IS NULL OR p.cpu.id = :#{#req.idCPU})
+                  AND (:#{#req.idCpu} IS NULL OR p.cpu.id = :#{#req.idCpu})
                   AND (:#{#req.idGpu} IS NULL OR p.gpu.id = :#{#req.idGpu})
                   AND (:#{#req.idColor} IS NULL OR p.color.id = :#{#req.idColor})
                   AND (:#{#req.idHardDrive} IS NULL OR p.hardDrive.id = :#{#req.idHardDrive})
         
                 GROUP BY
                     p.id, p.code, p.name, p.description,
-                    p.hardDrive.id, p.material.id, p.color.id, 
-                    p.gpu.id, p.cpu.id, p.product.id, p.price, 
+                    p.hardDrive.id, p.material.id, p.color.id,
+                    p.gpu.id, p.cpu.id, p.product.id, p.price,
                     p.ram.id, p.urlImage, 
                     p.product.name, p.cpu.name, p.gpu.name, p.ram.name, 
                     p.hardDrive.name, p.color.name, p.product.screen.name,
