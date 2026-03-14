@@ -1780,7 +1780,8 @@ function formatCurrencyInput(value: number) {
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
-              Quét BARCODE
+
+              Quét Barcode
             </NButton>
           </NSpace>
         </template>
