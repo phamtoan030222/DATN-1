@@ -39,5 +39,7 @@ public class ADThanhToanRequest {
     private String phuongThucThanhToan;
 
     private TypeInvoice loaiHoaDon;
+
+    private String email;
 }
 

@@ -1246,7 +1246,7 @@ fun<template>
               <div><span style="font-weight: 600;">Tên khách hàng:</span> {{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}</div>
               <div><span style="font-weight: 600;">Số điện thoại:</span> {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}</div>
               <div><span style="font-weight: 600;">Địa chỉ:</span> {{ formatAddress(hoaDonData?.diaChi) || formatAddress(hoaDonData?.diaChi2) || 'Không có' }}</div>
-              <div><span style="font-weight: 600;">Email:</span> {{ hoaDonData?.email2 || hoaDonData?.email || 'Không có' }}</div>
+              <div><span style="font-weight: 600;">Email:</span> {{ hoaDonData?.email || hoaDonData?.email2 || 'Không có' }}</div>
             </div>
           </div>
           <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 14px;">
@@ -1506,7 +1506,7 @@ fun<template>
                   <NIcon size="14"><CallOutline /></NIcon> {{ hoaDonData?.sdtKH2 || hoaDonData?.sdtKH || 'Chưa cập nhật' }}
                 </span>
                 <span class="inline-flex items-center gap-1 text-sm text-gray-600">
-                  <NIcon size="14"><MailOutline /></NIcon> {{ hoaDonData?.email2 || hoaDonData?.email || 'Chưa có email' }}
+                  <NIcon size="14"><MailOutline /></NIcon> {{ hoaDonData?.email || hoaDonData?.email2 || 'Chưa có email' }}
                 </span>
               </div>
             </div>

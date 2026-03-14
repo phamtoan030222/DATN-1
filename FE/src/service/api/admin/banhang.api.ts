@@ -523,3 +523,21 @@ export async function doiImei(data: DoiImeiRequest) {
   const res = await request.put('/api/v1/admin/hoa-don/doi-imei', data)
   return res.data
 }
+
+export interface ShippingFeeRequest {
+  provinceName: string
+  wardName: string
+  address: string
+  weight: number
+  orderValue: number
+}
+
+export async function getShippingFee(data: ShippingFeeRequest) {
+  const res = await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/shipping-fee`,
+    method: 'POST',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
