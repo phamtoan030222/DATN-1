@@ -27,13 +27,9 @@ SELECT
     hdct.quantity                            AS soLuong,
 
     -- ===== GIÁ =====
-    hdct.price                               AS giaGoc,
+    hdct.gia_goc                             AS giaGoc,
 
-    CASE
-        WHEN discount_info.max_percentage IS NOT NULL
-        THEN (hdct.price * (100 - discount_info.max_percentage)) / 100
-        ELSE hdct.price
-    END                                      AS giaBan,
+    hdct.price                                     AS giaBan,
 
     COALESCE(discount_info.max_percentage, 0) AS percentage,
 

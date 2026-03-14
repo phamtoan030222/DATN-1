@@ -1510,7 +1510,7 @@ onMounted(async () => {
         <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
           <div style="width: 280px; font-size: 13px;">
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
-              <span>Tổng tiền hàng:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(totalAmount) }}</span>
+              <span>Tổng tiền hàng:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(hoaDonData?.thanhTien) }}</span>
             </div>
             <div v-if="hoaDonData?.phiVanChuyen" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
               <span>Phí vận chuyển:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
@@ -1759,7 +1759,7 @@ onMounted(async () => {
           </div>
           <div class="space-y-2 pt-4">
             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-gray-600">Tổng tiền hàng:</span><span class="font-semibold">{{ formatCurrency(totalAmount) }}</span>
+              <span class="text-gray-600">Tổng tiền hàng:</span><span class="font-semibold">{{ formatCurrency(hoaDonData?.thanhTien) }}</span>
             </div>
             <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center py-2 border-b border-gray-100">
               <span class="text-gray-600">Phí vận chuyển:</span><span class="font-semibold">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
@@ -1925,7 +1925,7 @@ onMounted(async () => {
           <div class="max-w-md ml-auto space-y-3">
             <div class="flex justify-between items-center">
               <span class="text-gray-600">Tạm tính:</span>
-              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+              <span class="font-medium">{{ formatCurrency(hoaDonData?.thanhTien) }}</span>
             </div>
             <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center">
               <span class="text-gray-600">Phí vận chuyển:</span>

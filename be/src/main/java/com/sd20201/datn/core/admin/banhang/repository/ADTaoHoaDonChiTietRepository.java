@@ -19,53 +19,51 @@ public interface ADTaoHoaDonChiTietRepository extends InvoiceDetailRepository {
 SELECT
     ROW_NUMBER() OVER (ORDER BY hdct.created_date DESC) AS stt,
 
-    hdct.id AS idHDCT,
-    spct.code AS ma,
-    spct.id AS id,CONCAT(sp.name, ' - ', cl.name) AS ten,
+    hdct.id                                             AS idHDCT,
+    spct.code                                           AS ma,
+    spct.id                                             AS id,
+    CONCAT(sp.name, ' - ', cl.name)                    AS ten,
 
     (
-       SELECT COUNT(*)
-       FROM imei ii
-       WHERE ii.id_invoice_detail = hdct.id
-    ) AS soLuong,
+        SELECT COUNT(*)
+        FROM imei ii
+        WHERE ii.id_invoice_detail = hdct.id
+    )                                                   AS soLuong,
 
-    -- giá lúc thêm vào giỏ
-    hdct.price AS giaGoc,
+    -- giá gốc chưa giảm lúc thêm vào giỏ
+    hdct.gia_goc                                        AS giaGoc,
 
-    -- giá hiện tại của sản phẩm
-    spct.price AS giaHienTai,
+    -- giá bán thực tế lúc thêm vào giỏ (không tính lại theo discount hiện tại)
+    hdct.price                                          AS giaBan,
 
-    -- kiểm tra giá thay đổi
+    -- giá hiện tại của sản phẩm (để so sánh cảnh báo)
+    spct.price                                          AS giaHienTai,
+
+    -- cờ giá thay đổi: so với giá gốc lúc thêm
     CASE
-        WHEN hdct.price <> spct.price THEN 1
+        WHEN hdct.gia_goc <> spct.price THEN 1
         ELSE 0
-    END AS giaDaThayDoi,
+    END                                                 AS giaDaThayDoi,
 
-    -- giá bán hiển thị (luôn theo giá lúc thêm)
-    CASE
-        WHEN discount_info.max_percentage IS NOT NULL
-        THEN (hdct.price * (100 - discount_info.max_percentage)) / 100
-        ELSE hdct.price
-    END AS giaBan,
+    spct.url_image                                      AS anh,
 
-    spct.url_image AS anh,
+    c.name                                              AS cpu,
+    r.name                                              AS ram,
+    hd2.name                                            AS hardDrive,
+    g.name                                              AS gpu,
+    cl.name                                             AS color,
 
-    c.name AS cpu,
-    r.name AS ram,
-    hd2.name AS hardDrive,
-    g.name AS gpu,
-    cl.name AS color,
+    -- gom tất cả IMEI của dòng chi tiết thành 1 chuỗi
+    GROUP_CONCAT(i.code ORDER BY i.code SEPARATOR ', ') AS imel,
 
-    -- gom danh sách imei của sản phẩm
-    i.code AS imel,
-
-    discount_info.max_percentage AS percentage,
+    -- % giảm giá hiện tại (chỉ để hiển thị tham khảo)
+    discount_info.max_percentage                        AS percentage,
 
     CASE
         WHEN hd.trang_thai_hoa_don IS NOT NULL
         THEN CAST(hd.trang_thai_hoa_don AS CHAR)
         ELSE 'ACTIVE'
-    END AS status
+    END                                                 AS status
 
 FROM invoice_detail hdct
 
@@ -77,7 +75,6 @@ JOIN product_detail spct
 
 JOIN product sp
     ON spct.id_product = sp.id
-
 
 LEFT JOIN (
     SELECT
@@ -93,7 +90,6 @@ LEFT JOIN (
     GROUP BY pdd.id_product_detail
 ) discount_info
     ON spct.id = discount_info.id_product_detail
-
 
 LEFT JOIN cpu c
     ON spct.id_cpu = c.id
@@ -111,10 +107,27 @@ LEFT JOIN color cl
     ON spct.id_color = cl.id
 
 LEFT JOIN imei i
-    ON hdct.id = i.id_invoice_detail
-
+    ON i.id_invoice_detail = hdct.id
 
 WHERE hd.id = :rep
+
+GROUP BY
+    hdct.id,
+    hdct.created_date,
+    hdct.gia_goc,
+    hdct.price,
+    spct.id,
+    spct.code,
+    spct.price,
+    spct.url_image,
+    sp.name,
+    c.name,
+    r.name,
+    hd2.name,
+    g.name,
+    cl.name,
+    hd.trang_thai_hoa_don,
+    discount_info.max_percentage
 
 ORDER BY hdct.created_date DESC
 """, nativeQuery = true)
