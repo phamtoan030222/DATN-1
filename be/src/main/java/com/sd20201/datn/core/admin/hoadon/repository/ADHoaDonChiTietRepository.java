@@ -31,7 +31,10 @@ SELECT
 
     hdct.price                                     AS giaBan,
 
-    COALESCE(discount_info.max_percentage, 0) AS percentage,
+    CASE
+        WHEN hdct.gia_goc IS NULL OR hdct.gia_goc = 0 THEN 0
+        ELSE ROUND((hdct.gia_goc - hdct.price) * 100.0 / hdct.gia_goc, 2)
+        END         AS percentage,
 
     CASE
         WHEN discount_info.max_percentage IS NOT NULL THEN 1
