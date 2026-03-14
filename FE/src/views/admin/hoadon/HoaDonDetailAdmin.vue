@@ -475,7 +475,6 @@ const printProducts = computed<PrintProduct[]>(() => {
   return result
 })
 
-// ==================== LOGIC TIẾN TRÌNH ====================
 const filteredSteps = computed(() => {
   if (isCancelled.value)
     return TIMELINE_STEPS.filter(step => step.key === '0' || step.key === '5')
@@ -485,9 +484,12 @@ const filteredSteps = computed(() => {
     return TIMELINE_STEPS.filter(step => ['0', '1', '2', '3', '4'].includes(step.key))
   if (isOnlinePickupInvoice.value)
     return TIMELINE_STEPS.filter(step => ['0', '1', '6', '4'].includes(step.key))
+
+  if (isOnlineInvoice.value)
+    return TIMELINE_STEPS.filter(step => ['0', '1', '2', '3', '4'].includes(step.key))
+
   return TIMELINE_STEPS.filter(step => step.key !== '5')
 })
-
 const nextStatusToUpdate = computed<number | null>(() => {
   if (isCompleted.value || isCancelled.value)
     return null
