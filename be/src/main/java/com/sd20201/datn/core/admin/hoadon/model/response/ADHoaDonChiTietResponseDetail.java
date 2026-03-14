@@ -60,8 +60,9 @@ public interface ADHoaDonChiTietResponseDetail {
 
     // Thông tin nợ và hoàn phí
     BigDecimal getDuNo();
-    BigDecimal getHoanPhi();
+    Boolean getTrangThaiHoanPhi();
     String getTrangThaiThanhToan();
+    BigDecimal getHoanPhi();
 
     // Lịch sử và trạng thái
     String getLichSuTrangThai();

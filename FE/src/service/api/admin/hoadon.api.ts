@@ -607,6 +607,42 @@ export async function changeOrderStatus(requestData: ADChangeStatusRequest): Pro
   }
 }
 
+// ==================== HOÀN PHÍ ====================
+
+export interface ConfirmHoanPhiRequest {
+  maHoaDon: string
+  idNhanVien: string | number
+}
+
+export async function confirmHoanPhi(data: ConfirmHoanPhiRequest): Promise<DefaultResponse<any>> {
+  try {
+    console.log('📤 Gửi request xác nhận hoàn phí:', data)
+
+    const res = await request({
+      url: `${API_HOA_DON}/hoan-phi`,
+      method: 'PUT',
+      data,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    console.log('✅ Response xác nhận hoàn phí:', res.data)
+    return res.data
+  }
+  catch (error: any) {
+    console.error('❌ Lỗi khi xác nhận hoàn phí:', error)
+
+    return {
+      status: 'ERROR',
+      data: null as any,
+      message: error instanceof Error ? error.message : 'Lỗi không xác định',
+      timestamp: new Date().toISOString(),
+      success: false,
+    }
+  }
+}
+
 // ==================== STATUS MAPPING ====================
 
 export const TrangThaiHoaDonMap = {

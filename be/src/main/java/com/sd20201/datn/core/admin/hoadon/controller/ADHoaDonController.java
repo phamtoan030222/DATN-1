@@ -56,4 +56,9 @@ public class ADHoaDonController {
                 service.capNhatThongTinKhachHang(request)
         );
     }
+
+    @PutMapping("/hoan-phi")
+    public ResponseEntity<?> hoanPhi(@RequestBody ADHoanPhiRequest request) {
+        return Helper.createResponseEntity(service.hoanPhi(request));
+    }
 }

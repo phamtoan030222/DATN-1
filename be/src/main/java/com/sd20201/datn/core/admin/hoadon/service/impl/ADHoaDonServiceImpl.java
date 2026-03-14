@@ -26,11 +26,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -774,5 +772,34 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             log.error("Lỗi cập nhật thông tin khách hàng: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    @Override
+    public ResponseObject<?> hoanPhi(ADHoanPhiRequest request) {
+        // 1. Tìm hóa đơn theo mã
+        Invoice hoaDon = adHoaDonRepository.findByMa(request.getMaHoaDon())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn: " + request.getMaHoaDon()));
+
+        // 2. Kiểm tra điều kiện hoàn phí:
+        //    - Đơn online (loaiHoaDon = 1)
+        //    - Đã hủy (trangThaiHoaDon = 5)
+        //    - Đã thanh toán chuyển khoản
+        //    - Chưa hoàn phí
+        if (hoaDon.getEntityTrangThaiHoaDon() != EntityTrangThaiHoaDon.DA_HUY) {
+            throw new RuntimeException("Đơn hàng chưa bị hủy, không thể hoàn phí");
+        }
+        if (Boolean.TRUE.equals(hoaDon.getDaHoanPhi())) {
+            throw new RuntimeException("Đơn hàng này đã được hoàn phí trước đó");
+        }
+
+        // 3. Cập nhật trạng thái hoàn phí
+        hoaDon.setHoanPhi(request.getHoanPhi());
+        hoaDon.setDaHoanPhi(true);
+        hoaDon.setLastModifiedDate(System.currentTimeMillis());
+        adHoaDonRepository.save(hoaDon);
+
+        // 4. Trả về response
+        return new ResponseObject<>(null, HttpStatus.OK,
+                "Hoàn phí thành công");
     }
 }

@@ -78,6 +78,8 @@ SELECT
     hd.created_date                          AS ngayTao,
     hd.last_modified_date                    AS ngayCapNhat,
     COALESCE(hd.shipping_fee, 0)             AS phiVanChuyen,
+    hd.da_hoan_phi AS trangThaihoanPhi,
+    hd.hoan_phi AS hoanPhi,
 
     -- ===== PHƯƠNG THỨC THANH TOÁN =====
     CASE hd.phuong_thuc_thanh_toan

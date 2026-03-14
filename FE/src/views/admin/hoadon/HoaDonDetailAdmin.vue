@@ -33,6 +33,7 @@ import type { ADChangeStatusRequest, HoaDonChiTietItem } from '@/service/api/adm
 
 import {
   changeOrderStatus,
+  confirmHoanPhi,
   getHoaDonChiTiets,
   updateCustomerInvoice,
 } from '@/service/api/admin/hoadon.api'
@@ -111,6 +112,10 @@ interface HoaDonData {
   phuongThucThanhToan?: string
   lichSuTrangThai?: string
   ghiChu?: string
+  daHoanPhi?: boolean
+  trangThaiHoanPhi?: boolean
+  trangThaiThanhToan?: string
+  ngayCapNhat?: number
 }
 
 interface DisplayProduct extends HoaDonChiTietItem {
@@ -352,6 +357,10 @@ const selectedSerialInfoProduct = ref<HoaDonChiTietItem | null>(null)
 const showHistoryModal = ref(false)
 const productViewMode = ref('products')
 
+// ==================== HOÀN PHÍ ====================
+const showRefundModal = ref(false)
+const isProcessingRefund = ref(false)
+
 // ==================== Computed Properties ====================
 const invoiceCode = computed(() => route.params.id as string || 'N/A')
 
@@ -371,6 +380,22 @@ const isOnlinePickupInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '3
 const isCashOnlineOrder = computed(() => {
   const pt = hoaDonData.value?.phuongThucThanhToan
   return isOnlineInvoice.value && (pt === 'TIEN_MAT' || pt === 'CASH')
+})
+
+// Đơn online + đã thanh toán chuyển khoản + đã hủy → cần hoàn phí
+const isTransferPayment = computed(() => {
+  const pt = hoaDonData.value?.phuongThucThanhToan
+  return pt === 'CHUYEN_KHOAN' || pt === 'BANKING' || pt === 'VNPAY'
+})
+
+const needsRefund = computed(() => {
+  return (
+    isOnlineInvoice.value
+    && isTransferPayment.value
+    && isCancelled.value
+    && hoaDonData.value?.trangThaiThanhToan === 'DA_THANH_TOAN'
+    && !hoaDonData.value?.trangThaiHoanPhi // backend field: trangThaiHoanPhi = true nghĩa là đã hoàn phí
+  )
 })
 
 const currentStatus = computed(() => Number(hoaDonData.value?.trangThaiHoaDon || '0'))
@@ -1134,6 +1159,33 @@ function openCancelModal(): void {
   showStatusModal.value = true
 }
 
+// ==================== HOÀN PHÍ ====================
+async function confirmRefundAction(): Promise<void> {
+  if (!hoaDonData.value?.maHoaDon)
+    return
+  isProcessingRefund.value = true
+  try {
+    const response = await confirmHoanPhi({
+      maHoaDon: hoaDonData.value.maHoaDon,
+      idNhanVien: idNV.userId,
+    })
+    if (response.success || response.status === 'OK') {
+      message.success('Xác nhận hoàn phí thành công!')
+      showRefundModal.value = false
+      await fetchInvoiceDetails()
+    }
+    else {
+      message.error(response.message || 'Hoàn phí thất bại')
+    }
+  }
+  catch (error: any) {
+    message.error(error?.response?.data?.message || 'Đã xảy ra lỗi khi hoàn phí')
+  }
+  finally {
+    isProcessingRefund.value = false
+  }
+}
+
 // ==================== API Functions ====================
 async function fetchInvoiceDetails(): Promise<void> {
   try {
@@ -1205,7 +1257,7 @@ onMounted(async () => {
 })
 </script>
 
-fun<template>
+<template>
   <div class="container mx-auto px-4 py-6 space-y-6">
     <!-- ==================== HEADER ==================== -->
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 no-print">
@@ -1226,9 +1278,36 @@ fun<template>
           <NTag type="default" size="small">
             {{ formatDateTime(hoaDonData?.ngayTao) }}
           </NTag>
+          <!-- Badge cần hoàn phí -->
+          <NTag v-if="needsRefund" type="warning" size="small" round>
+            <template #icon>
+              <NIcon><ArrowBackOutline /></NIcon>
+            </template>
+            Cần hoàn phí
+          </NTag>
+          <NTag v-if="isCancelled && isTransferPayment && hoaDonData?.trangThaiHoanPhi" type="success" size="small" round>
+            <template #icon>
+              <NIcon><CheckmarkCircleOutline /></NIcon>
+            </template>
+            Đã hoàn phí
+          </NTag>
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
+        <!-- Nút Xác nhận hoàn phí: chỉ hiện khi đơn online, đã hủy, đã TT chuyển khoản, chưa hoàn phí -->
+        <Transition name="fade">
+          <NButton
+            v-if="needsRefund"
+            type="warning"
+            secondary
+            @click="showRefundModal = true"
+          >
+            <template #icon>
+              <NIcon><ArrowBackOutline /></NIcon>
+            </template>
+            Xác nhận hoàn phí
+          </NButton>
+        </Transition>
         <NButton type="info" secondary @click="showHistoryModal = true">
           <template #icon>
             <NIcon><ListOutline /></NIcon>
@@ -1681,6 +1760,32 @@ fun<template>
             <div v-if="hoaDonData?.hoanPhi" class="flex justify-between items-center">
               <span class="text-gray-600">Hoàn phí:</span>
               <span class="font-bold text-blue-600">{{ formatCurrency(hoaDonData.hoanPhi) }}</span>
+            </div>
+            <!-- Trạng thái hoàn phí -->
+            <div v-if="isCancelled && isTransferPayment && hoaDonData?.trangThaiThanhToan === 'DA_THANH_TOAN'" class="pt-2">
+              <div
+                v-if="hoaDonData?.trangThaiHoanPhi"
+                class="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-medium"
+              >
+                <NIcon size="16" color="#16a34a">
+                  <CheckmarkCircleOutline />
+                </NIcon>
+                Đã hoàn phí cho khách hàng
+              </div>
+              <div
+                v-else
+                class="flex items-center justify-between px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg"
+              >
+                <div class="flex items-center gap-2 text-sm text-orange-700 font-medium">
+                  <NIcon size="16" color="#f97316">
+                    <TimeOutline />
+                  </NIcon>
+                  Chờ xác nhận hoàn phí
+                </div>
+                <NButton size="tiny" type="warning" round @click="showRefundModal = true">
+                  Xác nhận hoàn phí
+                </NButton>
+              </div>
             </div>
             <div class="pt-4">
               <p class="text-sm text-gray-600 mb-2">
@@ -2266,6 +2371,89 @@ fun<template>
 
             Bạn có chắc muốn cập nhật thông tin khách hàng?
           </NPopconfirm>
+        </div>
+      </template>
+    </NModal>
+    <!-- ==================== MODAL: XÁC NHẬN HOÀN PHÍ ==================== -->
+    <NModal
+      v-model:show="showRefundModal"
+      preset="card"
+      class="no-print !w-[460px] !max-w-[90vw] !rounded-2xl shadow-2xl"
+      :bordered="false"
+      size="huge"
+      content-style="padding-top: 0;"
+    >
+      <template #header>
+        <div class="flex items-center gap-3 pt-2">
+          <div class="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
+            <NIcon size="22" color="#f97316">
+              <ArrowBackOutline />
+            </NIcon>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 leading-tight">
+              Xác nhận hoàn phí
+            </h3>
+            <p class="text-xs text-gray-500 font-normal mt-0.5">
+              Mã đơn: <span class="font-mono text-gray-700 font-semibold">{{ hoaDonData?.maHoaDon }}</span>
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <div class="py-4 space-y-4">
+        <!-- Thông tin hoàn phí -->
+        <div class="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-3">
+          <div class="flex items-center gap-2 text-orange-700 font-semibold text-sm">
+            <NIcon size="18" color="#f97316">
+              <InformationCircleOutline />
+            </NIcon>
+            Thông tin hoàn phí
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600">Khách hàng:</span>
+              <span class="font-semibold text-gray-900">{{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600">Phương thức đã thanh toán:</span>
+              <span class="font-semibold text-gray-900">{{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-orange-200">
+              <span class="text-gray-700 font-semibold">Số tiền cần hoàn:</span>
+              <span class="text-lg font-bold text-orange-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-2 text-sm text-blue-700">
+          <NIcon size="18" color="#3b82f6" class="flex-shrink-0 mt-0.5">
+            <InformationCircleOutline />
+          </NIcon>
+          <span>
+            Đây là đơn hàng online đã thanh toán chuyển khoản và bị hủy.
+            Sau khi xác nhận, hệ thống sẽ ghi nhận cửa hàng đã hoàn trả tiền cho khách.
+          </span>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end pt-2">
+          <NButton size="large" class="!rounded-lg font-medium" @click="showRefundModal = false">
+            Hủy bỏ
+          </NButton>
+          <NButton
+            type="warning"
+            size="large"
+            class="!rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
+            :loading="isProcessingRefund"
+            @click="confirmRefundAction"
+          >
+            <template #icon>
+              <NIcon><CheckmarkCircleOutline /></NIcon>
+            </template>
+            Xác nhận đã hoàn phí
+          </NButton>
         </div>
       </template>
     </NModal>
