@@ -69,4 +69,6 @@ public interface ADBanHangService {
     ResponseObject<?> boChonKhachHang(String idHoaDon);
 
     ResponseObject<?> ganImei(ADGanImeiRequest request);
+
+    ResponseObject<?> getImeiProductDetail(String idProductDetail);
 }

@@ -607,7 +607,6 @@ const productColumns = computed<DataTableColumns<any>>(() => {
           return h('span', { class: 'text-gray-300 text-sm' }, '—')
         }
 
-
         const originalProduct = invoiceItems.value.find(p => p.id === row.id)
         if (!originalProduct)
           return h('span', { class: 'text-gray-300' }, '—')
@@ -775,7 +774,19 @@ function getPaymentMethodText(method: string | undefined): string {
     return 'Chưa xác định' // ← đổi fallback, không ra "Tiền mặt" nữa
   return PAYMENT_METHOD_MAP[method] || method
 }
-function getPaymentStatusText(): string { return hoaDonData.value?.duNo ? 'Còn nợ' : 'Đã thanh toán' }
+function getPaymentStatusText(): string {
+  const status = hoaDonData.value?.trangThaiThanhToan
+  switch (status) {
+    case 'DA_THANH_TOAN':
+      return 'Đã thanh toán'
+    case 'CHUA_THANH_TOAN':
+      return 'Chưa thanh toán'
+    case 'THANH_TOAN_MOT_PHAN':
+      return 'Thanh toán một phần'
+    default:
+      return 'Không xác định'
+  }
+}
 function getPaymentStatusTagType(): string { return hoaDonData.value?.duNo ? 'warning' : 'success' }
 function getStepCircleBg(status: string | number | undefined): string {
   const map: Record<number, string> = { 0: 'bg-yellow-100', 1: 'bg-blue-100', 2: 'bg-purple-100', 3: 'bg-blue-100', 4: 'bg-green-100', 5: 'bg-red-100' }
@@ -1630,7 +1641,12 @@ fun<template>
                 <NIcon size="16" color="#6b7280">
                   <TimeOutline />
                 </NIcon>
-                <span>{{ formatDateTime(hoaDonData?.ngayTao) }}</span>
+                <span v-if="hoaDonData?.trangThaiThanhToan === 'DA_THANH_TOAN'">
+                  {{ formatDateTime(hoaDonData?.ngayTao) }}
+                </span>
+                <span v-else class="text-gray-400 italic">
+                  Chưa thanh toán
+                </span>
               </div>
             </div>
           </div>
@@ -1710,7 +1726,6 @@ fun<template>
           </p>
         </div>
 
-
         <div v-else class="rounded-xl bg-white shadow-sm overflow-hidden">
           <div class="overflow-x-auto">
             <NDataTable
@@ -1723,7 +1738,6 @@ fun<template>
             />
           </div>
           <div class="p-6 bg-gray-50/30">
-
             <!-- Chỉ hiển thị tổng số serial, không có nút bổ sung -->
             <div class="flex items-center mb-4">
               <NTag size="small" type="success" round class="font-medium px-3">

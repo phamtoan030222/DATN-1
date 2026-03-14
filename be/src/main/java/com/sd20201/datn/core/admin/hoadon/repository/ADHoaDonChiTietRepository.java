@@ -42,6 +42,7 @@ SELECT
     CONCAT(COALESCE(ram.name, ''), 'GB - ', COALESCE(hard_drive.name, ''), 'GB') AS size,
 
     hd.trang_thai_hoa_don AS trangThaiHoaDon,
+    hd.trang_thai_thanh_toan AS trangThaiThanhToan,
     hd.created_date AS ngayTao,
     COALESCE(hd.shipping_fee, 0) AS phiVanChuyen,
     CASE hd.phuong_thuc_thanh_toan
