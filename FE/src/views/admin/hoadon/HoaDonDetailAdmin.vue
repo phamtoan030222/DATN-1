@@ -1524,7 +1524,7 @@ onMounted(async () => {
               <span>Còn nợ:</span><span style="font-weight: 700;">{{ formatCurrency(hoaDonData.duNo) }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin-top: 6px; background: #f0fdf4; border: 2px solid #16a34a; border-radius: 8px;">
-              <span style="font-weight: 800; font-size: 14px;">Thành tiền:</span><span style="font-weight: 900; font-size: 18px; color: #16a34a;">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span style="font-weight: 800; font-size: 14px;">Thành tiền:</span><span style="font-weight: 900; font-size: 18px; color: #16a34a;">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
         </div>
