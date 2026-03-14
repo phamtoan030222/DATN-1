@@ -2607,7 +2607,7 @@ onMounted(async () => {
             </div>
             <div class="flex justify-between items-center pt-2 border-t border-orange-200">
               <span class="text-gray-700 font-semibold">Số tiền cần hoàn:</span>
-              <span class="text-lg font-bold text-orange-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-lg font-bold text-orange-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
         </div>

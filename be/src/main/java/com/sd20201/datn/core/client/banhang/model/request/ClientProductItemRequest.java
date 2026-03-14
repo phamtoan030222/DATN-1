@@ -22,4 +22,6 @@ public class ClientProductItemRequest {
     // Giá bán tại thời điểm đặt hàng (Để lưu vào db cho chính xác, phòng khi giá sp thay đổi sau này)
     private BigDecimal price;
 
+    private BigDecimal giaGoc;
+
 }
