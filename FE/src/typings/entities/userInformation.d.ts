@@ -4,6 +4,7 @@ namespace Entity {
     interface UserInformation {
     userId: string | undefined
     userCode: string | undefined
+    username: string;
     fullName: string | undefined
     phone: string | undefined
     rolesNames: string[] | string

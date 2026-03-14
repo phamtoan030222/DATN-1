@@ -74,6 +74,25 @@ export const routes: RouteRecordRaw[] = [
         component: () => import('@/views/client/user/order/OrderSuccess.vue'),
         meta: { title: 'Đặt hàng thành công' },
       },
+      {
+        path: 'users',
+        name: 'User',
+        component: () => import('@/views/client/user/UserLayout.vue'),
+        children: [
+          {
+            path: 'orders',
+            name: 'Orders',
+            component: () => import('@/views/client/user/order/OrderView.vue'),
+            meta: { title: 'Đơn hàng' },
+          },
+          {
+            path: 'profile',
+            name: 'Profile',
+            component: () => import('@/views/client/user/profile/ProfileView.vue'),
+            meta: { title: 'Thông tin cá nhân' },
+          },
+        ]
+      },
     ],
   },
 

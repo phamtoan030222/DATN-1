@@ -1218,7 +1218,6 @@ function handleSelectVoucherInModal(voucherId: string) {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
   border-radius: 4px;
 }
 
