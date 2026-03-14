@@ -81,4 +81,8 @@ public class Invoice extends PrimaryEntity implements Serializable {
     private String transactionId;
 
     private String bankCode;
+
+    private Boolean daHoanPhi;
+
+    private BigDecimal hoanPhi;
 }

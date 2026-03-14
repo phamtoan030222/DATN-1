@@ -95,7 +95,7 @@ const isUpcomingSale = ref(false)
 const isOngoingSale = ref(false)
 
 // ==========================================
-// 1. LOGIC GIỎ HÀNG (Đã fix kiểm tra Tồn kho, Max 5 SP & Bắt lỗi 500tr)
+// 1. LOGIC GIỎ HÀNG (Đã fix kiểm tra Tồn kho, Max 5 SP & Bắt lỗi 200tr)
 // ==========================================
 
 function validateCartAddition() {
@@ -319,11 +319,11 @@ async function selectVariantOption(type: string, val: string) {
     // 2. GỌI API ĐỂ LẤY SẢN PHẨM KHỚP VỚI CẤU HÌNH VỪA CHỌN
     const res = await getSPCTBy({
       idProduct: product.value.idProduct,
-      idRam: selectedRam.value,
       idCpu: selectedCpu.value,
       idGpu: selectedGpu.value,
-      idColor: selectedColor.value,
+      idRam: selectedRam.value,
       idHardDrive: selectedHardDrive.value,
+      idColor: selectedColor.value,
     })
 
     // 3. Nếu tìm thấy sản phẩm
@@ -570,7 +570,7 @@ onUnmounted(() => {
         <NGridItem>
           <div class="info-box">
             <h1 class="text-2xl font-bold text-gray-800 mb-2 leading-tight">
-              {{ product.productName || product.name }} {{ product.cpuName }} {{ product.ramName }} {{ product.hardDriveName }}
+              {{ product.name || 'Tên sản phẩm không xác định' }}
             </h1>
             <div class="flex items-center gap-2 mb-4 text-sm text-gray-500">
               <NRate readonly :default-value="5" size="small" />

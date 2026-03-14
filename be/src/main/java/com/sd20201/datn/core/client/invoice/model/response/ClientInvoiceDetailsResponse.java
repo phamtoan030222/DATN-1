@@ -31,4 +31,6 @@ public interface ClientInvoiceDetailsResponse {
     String getProduct();
 
     String getRam();
+
+    String getIdInvoice();
 }

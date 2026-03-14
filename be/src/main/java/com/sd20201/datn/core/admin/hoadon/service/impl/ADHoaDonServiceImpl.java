@@ -11,10 +11,7 @@ import com.sd20201.datn.core.admin.hoadon.repository.ADInvoiceRepository;
 import com.sd20201.datn.core.admin.hoadon.service.ADHoaDonService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.*;
-import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
-import com.sd20201.datn.infrastructure.constant.ImeiStatus;
-import com.sd20201.datn.infrastructure.constant.TargetType;
-import com.sd20201.datn.infrastructure.constant.TypeInvoice;
+import com.sd20201.datn.infrastructure.constant.*;
 import com.sd20201.datn.repository.*;
 import com.sd20201.datn.utils.EmailService;
 import com.sd20201.datn.utils.Helper;
@@ -29,11 +26,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -62,7 +57,8 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
                     .orElseThrow(() ->
                             new RuntimeException("Không tìm thấy hóa đơn: " + request.getMaHoaDon())
                     );
-
+            Staff nv = staffRepository.findById(request.getIdNhanVien()).orElseThrow();
+            hoaDon.setStaff(nv);
             EntityTrangThaiHoaDon trangThaiCu = hoaDon.getEntityTrangThaiHoaDon();
             EntityTrangThaiHoaDon trangThaiMoi = request.getStatusTrangThaiHoaDon();
 
@@ -128,27 +124,37 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
                 case CHO_XAC_NHAN:
                 case DA_XAC_NHAN:
                     khoaIMEIKhiChoXacNhan(hoaDonDaCapNhat);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case CHO_GIAO:
                     danhDauIMEIDaBan(hoaDonDaCapNhat);
                     luuLichSuThanhToan(hoaDonDaCapNhat, nhanVien);
                     danhDauVoucherDaSuDung(hoaDonDaCapNhat);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case DANG_GIAO:
                     // Không phát sinh nghiệp vụ mới
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case HOAN_THANH:
                     // Kết thúc vòng đời hóa đơn
+                    hoaDon.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
                     danhDauIMEIDaBan(hoaDonDaCapNhat);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 case DA_HUY:
                     traIMEIVeKho(hoaDonDaCapNhat);
                     hoanTraVoucher(hoaDonDaCapNhat);
                     hoanTienNeuCan(hoaDonDaCapNhat, nhanVien);
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
+                    break;
+
+                case SAN_SANG_NHAN_HANG:
+                    hoaDon.setLastModifiedDate(System.currentTimeMillis());
                     break;
 
                 default:
@@ -279,11 +285,13 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
         validTransitions.put(EntityTrangThaiHoaDon.CHO_XAC_NHAN,
                 Arrays.asList(EntityTrangThaiHoaDon.DA_XAC_NHAN, EntityTrangThaiHoaDon.DA_HUY));
         validTransitions.put(EntityTrangThaiHoaDon.DA_XAC_NHAN,
-                Arrays.asList(EntityTrangThaiHoaDon.CHO_GIAO, EntityTrangThaiHoaDon.DA_HUY));
+                Arrays.asList(EntityTrangThaiHoaDon.CHO_GIAO, EntityTrangThaiHoaDon.SAN_SANG_NHAN_HANG, EntityTrangThaiHoaDon.DA_HUY));
         validTransitions.put(EntityTrangThaiHoaDon.CHO_GIAO,
                 Arrays.asList(EntityTrangThaiHoaDon.DANG_GIAO, EntityTrangThaiHoaDon.DA_HUY));
         validTransitions.put(EntityTrangThaiHoaDon.DANG_GIAO,
-                Arrays.asList(EntityTrangThaiHoaDon.HOAN_THANH));
+                Arrays.asList(EntityTrangThaiHoaDon.HOAN_THANH, EntityTrangThaiHoaDon.DA_HUY));
+        validTransitions.put(EntityTrangThaiHoaDon.SAN_SANG_NHAN_HANG,
+                Arrays.asList(EntityTrangThaiHoaDon.HOAN_THANH, EntityTrangThaiHoaDon.DA_HUY));
 
         List<EntityTrangThaiHoaDon> allowedTransitions = validTransitions.get(trangThaiCu);
         if (allowedTransitions == null || !allowedTransitions.contains(trangThaiMoi)) {
@@ -596,7 +604,8 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             case DANG_GIAO: return "Đang giao hàng";
             case HOAN_THANH: return "Hoàn thành";
             case DA_HUY: return "Đã hủy";
-            default: return "Đang xử lý";
+            case SAN_SANG_NHAN_HANG: return "Sẵn sàng nhận hàng";
+            default: return "Không xác định";
         }
     }
 
@@ -626,9 +635,9 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
         try {
             Pageable pageable = Helper.createPageable(request, "created_date");
 
+            Long currentTime = System.currentTimeMillis();
 
-
-            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getHoaDonChiTiet(request.getMaHoaDon(), pageable);
+            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getHoaDonChiTiet(request.getMaHoaDon(),currentTime, pageable);
             return new ResponseObject<>(
                     page,
                     HttpStatus.OK,
@@ -771,5 +780,34 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
             log.error("Lỗi cập nhật thông tin khách hàng: {}", e.getMessage(), e);
             throw e;
         }
+    }
+
+    @Override
+    public ResponseObject<?> hoanPhi(ADHoanPhiRequest request) {
+        // 1. Tìm hóa đơn theo mã
+        Invoice hoaDon = adHoaDonRepository.findByMa(request.getMaHoaDon())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy hóa đơn: " + request.getMaHoaDon()));
+
+        // 2. Kiểm tra điều kiện hoàn phí:
+        //    - Đơn online (loaiHoaDon = 1)
+        //    - Đã hủy (trangThaiHoaDon = 5)
+        //    - Đã thanh toán chuyển khoản
+        //    - Chưa hoàn phí
+        if (hoaDon.getEntityTrangThaiHoaDon() != EntityTrangThaiHoaDon.DA_HUY) {
+            throw new RuntimeException("Đơn hàng chưa bị hủy, không thể hoàn phí");
+        }
+        if (Boolean.TRUE.equals(hoaDon.getDaHoanPhi())) {
+            throw new RuntimeException("Đơn hàng này đã được hoàn phí trước đó");
+        }
+
+        // 3. Cập nhật trạng thái hoàn phí
+        hoaDon.setHoanPhi(request.getHoanPhi());
+        hoaDon.setDaHoanPhi(true);
+        hoaDon.setLastModifiedDate(System.currentTimeMillis());
+        adHoaDonRepository.save(hoaDon);
+
+        // 4. Trả về response
+        return new ResponseObject<>(null, HttpStatus.OK,
+                "Hoàn phí thành công");
     }
 }

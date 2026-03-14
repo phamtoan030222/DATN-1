@@ -13,7 +13,7 @@ public interface ClientDiscountProductProjection {
     Integer getPercentage();
 
     // Thông tin sản phẩm chi tiết
-    String getProductName();
+    String getName();
 
     String getProductDetailId();
 

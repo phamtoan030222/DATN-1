@@ -3,6 +3,7 @@ import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NAvatar,
+  NBadge,
   NButton,
   NCard,
   NCheckbox,
@@ -32,6 +33,7 @@ import type { ADChangeStatusRequest, HoaDonChiTietItem } from '@/service/api/adm
 
 import {
   changeOrderStatus,
+  confirmHoanPhi,
   getHoaDonChiTiets,
   updateCustomerInvoice,
 } from '@/service/api/admin/hoadon.api'
@@ -72,6 +74,7 @@ import {
   ReceiptOutline,
   RefreshOutline,
   ScanOutline,
+  StorefrontOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
 
@@ -109,6 +112,10 @@ interface HoaDonData {
   phuongThucThanhToan?: string
   lichSuTrangThai?: string
   ghiChu?: string
+  daHoanPhi?: boolean
+  trangThaiHoanPhi?: boolean
+  trangThaiThanhToan?: string
+  ngayCapNhat?: number
 }
 
 interface DisplayProduct extends HoaDonChiTietItem {
@@ -165,12 +172,14 @@ const STATUS_MAP: Record<number, { label: string, type: string, icon: any }> = {
   3: { label: 'Đang giao hàng', type: 'info', icon: CheckmarkCircleOutline },
   4: { label: 'Hoàn thành', type: 'success', icon: CheckmarkDoneOutline },
   5: { label: 'Đã hủy', type: 'error', icon: CloseCircleOutline },
+  6: { label: 'Sẵn sàng nhận hàng', type: 'info', icon: StorefrontOutline },
 }
 
 const INVOICE_TYPE_MAP: Record<string, { text: string, type: string }> = {
   0: { text: 'Tại quầy', type: 'success' },
   1: { text: 'Online', type: 'primary' },
   2: { text: 'Giao hàng', type: 'info' },
+  3: { text: 'Nhận tại cửa hàng', type: 'warning' },
 }
 
 const PAYMENT_METHOD_MAP: Record<string, string> = {
@@ -200,6 +209,7 @@ const IMEI_STATUS_CONFIG: Record<string, { type: any, text: string }> = {
 const TIMELINE_STEPS = [
   { key: '0', title: 'Chờ xác nhận', icon: TimeOutline, color: 'yellow' },
   { key: '1', title: 'Đã xác nhận', icon: CheckmarkCircleOutline, color: 'blue' },
+  { key: '6', title: 'Sẵn sàng nhận hàng', icon: StorefrontOutline, color: 'teal' },
   { key: '2', title: 'Chờ giao hàng', icon: CartOutline, color: 'purple' },
   { key: '3', title: 'Đang giao hàng', icon: CheckmarkCircleOutline, color: 'info' },
   { key: '4', title: 'Hoàn thành', icon: CheckmarkDoneOutline, color: 'green' },
@@ -346,6 +356,27 @@ const selectedSerialInfoProduct = ref<HoaDonChiTietItem | null>(null)
 const showHistoryModal = ref(false)
 const productViewMode = ref('products')
 
+// ==================== HOÀN PHÍ ====================
+const showRefundModal = ref(false)
+const isProcessingRefund = ref(false)
+
+// ==================== CHỌN THỜI GIAN NHẬN HÀNG (SAN_SANG_NHAN_HANG) ====================
+const showPickupDateModal = ref(false)
+const pickupDateFrom = ref<string>('')
+const pickupDateTo = ref<string>('')
+
+const pickupDateFromFormatted = computed(() => {
+  if (!pickupDateFrom.value)
+    return ''
+  return new Date(pickupDateFrom.value).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+})
+
+const pickupDateToFormatted = computed(() => {
+  if (!pickupDateTo.value)
+    return ''
+  return new Date(pickupDateTo.value).toLocaleDateString('vi-VN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+})
+
 // ==================== Computed Properties ====================
 const invoiceCode = computed(() => route.params.id as string || 'N/A')
 
@@ -359,12 +390,34 @@ const hoaDonData = computed(() => invoiceItems.value?.[0] || null)
 const isOnlineInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '1')
 const isCounterInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '0')
 const isDeliveryInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '2')
-const isCounterOrDelivery = computed(() => isCounterInvoice.value || isDeliveryInvoice.value)
+const isOnlinePickupInvoice = computed(() => hoaDonData.value?.loaiHoaDon === '3') // THÊM MỚI
+
+// Đơn online + thanh toán tiền mặt → cần tự động chuyển sang "Đã thanh toán" khi hoàn thành
+const isCashOnlineOrder = computed(() => {
+  const pt = hoaDonData.value?.phuongThucThanhToan
+  return isOnlineInvoice.value && (pt === 'TIEN_MAT' || pt === 'CASH')
+})
+
+// Đơn online + đã thanh toán chuyển khoản + đã hủy → cần hoàn phí
+const isTransferPayment = computed(() => {
+  const pt = hoaDonData.value?.phuongThucThanhToan
+  return pt === 'CHUYEN_KHOAN' || pt === 'BANKING' || pt === 'VNPAY'
+})
+
+const needsRefund = computed(() => {
+  return (
+    isOnlineInvoice.value
+    && isTransferPayment.value
+    && isCancelled.value
+    && hoaDonData.value?.trangThaiThanhToan === 'DA_THANH_TOAN'
+    && !hoaDonData.value?.trangThaiHoanPhi // backend field: trangThaiHoanPhi = true nghĩa là đã hoàn phí
+  )
+})
 
 const currentStatus = computed(() => Number(hoaDonData.value?.trangThaiHoaDon || '0'))
 const isCompleted = computed(() => currentStatus.value === 4)
 const isCancelled = computed(() => currentStatus.value === 5)
-const canChangeImei = computed(() => isOnlineInvoice.value && currentStatus.value === 0)
+const canChangeImei = computed(() => (isOnlineInvoice.value || isOnlinePickupInvoice.value) && currentStatus.value === 0)
 
 const showCancelButton = computed(() => {
   if (isCompleted.value || isCancelled.value)
@@ -412,11 +465,11 @@ const printProducts = computed<PrintProduct[]>(() => {
     const imeiList = parseIMEIList(item.danhSachImei)
     if (imeiList.length > 0) {
       imeiList.forEach((imei) => {
-        result.push({ ...item, imeiCode: imei.code || imei.imeiCode, soLuongImei: 1, giaBanImei: item.giaBan, tongTienImei: item.giaBan })
+        result.push({ ...item, imeiCode: imei.code || imei.imeiCode, soLuongImei: 1, giaBanImei: item.giaGoc, tongTienImei: item.giaBan })
       })
     }
     else {
-      result.push({ ...item, imeiCode: null, soLuongImei: item.soLuong, giaBanImei: item.giaBan, tongTienImei: item.tongTien })
+      result.push({ ...item, imeiCode: null, soLuongImei: item.soLuong, giaBanImei: item.giaGoc, tongTienImei: item.tongTien })
     }
   })
   return result
@@ -430,6 +483,8 @@ const filteredSteps = computed(() => {
     return TIMELINE_STEPS.filter(step => ['0', '4'].includes(step.key))
   if (isDeliveryInvoice.value)
     return TIMELINE_STEPS.filter(step => ['0', '1', '2', '3', '4'].includes(step.key))
+  if (isOnlinePickupInvoice.value)
+    return TIMELINE_STEPS.filter(step => ['0', '1', '6', '4'].includes(step.key))
   return TIMELINE_STEPS.filter(step => step.key !== '5')
 })
 
@@ -452,6 +507,16 @@ const nextStatusToUpdate = computed<number | null>(() => {
       return 4
     return null
   }
+  // THÊM MỚI
+  else if (isOnlinePickupInvoice.value) {
+    if (currentStatus.value === 0)
+      return 1
+    if (currentStatus.value === 1)
+      return 6
+    if (currentStatus.value === 6)
+      return 4
+    return null
+  }
   else {
     if (currentStatus.value < 4)
       return currentStatus.value + 1
@@ -459,7 +524,13 @@ const nextStatusToUpdate = computed<number | null>(() => {
   }
 })
 
-const currentVisibleSteps = computed(() => filteredSteps.value.filter(step => Number(step.key) <= currentStatus.value || (isCancelled.value && step.key === '5')))
+const currentVisibleSteps = computed(() => {
+  const steps = filteredSteps.value
+  const currentIndex = steps.findIndex(step => step.key === currentStatus.value.toString())
+  if (currentIndex === -1)
+    return steps // fallback: hiện tất cả nếu không tìm thấy
+  return steps.filter((step, index) => index <= currentIndex || (isCancelled.value && step.key === '5'))
+})
 
 function getDynamicIconSizeClass(stepKey: string) {
   if (currentStatus.value.toString() === stepKey)
@@ -551,14 +622,21 @@ const productColumns = computed<DataTableColumns<any>>(() => {
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
         return h('div', { class: 'flex items-center justify-center gap-4 py-1' }, [
-          h(NAvatar, {
-            src: row.anhSanPham,
-            size: 'large',
-            round: false,
-            class: 'border border-gray-200 rounded-md shadow-sm bg-white',
-            fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+          h(NBadge, {
+            value: row.percentage ? `-${row.percentage}%` : undefined,
+            type: 'error',
+            offset: [-5, 0],
+            style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
+          }, {
+            default: () => h(NAvatar, {
+              src: row.anhSanPham,
+              size: 'large',
+              round: false,
+              class: 'border border-gray-200 rounded-md shadow-sm bg-white',
+              fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+            }),
           }),
-          h('div', { class: 'min-w-0 flex flex-col items-start' }, [
+          h('div', { class: 'min-w-0' }, [
             h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
             h('div', { class: 'flex flex-wrap items-center gap-2 mt-1.5' }, [
               row.thuongHieu && h(NTag, { size: 'tiny', type: 'info', bordered: false }, { default: () => row.thuongHieu }),
@@ -586,7 +664,7 @@ const productColumns = computed<DataTableColumns<any>>(() => {
       key: 'price',
       width: 140,
       align: 'right',
-      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)),
+      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
     },
     {
       title: 'Thành tiền',
@@ -603,7 +681,7 @@ const productColumns = computed<DataTableColumns<any>>(() => {
       align: 'center',
       render: (row) => {
         // Không phải online invoice hoặc không được phép thao tác → hiện dấu gạch
-        if (!isOnlineInvoice.value || !canChangeImei.value) {
+        if ((!isOnlineInvoice.value && !isOnlinePickupInvoice.value) || !canChangeImei.value) {
           return h('span', { class: 'text-gray-300 text-sm' }, '—')
         }
 
@@ -661,12 +739,19 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
         return h('div', { class: 'flex items-center justify-center gap-4 py-1' }, [
-          h(NAvatar, {
-            src: row.anhSanPham,
-            size: 'large',
-            round: false,
-            class: 'border border-gray-200 rounded-md shadow-sm bg-white',
-            fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+          h(NBadge, {
+            value: row.percentage ? `-${row.percentage}%` : undefined,
+            type: 'error',
+            offset: [-5, 0],
+            style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
+          }, {
+            default: () => h(NAvatar, {
+              src: row.anhSanPham,
+              size: 'large',
+              round: false,
+              class: 'border border-gray-200 rounded-md shadow-sm bg-white',
+              fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+            }),
           }),
           h('div', { class: 'min-w-0' }, [
             h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
@@ -691,7 +776,7 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
       key: 'price',
       width: 180,
       align: 'right',
-      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)),
+      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
     },
     {
       title: 'Thành tiền',
@@ -831,6 +916,16 @@ function openStatusModalNext(): void {
         return
       }
     }
+    // Nếu chuyển sang Sẵn sàng nhận hàng → mở modal chọn thời gian trước
+    if (nextStatusToUpdate.value === 6) {
+      const today = new Date()
+      const threeDaysLater = new Date()
+      threeDaysLater.setDate(today.getDate() + 3)
+      pickupDateFrom.value = today.toISOString().split('T')[0]
+      pickupDateTo.value = threeDaysLater.toISOString().split('T')[0]
+      showPickupDateModal.value = true
+      return
+    }
     selectedStatus.value = nextStatusToUpdate.value
     showStatusModal.value = true
   }
@@ -838,7 +933,7 @@ function openStatusModalNext(): void {
 
 // ✅ Mở modal BỔ SUNG serial (chưa có serial)
 async function openSerialSelectionModal(product: HoaDonChiTietItem) {
-  if (!isOnlineInvoice.value)
+  if (!isOnlineInvoice.value && !isOnlinePickupInvoice.value)
     return
 
   // Reset changingImei để đảm bảo là luồng bổ sung
@@ -1058,14 +1153,25 @@ async function confirmStatusUpdate(): Promise<void> {
 
   isUpdating.value = true
   try {
+    // ✅ Đơn online + tiền mặt + chuyển sang Hoàn thành → tự động cập nhật trạng thái thanh toán
+    const shouldAutoMarkPaid = isCashOnlineOrder.value
+      && selectedStatus.value === 4
+      && hoaDonData.value.trangThaiThanhToan !== 'DA_THANH_TOAN'
+
     const response = await changeOrderStatus({
       maHoaDon: hoaDonData.value.maHoaDon,
       statusTrangThaiHoaDon: selectedStatus.value,
       note: statusNote.value || '',
       idNhanVien: idNV.userId,
+      ...(shouldAutoMarkPaid && { trangThaiThanhToan: 'DA_THANH_TOAN' }),
     })
     if (response.success) {
-      message.success(selectedStatus.value === 5 ? 'Đã hủy đơn hàng thành công' : 'Cập nhật trạng thái thành công')
+      if (shouldAutoMarkPaid) {
+        message.success('Hoàn thành đơn hàng và cập nhật trạng thái thanh toán thành Đã thanh toán')
+      }
+      else {
+        message.success(selectedStatus.value === 5 ? 'Đã hủy đơn hàng thành công' : 'Cập nhật trạng thái thành công')
+      }
       await fetchInvoiceDetails()
       selectedStatus.value = null
       statusNote.value = ''
@@ -1083,6 +1189,72 @@ function openCancelModal(): void {
   selectedStatus.value = 5
   statusNote.value = ''
   showStatusModal.value = true
+}
+
+async function confirmPickupDate(): Promise<void> {
+  if (!pickupDateFrom.value || !pickupDateTo.value) {
+    message.error('Vui lòng chọn đầy đủ khoảng thời gian nhận hàng')
+    return
+  }
+  if (new Date(pickupDateTo.value) < new Date(pickupDateFrom.value)) {
+    message.error('Ngày kết thúc phải sau ngày bắt đầu')
+    return
+  }
+
+  isUpdating.value = true
+  try {
+    const response = await changeOrderStatus({
+      maHoaDon: hoaDonData.value!.maHoaDon,
+      statusTrangThaiHoaDon: 6,
+      note: statusNote.value || '',
+      idNhanVien: idNV.userId,
+      tuNgayNhanHang: pickupDateFrom.value,
+      denNgayNhanHang: pickupDateTo.value,
+    } as any)
+
+    if (response.success) {
+      message.success('Đã chuyển sang Sẵn sàng nhận hàng và gửi thông báo cho khách')
+      showPickupDateModal.value = false
+      statusNote.value = ''
+      await fetchInvoiceDetails()
+    }
+    else {
+      message.error(response.message || 'Cập nhật thất bại')
+    }
+  }
+  catch (error: any) {
+    message.error(error.message || 'Đã xảy ra lỗi')
+  }
+  finally {
+    isUpdating.value = false
+  }
+}
+
+// ==================== HOÀN PHÍ ====================
+async function confirmRefundAction(): Promise<void> {
+  if (!hoaDonData.value?.maHoaDon)
+    return
+  isProcessingRefund.value = true
+  try {
+    const response = await confirmHoanPhi({
+      maHoaDon: hoaDonData.value.maHoaDon,
+      idNhanVien: idNV.userId,
+    })
+    if (response.success || response.status === 'OK') {
+      message.success('Xác nhận hoàn phí thành công!')
+      showRefundModal.value = false
+      await fetchInvoiceDetails()
+    }
+    else {
+      message.error(response.message || 'Hoàn phí thất bại')
+    }
+  }
+  catch (error: any) {
+    message.error(error?.response?.data?.message || 'Đã xảy ra lỗi khi hoàn phí')
+  }
+  finally {
+    isProcessingRefund.value = false
+  }
 }
 
 // ==================== API Functions ====================
@@ -1156,7 +1328,7 @@ onMounted(async () => {
 })
 </script>
 
-fun<template>
+<template>
   <div class="container mx-auto px-4 py-6 space-y-6">
     <!-- ==================== HEADER ==================== -->
     <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 no-print">
@@ -1177,9 +1349,36 @@ fun<template>
           <NTag type="default" size="small">
             {{ formatDateTime(hoaDonData?.ngayTao) }}
           </NTag>
+          <!-- Badge cần hoàn phí -->
+          <NTag v-if="needsRefund" type="warning" size="small" round>
+            <template #icon>
+              <NIcon><ArrowBackOutline /></NIcon>
+            </template>
+            Cần hoàn phí
+          </NTag>
+          <NTag v-if="isCancelled && isTransferPayment && hoaDonData?.trangThaiHoanPhi" type="success" size="small" round>
+            <template #icon>
+              <NIcon><CheckmarkCircleOutline /></NIcon>
+            </template>
+            Đã hoàn phí
+          </NTag>
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
+        <!-- Nút Xác nhận hoàn phí: chỉ hiện khi đơn online, đã hủy, đã TT chuyển khoản, chưa hoàn phí -->
+        <Transition name="fade">
+          <NButton
+            v-if="needsRefund"
+            type="warning"
+            secondary
+            @click="showRefundModal = true"
+          >
+            <template #icon>
+              <NIcon><ArrowBackOutline /></NIcon>
+            </template>
+            Xác nhận hoàn phí
+          </NButton>
+        </Transition>
         <NButton type="info" secondary @click="showHistoryModal = true">
           <template #icon>
             <NIcon><ListOutline /></NIcon>
@@ -1300,7 +1499,7 @@ fun<template>
                 {{ item.imeiCode || '—' }}
               </td>
               <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #374151;">
-                {{ formatCurrency(item.giaBanImei || item.giaBan) }}
+                {{ formatCurrency(item.giaBanImei || item.giaGoc) }}
               </td>
               <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 700;">
                 {{ formatCurrency(item.tongTienImei || item.tongTien) }}
@@ -1342,7 +1541,7 @@ fun<template>
           <h3 class="text-lg font-semibold text-gray-900">
             Tiến trình đơn hàng
           </h3>
-          <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.thoiGianCapNhatCuoi || hoaDonData?.ngayTao) }}</span>
+          <span class="text-sm text-gray-500">Cập nhật: {{ formatDateTime(hoaDonData?.ngayCapNhat || hoaDonData?.ngayTao) }}</span>
         </div>
         <NButton
           v-if="showCancelButton"
@@ -1395,6 +1594,9 @@ fun<template>
                 </p>
                 <p class="text-xs text-gray-500 mt-1">
                   {{ getStepTime(step.key) || 'Vừa xong' }}
+                </p>
+                <p v-if="step.key === '6'" class="text-xs text-orange-500 mt-1 italic leading-snug">
+                  Hóa đơn sẽ tự động xóa nếu khách hàng không nhận hàng sau 3 ngày.
                 </p>
               </div>
               <div
@@ -1633,6 +1835,32 @@ fun<template>
               <span class="text-gray-600">Hoàn phí:</span>
               <span class="font-bold text-blue-600">{{ formatCurrency(hoaDonData.hoanPhi) }}</span>
             </div>
+            <!-- Trạng thái hoàn phí -->
+            <div v-if="isCancelled && isTransferPayment && hoaDonData?.trangThaiThanhToan === 'DA_THANH_TOAN'" class="pt-2">
+              <div
+                v-if="hoaDonData?.trangThaiHoanPhi"
+                class="flex items-center gap-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 font-medium"
+              >
+                <NIcon size="16" color="#16a34a">
+                  <CheckmarkCircleOutline />
+                </NIcon>
+                Đã hoàn phí cho khách hàng
+              </div>
+              <div
+                v-else
+                class="flex items-center justify-between px-3 py-2 bg-orange-50 border border-orange-200 rounded-lg"
+              >
+                <div class="flex items-center gap-2 text-sm text-orange-700 font-medium">
+                  <NIcon size="16" color="#f97316">
+                    <TimeOutline />
+                  </NIcon>
+                  Chờ xác nhận hoàn phí
+                </div>
+                <NButton size="tiny" type="warning" round @click="showRefundModal = true">
+                  Xác nhận hoàn phí
+                </NButton>
+              </div>
+            </div>
             <div class="pt-4">
               <p class="text-sm text-gray-600 mb-2">
                 Thời gian thanh toán:
@@ -1642,7 +1870,7 @@ fun<template>
                   <TimeOutline />
                 </NIcon>
                 <span v-if="hoaDonData?.trangThaiThanhToan === 'DA_THANH_TOAN'">
-                  {{ formatDateTime(hoaDonData?.ngayTao) }}
+                  {{ formatDateTime(hoaDonData?.ngayCapNhat) }}
                 </span>
                 <span v-else class="text-gray-400 italic">
                   Chưa thanh toán
@@ -2217,6 +2445,199 @@ fun<template>
 
             Bạn có chắc muốn cập nhật thông tin khách hàng?
           </NPopconfirm>
+        </div>
+      </template>
+    </NModal>
+    <!-- ==================== MODAL: CHỌN THỜI GIAN NHẬN HÀNG ==================== -->
+    <NModal
+      v-model:show="showPickupDateModal"
+      preset="card"
+      class="no-print !w-[460px] !max-w-[90vw] !rounded-2xl shadow-2xl"
+      :bordered="false"
+      size="huge"
+      content-style="padding-top: 0;"
+    >
+      <template #header>
+        <div class="flex items-center gap-3 pt-2">
+          <div class="w-10 h-10 rounded-full bg-teal-50 flex items-center justify-center">
+            <NIcon size="22" color="#0d9488">
+              <StorefrontOutline />
+            </NIcon>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 leading-tight">
+              Chọn thời gian nhận hàng
+            </h3>
+            <p class="text-xs text-gray-500 font-normal mt-0.5">
+              Vui lòng chọn khoảng thời gian để khách hàng đến nhận hàng tại cửa hàng
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <div class="py-4 space-y-4">
+        <!-- Từ ngày -->
+        <div class="space-y-1">
+          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <span class="text-teal-500">📅</span> Từ ngày
+          </label>
+          <input
+            v-model="pickupDateFrom"
+            type="date"
+            :min="new Date().toISOString().split('T')[0]"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+          >
+        </div>
+
+        <!-- Đến ngày -->
+        <div class="space-y-1">
+          <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <span class="text-teal-500">📅</span> Đến ngày
+          </label>
+          <input
+            v-model="pickupDateTo"
+            type="date"
+            :min="pickupDateFrom || new Date().toISOString().split('T')[0]"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+          >
+        </div>
+
+        <!-- Preview khoảng thời gian -->
+        <div v-if="pickupDateFrom && pickupDateTo" class="bg-teal-50 border border-teal-200 rounded-xl p-4 space-y-1">
+          <p class="text-sm font-semibold text-teal-700 mb-2">
+            Khoảng thời gian nhận hàng đã chọn:
+          </p>
+          <p class="text-sm font-bold text-teal-800">
+            Từ {{ pickupDateFromFormatted }}
+          </p>
+          <p class="text-sm font-bold text-teal-800">
+            Đến {{ pickupDateToFormatted }}
+          </p>
+        </div>
+
+        <!-- Ghi chú -->
+        <div class="space-y-1">
+          <label class="text-sm font-semibold text-gray-700">Ghi chú thêm <span class="text-gray-400 font-normal text-xs">(Không bắt buộc)</span></label>
+          <NInput
+            v-model:value="statusNote"
+            type="textarea"
+            placeholder="Nhập ghi chú cho khách hàng..."
+            :rows="2"
+            class="!rounded-lg"
+          />
+        </div>
+
+        <!-- Lưu ý -->
+        <div class="flex items-start gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-sm text-blue-700">
+          <NIcon size="16" color="#3b82f6" class="flex-shrink-0 mt-0.5">
+            <InformationCircleOutline />
+          </NIcon>
+          <span>Khoảng thời gian này sẽ được gửi cho khách hàng qua email để họ biết khi nào có thể đến cửa hàng nhận hàng.</span>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end pt-2">
+          <NButton size="large" class="!rounded-lg font-medium" @click="showPickupDateModal = false">
+            Hủy
+          </NButton>
+          <NButton
+            type="primary"
+            size="large"
+            class="!rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
+            :loading="isUpdating"
+            :disabled="!pickupDateFrom || !pickupDateTo"
+            @click="confirmPickupDate"
+          >
+            <template #icon>
+              <NIcon><CheckmarkCircleOutline /></NIcon>
+            </template>
+            Xác nhận và gửi thông báo
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- ==================== MODAL: XÁC NHẬN HOÀN PHÍ ==================== -->
+    <NModal
+      v-model:show="showRefundModal"
+      preset="card"
+      class="no-print !w-[460px] !max-w-[90vw] !rounded-2xl shadow-2xl"
+      :bordered="false"
+      size="huge"
+      content-style="padding-top: 0;"
+    >
+      <template #header>
+        <div class="flex items-center gap-3 pt-2">
+          <div class="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center">
+            <NIcon size="22" color="#f97316">
+              <ArrowBackOutline />
+            </NIcon>
+          </div>
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 leading-tight">
+              Xác nhận hoàn phí
+            </h3>
+            <p class="text-xs text-gray-500 font-normal mt-0.5">
+              Mã đơn: <span class="font-mono text-gray-700 font-semibold">{{ hoaDonData?.maHoaDon }}</span>
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <div class="py-4 space-y-4">
+        <!-- Thông tin hoàn phí -->
+        <div class="bg-orange-50 border border-orange-200 rounded-xl p-4 space-y-3">
+          <div class="flex items-center gap-2 text-orange-700 font-semibold text-sm">
+            <NIcon size="18" color="#f97316">
+              <InformationCircleOutline />
+            </NIcon>
+            Thông tin hoàn phí
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600">Khách hàng:</span>
+              <span class="font-semibold text-gray-900">{{ hoaDonData?.tenKhachHang2 || hoaDonData?.tenKhachHang || 'Khách lẻ' }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-gray-600">Phương thức đã thanh toán:</span>
+              <span class="font-semibold text-gray-900">{{ getPaymentMethodText(hoaDonData?.phuongThucThanhToan) }}</span>
+            </div>
+            <div class="flex justify-between items-center pt-2 border-t border-orange-200">
+              <span class="text-gray-700 font-semibold">Số tiền cần hoàn:</span>
+              <span class="text-lg font-bold text-orange-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 flex items-start gap-2 text-sm text-blue-700">
+          <NIcon size="18" color="#3b82f6" class="flex-shrink-0 mt-0.5">
+            <InformationCircleOutline />
+          </NIcon>
+          <span>
+            Đây là đơn hàng online đã thanh toán chuyển khoản và bị hủy.
+            Sau khi xác nhận, hệ thống sẽ ghi nhận cửa hàng đã hoàn trả tiền cho khách.
+          </span>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end pt-2">
+          <NButton size="large" class="!rounded-lg font-medium" @click="showRefundModal = false">
+            Hủy bỏ
+          </NButton>
+          <NButton
+            type="warning"
+            size="large"
+            class="!rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
+            :loading="isProcessingRefund"
+            @click="confirmRefundAction"
+          >
+            <template #icon>
+              <NIcon><CheckmarkCircleOutline /></NIcon>
+            </template>
+            Xác nhận đã hoàn phí
+          </NButton>
         </div>
       </template>
     </NModal>

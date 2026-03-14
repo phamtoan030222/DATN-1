@@ -90,5 +90,6 @@ public class MappingConstants {
     public static final String API_SHIFTS = API_VERSION_PREFIX + "/shifts";
     //AI
     public static final String API_CHAT_AI = API_VERSION_PREFIX + "/chat";
+    public static final String API_INVOICE_ORDER_ONLINE = API_ORDER_ONLINE + "/invoices";
 
 }

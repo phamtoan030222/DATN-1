@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -21,9 +22,8 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     @Override
     public ResponseObject<?> getById(String code) {
         Optional<String> customerIdOptional = userContextHelper.getCurrentUserId();
-        if (customerIdOptional.isEmpty()) return ResponseObject.errorForward("User not found", HttpStatus.NOT_FOUND);
 
-        return invoiceRepository.getInvoiceByCode(code, customerIdOptional.get())
+        return invoiceRepository.getInvoiceByCode(code, customerIdOptional.orElse(null))
                 .map(invoice -> ResponseObject.successForward(invoice, "Fetch invoice success"))
                 .orElse(ResponseObject.errorForward("Fetch invoice failure", HttpStatus.NOT_FOUND));
     }
@@ -31,15 +31,23 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     @Override
     public ResponseObject<?> getHistoryInvoiceById(String idHoaDon) {
         return ResponseObject.successForward(
-                invoiceRepository.getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(idHoaDon),
+                invoiceRepository.getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(idHoaDon, userContextHelper.getCurrentUserId().orElse(null)),
                 "OKE"
         );
     }
 
     @Override
-    public ResponseObject<?> getInvoiceDetailsById(String id) {
+    public ResponseObject<?> getInvoiceDetailsById(List<String> ids) {
         return ResponseObject.successForward(
-                invoiceRepository.getInvoiceDetailsByInvoiceId(id),
+                invoiceRepository.getInvoiceDetailsByInvoiceId(ids),
+                "OKE"
+        );
+    }
+
+    @Override
+    public ResponseObject<?> getInvoiceByIdCustomer() {
+        return ResponseObject.successForward(
+                invoiceRepository.getInvoicesByIdCustomer(userContextHelper.getCurrentUserId().orElse(null)),
                 "OKE"
         );
     }
