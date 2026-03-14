@@ -13,7 +13,7 @@ public interface ClientCampaignProductRepository extends ProductDiscountDetailRe
 
     // 1. Lấy sản phẩm của đợt giảm giá ĐANG diễn ra (Thêm check status = 0 cho cả d và d2 và pdd)
     @Query("SELECT d.name AS discountName, d.startDate AS startDate, d.endDate AS endDate, d.percentage AS percentage, " +
-            "p.name AS productName, pd.id AS productDetailId, pd.urlImage as urlImage, " +
+            "pd.name AS name, pd.id AS productDetailId, pd.urlImage as urlImage, " +
             "cpu.name AS cpu, gpu.name AS gpu, ram.name AS ram, hd.name AS hardDrive, " +
             "pdd.originalPrice AS originalPrice, pdd.salePrice AS salePrice " +
             "FROM ProductDetailDiscount pdd " +
@@ -39,7 +39,7 @@ public interface ClientCampaignProductRepository extends ProductDiscountDetailRe
 
     // 3. Lấy sản phẩm của đợt giảm giá theo ID (Thêm check status = 0)
     @Query("SELECT d.name AS discountName, d.startDate AS startDate, d.endDate AS endDate, d.percentage AS percentage, " +
-            "p.name AS productName, pd.id AS productDetailId, pd.urlImage as urlImage," +
+            "pd.name AS name, pd.id AS productDetailId, pd.urlImage as urlImage," +
             "cpu.name AS cpu, gpu.name AS gpu, ram.name AS ram, hd.name AS hardDrive," +
             "pdd.originalPrice AS originalPrice, pdd.salePrice AS salePrice " +
             "FROM ProductDetailDiscount pdd " +
