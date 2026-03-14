@@ -48,7 +48,6 @@ const themeOverrides: GlobalThemeOverrides = {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f6f7f9;
 }
 
 .main-content {
@@ -63,11 +62,7 @@ const themeOverrides: GlobalThemeOverrides = {
 }
 
 .content-card {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(17, 24, 39, 0.06);
   border-radius: 16px;
-  box-shadow: 0 8px 24px rgba(17, 24, 39, 0.06);
-  padding: 14px;
   min-height: 600px;
 }
 

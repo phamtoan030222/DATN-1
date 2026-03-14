@@ -72,7 +72,11 @@ const menuOptions: MenuOption[] = [
 
 const userOptions = computed(() => {
   if (userInfoDatn.value) {
-    return [{ label: 'Đăng xuất', key: 'logout' }]
+    return [
+      { label: 'Thông tin cá nhân', key: 'profile' },
+      { label: 'Đơn hàng', key: 'orders' },
+      { label: 'Đăng xuất', key: 'logout' },
+    ]
   }
   else {
     return [{ label: 'Đăng nhập', key: 'login' }]
@@ -119,6 +123,11 @@ function handleMenuClick(key: string, item: MenuOption) {
 function handlerAccountDropdown(key: string) {
   if (key === 'login') {
     router.push({ path: '/login' })
+  } else if (key === 'profile') {
+    router.push({ name: 'Profile' })
+  }
+   else if (key === 'orders') {
+    router.push({ name: 'Orders' })
   }
   else if (key === 'logout') {
     logout()
@@ -301,10 +310,7 @@ function handleCartClick() {
 
 .brand-text {
   font-size: 1.6rem;
-  font-weight: 900;
-  color: #049d14;
   margin-left: 10px;
-  letter-spacing: -0.5px;
 }
 
 .main-menu-inline {

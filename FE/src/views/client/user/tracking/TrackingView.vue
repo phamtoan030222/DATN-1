@@ -273,7 +273,7 @@ import {
 } from '@vicons/ionicons5'
 
 // const router = useRouter()
-// const route = useRoute()
+const route = useRoute()
 const message = useMessage()
 const dialog = useDialog()
 const notification = useNotification()
@@ -427,9 +427,9 @@ const openCancelModal = (): void => {
   })
 }
 
-const fetchInvoice = async (): Promise<void> => {
+const fetchInvoice = async (query?: string): Promise<void> => {
   try {
-    const response = await getInvoiceById(searchInvoiceCode.value)
+    const response = await getInvoiceById(query ?? searchInvoiceCode.value)
 
     invoice.value = response.data
     // load history statuses and details concurrently
@@ -437,10 +437,10 @@ const fetchInvoice = async (): Promise<void> => {
       try {
         const [histRes, detailRes] = await Promise.all([
           getHistoryStatusInvoice(invoice.value.id),
-          getInvoiceDetails(invoice.value.id)
+          getInvoiceDetails([invoice.value.id])
         ])
         historiesStatusInvoice.value = histRes.data || []
-        invoiceDetails.value = detailRes.data || []
+        invoiceDetails.value = detailRes.data.filter(it => it.idInvoice === invoice.value?.id) || []
       } catch (e) {
         console.error('Error fetching invoice meta:', e)
         historiesStatusInvoice.value = []
@@ -508,7 +508,7 @@ const statusPayment = computed(() => {
 
 // Lifecycle
 onMounted(() => {
-
+  fetchInvoice(route.query.q as string)
 })
 </script>
 

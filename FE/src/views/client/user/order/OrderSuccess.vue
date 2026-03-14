@@ -12,6 +12,15 @@ function goHome() {
   router.push('/')
 }
 
+const handleClickTracking = () => {
+  router.push({
+  name: 'OrderTracking',
+  query: {
+    q: maHoaDon.value
+  }
+})
+}
+
 function continueShopping() {
   router.push('/san-pham')
 }
@@ -39,8 +48,8 @@ function continueShopping() {
             <NButton size="large" @click="goHome">
               Về Trang Chủ
             </NButton>
-            <NButton type="primary" color="#00D752" size="large" @click="continueShopping">
-              Tiếp Tục Mua Sắm
+            <NButton type="primary" color="#00D752" size="large" @click="handleClickTracking">
+              Theo dõi đơn hàng
             </NButton>
           </div>
         </template>
