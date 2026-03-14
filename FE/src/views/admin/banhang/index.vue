@@ -2566,7 +2566,7 @@ function formatCurrencyInput(value: number) {
     >
       <NCard size="small" :bordered="false">
         <NAlert type="info" size="small" show-icon style="margin-bottom: 12px;">
-          Đặt mã SERIAL (15-17 số) vào khung hình để quét.
+          Đặt mã Barcode vào khung hình để quét.
         </NAlert>
 
         <div id="reader" style="width: 100%; max-width: 440px; margin: 0 auto;" />
