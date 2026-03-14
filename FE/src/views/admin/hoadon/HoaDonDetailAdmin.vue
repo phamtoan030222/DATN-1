@@ -424,11 +424,11 @@ const printProducts = computed<PrintProduct[]>(() => {
     const imeiList = parseIMEIList(item.danhSachImei)
     if (imeiList.length > 0) {
       imeiList.forEach((imei) => {
-        result.push({ ...item, imeiCode: imei.code || imei.imeiCode, soLuongImei: 1, giaBanImei: item.giaBan, tongTienImei: item.giaBan })
+        result.push({ ...item, imeiCode: imei.code || imei.imeiCode, soLuongImei: 1, giaBanImei: item.giaGoc, tongTienImei: item.giaBan })
       })
     }
     else {
-      result.push({ ...item, imeiCode: null, soLuongImei: item.soLuong, giaBanImei: item.giaBan, tongTienImei: item.tongTien })
+      result.push({ ...item, imeiCode: null, soLuongImei: item.soLuong, giaBanImei: item.giaGoc, tongTienImei: item.tongTien })
     }
   })
   return result
@@ -1349,7 +1349,7 @@ fun<template>
                 {{ item.imeiCode || '—' }}
               </td>
               <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; color: #374151;">
-                {{ formatCurrency(item.giaBanImei || item.giaBan) }}
+                {{ formatCurrency(item.giaBanImei || item.giaGoc) }}
               </td>
               <td style="padding: 10px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-weight: 700;">
                 {{ formatCurrency(item.tongTienImei || item.tongTien) }}
