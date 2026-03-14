@@ -249,10 +249,11 @@ const columns = [
     width: 120,
     fixed: 'right',
     render(row: StaffResponse) {
-      return h(NPopconfirm, { 
-            positiveText: 'Đồng ý', 
-            negativeText: 'Hủy', 
-             onPositiveClick: () => handleStatusChange(row) }, {
+      return h(NPopconfirm, {
+        positiveText: 'Đồng ý',
+        negativeText: 'Hủy',
+        onPositiveClick: () => handleStatusChange(row),
+      }, {
         trigger: () => h(NSwitch, { value: row.status === 'ACTIVE', size: 'small', disabled: loading.value }),
         default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} nhân viên này?`,
       })
@@ -325,25 +326,30 @@ const columns = [
       </NForm>
     </NCard>
 
-    <NCard title="Danh sách nhân viên" class="border rounded-3">
+    <NCard title="Danh sách nhân viên" class="shadow-sm rounded-xl border border-gray-100">
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton type="primary" secondary class="rounded-full px-3" @click="navigateToAdd">
+            <NButton type="primary" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="navigateToAdd">
               <template #icon>
-                <NIcon size="24">
+                <NIcon size="20">
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              Thêm mới
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Thêm mới
+              </span>
             </NButton>
-            <NButton type="info" secondary class="rounded-full px-3" @click="fetchStaff">
+
+            <NButton type="info" secondary class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg" @click="fetchStaff">
               <template #icon>
-                <NIcon size="24">
+                <NIcon size="20">
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              Tải lại
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
+                Tải lại
+              </span>
             </NButton>
           </NSpace>
         </div>
