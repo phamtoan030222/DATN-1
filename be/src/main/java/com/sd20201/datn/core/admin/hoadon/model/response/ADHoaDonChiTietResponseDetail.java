@@ -20,7 +20,9 @@ public interface ADHoaDonChiTietResponseDetail {
     String getMauSac();
     String getSize();
     Integer getSoLuong();
+    BigDecimal getGiaGoc();
     BigDecimal getGiaBan();
+    Integer getPercentage();
 
     // Thông tin giá trị
     BigDecimal getThanhTienSP();

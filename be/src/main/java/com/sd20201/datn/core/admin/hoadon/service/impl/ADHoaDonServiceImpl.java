@@ -629,9 +629,9 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
         try {
             Pageable pageable = Helper.createPageable(request, "created_date");
 
+            Long currentTime = System.currentTimeMillis();
 
-
-            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getHoaDonChiTiet(request.getMaHoaDon(), pageable);
+            Page<ADHoaDonChiTietResponseDetail> page = adHoaDonChiTietRepository.getHoaDonChiTiet(request.getMaHoaDon(),currentTime, pageable);
             return new ResponseObject<>(
                     page,
                     HttpStatus.OK,

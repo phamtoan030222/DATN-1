@@ -3,6 +3,7 @@ import { computed, h, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   NAvatar,
+  NBadge,
   NButton,
   NCard,
   NCheckbox,
@@ -574,14 +575,21 @@ const productColumns = computed<DataTableColumns<any>>(() => {
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
         return h('div', { class: 'flex items-center justify-center gap-4 py-1' }, [
-          h(NAvatar, {
-            src: row.anhSanPham,
-            size: 'large',
-            round: false,
-            class: 'border border-gray-200 rounded-md shadow-sm bg-white',
-            fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+          h(NBadge, {
+            value: row.percentage ? `-${row.percentage}%` : undefined,
+            type: 'error',
+            offset: [-5, 0],
+            style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
+          }, {
+            default: () => h(NAvatar, {
+              src: row.anhSanPham,
+              size: 'large',
+              round: false,
+              class: 'border border-gray-200 rounded-md shadow-sm bg-white',
+              fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+            }),
           }),
-          h('div', { class: 'min-w-0 flex flex-col items-start' }, [
+          h('div', { class: 'min-w-0' }, [
             h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
             h('div', { class: 'flex flex-wrap items-center gap-2 mt-1.5' }, [
               row.thuongHieu && h(NTag, { size: 'tiny', type: 'info', bordered: false }, { default: () => row.thuongHieu }),
@@ -609,7 +617,7 @@ const productColumns = computed<DataTableColumns<any>>(() => {
       key: 'price',
       width: 140,
       align: 'right',
-      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)),
+      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
     },
     {
       title: 'Thành tiền',
@@ -684,12 +692,19 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
         if (!row.tenSanPham)
           return h('div', { class: 'hidden' })
         return h('div', { class: 'flex items-center justify-center gap-4 py-1' }, [
-          h(NAvatar, {
-            src: row.anhSanPham,
-            size: 'large',
-            round: false,
-            class: 'border border-gray-200 rounded-md shadow-sm bg-white',
-            fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+          h(NBadge, {
+            value: row.percentage ? `-${row.percentage}%` : undefined,
+            type: 'error',
+            offset: [-5, 0],
+            style: { transform: 'scale(0.85)', transformOrigin: 'top right' },
+          }, {
+            default: () => h(NAvatar, {
+              src: row.anhSanPham,
+              size: 'large',
+              round: false,
+              class: 'border border-gray-200 rounded-md shadow-sm bg-white',
+              fallbackSrc: 'https://via.placeholder.com/40?text=No+Image',
+            }),
           }),
           h('div', { class: 'min-w-0' }, [
             h('div', { class: 'font-bold text-gray-900 text-sm truncate' }, row.tenSanPham),
@@ -714,7 +729,7 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
       key: 'price',
       width: 180,
       align: 'right',
-      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaBan)),
+      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
     },
     {
       title: 'Thành tiền',
