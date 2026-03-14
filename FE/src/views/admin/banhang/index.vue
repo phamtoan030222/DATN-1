@@ -1596,28 +1596,27 @@ const columnsGiohang: DataTableColumns<any> = [
     },
   },
   { title: 'Thành tiền', key: 'total', width: 120, align: 'right', render: row => h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.giaGoc * (1 - (row.percentage || 0) / 100))) },
-  { 
+  {
     title: 'Thao tác',
-     key: 'action',
-      width: 100,
-       align: 'center',
-        render: row =>
-         h(NPopconfirm,{
-          onPositiveClick : ()=> deleteProduct(row),
-          negativeText : 'Hủy',
-           positiveText : 'Xóa'
-         }, {
+    key: 'action',
+    width: 100,
+    align: 'center',
+    render: row =>
+      h(NPopconfirm, {
+        onPositiveClick: () => deleteProduct(row),
+        negativeText: 'Hủy',
+        positiveText: 'Xóa',
+      }, {
         trigger: () =>
           h(
             NButton,
             { type: 'error', size: 'tiny', text: true },
             {
               icon: () => h(NIcon, null, () => h(TrashOutline)),
-            }
+            },
           ),
-        default: () => 'Bạn có chắc chắn muốn xóa SERIAL này ra khỏi giỏ hàng không?'
-      }
-          )
+        default: () => 'Bạn có chắc chắn muốn xóa SERIAL này ra khỏi giỏ hàng không?',
+      }),
   },
 ]
 
@@ -1775,11 +1774,7 @@ function formatCurrencyInput(value: number) {
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
-<<<<<<< HEAD
               Quét Barcode
-=======
-              Quét BARCODE
->>>>>>> e0e55dedd8a36e363f5ad362b38dbe0e3fab79c1
             </NButton>
           </NSpace>
         </template>
