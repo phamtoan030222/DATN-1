@@ -660,7 +660,11 @@ public class VnPayService {
         params.put("vnp_OrderInfo", orderInfo);
         params.put("vnp_OrderType", request.getOrderType());
         params.put("vnp_Locale", request.getLanguage() != null ? request.getLanguage() : "vn");
-        params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
+        String returnUrl = (request.getReturnUrl() != null && !request.getReturnUrl().isBlank())
+                ? request.getReturnUrl()
+                : vnPayConfig.getReturnUrl();
+        params.put("vnp_ReturnUrl", returnUrl);
+
         params.put("vnp_IpAddr", ipAddr);
         params.put("vnp_CreateDate", new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
 

@@ -141,4 +141,37 @@ public class PaymentController {
             return ResponseEntity.badRequest().body("Lỗi: " + e.getMessage());
         }
     }
+
+    @GetMapping("/vnpay-return-client")
+    public String paymentReturnPageClient(@RequestParam Map<String, String> params) {
+        PaymentResponse response = vnPayService.processReturn(params);
+
+        String clientUrl = "http://localhost:6788";
+
+        if ("00".equals(response.getCode())) {
+            // Lấy invoiceId từ vnp_TxnRef (format: invoiceId_timestamp)
+            String invoiceId = params.getOrDefault("vnp_TxnRef", "").split("_")[0];
+
+            // Tìm mã hóa đơn để hiển thị trên trang success
+            String orderCode = invoiceRepository.findById(invoiceId)
+                    .map(Invoice::getCode)
+                    .orElse("");
+
+            return "<html><head><meta charset='UTF-8'>" +
+                    "<script>" +
+                    "window.location.href = '" + clientUrl + "/order-success" +
+                    "?payment=success" +
+                    "&ma-hoa-don=" + orderCode +
+                    "';" +
+                    "</script>" +
+                    "</head><body>Đang chuyển hướng...</body></html>";
+        }
+        else {
+            return "<html><head><meta charset='UTF-8'>" +
+                    "<script>" +
+                    "window.location.href = '" + clientUrl + "/order-success?payment=failed';" +
+                    "</script>" +
+                    "</head><body>Đang chuyển hướng...</body></html>";
+        }
+    }
 }
