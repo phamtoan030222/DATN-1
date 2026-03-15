@@ -32,7 +32,7 @@ public class ADHoaDonRepositoryCustomImpl
                         kh.phone,
                         nv.code,
                         nv.name,
-                        hd.totalAmountAfterDecrease,
+                        hd.totalAmount,
                         hd.typeInvoice,
                         hd.createdDate,
                         hd.entityTrangThaiHoaDon
