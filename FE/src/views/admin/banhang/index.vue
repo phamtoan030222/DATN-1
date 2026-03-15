@@ -944,8 +944,25 @@ async function addSerialToCart() {
     return
   }
   try {
-    const imeisDaChon = selectedSerials.value.filter(s => selectedSerialIds.value.includes(s.id)).map(s => s.id)
-    const payload = { invoiceId: idHDS.value, productDetailId: selectedProductDetail.value!.id, imeiIds: imeisDaChon }
+    const product = selectedProductDetail.value!
+    const imeisDaChon = selectedSerials.value
+      .filter(s => selectedSerialIds.value.includes(s.id))
+      .map(s => s.id)
+
+    const giaGoc = product.price ?? 0
+    const giaBan = product.percentage > 0
+      ? Math.round(giaGoc * (1 - product.percentage / 100))
+      : giaGoc
+
+    const payload = {
+      invoiceId: idHDS.value,
+      productDetailId: product.id,
+      imeiIds: imeisDaChon,
+      quantity: imeisDaChon.length,
+      giaGoc,
+      giaBan,
+    }
+
     await themSanPham(payload)
 
     toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`, {
@@ -955,8 +972,6 @@ async function addSerialToCart() {
     selectedSerialIds.value = []
 
     await refreshCart()
-    // if (hasCartItems.value)
-    //   await fetchDiscounts(idHDS.value)
   }
   catch (error) { toast.error('Thêm serial vào giỏ hàng thất bại!') }
 }

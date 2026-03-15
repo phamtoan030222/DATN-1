@@ -382,8 +382,9 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
         invoice.setTypePayment(paymentMethod);
         invoice.setShippingFee(request.getTienShip() != null ? request.getTienShip() : BigDecimal.ZERO);
-        invoice.setTotalAmount(request.getTienHang() != null ? request.getTienHang() : BigDecimal.ZERO);
-        invoice.setTotalAmountAfterDecrease(request.getTongTien() != null ? request.getTongTien() : BigDecimal.ZERO);
+        invoice.setTotalAmount(request.getTongTien() != null ? request.getTongTien() : BigDecimal.ZERO);
+        invoice.setTotalAmountAfterDecrease(request.getTienHang() != null ? request.getTienHang() : BigDecimal.ZERO);
+        invoice.setGiamGia(request.getGiamGia() != null ? request.getGiamGia() : BigDecimal.ZERO);
 
         System.out.println("Tổng tiền: " + invoice.getTotalAmount());
         System.out.println("Tổng tiền sau giảm: " + invoice.getTotalAmountAfterDecrease());
@@ -651,8 +652,6 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             return Collections.emptyList();
         }
     }
-
-
     @Override
     @Transactional
     public ResponseObject<?> createThemSanPham(ADThemSanPhamRequest request) {
@@ -671,7 +670,7 @@ public class ADBanHangServiceImpl implements ADBanHangService {
         }
 
         if (imeis.size() != request.getImeiIds().size()) {
-            throw new BusinessException("Khong tim thay imei");
+            throw new BusinessException("So luong imei khong khop");
         }
 
         boolean invalidImei = imeis.stream().anyMatch(
@@ -684,49 +683,52 @@ public class ADBanHangServiceImpl implements ADBanHangService {
             throw new BusinessException("Imei da duoc dat hoac khong ton tai");
         }
 
-        BigDecimal currentPrice = productDetail.getPrice();
+        // ✅ Dùng giá từ request thay vì productDetail.getPrice()
+        // giaGoc = giá gốc chưa giảm, giaBan = giá thực tế khách trả
+        BigDecimal giaGoc = request.getGiaGoc() != null
+                ? request.getGiaGoc()
+                : productDetail.getPrice();
 
-        // 🔎 tìm invoice detail theo product + price
+        BigDecimal giaBan = request.getGiaBan() != null
+                ? request.getGiaBan()
+                : giaGoc;
+
+        // 🔎 Tìm invoice detail theo product + giaBan (giá bán thực tế)
         Optional<InvoiceDetail> optionalInvoiceDetail =
                 invoiceDetailRepository.findByInvoiceIdAndProductDetailIdAndPrice(
                         request.getInvoiceId(),
                         request.getProductDetailId(),
-                        currentPrice
+                        giaBan
                 );
 
         InvoiceDetail invoiceDetail;
 
         if (optionalInvoiceDetail.isPresent()) {
 
-            // ✅ đã có cùng giá -> gộp
+            // ✅ Đã có dòng cùng giá bán → gộp số lượng
             invoiceDetail = optionalInvoiceDetail.get();
 
             int newQuantity = invoiceDetail.getQuantity() + imeis.size();
             invoiceDetail.setQuantity(newQuantity);
 
-            BigDecimal totalAmount = invoiceDetail.getPrice()
-                    .multiply(BigDecimal.valueOf(newQuantity));
-
-            invoiceDetail.setTotalAmount(totalAmount);
+            // Tổng tiền tính theo giaBan
+            invoiceDetail.setTotalAmount(giaBan.multiply(BigDecimal.valueOf(newQuantity)));
 
         } else {
 
-            // ✅ giá mới -> tạo dòng mới
+            // ✅ Giá mới hoặc sản phẩm mới → tạo dòng mới
             invoiceDetail = new InvoiceDetail();
             invoiceDetail.setInvoice(invoice);
             invoiceDetail.setProductDetail(productDetail);
-            invoiceDetail.setPrice(currentPrice);
+            invoiceDetail.setGiaGoc(giaGoc);        // giá gốc chưa giảm
+            invoiceDetail.setPrice(giaBan);          // giá bán = giá khách trả
             invoiceDetail.setQuantity(imeis.size());
-
-            BigDecimal totalAmount = currentPrice
-                    .multiply(BigDecimal.valueOf(imeis.size()));
-
-            invoiceDetail.setTotalAmount(totalAmount);
+            invoiceDetail.setTotalAmount(giaBan.multiply(BigDecimal.valueOf(imeis.size())));
         }
 
         invoiceDetailRepository.save(invoiceDetail);
 
-        // 🔗 gắn IMEI
+        // 🔗 Gắn IMEI vào dòng chi tiết
         for (IMEI imei : imeis) {
             imei.setInvoiceDetail(invoiceDetail);
             imei.setImeiStatus(ImeiStatus.RESERVED);

@@ -56,18 +56,35 @@ public class ShippingFeeService {
         String cleanPickWard = removeAccents(pickWard);
         String cleanPickAddress = removeAccents(pickAddress);
 
-        URI uri = UriComponentsBuilder
+        // Dùng String URL + queryParam template thay vì build URI trước
+        // → tránh RestTemplate encode lần 2 gây lỗi 400 Bad Request từ GHTK
+        String urlTemplate = UriComponentsBuilder
                 .fromHttpUrl("https://services.giaohangtietkiem.vn/services/shipment/fee")
-                .queryParam("pick_province", cleanPickProvince)
-                .queryParam("pick_district", cleanPickDistrict)
-                .queryParam("pick_ward", cleanPickWard)
-                .queryParam("pick_address", cleanPickAddress)
-                .queryParam("province", ghtkProvince)
-                .queryParam("district", ghtkDistrict)
-                .queryParam("address", req.getAddress())
-                .queryParam("weight", req.getWeight())
-                .queryParam("value", req.getOrderValue())
-                .build()
+                .queryParam("pick_province", "{pick_province}")
+                .queryParam("pick_district", "{pick_district}")
+                .queryParam("pick_ward", "{pick_ward}")
+                .queryParam("pick_address", "{pick_address}")
+                .queryParam("province", "{province}")
+                .queryParam("district", "{district}")
+                .queryParam("address", "{address}")
+                .queryParam("weight", "{weight}")
+                .queryParam("value", "{value}")
+                .encode()
+                .toUriString();
+
+        Map<String, Object> params = new java.util.HashMap<>();
+        params.put("pick_province", cleanPickProvince);
+        params.put("pick_district", cleanPickDistrict);
+        params.put("pick_ward", cleanPickWard);
+        params.put("pick_address", cleanPickAddress);
+        params.put("province", ghtkProvince);
+        params.put("district", ghtkDistrict);
+        params.put("address", removeAccents(req.getAddress()));
+        params.put("weight", req.getWeight());
+        params.put("value", req.getOrderValue());
+
+        URI uri = UriComponentsBuilder.fromUriString(urlTemplate)
+                .buildAndExpand(params)
                 .toUri();
 
         log.info("=== GHTK URL: {}", uri);

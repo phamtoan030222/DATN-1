@@ -655,6 +655,7 @@ async function handleCheckout() {
       productDetailId: item.productDetailId,
       quantity: item.quantity,
       price: item.percentage ? item.price * (1 - item.percentage / 100) : item.price,
+      giaGoc: item.price,
     }))
 
     const payload = {

@@ -149,10 +149,10 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             );
 
             // Set tiền (Lấy từ request hoặc tính lại nếu cần bảo mật cao)
-            invoice.setTotalAmount(request.getTienHang());
+            invoice.setTotalAmount(request.getTongTien());
             invoice.setShippingFee(request.getTienShip());
-//            invoice.setDiscountAmount(request.getGiamGia());
-            invoice.setTotalAmountAfterDecrease(request.getTongTien());
+            invoice.setGiamGia(request.getGiamGia());
+            invoice.setTotalAmountAfterDecrease(request.getTienHang());
             if (request.getLoaiHoaDon().equals("TAI_QUAY")) {
                 invoice.setTypeInvoice(TypeInvoice.ONLINE_TAI_QUAY);
             } else{
@@ -202,6 +202,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 detail.setProductDetail(productDetail);
                 detail.setQuantity(item.getQuantity());
                 detail.setPrice(item.getPrice()); // Giá bán tại thời điểm đặt
+                detail.setGiaGoc(item.getGiaGoc());
                 // Tính tổng tiền dòng này (để lưu DB cho chắc)
                 detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 

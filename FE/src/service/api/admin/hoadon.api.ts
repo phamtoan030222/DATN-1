@@ -612,6 +612,7 @@ export async function changeOrderStatus(requestData: ADChangeStatusRequest): Pro
 export interface ConfirmHoanPhiRequest {
   maHoaDon: string
   idNhanVien: string | number
+  hoanPhi: number
 }
 
 export async function confirmHoanPhi(data: ConfirmHoanPhiRequest): Promise<DefaultResponse<any>> {

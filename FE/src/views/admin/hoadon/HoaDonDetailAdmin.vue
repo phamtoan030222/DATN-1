@@ -475,7 +475,6 @@ const printProducts = computed<PrintProduct[]>(() => {
   return result
 })
 
-// ==================== LOGIC TIẾN TRÌNH ====================
 const filteredSteps = computed(() => {
   if (isCancelled.value)
     return TIMELINE_STEPS.filter(step => step.key === '0' || step.key === '5')
@@ -485,9 +484,12 @@ const filteredSteps = computed(() => {
     return TIMELINE_STEPS.filter(step => ['0', '1', '2', '3', '4'].includes(step.key))
   if (isOnlinePickupInvoice.value)
     return TIMELINE_STEPS.filter(step => ['0', '1', '6', '4'].includes(step.key))
+
+  if (isOnlineInvoice.value)
+    return TIMELINE_STEPS.filter(step => ['0', '1', '2', '3', '4'].includes(step.key))
+
   return TIMELINE_STEPS.filter(step => step.key !== '5')
 })
-
 const nextStatusToUpdate = computed<number | null>(() => {
   if (isCompleted.value || isCancelled.value)
     return null
@@ -771,20 +773,20 @@ const productColumnsSerialTong = computed<DataTableColumns<HoaDonChiTietItem>>((
       align: 'center',
       render: row => h('span', { class: 'font-bold text-gray-800 text-base' }, row.soLuong),
     },
-    {
-      title: 'Đơn giá',
-      key: 'price',
-      width: 180,
-      align: 'right',
-      render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
-    },
-    {
-      title: 'Thành tiền',
-      key: 'total',
-      width: 180,
-      align: 'right',
-      render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)),
-    },
+    // {
+    //   title: 'Đơn giá',
+    //   key: 'price',
+    //   width: 180,
+    //   align: 'right',
+    //   render: row => h('div', { class: 'font-medium text-gray-600' }, formatCurrency(row.giaGoc)),
+    // },
+    // {
+    //   title: 'Thành tiền',
+    //   key: 'total',
+    //   width: 180,
+    //   align: 'right',
+    //   render: row => h('div', { class: 'font-bold text-red-600 text-base' }, formatCurrency(row.tongTien)),
+    // },
     {
       title: 'Thao tác',
       key: 'action',
@@ -1510,7 +1512,7 @@ onMounted(async () => {
         <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
           <div style="width: 280px; font-size: 13px;">
             <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
-              <span>Tổng tiền hàng:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(totalAmount) }}</span>
+              <span>Tổng tiền hàng:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(hoaDonData?.thanhTien) }}</span>
             </div>
             <div v-if="hoaDonData?.phiVanChuyen" style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #e5e7eb; color: #6b7280;">
               <span>Phí vận chuyển:</span><span style="font-weight: 600; color: #111827;">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
@@ -1522,7 +1524,7 @@ onMounted(async () => {
               <span>Còn nợ:</span><span style="font-weight: 700;">{{ formatCurrency(hoaDonData.duNo) }}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin-top: 6px; background: #f0fdf4; border: 2px solid #16a34a; border-radius: 8px;">
-              <span style="font-weight: 800; font-size: 14px;">Thành tiền:</span><span style="font-weight: 900; font-size: 18px; color: #16a34a;">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span style="font-weight: 800; font-size: 14px;">Thành tiền:</span><span style="font-weight: 900; font-size: 18px; color: #16a34a;">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
         </div>
@@ -1648,7 +1650,7 @@ onMounted(async () => {
                 Tổng tiền
               </p>
               <p class="font-semibold text-red-600">
-                {{ formatCurrency(hoaDonData?.tongTienSauGiam) }}
+                {{ formatCurrency(hoaDonData?.tongTien) }}
               </p>
             </div>
           </div>
@@ -1759,7 +1761,7 @@ onMounted(async () => {
           </div>
           <div class="space-y-2 pt-4">
             <div class="flex justify-between items-center py-2 border-b border-gray-100">
-              <span class="text-gray-600">Tổng tiền hàng:</span><span class="font-semibold">{{ formatCurrency(totalAmount) }}</span>
+              <span class="text-gray-600">Tổng tiền hàng:</span><span class="font-semibold">{{ formatCurrency(hoaDonData?.thanhTien) }}</span>
             </div>
             <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center py-2 border-b border-gray-100">
               <span class="text-gray-600">Phí vận chuyển:</span><span class="font-semibold">{{ formatCurrency(hoaDonData.phiVanChuyen) }}</span>
@@ -1769,7 +1771,7 @@ onMounted(async () => {
             </div>
             <div class="flex justify-between items-center pt-4">
               <span class="text-lg font-bold text-gray-900">TỔNG CỘNG:</span>
-              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
           <div v-if="hoaDonData?.maVoucher" class="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
@@ -1825,7 +1827,7 @@ onMounted(async () => {
           <div class="space-y-3 pt-4 border-t border-gray-100">
             <div class="flex justify-between items-center">
               <span class="text-gray-600">Tổng tiền thanh toán:</span>
-              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="font-bold text-green-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
             <div v-if="hoaDonData?.duNo" class="flex justify-between items-center">
               <span class="text-gray-600">Còn nợ:</span>
@@ -1925,7 +1927,7 @@ onMounted(async () => {
           <div class="max-w-md ml-auto space-y-3">
             <div class="flex justify-between items-center">
               <span class="text-gray-600">Tạm tính:</span>
-              <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
+              <span class="font-medium">{{ formatCurrency(hoaDonData?.thanhTien) }}</span>
             </div>
             <div v-if="hoaDonData?.phiVanChuyen" class="flex justify-between items-center">
               <span class="text-gray-600">Phí vận chuyển:</span>
@@ -1937,7 +1939,7 @@ onMounted(async () => {
             </div>
             <div class="flex justify-between items-center pt-3 border-t border-gray-200">
               <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
-              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
         </div>
@@ -1972,7 +1974,7 @@ onMounted(async () => {
                 Tổng {{ imeiProductsCount }} SERIAL đã gán
               </NTag>
             </div>
-            <div class="max-w-md ml-auto space-y-3">
+            <!-- <div class="max-w-md ml-auto space-y-3">
               <div class="flex justify-between items-center">
                 <span class="text-gray-600">Tạm tính:</span>
                 <span class="font-medium">{{ formatCurrency(totalAmount) }}</span>
@@ -1989,7 +1991,7 @@ onMounted(async () => {
                 <span class="text-lg font-bold text-gray-900">Tổng cộng:</span>
                 <span class="text-xl font-bold text-red-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
               </div>
-            </div>
+            </div> -->
           </div>
         </div>
       </div>
@@ -2605,7 +2607,7 @@ onMounted(async () => {
             </div>
             <div class="flex justify-between items-center pt-2 border-t border-orange-200">
               <span class="text-gray-700 font-semibold">Số tiền cần hoàn:</span>
-              <span class="text-lg font-bold text-orange-600">{{ formatCurrency(hoaDonData?.tongTienSauGiam) }}</span>
+              <span class="text-lg font-bold text-orange-600">{{ formatCurrency(hoaDonData?.tongTien) }}</span>
             </div>
           </div>
         </div>

@@ -46,6 +46,11 @@ export interface LichSuTrangThaiHoaDonResponse {
     thoiGian: string
 }
 
+export type ClientInvoiceCancelRequest = {
+    id: string;
+    note: string;
+}
+
 // API call to fetch invoice by id
 export const getInvoiceById = async (code: string): Promise<any> => {
     const res = (await request({
@@ -85,4 +90,14 @@ export const getInvoiceDetails = async (ids: Array<string>): Promise<DefaultResp
     })) as AxiosResponse<DefaultResponse<ClientInvoiceDetailsResponse[]>>
 
     return res.data
+}
+
+export const putInvoiceCancel = async (data: ClientInvoiceCancelRequest) => {
+    const res = (await request({
+        url: `${API_INVOICES_ORDER_ONLINE}/cancel`,
+        method: 'PUT',
+        data,
+    })) as AxiosResponse<DefaultResponse<ClientInvoiceDetailsResponse[]>>
+
+    return res.data 
 }

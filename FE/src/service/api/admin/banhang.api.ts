@@ -148,6 +148,8 @@ export interface ADThemSanPhamRequest {
   productDetailId: string
   imeiIds: string[]
   quantity: number
+  giaGoc: number
+  giaBan: number
 }
 
 export type PhieuGiamGiaResponse = ResponseList & {

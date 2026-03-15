@@ -27,15 +27,14 @@ SELECT
     hdct.quantity                            AS soLuong,
 
     -- ===== GIÁ =====
-    hdct.price                               AS giaGoc,
+    hdct.gia_goc                             AS giaGoc,
+
+    hdct.price                                     AS giaBan,
 
     CASE
-        WHEN discount_info.max_percentage IS NOT NULL
-        THEN (hdct.price * (100 - discount_info.max_percentage)) / 100
-        ELSE hdct.price
-    END                                      AS giaBan,
-
-    COALESCE(discount_info.max_percentage, 0) AS percentage,
+        WHEN hdct.gia_goc IS NULL OR hdct.gia_goc = 0 THEN 0
+        ELSE ROUND((hdct.gia_goc - hdct.price) * 100.0 / hdct.gia_goc, 2)
+        END         AS percentage,
 
     CASE
         WHEN discount_info.max_percentage IS NOT NULL THEN 1
@@ -43,20 +42,14 @@ SELECT
     END                                      AS giaDaThayDoi,
 
     -- ===== THÀNH TIỀN (tính theo giá sau giảm) =====
-    (
-        CASE
-            WHEN discount_info.max_percentage IS NOT NULL
-            THEN (hdct.price * (100 - discount_info.max_percentage)) / 100
-            ELSE hdct.price
-        END * hdct.quantity
-    )                                        AS tongTien,
+    hd.total_amount                                      AS tongTien,
 
     hd.total_amount_after_decrease           AS tongTienSauGiam,
 
     -- ===== VOUCHER =====
     v.code                                   AS maVoucher,
     v.name                                   AS tenVoucher,
-    COALESCE(hd.total_amount - hd.total_amount_after_decrease, 0) AS giaTriVoucher,
+    hd.giam_gia AS giaTriVoucher,
 
     -- ===== NHÂN VIÊN =====
     s.name                                   AS tenNhanVien,
