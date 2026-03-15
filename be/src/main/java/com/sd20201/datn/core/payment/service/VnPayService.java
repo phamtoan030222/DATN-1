@@ -123,9 +123,9 @@ public class VnPayService {
 // 1. Tiền hàng gốc (trước giảm giá, chưa cộng ship)
             if (request.getTienHang() != null
                     && request.getTienHang().compareTo(BigDecimal.ZERO) > 0) {
-                invoice.setTotalAmount(request.getTienHang());
+                invoice.setTotalAmountAfterDecrease(request.getTienHang());
             } else {
-                invoice.setTotalAmount(requestAmount); // fallback nếu FE không truyền
+                invoice.setTotalAmountAfterDecrease(requestAmount); // fallback nếu FE không truyền
             }
 
 // 2. Phí vận chuyển
@@ -143,7 +143,7 @@ public class VnPayService {
             }
 
 // 4. Tổng tiền thực tế thanh toán (sau giảm + ship)
-            invoice.setTotalAmountAfterDecrease(requestAmount);
+            invoice.setTotalAmount(requestAmount);
 
             logger.info("Đã lưu đầy đủ: tienHang={}, ship={}, voucher={}, total={}",
                     invoice.getTotalAmount(),

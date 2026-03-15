@@ -11,7 +11,7 @@ public class PaymentRequest {
 
     private String id;
     private String code;
-    private BigDecimal totalAmountAfterDecrease;
+    private BigDecimal totalAmountAfterDecrease; // tong tien
 
     private String customerName;
     private String customerPhone;

@@ -2250,15 +2250,6 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
                 </template>
                 Thanh toán VNPAY
               </NButton>
-
-              <NButton
-                :type="state.currentPaymentMethod === '2' ? 'primary' : 'default'"
-                size="small"
-                secondary
-                @click="setPaymentMethod('2')"
-              >
-                Kết hợp
-              </NButton>
             </NSpace>
 
             <NButton
