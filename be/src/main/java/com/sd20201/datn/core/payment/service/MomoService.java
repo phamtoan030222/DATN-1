@@ -191,7 +191,7 @@ public class MomoService {
         if (invoice.getTypeInvoice() == TypeInvoice.ONLINE) {
             trangThai = EntityTrangThaiHoaDon.CHO_XAC_NHAN; // ← Online: chờ xác nhận
             note = "Đơn hàng online thanh toán MoMo thành công - chờ shop xác nhận";
-        } else if (invoice.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
+        } else if (invoice.getTypeInvoice() == TypeInvoice.GIAO_HANG || invoice.getTypeInvoice() == TypeInvoice.ONLINE_TAI_QUAY) {
             trangThai = EntityTrangThaiHoaDon.DA_XAC_NHAN;
             note = "Hóa đơn giao hàng thanh toán MoMo thành công";
         } else {
