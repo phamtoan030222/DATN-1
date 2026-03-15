@@ -2481,7 +2481,7 @@ onMounted(async () => {
         <!-- Từ ngày -->
         <div class="space-y-1">
           <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <span class="text-teal-500">📅</span> Từ ngày
+            Từ ngày
           </label>
           <input
             v-model="pickupDateFrom"
@@ -2494,7 +2494,7 @@ onMounted(async () => {
         <!-- Đến ngày -->
         <div class="space-y-1">
           <label class="flex items-center gap-2 text-sm font-semibold text-gray-700">
-            <span class="text-teal-500">📅</span> Đến ngày
+            Đến ngày
           </label>
           <input
             v-model="pickupDateTo"
