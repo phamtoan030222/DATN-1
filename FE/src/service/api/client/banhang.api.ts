@@ -547,7 +547,35 @@ export async function createVNPayPayment(
     method: 'POST',
     data: {
       ...data,
-      returnUrl: 'http://localhost:2345/api/payment/vnpay-return-client', // ← THÊM
+      returnUrl: 'http://localhost:2345/api/payment/vnpay-return-client',
+    },
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
+
+export interface MomoCreateRequest {
+  invoiceId: string
+  amount: number
+  returnUrl?: string
+}
+
+export interface MomoCreateResponse {
+  code: string
+  payUrl?: string
+  orderId?: string
+  message?: string
+}
+
+export async function createMomoPayment(
+  data: MomoCreateRequest,
+): Promise<MomoCreateResponse> {
+  const res = await request({
+    url: '/api/payment/create-momo',
+    method: 'POST',
+    data: {
+      ...data,
+      returnUrl: 'http://localhost:2345/api/payment/momo-return-client',
     },
     headers: { 'Content-Type': 'application/json' },
   })

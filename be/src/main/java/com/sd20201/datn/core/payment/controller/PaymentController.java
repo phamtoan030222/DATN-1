@@ -3,6 +3,7 @@ package com.sd20201.datn.core.payment.controller;
 import com.sd20201.datn.core.payment.dto.IpnResponse;
 import com.sd20201.datn.core.payment.dto.PaymentRequest;
 import com.sd20201.datn.core.payment.dto.PaymentResponse;
+import com.sd20201.datn.core.payment.service.MomoService;
 import com.sd20201.datn.core.payment.service.VnPayService;
 import com.sd20201.datn.entity.Invoice;
 import com.sd20201.datn.repository.InvoiceRepository; // Nhớ import cái này
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -30,6 +32,8 @@ public class PaymentController {
 
     // BỔ SUNG: Khai báo InvoiceRepository để dùng cho hàm check-status
     private final InvoiceRepository invoiceRepository;
+
+    private final MomoService momoService;
 
     @PostMapping("/create-vnpay")
     public ResponseEntity<PaymentResponse> createPayment(
@@ -173,5 +177,49 @@ public class PaymentController {
                     "</script>" +
                     "</head><body>Đang chuyển hướng...</body></html>";
         }
+    }
+
+    @PostMapping("/create-momo")
+    public ResponseEntity<?> createMomoPayment(@RequestBody Map<String, Object> request) {
+        try {
+            String invoiceId = (String) request.get("invoiceId");
+            BigDecimal amount = new BigDecimal(request.get("amount").toString());
+            String orderInfo = "Thanh toan don hang " + invoiceId;
+            String returnUrl = (String) request.get("returnUrl"); // ← Client truyền lên
+
+            Map<String, Object> result = momoService.createPayment(
+                    invoiceId, amount, orderInfo, returnUrl);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("code", "99",
+                    "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/momo-return-client")
+    public String momoReturnClient(@RequestParam Map<String, String> params) {
+        Map<String, Object> result = momoService.processReturn(params);
+        String clientUrl = "http://localhost:6788";
+
+        if ("00".equals(result.get("code"))) {
+            String orderCode = (String) result.getOrDefault("orderCode", "");
+            return "<html><head><meta charset='UTF-8'>" +
+                    "<script>window.location.href = '" + clientUrl +
+                    "/order-success?payment=success&ma-hoa-don=" + orderCode + "';" +
+                    "</script></head><body>Đang chuyển hướng...</body></html>";
+        } else {
+            return "<html><head><meta charset='UTF-8'>" +
+                    "<script>window.location.href = '" + clientUrl +
+                    "/order-success?payment=failed';" +
+                    "</script></head><body>Đang chuyển hướng...</body></html>";
+        }
+    }
+
+    @PostMapping("/momo-ipn")
+    public ResponseEntity<?> momoIpn(@RequestBody Map<String, String> params) {
+        logger.info("=== MOMO IPN: {}", params);
+        Map<String, Object> result = momoService.processReturn(params);
+        return ResponseEntity.ok(result);
     }
 }

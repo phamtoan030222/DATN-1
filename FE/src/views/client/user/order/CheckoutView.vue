@@ -40,7 +40,7 @@ import { storeToRefs } from 'pinia'
 
 // Import Store & API
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { createOrder, createVNPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
+import { createMomoPayment, createOrder, createVNPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
 
 import {
   createAddress,
@@ -725,8 +725,35 @@ async function handleCheckout() {
         message.error(vnpayRes.message || 'Tạo thanh toán VNPAY thất bại!')
       }
     }
+    else if (paymentMethod.value === '1') {
+      // ← THÊM CASE MOMO
+      message.loading('Đang tạo liên kết thanh toán MoMo...')
+
+      const momoRes = await createMomoPayment({
+        invoiceId: createdOrder?.id || '',
+        amount: finalTotal.value,
+      })
+
+      if (momoRes.code === '00' && momoRes.payUrl) {
+        // Xóa giỏ hàng
+        if (cartItemBuyNow.value) {
+          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+        }
+        else {
+          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
+          await Promise.all(removeRequests)
+          localStorage.removeItem('SELECTED_CART_ITEMS')
+        }
+
+        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
+        window.location.href = momoRes.payUrl // ← Redirect sang MoMo
+      }
+      else {
+        message.error(momoRes.message || 'Tạo thanh toán MoMo thất bại!')
+      }
+    }
     else {
-      // COD, Momo, VietQR → đặt hàng thành công bình thường
+      // COD, VietQR → bình thường
       message.success('Đặt hàng thành công!')
       router.push({
         name: 'OrderSuccess',
