@@ -40,7 +40,7 @@ import { storeToRefs } from 'pinia'
 
 // Import Store & API
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { createOrder, getMaGiamGia, getQuantityProdudtDetail } from '@/service/api/client/banhang.api'
+import { createOrder, createVNPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
 
 import {
   createAddress,
@@ -196,6 +196,7 @@ const guestWardOptions = ref<Option[]>([])
 async function onGuestProvinceChange(val: string | null) {
   checkoutForm.wardName = null
   guestWardOptions.value = []
+  shippingFee.value = 0 // reset khi đổi tỉnh
   if (val) {
     guestWardOptions.value = await fetchWardsFromAPI(val)
   }
@@ -433,7 +434,12 @@ onMounted(async () => {
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
 const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.percentage ? (i.price * (1 - i.percentage / 100)) * i.quantity : i.price * i.quantity), 0))
-const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? (isFreeShipping.value ? 0 : 30000) : 0)
+const shippingFee = ref(0)
+const isCalculatingShip = ref(false)
+
+const isFreeShipping = computed(() =>
+  deliveryType.value === 'GIAO_HANG' && subTotal.value >= 20000000,
+)
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -457,6 +463,67 @@ async function loadVouchers() {
   catch (e) { console.error('Lỗi load voucher:', e) }
 }
 
+async function calculateShippingFee() {
+  // Không giao hàng hoặc miễn phí ship
+  if (deliveryType.value !== 'GIAO_HANG') {
+    shippingFee.value = 0
+    return
+  }
+
+  if (isFreeShipping.value) {
+    shippingFee.value = 0
+    return
+  }
+
+  // Lấy tên tỉnh/phường
+  let provinceName = ''
+  let wardName = ''
+
+  if (userInfo.value) {
+    // Khách đã đăng nhập - lấy từ địa chỉ đã chọn
+    const selected = myAddresses.value.find(a => a.id === selectedAddressId.value)
+    if (!selected)
+      return
+    provinceName = selected.provinceCity || selected.province || ''
+    wardName = selected.wardCommune || selected.ward || ''
+  }
+  else {
+    // Khách vãng lai - lấy từ form
+    if (!checkoutForm.provinceName || !checkoutForm.wardName)
+      return
+    provinceName = checkoutForm.provinceName
+    wardName = checkoutForm.wardName
+  }
+
+  if (!provinceName || !wardName)
+    return
+
+  try {
+    isCalculatingShip.value = true
+    const result = await getShippingFeeClient({
+      provinceName,
+      wardName,
+      address: checkoutForm.addressDetail || '',
+      weight: cartItemsRef.value.length * 2000, // 2kg/laptop
+      orderValue: subTotal.value,
+    })
+
+    if (result.success) {
+      shippingFee.value = result.fee
+      message.success(`Phí vận chuyển: ${formatCurrency(result.fee)}`)
+    }
+    else {
+      shippingFee.value = 30000 // fallback mặc định
+    }
+  }
+  catch (e) {
+    shippingFee.value = 30000 // fallback nếu lỗi
+  }
+  finally {
+    isCalculatingShip.value = false
+  }
+}
+
 function handleSelectVoucher(voucherId: string | null) {
   selectedVoucher.value = voucherId
   if (voucherId) {
@@ -474,6 +541,36 @@ watch(subTotal, (total) => {
     return
   }
   loadVouchers()
+})
+
+// Watch khi khách vãng lai chọn phường/xã
+watch(() => checkoutForm.wardName, async (val) => {
+  if (val && deliveryType.value === 'GIAO_HANG') {
+    await calculateShippingFee()
+  }
+})
+
+// Watch khi khách đăng nhập đổi địa chỉ
+watch(selectedAddressId, async (val) => {
+  if (val && deliveryType.value === 'GIAO_HANG') {
+    await calculateShippingFee()
+  }
+})
+
+// Watch khi đổi hình thức giao hàng
+watch(deliveryType, async (val) => {
+  if (val === 'GIAO_HANG') {
+    await calculateShippingFee()
+  }
+  else {
+    shippingFee.value = 0
+  }
+})
+
+// Watch miễn phí ship
+watch(isFreeShipping, (val) => {
+  if (val)
+    shippingFee.value = 0
 })
 
 async function handleCheckout() {
@@ -506,15 +603,15 @@ async function handleCheckout() {
   try {
     const MAX_TOTAL_AMOUNT = 500000000
     if (finalTotal.value > MAX_TOTAL_AMOUNT) {
-      message.error(`Tổng thanh toán vượt quá ${formatCurrency(MAX_TOTAL_AMOUNT)}. Vui lòng quay lại giỏ hàng để điều chỉnh!`)
+      message.error(`Tổng thanh toán vượt quá ${formatCurrency(MAX_TOTAL_AMOUNT)}!`)
       processing.value = false
       return
     }
 
+    // Kiểm tra tồn kho
     const productIds = cartItemsRef.value.map(item => item.productDetailId)
     const stockRes = await getQuantityProdudtDetail(productIds)
     const stockData = stockRes.data || []
-
     const outOfStockErrors: { name: string, stock: number, selected: number }[] = []
 
     for (const cartItem of cartItemsRef.value) {
@@ -523,9 +620,7 @@ async function handleCheckout() {
         || String(s.productDetailId) === String(cartItem.productDetailId)
         || String(s.idProductDetail) === String(cartItem.productDetailId),
       )
-
       const availableStock = currentStockItem ? (currentStockItem.quantity || 0) : 0
-
       if (cartItem.quantity > availableStock) {
         outOfStockErrors.push({
           name: `${cartItem.name} ${cartItem.cpu} ${cartItem.ram} ${cartItem.hardDrive}`,
@@ -541,10 +636,10 @@ async function handleCheckout() {
           h('div', { class: 'font-bold text-red-600 text-[15px] mb-3' }, `Có ${outOfStockErrors.length} sản phẩm không đủ số lượng:`),
           h('ul', { class: 'space-y-2' }, outOfStockErrors.map(err =>
             h('li', { class: 'bg-red-50 p-2.5 rounded-md border border-red-200' }, [
-              h('div', { class: 'font-semibold text-gray-800 text-sm leading-tight mb-1' }, err.name),
+              h('div', { class: 'font-semibold text-gray-800 text-sm' }, err.name),
               h('div', { class: 'text-[13px] text-gray-600 flex justify-between' }, [
-                h('span', null, ['Kho hiện còn: ', h('span', { class: 'font-bold text-red-600' }, err.stock)]),
-                h('span', null, ['Bạn chọn: ', h('span', { class: 'font-bold text-gray-800' }, err.selected)]),
+                h('span', null, ['Kho còn: ', h('span', { class: 'font-bold text-red-600' }, err.stock)]),
+                h('span', null, ['Bạn chọn: ', h('span', { class: 'font-bold' }, err.selected)]),
               ]),
             ]),
           )),
@@ -555,6 +650,7 @@ async function handleCheckout() {
       return
     }
 
+    // Build payload
     const productPayload = cartItemsRef.value.map(item => ({
       productDetailId: item.productDetailId,
       quantity: item.quantity,
@@ -579,24 +675,72 @@ async function handleCheckout() {
       cartId: cartId.value || null,
     }
 
+    // Tạo đơn hàng trước
     const res: any = await createOrder(payload)
-    if (res.status === 200 || res.status === 'OK' || res.data) {
+
+    if (!(res.status === 200 || res.status === 'OK' || res.data)) {
+      message.error('Tạo đơn hàng thất bại!')
+      return
+    }
+
+    const createdOrder = res.data?.data
+
+    // ===== XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN =====
+    if (paymentMethod.value === '2') {
+      // VNPAY → redirect sang trang thanh toán VNPAY
+      message.loading('Đang tạo liên kết thanh toán VNPAY...')
+
+      const vnpayRes = await createVNPayPayment({
+        orderId: createdOrder?.id || '',
+        code: createdOrder?.code || '',
+        totalAmountAfterDecrease: finalTotal.value,
+        tienHang: subTotal.value,
+        tienShip: shippingFee.value,
+        idPGG: selectedVoucher.value || null,
+        orderType: '250000',
+        language: 'vn',
+        customerName: checkoutForm.ten.trim(),
+        customerPhone: checkoutForm.sdt.trim(),
+        customerAddress: finalAddressStr.trim(),
+      })
+
+      if (vnpayRes.code === '00' && vnpayRes.paymentUrl) {
+        // Xóa giỏ hàng
+        if (cartItemBuyNow.value) {
+          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+        }
+        else {
+          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
+          await Promise.all(removeRequests)
+          localStorage.removeItem('SELECTED_CART_ITEMS')
+        }
+
+        // Lưu mã đơn để dùng sau khi return
+        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
+
+        // Redirect sang VNPAY
+        window.location.href = vnpayRes.paymentUrl
+      }
+      else {
+        message.error(vnpayRes.message || 'Tạo thanh toán VNPAY thất bại!')
+      }
+    }
+    else {
+      // COD, Momo, VietQR → đặt hàng thành công bình thường
       message.success('Đặt hàng thành công!')
       router.push({
         name: 'OrderSuccess',
-        query: {
-          'ma-hoa-don': res.data?.data?.code || '',
-        },
+        query: { 'ma-hoa-don': createdOrder?.code || '' },
       })
-    }
 
-    if (cartItemBuyNow.value) {
-      await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
-    }
-    else {
-      const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
-      await Promise.all(removeRequests)
-      localStorage.removeItem('SELECTED_CART_ITEMS')
+      if (cartItemBuyNow.value) {
+        await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+      }
+      else {
+        const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
+        await Promise.all(removeRequests)
+        localStorage.removeItem('SELECTED_CART_ITEMS')
+      }
     }
   }
   catch (error: any) {
@@ -606,8 +750,6 @@ async function handleCheckout() {
     processing.value = false
   }
 }
-
-const isFreeShipping = computed(() => deliveryType.value === 'GIAO_HANG' && subTotal.value >= 5000000)
 
 function formatCurrencyInput(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
@@ -906,22 +1048,46 @@ function handleSelectVoucherInModal(voucherId: string) {
                   <div class="flex justify-between">
                     <span>Tạm tính:</span><span class="font-medium text-gray-800">{{ formatCurrency(subTotal) }}</span>
                   </div>
-                  <div class="flex justify-between">
-                    <div><span>Phí vận chuyển:</span></div>
+                  <div class="flex justify-between items-center">
+                    <span>Phí vận chuyển:</span>
                     <div class="flex items-center gap-2">
-                      <span v-if="isFreeShipping" class="font-medium text-gray-800">
+                      <!-- Logo GHTK bên trái -->
+                      <img
+                        src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHTK-H.png"
+                        alt="GHTK"
+                        style="height: 18px; width: auto; object-fit: contain; margin-right: 25px;"
+                      >
+
+                      <!-- Đang tính phí -->
+                      <NSpin v-if="isCalculatingShip" size="small" />
+
+                      <!-- Miễn phí ship -->
+                      <span v-else-if="isFreeShipping" class="font-medium text-green-600">
+                        Miễn phí
+                      </span>
+
+                      <!-- Hiển thị phí tính được -->
+                      <span v-else-if="shippingFee > 0" class="font-medium text-gray-800">
                         {{ formatCurrency(shippingFee) }}
                       </span>
+
+                      <!-- Chưa chọn địa chỉ - cho nhập tay -->
                       <NInputNumber
-                        v-else v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
-                        :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
-                        placeholder="Nhập phí ship" :show-button="false"
+                        v-else
+                        v-model:value="shippingFee"
+                        :min="0"
+                        :formatter="formatCurrencyInput"
+                        :parser="parseCurrency"
+                        size="small"
+                        style="width: 130px"
+                        placeholder="Nhập phí ship"
+                        :show-button="false"
                       />
-                      <NImage width="80" src="../../../../../images/ghn-logo.webp" />
                     </div>
                   </div>
+
                   <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
-                    Miễn phí vận chuyển (Đơn hàng trên 5.000.000đ)
+                    Miễn phí vận chuyển (Đơn hàng trên 20.000.000đ)
                   </NAlert>
                   <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
                     <span>Voucher giảm:</span><span>-{{ formatCurrency(discountAmount) }}</span>
