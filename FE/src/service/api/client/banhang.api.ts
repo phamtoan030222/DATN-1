@@ -207,7 +207,7 @@ export interface CartItemResponse {
 export interface ProductDetailCartItemResponse {
   id: string
   price: number
-  quantity: number;
+  quantity: number
   percentage: number
   imageUrl: string
   cpu: string
@@ -220,9 +220,9 @@ export interface ProductDetailCartItemResponse {
   name: string
 }
 
-export type ClientBHQuantityProductDetailsResponse = {
-  idProductDetail: string;
-  quantity: number;
+export interface ClientBHQuantityProductDetailsResponse {
+  idProductDetail: string
+  quantity: number
 }
 
 export async function GetHoaDons(params: ParamsGetHoaDon) {
@@ -486,5 +486,70 @@ export async function getQuantityProdudtDetail(ids: Array<string>) {
     data: ids,
   })) as AxiosResponse<DefaultResponse<Array<ClientBHQuantityProductDetailsResponse>>>
 
+  return res.data
+}
+
+// thang them phi ship
+export interface ShippingFeeRequest {
+  provinceName: string
+  wardName: string
+  address: string
+  weight: number
+  orderValue: number
+}
+
+export interface ShippingFeeResponse {
+  fee: number
+  success: boolean
+  message: string
+}
+
+export async function getShippingFeeClient(data: ShippingFeeRequest): Promise<ShippingFeeResponse> {
+  const res = await request({
+    url: `${API_ORDER_ONLINE}/shipping-fee`,
+    method: 'POST',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
+
+// Thêm vào cuối file banhang.api.ts
+export interface VNPayCreateRequest {
+  orderId: string // ID hóa đơn
+  code: string // Mã hóa đơn
+  totalAmountAfterDecrease: number
+  tienHang: number
+  tienShip: number
+  idPGG?: string | null
+  orderType: string
+  language: string
+  customerName?: string
+  customerPhone?: string
+  customerAddress?: string
+  returnUrl?: string
+}
+
+export interface VNPayCreateResponse {
+  code: string
+  message: string
+  paymentUrl?: string
+  transactionId?: string
+  amount?: number
+  orderId?: string
+}
+
+export async function createVNPayPayment(
+  data: VNPayCreateRequest,
+): Promise<VNPayCreateResponse> {
+  const res = await request({
+    url: '/api/payment/create-vnpay',
+    method: 'POST',
+    data: {
+      ...data,
+      returnUrl: 'http://localhost:2345/api/payment/vnpay-return-client', // ← THÊM
+    },
+    headers: { 'Content-Type': 'application/json' },
+  })
   return res.data
 }

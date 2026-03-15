@@ -1,12 +1,18 @@
 package com.sd20201.datn.core.client.invoice.controller;
 
+import com.sd20201.datn.core.client.invoice.model.request.ClientInvoiceCancelRequest;
 import com.sd20201.datn.core.client.invoice.service.ClientInvoiceService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -34,9 +40,14 @@ public class ClientInvoiceController {
     public ResponseEntity<?> getInvoiceDetails(@RequestParam List<String> ids) {
         return Helper.createResponseEntity(invoiceService.getInvoiceDetailsById(ids));
     }
-    
+
     @GetMapping("/{id}/histories")
     public ResponseEntity<?> getHistory(@PathVariable("id") String id) {
         return Helper.createResponseEntity(invoiceService.getHistoryInvoiceById(id));
+    }
+
+    @PutMapping("/cancel")
+    public ResponseEntity<?> delete(@RequestBody ClientInvoiceCancelRequest request) {
+        return Helper.createResponseEntity(invoiceService.cancelInvoice(request));
     }
 }
