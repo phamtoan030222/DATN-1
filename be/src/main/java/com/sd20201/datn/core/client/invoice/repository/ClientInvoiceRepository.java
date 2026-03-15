@@ -3,6 +3,8 @@ package com.sd20201.datn.core.client.invoice.repository;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailResponse;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailsResponse;
 import com.sd20201.datn.core.client.invoice.model.response.LichSuTrangThaiHoaDonResponse;
+import com.sd20201.datn.entity.Customer;
+import com.sd20201.datn.entity.Invoice;
 import com.sd20201.datn.repository.InvoiceRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -30,7 +32,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.trangThaiThanhToan as trangThaiThanhToan
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE i.code = :code OR i.id = :code AND i.status = 0 AND (i.customer.id = :customerId OR i.customer.id IS NULL) AND i.typeInvoice = 1
+            WHERE i.code = :code OR i.id = :code AND i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice = 1
             GROUP BY
                 i.id,
                 i.code,
@@ -68,7 +70,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.trangThaiThanhToan as trangThaiThanhToan
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE i.status = 0 AND (i.customer.id = :customerId OR i.customer.id IS NULL) AND i.typeInvoice = 1
+            WHERE i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice = 1
             GROUP BY
                 i.id,
                 i.code,
@@ -96,7 +98,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
         , lstthd.thoiGian as thoiGian
     FROM LichSuTrangThaiHoaDon lstthd
     WHERE lstthd.hoaDon.id = :idHoaDon
-    AND (lstthd.hoaDon.customer.id = :customerId OR lstthd.hoaDon.customer.id IS NULL)
+    AND (lstthd.hoaDon.customer.id = :customerId OR (:customerId IS NULL AND lstthd.hoaDon.customer.id IS NULL))
     """)
     List<LichSuTrangThaiHoaDonResponse> getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(String idHoaDon, String customerId);
 

@@ -32,7 +32,7 @@
             </h2>
           </div>
 
-          <NButton type="error" block ghost @click="openCancelModal" :disabled="+(invoice.invoiceStatus) !== 0"
+          <NButton type="error" block ghost @click="openCancelModal" v-if="+(invoice.invoiceStatus) === 0"
             :style="{ maxWidth: '150px' }">
             <template #icon>
               <n-icon>
@@ -45,41 +45,64 @@
       </template>
 
       <div class="relative">
-        <!-- Progress bar (ẩn khi loaiHoaDon = 0) -->
-        <div>
-          <div class="absolute top-5 left-0 right-0 h-1.5 bg-gray-200 rounded-full z-0"></div>
-          <div class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10" :style="{ width: progressWidth }">
+        <div v-if="!isCancelled">
+          <!-- Progress bar (ẩn khi loaiHoaDon = 0) -->
+          <div>
+            <div class="absolute top-5 left-0 right-0 h-1.5 bg-gray-200 rounded-full z-0"></div>
+            <div class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10" :style="{ width: progressWidth }">
+            </div>
+          </div>
+
+          <!-- Steps -->
+          <div class="relative flex justify-between z-20">
+            <div v-for="(step, index) in filteredSteps" :key="`TrackingView-Step-${index}`"
+              class="flex flex-col items-center flex-1">
+              <!-- Step circle -->
+              <div
+                class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110"
+                :class="getStepCircleClass(step.key)">
+                <n-icon size="18" :class="getStepIconClass(step.key)">
+                  <component :is="step.icon" />
+                </n-icon>
+
+                <!-- Completed check -->
+                <div v-if="isStepCompleted(step.key)"
+                  class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
+                  <n-icon size="14" color="white">
+                    <CheckmarkCircleOutline />
+                  </n-icon>
+                </div>
+              </div>
+
+              <!-- Step label -->
+              <div class="text-center">
+                <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
+                  {{ step.title }}
+                </p>
+                <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-gray-500">
+                  {{isStepCompleted(step.key) ? formatTime(historiesStatusInvoice.find(h => h.trangThai ==
+                    +(step.key))?.thoiGian) : ''}}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
-
-        <!-- Steps -->
-        <div class="relative flex justify-between z-20">
-          <div v-for="(step, _) in filteredSteps" :key="step.key" class="flex flex-col items-center flex-1">
-            <!-- Step circle -->
+        <div v-else>
+          <div class="flex flex-col items-center">
             <div
-              class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110"
-              :class="getStepCircleClass(step.key)">
-              <n-icon size="18" :class="getStepIconClass(step.key)">
-                <component :is="step.icon" />
+              class="w-15 h-15 rounded-full border-6 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110 text-red-500">
+              <n-icon size="30" class="text-red-500 ">
+                <CloseOutline />
               </n-icon>
-
-              <!-- Completed check -->
-              <div v-if="isStepCompleted(step.key)"
-                class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
-                <n-icon size="14" color="white">
-                  <CheckmarkCircleOutline />
-                </n-icon>
-              </div>
             </div>
 
             <!-- Step label -->
             <div class="text-center">
-              <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
-                {{ step.title }}
+              <p class="text-sm font-semibold mb-1 text-red-500">
+                Đã hủy
               </p>
-              <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-gray-500">
-                {{isStepCompleted(step.key) ? formatTime(historiesStatusInvoice.find(h => h.trangThai ==
-                  +(step.key))?.thoiGian) : ''}}
+              <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-red-500">
+                {{formatTime(historiesStatusInvoice.find(h => h.trangThai == 5)?.thoiGian ?? '0')}}
               </p>
             </div>
           </div>
@@ -94,38 +117,6 @@
                 Thông tin khách hàng
               </h2>
             </div>
-            <!-- <div class="mt-4 p-4 rounded-lg">
-          <div class="flex justify-between gap-5 text-sm pb-2 mb-2">
-            <div class="border-b border-gray-300/30 p-2 flex-1">
-              <span class="font-medium mr-2">Khách hàng:</span>
-              <span>{{ invoice.nameReceiver }}</span>
-            </div>
-            <div class="border-b border-gray-300/30 p-2 flex-1">
-              <span class="font-medium mr-2">SĐT:</span>
-              <span>{{ invoice.phoneReceiver }}</span>
-            </div>
-            <div class="border-b border-gray-300/30 p-2 flex-1">
-              <span class="font-medium mr-2">Email:</span>
-              <span>{{ invoice.email }}</span>
-            </div>
-            <div class="border-b border-gray-300/30 p-2 flex-1">
-              <span class="font-medium mr-2">Ngày đặt:</span>
-              <span>{{ convertTimeMillis(invoice.createDate) }}</span>
-            </div>
-          </div>
-          <div v-if="invoice.description" class="text-sm pb-2 mb-2">
-            <div class="border-b border-gray-300/30 p-2 flex-1">
-              <span class="font-medium mr-2">Ghi chú:</span>
-              <span>{{ invoice.description }}</span>
-            </div>
-          </div>
-          <div class="text-sm">
-            <div class="border-b border-gray-300/30 p-2 flex-1">
-              <span class="font-medium mr-2">Địa chỉ:</span>
-              <span class="break-words">{{ invoice.addressReceiver }}</span>
-            </div>
-          </div>
-        </div> -->
             <div class="p-4 rounded-lg flex flex-col gap-3">
               <div class="border-b border-gray-300/30 p-2 flex-1">
                 <span class="font-medium mr-2">Khách hàng:</span>
@@ -152,7 +143,7 @@
               <div class="text-sm">
                 <div class="border-b border-gray-300/30 p-2 flex-1">
                   <span class="font-medium mr-2">Địa chỉ:</span>
-                  <span class="break-words">{{ invoice.addressReceiver }}</span>
+                  <span class="">{{ invoice.addressReceiver }}</span>
                 </div>
               </div>
             </div>
@@ -244,6 +235,59 @@
         khách
         hàng để biết thêm chi tiết.</p>
     </NCard>
+
+    <NModal v-model:show="isOpenModalCancelInvoice" preset="card"
+      class="no-print !w-[420px] !max-w-[90vw] !rounded-2xl shadow-2xl" :bordered="false" size="huge"
+      content-style="padding-top: 0;">
+      <template #header>
+        <div class="flex items-center gap-3 pt-2">
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 leading-tight">
+              Hủy đơn hàng
+            </h3>
+            <p class="text-xs text-gray-500 font-normal mt-0.5">
+              Mã đơn: <span class="font-mono text-gray-700 font-semibold">{{ invoice?.code }}</span>
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <div class="py-4">
+        <div class="space-y-2">
+          <label class="text-sm font-semibold text-gray-700 flex items-center gap-1">
+            Lý do hủy đơn
+            <span class="text-red-500 font-bold">*</span>
+          </label>
+          <NInput v-model:value="statusNote" type="textarea" placeholder="Bắt buộc nhập lý do hủy đơn hàng..." :rows="3"
+            status="error" class="rounded-lg" />
+          <p v-if="statusNote.trim() === ''" class="text-xs text-red-500 mt-1">
+            Vui lòng nhập lí do
+          </p>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end pt-2">
+          <NButton size="large" class="rounded-lg font-medium" @click="isOpenModalCancelInvoice = false">
+            Hủy bỏ
+          </NButton>
+          <n-popconfirm
+          :positive-button-props="{
+            type: 'success'
+          }"
+          :positive-text="'Xác nhận'" :negative-text="'Hủy'" @positive-click="handleClickCancelInvoice">
+            <template #trigger>
+              <NButton type="success" size="large"
+                class="rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
+                :disabled="statusNote.length == 0" >
+                Xác hủy đơn hàng
+              </NButton>
+            </template>
+            Bạn chắc chắn muốn thao tác ?
+          </n-popconfirm>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -256,31 +300,30 @@ import {
   NFormItem,
   NIcon,
   NInput,
-  NSpace,
-  useDialog,
-  useMessage
+  NSpace
 } from 'naive-ui'
 
 // Icons
-import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, LichSuTrangThaiHoaDonResponse } from '@/service/api/invoice.api'
+import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, LichSuTrangThaiHoaDonResponse, putInvoiceCancel } from '@/service/api/invoice.api'
 import {
   CartOutline,
   CheckmarkCircleOutline,
   CheckmarkDoneOutline,
   CloseCircleOutline,
+  CloseOutline,
   SearchOutline,
   TimeOutline
 } from '@vicons/ionicons5'
 
 // const router = useRouter()
 const route = useRoute()
-const message = useMessage()
-const dialog = useDialog()
 const notification = useNotification()
+const isOpenModalCancelInvoice = ref(false)
 
 // State
 const invoice = ref<ClientInvoiceDetailResponse | null>(null)
 const searchInvoiceCode = ref('')
+const statusNote = ref('')
 
 const historiesStatusInvoice = ref<LichSuTrangThaiHoaDonResponse[]>([])
 const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
@@ -360,14 +403,8 @@ const isStepCompleted = (stepKey: string): boolean => {
   return stepIndex <= currentStatus.value && stepKey !== '5'
 }
 
-const isStepCurrent = (stepKey: string): boolean => {
-  return currentStatus.value.toString() === stepKey
-}
-
 const getStepCircleClass = (stepKey: string): string => {
-  if (isStepCurrent(stepKey)) {
-    return 'border-blue-500 border-4'
-  } else if (isStepCompleted(stepKey)) {
+  if (isStepCompleted(stepKey)) {
     return 'border-green-500 border-2'
   } else {
     return 'border-gray-300 border-2'
@@ -375,9 +412,7 @@ const getStepCircleClass = (stepKey: string): string => {
 }
 
 const getStepIconClass = (stepKey: string): string => {
-  if (isStepCurrent(stepKey)) {
-    return 'text-blue-500'
-  } else if (isStepCompleted(stepKey)) {
+  if (isStepCompleted(stepKey)) {
     return 'text-green-500'
   } else {
     return 'text-gray-400'
@@ -385,9 +420,7 @@ const getStepIconClass = (stepKey: string): string => {
 }
 
 const getStepTextClass = (stepKey: string): string => {
-  if (isStepCurrent(stepKey)) {
-    return 'text-blue-600'
-  } else if (isStepCompleted(stepKey)) {
+  if (isStepCompleted(stepKey)) {
     return 'text-green-600'
   } else {
     return 'text-gray-500'
@@ -407,24 +440,7 @@ const handleSearch = (): void => {
 }
 
 const openCancelModal = (): void => {
-  if (isCancelled.value) {
-    message.warning('Đơn hàng đã bị hủy')
-    return
-  }
-
-  dialog.error({
-    title: 'Xác nhận hủy đơn hàng',
-    content: 'Bạn có chắc chắn muốn hủy đơn hàng này? Hành động này không thể hoàn tác.',
-    positiveText: 'Xác nhận hủy',
-    negativeText: 'Hủy bỏ',
-    positiveButtonProps: {
-      type: 'error',
-      ghost: false
-    },
-    onPositiveClick: () => {
-      // TODO: Gọi API hủy đơn hàng tại đây
-    }
-  })
+  isOpenModalCancelInvoice.value = true
 }
 
 const fetchInvoice = async (query?: string): Promise<void> => {
@@ -505,6 +521,23 @@ const statusPayment = computed(() => {
       return 'success'
   }
 })
+
+const handleClickCancelInvoice = async () => {
+  try {
+    if (statusNote.value.length === 0) return;
+
+    const res = await putInvoiceCancel({
+      id: invoice.value?.id as string,
+      note: statusNote.value
+    })
+
+    notification.success({ content: 'Hủy hóa đơn thành công', duration: 3000 })
+    isOpenModalCancelInvoice.value = false
+    fetchInvoice(route.query.q as string)
+  } catch (e) {
+    notification.error({ content: 'Hủy hóa đơn thất bại. Vui lòng thử lại', duration: 3000 })
+  }
+}
 
 // Lifecycle
 onMounted(() => {
