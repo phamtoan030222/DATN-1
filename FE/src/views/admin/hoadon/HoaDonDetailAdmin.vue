@@ -401,7 +401,7 @@ const isCashOnlineOrder = computed(() => {
 // Đơn online + đã thanh toán chuyển khoản + đã hủy → cần hoàn phí
 const isTransferPayment = computed(() => {
   const pt = hoaDonData.value?.phuongThucThanhToan
-  return pt === 'CHUYEN_KHOAN' || pt === 'BANKING' || pt === 'VNPAY'
+  return pt === 'CHUYEN_KHOAN' || pt === 'BANKING' || pt === 'VNPAY' || pt === 'THE_TIN_DUNG' || pt === 'VI_DIEN_TU' || pt === 'TIEN_MAT_CHUYEN_KHOAN'
 })
 
 const needsRefund = computed(() => {

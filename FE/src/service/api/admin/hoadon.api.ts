@@ -27,6 +27,7 @@ export interface HoaDonItem {
   loaiHoaDon: string
   createdDate: number
   status: string
+  daHoanPhi: boolean
 }
 
 export interface HoaDonResponse {
@@ -612,13 +613,11 @@ export async function changeOrderStatus(requestData: ADChangeStatusRequest): Pro
 export interface ConfirmHoanPhiRequest {
   maHoaDon: string
   idNhanVien: string | number
-  hoanPhi: number
+  hoanPhi?: number
 }
 
 export async function confirmHoanPhi(data: ConfirmHoanPhiRequest): Promise<DefaultResponse<any>> {
   try {
-    console.log('📤 Gửi request xác nhận hoàn phí:', data)
-
     const res = await request({
       url: `${API_HOA_DON}/hoan-phi`,
       method: 'PUT',
@@ -628,7 +627,6 @@ export async function confirmHoanPhi(data: ConfirmHoanPhiRequest): Promise<Defau
       },
     })
 
-    console.log('✅ Response xác nhận hoàn phí:', res.data)
     return res.data
   }
   catch (error: any) {
