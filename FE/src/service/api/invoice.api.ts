@@ -44,6 +44,8 @@ export interface LichSuTrangThaiHoaDonResponse {
     note: string
     trangThai: number
     thoiGian: string
+    idStaff: string,
+    nameStaff: string,
 }
 
 export type ClientInvoiceCancelRequest = {

@@ -32,32 +32,40 @@
             </h2>
           </div>
 
-          <NButton type="error" block ghost @click="openCancelModal" v-if="+(invoice.invoiceStatus) === 0"
-            :style="{ maxWidth: '150px' }">
-            <template #icon>
-              <n-icon>
-                <CloseCircleOutline />
-              </n-icon>
-            </template>
-            Hủy đơn hàng
-          </NButton>
+          <n-space>
+            <NButton type="error" block ghost @click="openCancelModal"
+              v-if="+(invoice.invoiceStatus) === 0 && invoice.typePayment == 'TIEN_MAT'" :style="{ maxWidth: '150px' }">
+              <template #icon>
+                <n-icon>
+                  <CloseCircleOutline />
+                </n-icon>
+              </template>
+              Hủy đơn hàng
+            </NButton>
+            <NButton type="info" secondary @click="isOpenHistoryModel = true">
+              <template #icon>
+                <NIcon>
+                  <ListOutline />
+                </NIcon>
+              </template> Chi tiết
+            </NButton>
+          </n-space>
         </n-space>
       </template>
 
       <div class="relative">
         <div v-if="!isCancelled">
           <!-- Progress bar (ẩn khi loaiHoaDon = 0) -->
-          <div>
+          <!-- <div>
             <div class="absolute top-5 left-0 right-0 h-1.5 bg-gray-200 rounded-full z-0"></div>
             <div class="absolute top-5 left-0 h-1.5 bg-blue-500 rounded-full z-10" :style="{ width: progressWidth }">
             </div>
-          </div>
+          </div> -->
 
           <!-- Steps -->
-          <div class="relative flex justify-between z-20">
+          <!-- <div class="relative flex justify-between z-20">
             <div v-for="(step, index) in filteredSteps" :key="`TrackingView-Step-${index}`"
               class="flex flex-col items-center flex-1">
-              <!-- Step circle -->
               <div
                 class="w-10 h-10 rounded-full border-4 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110"
                 :class="getStepCircleClass(step.key)">
@@ -65,7 +73,6 @@
                   <component :is="step.icon" />
                 </n-icon>
 
-                <!-- Completed check -->
                 <div v-if="isStepCompleted(step.key)"
                   class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
                   <n-icon size="14" color="white">
@@ -74,7 +81,6 @@
                 </div>
               </div>
 
-              <!-- Step label -->
               <div class="text-center">
                 <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
                   {{ step.title }}
@@ -84,6 +90,61 @@
                     +(step.key))?.thoiGian) : ''}}
                 </p>
               </div>
+            </div>
+          </div> -->
+          <div class="pt-2 pb-0 w-full">
+            <div class="relative mx-auto flex justify-between items-start transition-all duration-500"
+              :class="getTimelineContainerWidth(currentVisibleSteps.length)">
+              <template v-for="(step, index) in currentVisibleSteps" :key="`TrackingView-Step-${index}`">
+                <div class="relative flex flex-col items-center flex-1">
+
+                  <!-- LINE -->
+                  <div v-if="index < currentVisibleSteps.length - 1" class="absolute h-[6px] z-0 left-[50%] w-full"
+                    style="top:45px" :class="isStepCompleted(step.key) ? 'bg-blue-500' : 'bg-gray-200'" />
+
+                  <!-- ICON -->
+                  <div class="h-24 flex items-center justify-center relative z-10 w-full">
+
+                    <div
+                      class="rounded-full flex items-center justify-center transition-all duration-300 relative hover:scale-110"
+                      :class="getDynamicIconSizeClass(step.key)">
+                      <n-icon :size="getDynamicIconSize(step.key)">
+                        <component :is="step.icon" />
+                      </n-icon>
+
+                      <!-- completed check -->
+                      <div v-if="isStepCompleted(step.key)"
+                        class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
+                        <n-icon size="14" color="white">
+                          <CheckmarkCircleOutline />
+                        </n-icon>
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                  <!-- TEXT -->
+                  <div class="text-center mt-2 px-2">
+
+                    <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
+                      {{ step.title }}
+                    </p>
+
+                    <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-gray-500">
+                      {{
+                        isStepCompleted(step.key)
+                          ? formatTime(
+                            historiesStatusInvoice.find(h => h.trangThai === +(step.key))?.thoiGian
+                          )
+                          : ''
+                      }}
+                    </p>
+
+                  </div>
+
+                </div>
+              </template>
             </div>
           </div>
         </div>
@@ -180,10 +241,13 @@
         <!-- product list -->
         <div v-if="invoiceDetails.length > 0" class="space-y-4">
           <div v-for="detail in invoiceDetails" :key="detail.id" class="flex items-center border-b border-gray-300 p-4">
-            <img :src="detail.urlImage" alt="product" class="w-20 h-20 object-contain rounded" />
+            <img :src="detail.urlImage" alt="product" class="w-30 h-30 object-contain rounded" />
             <div class="flex-1 ml-4">
               <div class="text-base font-medium">
-                {{ detail.product }} {{ detail.nameProductDetail }}
+                <span>{{ detail.nameProductDetail }} </span>
+              </div>
+              <div class="text-base">
+                <span> x {{ detail.quantity }} sản phẩm</span>
               </div>
               <div class="flex flex-wrap text-xs text-gray-500 mt-1 gap-2">
                 <span v-if="detail.color" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
@@ -271,15 +335,13 @@
           <NButton size="large" class="rounded-lg font-medium" @click="isOpenModalCancelInvoice = false">
             Hủy bỏ
           </NButton>
-          <n-popconfirm
-          :positive-button-props="{
+          <n-popconfirm :positive-button-props="{
             type: 'success'
-          }"
-          :positive-text="'Xác nhận'" :negative-text="'Hủy'" @positive-click="handleClickCancelInvoice">
+          }" :positive-text="'Xác nhận'" :negative-text="'Hủy'" @positive-click="handleClickCancelInvoice">
             <template #trigger>
               <NButton type="success" size="large"
                 class="rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
-                :disabled="statusNote.length == 0" >
+                :disabled="statusNote.length == 0">
                 Xác hủy đơn hàng
               </NButton>
             </template>
@@ -287,6 +349,61 @@
           </n-popconfirm>
         </div>
       </template>
+    </NModal>
+
+    <!-- ==================== MODAL: LỊCH SỬ ĐƠN HÀNG ==================== -->
+    <NModal v-model:show="isOpenHistoryModel" preset="card" title="Lịch sử đơn hàng"
+      style="width: 1000px; max-width: 95vw; border-radius: 12px;" class="no-print shadow-2xl" :bordered="false"
+      size="huge">
+      <div class="w-full mt-2">
+        <div
+          class="grid grid-cols-12 gap-4 pb-4 border-b-2 border-gray-100 text-[13px] font-bold text-gray-500 uppercase tracking-wider">
+          <div class="col-span-3 pl-4">
+            Trạng thái
+          </div>
+          <div class="col-span-3">
+            Thời gian
+          </div>
+          <div class="col-span-3">
+            Người xác nhận
+          </div>
+          <div class="col-span-3 pr-4">
+            Ghi chú
+          </div>
+        </div>
+        <div class="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto pr-2 mt-2">
+          <div v-for="(item, index) in historiesStatusInvoice" :key="`HISTORY-INVOICE-${index}`"
+            class="grid grid-cols-12 gap-4 py-4 items-center hover:bg-gray-50/70 transition-colors rounded-lg">
+            <div class="col-span-3 pl-4 flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                :class="getStepCircleBg(item.trangThai)">
+                <NIcon size="18" :class="getStepIconClass(item.trangThai.toString())">
+                  <component :is="getStatusIcon(item.trangThai)" />
+                </NIcon>
+              </div>
+              <span class="font-bold text-gray-800 text-[15px]">{{ getStatusText(item.trangThai) }}</span>
+            </div>
+            <div class="col-span-3 text-[14px] text-gray-600 font-medium tracking-wide">
+              {{ formatTime(item.thoiGian) }}
+            </div>
+            <div class="col-span-3 text-[14.5px] text-gray-800 font-semibold">
+              {{ item.nameStaff || 'Hệ thống tự động' }}
+            </div>
+            <div class="col-span-3 pr-4 text-[14px] text-gray-600 leading-relaxed">
+              {{ item.note || '---' }}
+            </div>
+          </div>
+          <div v-if="historiesStatusInvoice.length === 0"
+            class="py-16 text-center text-gray-400 flex flex-col items-center">
+            <NIcon size="48" class="mb-3 opacity-30">
+              <TimeOutline />
+            </NIcon>
+            <p class="text-lg">
+              Chưa có dữ liệu lịch sử cập nhật.
+            </p>
+          </div>
+        </div>
+      </div>
     </NModal>
   </div>
 </template>
@@ -311,6 +428,7 @@ import {
   CheckmarkDoneOutline,
   CloseCircleOutline,
   CloseOutline,
+  ListOutline,
   SearchOutline,
   TimeOutline
 } from '@vicons/ionicons5'
@@ -333,6 +451,8 @@ const currentStatus = computed(() => {
   return invoice.value?.invoiceStatus ?? 0
 })
 
+const isOpenHistoryModel = ref(false)
+
 // pricing computations
 const subtotal = computed(() => invoice.value?.totalAmount ?? 0)
 const discount = computed(() => {
@@ -345,24 +465,36 @@ const total = computed(() => invoice.value?.totalAmountAfterDecrease ?? subtotal
 // Computed values
 const isCancelled = computed(() => currentStatus.value === 5)
 
+const currentVisibleSteps = computed(() => {
+  const steps = filteredSteps.value
+  const currentIndex = steps.findIndex(step => step.key === currentStatus.value.toString())
+  if (currentIndex === -1)
+    return steps // fallback: hiện tất cả nếu không tìm thấy
+  return steps.filter((step, index) => index <= currentIndex || (isCancelled.value && step.key === '5'))
+})
+
 const filteredSteps = computed(() => {
-  return timelineSteps
+  return TIMELINE_STEPS.filter(step => step.key !== '5')
 })
 
-// Progress
-const progressWidth = computed(() => {
-  const currentStep = currentStatus.value
-  return `${(currentStep < 5 ? (((currentStep + 1) / 5) * 100) : 100)}%` // 4 là số bước tối đa (0-4)
-})
-
-// Timeline steps
-const timelineSteps = [
+const TIMELINE_STEPS = [
   { key: '0', title: 'Chờ xác nhận', icon: TimeOutline, color: 'yellow' },
   { key: '1', title: 'Đã xác nhận', icon: CheckmarkCircleOutline, color: 'blue' },
   { key: '2', title: 'Chờ giao hàng', icon: CartOutline, color: 'purple' },
   { key: '3', title: 'Đang giao hàng', icon: CheckmarkCircleOutline, color: 'info' },
   { key: '4', title: 'Hoàn thành', icon: CheckmarkDoneOutline, color: 'green' },
+  { key: '5', title: 'Đã hủy', icon: CloseCircleOutline, color: 'red' },
 ]
+
+// ==================== Constants ====================
+const STATUS_MAP: Record<number, { label: string, type: string, icon: any }> = {
+  0: { label: 'Chờ xác nhận', type: 'warning', icon: TimeOutline },
+  1: { label: 'Đã xác nhận', type: 'info', icon: CheckmarkCircleOutline },
+  2: { label: 'Chờ giao hàng', type: 'default', icon: CartOutline },
+  3: { label: 'Đang giao hàng', type: 'info', icon: CheckmarkCircleOutline },
+  4: { label: 'Hoàn thành', type: 'success', icon: CheckmarkDoneOutline },
+  5: { label: 'Đã hủy', type: 'error', icon: CloseCircleOutline },
+}
 
 // Helper functions
 const formatCurrency = (value: number | undefined | null): string => {
@@ -374,6 +506,16 @@ const formatCurrency = (value: number | undefined | null): string => {
     maximumFractionDigits: 0
   }).format(value)
 }
+
+function getStepCircleBg(status: string | number | undefined): string {
+  const map: Record<number, string> = { 0: 'bg-yellow-100', 1: 'bg-blue-100', 2: 'bg-purple-100', 3: 'bg-blue-100', 4: 'bg-green-100', 5: 'bg-red-100' }
+  return map[Number(status)] || 'bg-gray-100'
+}
+
+function getStatusIcon(status: string | number | undefined): any { return STATUS_MAP[Number(status)]?.icon || TimeOutline }
+
+function getStatusText(status: string | number | undefined): string { return STATUS_MAP[Number(status)]?.label || 'Không xác định' }
+function getStatusTagType(status: string | number | undefined): string { return STATUS_MAP[Number(status)]?.type || 'default' }
 
 // convert Java LocalDateTime string to "HH:mm:ss dd/mm/yyyy"
 function formatTime(datetime: string | undefined | null): string {
@@ -421,7 +563,7 @@ const getStepIconClass = (stepKey: string): string => {
 
 const getStepTextClass = (stepKey: string): string => {
   if (isStepCompleted(stepKey)) {
-    return 'text-green-600'
+    return 'text-blue-600'
   } else {
     return 'text-gray-500'
   }
@@ -537,6 +679,29 @@ const handleClickCancelInvoice = async () => {
   } catch (e) {
     notification.error({ content: 'Hủy hóa đơn thất bại. Vui lòng thử lại', duration: 3000 })
   }
+}
+
+function getTimelineContainerWidth(total: number) {
+  if (total === 1) return 'max-w-sm'
+  if (total === 2) return 'max-w-2xl'
+  if (total === 3) return 'max-w-4xl'
+  if (total === 4) return 'max-w-6xl'
+  return 'w-full'
+}
+
+function getDynamicIconSizeClass(stepKey: string) {
+
+  if (currentStatus.value.toString() === stepKey)
+    return 'w-24 h-24 border-[6px] border-blue-500 bg-blue-50 text-blue-600 shadow-lg'
+
+  if (isStepCompleted(stepKey))
+    return 'w-20 h-20 border-[5px] border-blue-500 bg-blue-50 text-blue-600 shadow-md'
+
+  return 'w-20 h-20 border-[5px] border-gray-300 bg-white text-gray-400'
+}
+
+function getDynamicIconSize(stepKey: string) {
+  return currentStatus.value.toString() === stepKey ? 48 : 40
 }
 
 // Lifecycle
