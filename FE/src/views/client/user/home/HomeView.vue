@@ -2,10 +2,19 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import {
+  NBadge,
   NButton,
   NCarousel,
   NEmpty,
+  NGrid,
+  NGridItem,
+  NImage,
+  NRate,
+  NScrollbar,
+  NSkeleton,
   NSpin,
+  NTag,
+  NTooltip,
 } from 'naive-ui'
 
 import NovaIcon from '@/components/common/NovaIcon.vue'
@@ -34,16 +43,18 @@ const loadingDiscounts = ref(false)
 const productDetails = ref<ADProductDetailResponse[]>([])
 
 const heroBanners = ref([
-  { id: 1, url: hero1, title: 'Laptop gaming – Hiệu năng mạnh mẽ' },
-  { id: 2, url: hero2, title: 'MacBook – Mượt, bền, tối giản' },
-  { id: 3, url: hero3, title: 'Workstation – Chuẩn đồ nghề Dev' },
+  { id: 1, url: hero1, title: 'Laptop gaming – Hiệu năng mạnh mẽ', subtitle: 'Chinh phục mọi tựa game với dòng laptop gaming cao cấp' },
+  { id: 2, url: hero2, title: 'MacBook – Mượt, bền, tối giản', subtitle: 'Trải nghiệm đẳng cấp cùng hệ sinh thái Apple' },
+  { id: 3, url: hero3, title: 'Workstation – Chuẩn đồ nghề Dev', subtitle: 'Cấu hình mạnh mẽ cho dân lập trình, designer' },
 ])
 
 const quickBenefits = ref([
-  { id: 1, icon: 'icon-park-outline:delivery', title: 'Giao nhanh', desc: 'Toàn quốc 1–3 ngày' },
-  { id: 2, icon: 'icon-park-outline:protect', title: 'Bảo hành', desc: 'Minh bạch, rõ ràng' },
-  { id: 3, icon: 'icon-park-outline:customer', title: 'Tư vấn', desc: 'Đúng nhu cầu' },
-  { id: 4, icon: 'icon-park-outline:paper-money', title: 'Trả góp', desc: '0% lãi suất' },
+  { id: 1, icon: 'ion:rocket-outline', title: 'Giao hàng siêu tốc', desc: '1-3 ngày toàn quốc' },
+  { id: 2, icon: 'ion:chatbubbles-outline', title: 'Tư vấn tận tình', desc: 'Đội ngũ chuyên nghiệp 24/7' },
+  { id: 3, icon: 'ion:gift-outline', title: 'Quà tặng hấp dẫn', desc: 'Kèm theo sản phẩm' },
+  { id: 4, icon: 'ion:time-outline', title: 'Giao hàng siêu tốc', desc: '2h nội thành' },
+  { id: 5, icon: 'ion:shield-checkmark-outline', title: 'Bảo hành chính hãng', desc: '12 tháng, 1 đổi 1' },
+  { id: 6, icon: 'ion:card-outline', title: 'Thanh toán linh hoạt', desc: 'COD, chuyển khoản' },
 ])
 
 // --- QUẢN LÝ DANH SÁCH HÃNG (BRAND) ĐỘNG ---
@@ -52,22 +63,21 @@ interface BrandDisplay {
   name: string
   logoUrl?: string
   icon?: string
-  textStyling?: string
+  image?: string
 }
 
 const brands = ref<BrandDisplay[]>([])
 
 const brandStyleMap: Record<string, any> = {
-  apple: { icon: 'icon-park-outline:apple' },
-  samsung: { textStyling: 'text-blue-700 font-black tracking-tighter' },
-  xiaomi: { textStyling: 'text-orange-500 font-bold text-xl' },
-  vivo: { textStyling: 'text-blue-500 font-bold text-xl' },
-  oppo: { textStyling: 'text-green-600 font-bold text-xl' },
-  asus: { textStyling: 'text-black font-black text-xl' },
-  dell: { textStyling: 'text-blue-800 font-black text-xl' },
-  hp: { textStyling: 'text-blue-500 font-bold text-xl' },
-  lenovo: { textStyling: 'text-green-600 font-bold text-xl' },
-  acer: { textStyling: 'text-green-600 font-bold text-xl' },
+  apple: { icon: 'ion:logo-apple' },
+  samsung: { image: 'https://upload.wikimedia.org/wikipedia/commons/2/24/Samsung_Logo.svg' },
+  xiaomi: { image: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/Xiaomi_logo.svg' },
+  asus: { image: 'https://upload.wikimedia.org/wikipedia/commons/2/2e/ASUS_Logo.svg' },
+  dell: { image: 'https://upload.wikimedia.org/wikipedia/commons/1/18/Dell_logo_2016.svg' },
+  hp: { image: 'https://upload.wikimedia.org/wikipedia/commons/a/ad/HP_logo_2012.svg' },
+  lenovo: { image: 'https://upload.wikimedia.org/wikipedia/commons/b/b8/Lenovo_logo_2015.svg' },
+  acer: { image: 'https://upload.wikimedia.org/wikipedia/commons/9/92/Acer_2011.svg' },
+  msi: { image: 'https://upload.wikimedia.org/wikipedia/commons/1/1e/MSI_Logo.svg' },
 }
 
 async function fetchBrands() {
@@ -80,34 +90,27 @@ async function fetchBrands() {
       const brandName = b.label || b.name || ''
 
       const key = brandName.toLowerCase().trim()
-      const style = brandStyleMap[key] || { textStyling: 'text-gray-800 font-bold text-xl' }
+      const style = brandStyleMap[key] || {}
 
       return {
         id: brandId,
         name: brandName,
         ...style,
       }
-    })
+    }).slice(0, 12)
   }
   catch (error) {
     console.error('Lỗi khi tải danh sách hãng:', error)
   }
 }
 
-// --- XỬ LÝ SỰ KIỆN CUỘN CHO HÃNG (MỚI THÊM) ---
+// --- XỬ LÝ SỰ KIỆN CUỘN CHO HÃNG ---
 const brandGridRef = ref<HTMLElement | null>(null)
 
 function scrollBrands(direction: number) {
   if (brandGridRef.value) {
-    const scrollAmount = 300 * direction
+    const scrollAmount = 200 * direction
     brandGridRef.value.scrollBy({ left: scrollAmount, behavior: 'smooth' })
-  }
-}
-
-function handleWheel(e: WheelEvent) {
-  if (brandGridRef.value) {
-    e.preventDefault()
-    brandGridRef.value.scrollLeft += e.deltaY
   }
 }
 
@@ -160,7 +163,7 @@ function getCountdown(targetTime: number) {
 async function fetchDiscountProducts() {
   loadingDiscounts.value = true
   try {
-    const params: DiscountProductRequest = { page: 1, size: 15 }
+    const params: DiscountProductRequest = { page: 1, size: 20 }
 
     const [ongoingRes, upcomingRes] = await Promise.all([
       getOngoingDiscounts(params),
@@ -171,7 +174,7 @@ async function fetchDiscountProducts() {
     upcomingDiscountProducts.value = extractItems<DiscountProductResponse>(upcomingRes)
   }
   catch (error) {
-    console.error('Lỗi khi tải dữ liệu giảm giá (ongoing/upcoming):', error)
+    console.error('Lỗi khi tải dữ liệu giảm giá:', error)
   }
   finally {
     loadingDiscounts.value = false
@@ -180,13 +183,13 @@ async function fetchDiscountProducts() {
 
 // --- QUẢN LÝ SẢN PHẨM MỚI NHẤT ---
 const newest = computed(() => {
-  return [...productDetails.value].slice(0, 10)
+  return [...productDetails.value].slice(0, 20)
 })
 
 async function fetchNormalProducts() {
   loading.value = true
   try {
-    const params: ADProductDetailRequest = { page: 1, size: 30, minPrice: 0, maxPrice: 1000000000 }
+    const params: ADProductDetailRequest = { page: 1, size: 40, minPrice: 0, maxPrice: 1000000000 }
     const res = await getProductDetails(params)
     if (res?.data) {
       const svResponse = res.data
@@ -262,403 +265,1181 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1300px] px-4 py-8 rgb(255 255 255) min-h-screen font-sans">
-    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-12">
-      <div class="lg:col-span-8 rounded-2xl overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.08)] bg-white relative group">
-        <NCarousel show-arrow autoplay draggable dot-type="line" class="h-[250px] md:h-[400px]">
-          <div v-for="b in heroBanners" :key="b.id" class="relative w-full h-full cursor-pointer overflow-hidden" @click="goProducts()">
-            <img :src="b.url" :alt="b.title" class="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105">
-            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div class="absolute bottom-0 left-0 p-6 md:p-10 w-full">
-              <h2 class="text-white text-2xl md:text-4xl font-extrabold tracking-tight mb-5 drop-shadow-md">
-                {{ b.title }}
-              </h2>
-              <NButton
-                type="primary" size="large"
-                class="!rounded-xl !font-bold !px-8 shadow-[0_4px_14px_0_rgba(225,29,72,0.39)] hover:-translate-y-1 transition-all duration-300 bg-red-600 hover:bg-red-500 border-none"
-                @click.stop="goProducts()"
-              >
-                Khám phá ngay
-              </NButton>
+  <div class="home-page">
+    <!-- Top Banner -->
+    <div class="top-banner">
+      <div class="container">
+        <div class="top-banner-content">
+          <span class="hot-label">🔥 HOT</span>
+          <span class="banner-text">Miễn phí vận chuyển cho đơn hàng từ 20.000.000đ</span>
+          <span class="banner-link" @click="goProducts()">
+            Khám phá ngay <NovaIcon icon="ion:chevron-forward" :size="14" />
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="container">
+      <!-- Hero Section -->
+      <div class="hero-section">
+        <div class="main-banner">
+          <NCarousel
+            show-arrow
+            autoplay
+            draggable
+            dot-type="line"
+            class="banner-carousel"
+            :interval="5000"
+            effect="slide"
+          >
+            <div v-for="b in heroBanners" :key="b.id" class="banner-slide">
+              <img :src="b.url" :alt="b.title" class="banner-image">
+              <div class="banner-overlay">
+                <span class="banner-badge">Ưu đãi đặc biệt</span>
+                <h2 class="banner-title">
+                  {{ b.title }}
+                </h2>
+                <p class="banner-subtitle">
+                  {{ b.subtitle }}
+                </p>
+                <NButton type="primary" size="large" class="banner-btn" @click="goProducts()">
+                  Mua ngay <NovaIcon icon="ion:arrow-forward" :size="16" class="ml-1" />
+                </NButton>
+              </div>
             </div>
-          </div>
-        </NCarousel>
+          </NCarousel>
+        </div>
       </div>
 
-      <div class="lg:col-span-4 flex flex-col gap-4">
-        <div class="bg-white rounded-2xl p-6 shadow-[0_8px_30px_rgb(0,0,0,0.04)] h-full flex flex-col justify-between border border-gray-100">
-          <div>
-            <div class="flex items-center gap-2 mb-6">
-              <NovaIcon icon="icon-park-solid:diamond" :size="24" class="text-green-600" />
-              <h3 class="text-xl font-extrabold text-gray-800 uppercase tracking-wide">
-                Đặc quyền mua sắm
-              </h3>
-            </div>
+      <!-- Benefits Strip -->
+      <div class="benefits-strip">
+        <div v-for="b in quickBenefits" :key="b.id" class="benefit-item">
+          <div class="benefit-icon">
+            <NovaIcon :icon="b.icon" :size="22" color="#18a058" />
+          </div>
+          <div class="benefit-text">
+            <span class="benefit-title">{{ b.title }}</span>
+            <span class="benefit-desc">{{ b.desc }}</span>
+          </div>
+        </div>
+      </div>
 
-            <div class="grid grid-cols-2 gap-4">
-              <div
-                v-for="b in quickBenefits" :key="b.id"
-                class="flex flex-col gap-3 p-4 rounded-xl bg-gray-50/80 border border-gray-100 hover:border-green-200 hover:bg-green-50/50 hover:shadow-md transition-all duration-300 group cursor-default"
-              >
-                <div class="w-12 h-12 rounded-full bg-white shadow-sm flex items-center justify-center text-[#d70018] group-hover:scale-110 transition-transform">
-                  <NovaIcon :icon="b.icon" :size="24" />
+      <!-- Brands Section -->
+      <section class="brands-section">
+        <div class="section-header">
+          <div class="header-left">
+            <div class="section-icon">
+              <NovaIcon icon="ion:apps" :size="22" color="#18a058" />
+            </div>
+            <h2 class="section-title">
+              THƯƠNG HIỆU NỔI BẬT
+            </h2>
+          </div>
+          <div class="header-right">
+            <button class="nav-btn" @click="scrollBrands(-1)">
+              <NovaIcon icon="ion:chevron-back" :size="18" />
+            </button>
+            <button class="nav-btn" @click="scrollBrands(1)">
+              <NovaIcon icon="ion:chevron-forward" :size="18" />
+            </button>
+          </div>
+        </div>
+
+        <div class="brands-container">
+          <div ref="brandGridRef" class="brands-grid">
+            <div
+              v-for="b in brands"
+              :key="b.id"
+              class="brand-item"
+              @click="goProducts(b.id)"
+            >
+              <div class="brand-logo">
+                <img v-if="b.image" :src="b.image" :alt="b.name" loading="lazy">
+                <NovaIcon v-else-if="b.icon" :icon="b.icon" :size="32" />
+                <span v-else class="brand-text">{{ b.name.substring(0, 3) }}</span>
+              </div>
+              <span class="brand-name">{{ b.name }}</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Flash Sale Section -->
+      <section v-if="ongoingDiscountInfo" class="flash-sale-section">
+        <div class="flash-sale-header">
+          <div class="flash-sale-title">
+            <div class="title-icon">
+              <NovaIcon icon="ion:flash" :size="24" color="#ffffff" />
+            </div>
+            <h2>FLASH SALE</h2>
+          </div>
+          <div class="flash-sale-timer">
+            <span class="timer-label">Kết thúc trong</span>
+            <div class="timer-box">
+              <span class="timer-number">{{ getCountdown(ongoingDiscountInfo.endDate).h }}</span>
+              <span class="timer-colon">:</span>
+              <span class="timer-number">{{ getCountdown(ongoingDiscountInfo.endDate).m }}</span>
+              <span class="timer-colon">:</span>
+              <span class="timer-number">{{ getCountdown(ongoingDiscountInfo.endDate).s }}</span>
+            </div>
+          </div>
+          <div class="flash-sale-viewall" @click="goProducts()">
+            Xem tất cả <NovaIcon icon="ion:chevron-forward" :size="14" />
+          </div>
+        </div>
+
+        <div v-if="loadingDiscounts" class="loading-state">
+          <NSpin size="large" />
+        </div>
+
+        <div v-else class="flash-sale-products">
+          <div class="products-grid">
+            <div
+              v-for="item in ongoingDiscountProducts.slice(0, 10)"
+              :key="item.productDetailId"
+              class="product-card"
+              @click="handleClickProduct(item.productDetailId, item)"
+            >
+              <div class="product-image">
+                <img :src="item.urlImage" :alt="item.name" loading="lazy" @error="handleImageError">
+                <div class="discount-badge">
+                  -{{ item.percentage }}%
                 </div>
-                <div>
-                  <div class="font-bold text-gray-900 text-sm mb-0.5">
-                    {{ b.title }}
-                  </div>
-                  <div class="text-[13px] text-gray-500 leading-tight">
-                    {{ b.desc }}
-                  </div>
+                <div class="product-overlay">
+                  <button class="quick-view">
+                    <NovaIcon icon="ion:eye-outline" :size="18" />
+                  </button>
+                </div>
+              </div>
+              <div class="product-info">
+                <h3 class="product-name">
+                  {{ item.name }}
+                </h3>
+                <div class="product-specs">
+                  <span v-if="item.ram" class="spec-tag">{{ item.ram }}</span>
+                  <span v-if="item.hardDrive" class="spec-tag">{{ item.hardDrive }}</span>
+                </div>
+                <div class="product-price">
+                  <span class="current-price">{{ formatCurrency(item.salePrice) }}</span>
+                  <span class="old-price">{{ formatCurrency(item.originalPrice) }}</span>
+                </div>
+                <div class="product-rating">
+                  <NRate :value="4.5" readonly size="small" />
+                  <span class="rating-count">(12)</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
 
-    <div class="mb-10 px-2 md:px-6 py-6 bg-green-10 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-gray-100">
-      <div class="flex flex-col items-center justify-center mb-8">
-        <h2 class="text-2xl font-black text-gray-800 uppercase tracking-wider relative flex items-center gap-2">
-          <NovaIcon icon="icon-park-solid:category-management" class="text-green-600" />
-          CHỌN THEO HÃNG
-        </h2>
-        <div class="w-16 h-1 bg-red-600 mt-3 rounded-full" />
-      </div>
-
-      <div class="brand-scroll-wrapper">
-        <button class="scroll-btn left-btn" @click="scrollBrands(-1)">
-          <NovaIcon icon="icon-park-outline:left" :size="20" />
-        </button>
-
-        <div
-          ref="brandGridRef"
-          class="grid grid-rows-2 grid-flow-col gap-3 md:gap-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory auto-cols-[calc((100%-36px)/2.5)] md:auto-cols-[calc((100%-64px)/5)] py-2 w-full"
-          style="scroll-behavior: smooth;"
-          @wheel.prevent="handleWheel"
-        >
-          <button
-            v-for="b in brands" :key="b.id"
-            class="snap-start bg-white rounded-2xl h-16 flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_20px_rgba(0,166,81,0.15)] hover:-translate-y-1 transition-all duration-300 border-[1.5px] border-gray-100 hover:border-green-500 group px-2"
-            @click="goProducts(b.id)"
-          >
-            <img v-if="b.logoUrl" :src="b.logoUrl" :alt="b.name" class="max-h-8 object-contain px-2 group-hover:scale-110 transition-transform">
-            <div v-else class="flex items-center gap-2 group-hover:scale-110 transition-transform">
-              <NovaIcon v-if="b.icon" :icon="b.icon" :size="28" class="text-gray-800" />
-              <span v-else :class="b.textStyling" class="truncate px-2">{{ b.name }}</span>
+      <!-- Upcoming Deals -->
+      <section v-if="upcomingDiscountInfo" class="upcoming-section">
+        <div class="upcoming-header">
+          <div class="upcoming-title">
+            <div class="title-icon">
+              <NovaIcon icon="ion:alarm-outline" :size="24" color="#ffffff" />
             </div>
-          </button>
-        </div>
-
-        <button class="scroll-btn right-btn" @click="scrollBrands(1)">
-          <NovaIcon icon="icon-park-outline:right" :size="20" />
-        </button>
-      </div>
-    </div>
-    <div v-if="ongoingDiscountInfo" class="mb-14">
-      <div class="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 rounded-2xl p-4 md:p-5 shadow-[0_10px_40px_rgba(239,68,68,0.3)] relative overflow-hidden">
-        <div class="absolute -top-20 -right-20 w-64 h-64 bg-white opacity-10 rounded-full blur-3xl" />
-        <div class="absolute -bottom-20 -left-20 w-64 h-64 bg-yellow-400 opacity-20 rounded-full blur-3xl" />
-
-        <div class="flex flex-col md:flex-row md:items-center justify-between mb-5 gap-4 border-b border-white/20 pb-4">
-          <div class="flex items-start gap-2 flex-1 min-w-0 z-10 mt-1">
-            <NovaIcon icon="icon-park-solid:lightning" class="text-yellow-300 animate-pulse shrink-0 mt-0.5" :size="34" />
-            <div class="flex flex-col">
-              <span class="text-yellow-200 text-[11px] md:text-xs font-black uppercase tracking-wider mb-1">
-                Đang diễn ra
-              </span>
-              <h2
-                class="text-xl md:text-2xl font-black text-white drop-shadow-md leading-snug break-words line-clamp-2"
-                :title="ongoingDiscountInfo.discountName"
-              >
-                {{ ongoingDiscountInfo.discountName }}
-              </h2>
-            </div>
+            <h2>SẮP DIỄN RA</h2>
           </div>
-
-          <div class="flex items-center gap-2 z-10 bg-black/20 px-3.5 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-inner shrink-0">
-            <span class="text-white/90 text-xs font-bold uppercase tracking-wider">Kết thúc sau</span>
-            <div class="flex items-center gap-1 font-black text-base">
-              <span v-if="getCountdown(ongoingDiscountInfo.endDate).d > 0" class="text-yellow-300 mr-1 text-sm">{{ getCountdown(ongoingDiscountInfo.endDate).d }} Ngày</span>
-              <span class="bg-white text-red-600 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(ongoingDiscountInfo.endDate).h }}</span>
-              <span class="text-white/70">:</span>
-              <span class="bg-white text-red-600 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(ongoingDiscountInfo.endDate).m }}</span>
-              <span class="text-white/70">:</span>
-              <span class="bg-white text-red-600 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(ongoingDiscountInfo.endDate).s }}</span>
+          <div class="upcoming-timer">
+            <span class="timer-label">Bắt đầu sau</span>
+            <div class="timer-box">
+              <span class="timer-number">{{ getCountdown(upcomingDiscountInfo.startDate).d }}</span>
+              <span class="timer-unit">ngày</span>
+              <span class="timer-number">{{ getCountdown(upcomingDiscountInfo.startDate).h }}</span>
+              <span class="timer-unit">giờ</span>
             </div>
           </div>
         </div>
 
-        <div v-if="loadingDiscounts" class="py-12 flex justify-center">
-          <NSpin size="large" stroke="#ffffff" />
-        </div>
-        <div v-else-if="ongoingDiscountProducts.length === 0" class="py-12 bg-white/10 rounded-xl backdrop-blur-sm">
-          <p class="text-center text-white font-medium">
-            Sản phẩm đang được cập nhật...
-          </p>
+        <div v-if="loadingDiscounts" class="loading-state">
+          <NSpin size="large" />
         </div>
 
-        <div v-else class="flex gap-4 md:gap-5 overflow-x-auto pb-3 snap-x snap-mandatory hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 z-10 relative">
+        <div v-else class="upcoming-products">
+          <div class="products-grid">
+            <div
+              v-for="item in upcomingDiscountProducts.slice(0, 6)"
+              :key="item.productDetailId"
+              class="product-card upcoming"
+              @click="handleClickProduct(item.productDetailId, item)"
+            >
+              <div class="product-image">
+                <img :src="item.urlImage" :alt="item.name" loading="lazy" @error="handleImageError">
+                <div class="upcoming-badge">
+                  Sắp giảm {{ item.percentage }}%
+                </div>
+              </div>
+              <div class="product-info">
+                <h3 class="product-name">
+                  {{ item.name }}
+                </h3>
+                <div class="product-specs">
+                  <span v-if="item.ram" class="spec-tag">{{ item.ram }}</span>
+                  <span v-if="item.hardDrive" class="spec-tag">{{ item.hardDrive }}</span>
+                </div>
+                <div class="product-price">
+                  <span class="current-price">{{ formatCurrency(item.salePrice) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Product Suggestions -->
+      <section class="suggestions-section">
+        <div class="section-header">
+          <div class="header-left">
+            <div class="section-icon">
+              <NovaIcon icon="ion:rocket-outline" :size="22" color="#18a058" />
+            </div>
+            <h2 class="section-title">
+              GỢI Ý HÔM NAY
+            </h2>
+          </div>
+          <div class="header-right">
+            <NButton text class="view-all-btn" @click="goProducts()">
+              Xem tất cả <NovaIcon icon="ion:chevron-forward" :size="14" />
+            </NButton>
+          </div>
+        </div>
+
+        <div v-if="loading" class="loading-state">
+          <div class="skeleton-grid">
+            <div v-for="i in 10" :key="i" class="skeleton-card">
+              <NSkeleton height="200px" />
+              <NSkeleton text :repeat="3" />
+            </div>
+          </div>
+        </div>
+
+        <div v-else-if="newest.length === 0" class="empty-state">
+          <NovaIcon icon="ion:cube-outline" :size="64" color="#cbd5e1" />
+          <h3>Chưa có sản phẩm</h3>
+          <p>Danh sách sản phẩm đang được cập nhật</p>
+        </div>
+
+        <div v-else class="suggestions-grid">
           <div
-            v-for="item in ongoingDiscountProducts" :key="item.productDetailId"
-            class="snap-start shrink-0 w-[240px] md:w-[260px] bg-white rounded-2xl p-4 md:p-5 shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer relative group flex flex-col border-2 border-transparent hover:border-yellow-400"
-            @click="handleClickProduct(item.productDetailId, item)"
+            v-for="item in newest"
+            :key="item.id"
+            class="product-card"
+            @click="handleClickProduct(item.id, item)"
           >
-            <div class="absolute top-3 left-3 z-20">
-              <span v-if="item.percentage > 0" class="bg-gradient-to-r from-red-600 to-red-500 text-white text-[11px] font-black px-2.5 py-1 rounded-tr-xl rounded-bl-xl rounded-tl-sm rounded-br-sm shadow-md flex items-center gap-1 border border-green-400">
-                GIẢM {{ item.percentage }}%
-              </span>
+            <div class="product-image">
+              <img :src="item.urlImage" :alt="item.name" loading="lazy" @error="handleImageError">
+              <div v-if="item.percentage" class="discount-badge">
+                -{{ item.percentage }}%
+              </div>
+              <div class="product-overlay">
+                <button class="quick-view">
+                  <NovaIcon icon="ion:eye-outline" :size="18" />
+                </button>
+              </div>
             </div>
-
-            <div class="h-[160px] mt-6 mb-4 flex items-center justify-center group-hover:-translate-y-3 transition-transform duration-500 relative">
-              <img :src="item.urlImage" :alt="item.name" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
-            </div>
-
-            <div class="flex flex-col gap-2 mt-auto">
-              <h3 class="text-[14px] font-bold text-gray-800 line-clamp-2 min-h-[40px] leading-snug group-hover:text-[#d70018] transition-colors">
+            <div class="product-info">
+              <h3 class="product-name">
                 {{ item.name }}
               </h3>
-
-              <div class="flex flex-wrap gap-1.5 mt-1">
-                <span v-if="item.ram" class="bg-orange-50 text-orange-500 text-[11px] font-semibold px-2 py-0.5 rounded border border-orange-200">{{ item.ram }}</span>
-                <span v-if="item.hardDrive" class="bg-orange-50 text-orange-500 text-[11px] font-semibold px-2 py-0.5 rounded border border-orange-200">{{ item.hardDrive }}</span>
+              <div class="product-specs">
+                <span v-if="item.ram" class="spec-tag">{{ item.ram }}</span>
+                <span v-if="item.hardDrive" class="spec-tag">{{ item.hardDrive }}</span>
               </div>
-
-              <div class="mt-3 flex items-end justify-between">
-                <div class="flex flex-col">
-                  <span class="text-[#d70018] text-lg font-black leading-none">{{ formatCurrency(item.salePrice) }}</span>
-                  <span class="text-gray-400 text-xs line-through font-semibold mt-1">{{ formatCurrency(item.originalPrice) }}</span>
-                </div>
-                <div class="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors text-green-600">
-                  <NovaIcon icon="icon-park-outline:shopping-cart" :size="20" />
-                </div>
+              <div class="product-price">
+                <span class="current-price">{{ formatCurrency(salePrice(item.price, item.percentage)) }}</span>
+                <span v-if="item.percentage" class="old-price">{{ formatCurrency(item.price) }}</span>
+              </div>
+              <div class="product-rating">
+                <NRate :value="4.5" readonly size="small" />
+                <span class="rating-count">(12)</span>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div v-if="upcomingDiscountInfo" class="mb-14">
-      <div class="bg-gradient-to-r from-blue-800 via-blue-700 to-indigo-600 rounded-2xl p-4 md:p-5 shadow-[0_10px_40px_rgba(37,99,235,0.2)] relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5" />
-
-        <div class="flex flex-col md:flex-row md:items-center justify-between mb-5 gap-4 border-b border-white/20 pb-4">
-          <div class="flex items-start gap-2 flex-1 min-w-0 z-10 mt-1">
-            <NovaIcon icon="icon-park-solid:alarm-clock" class="text-cyan-300 animate-bounce shrink-0 mt-0.5" :size="34" />
-            <div class="flex flex-col">
-              <span class="text-cyan-200 text-[13px] md:text-xs font-black uppercase tracking-wider mb-1">
-                Sắp diễn ra
-              </span>
-              <h2
-                class="text-xl md:text-2xl font-black text-white drop-shadow-md leading-snug break-words line-clamp-2"
-                :title="upcomingDiscountInfo.discountName"
-              >
-                {{ upcomingDiscountInfo.discountName }}
-              </h2>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2 z-10 bg-black/20 px-3.5 py-2 rounded-xl backdrop-blur-md border border-white/10 shadow-inner shrink-0">
-            <span class="text-white/90 text-xs font-bold uppercase tracking-wider">Bắt đầu sau</span>
-            <div class="flex items-center gap-1 font-black text-base">
-              <span v-if="getCountdown(upcomingDiscountInfo.startDate).d > 0" class="text-cyan-300 mr-1 text-sm">{{ getCountdown(upcomingDiscountInfo.startDate).d }} Ngày</span>
-              <span class="bg-white/95 text-blue-800 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(upcomingDiscountInfo.startDate).h }}</span>
-              <span class="text-white/70">:</span>
-              <span class="bg-white/95 text-blue-800 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(upcomingDiscountInfo.startDate).m }}</span>
-              <span class="text-white/70">:</span>
-              <span class="bg-white/95 text-blue-800 px-2 py-1 rounded shadow-sm min-w-[32px] text-center">{{ getCountdown(upcomingDiscountInfo.startDate).s }}</span>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="loadingDiscounts" class="py-12 flex justify-center">
-          <NSpin size="large" stroke="#ffffff" />
-        </div>
-
-        <div v-else class="flex gap-4 md:gap-5 overflow-x-auto pb-3 snap-x snap-mandatory hide-scrollbar -mx-4 px-4 md:mx-0 md:px-0 z-10 relative">
-          <div
-            v-for="item in upcomingDiscountProducts" :key="item.productDetailId"
-            class="snap-start shrink-0 w-[240px] md:w-[260px] bg-white rounded-2xl p-4 md:p-5 shadow-lg relative flex flex-col group overflow-hidden border-2 border-transparent hover:border-blue-400 transition-all duration-300 cursor-pointer"
-            @click="handleClickProduct(item.productDetailId, item)"
-          >
-            <div class="absolute inset-0 bg-white/60 backdrop-blur-[2px] z-30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <span class="bg-blue-600 text-white font-extrabold px-5 py-2.5 text-sm rounded-xl shadow-xl flex items-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-all">
-                <NovaIcon icon="icon-park-outline:preview-open" /> Xem trước
-              </span>
-            </div>
-
-            <div class="absolute top-3 left-3 z-40">
-              <span v-if="item.percentage > 0" class="bg-gradient-to-r from-yellow-400 to-yellow-500 text-blue-900 text-[11px] font-black px-2.5 py-1 rounded-tr-xl rounded-bl-xl rounded-tl-sm rounded-br-sm shadow-md flex items-center gap-1 border border-yellow-300">
-                SẮP GIẢM {{ item.percentage }}%
-              </span>
-            </div>
-
-            <div class="h-[160px] mt-6 mb-4 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 relative z-20">
-              <img :src="item.urlImage" :alt="item.name" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
-            </div>
-
-            <div class="flex flex-col gap-2 mt-auto z-20 relative">
-              <h3 class="text-[14px] font-bold text-gray-800 line-clamp-2 min-h-[40px] leading-snug group-hover:text-blue-700 transition-colors">
-                {{ item.name }}
-              </h3>
-
-              <div class="flex flex-wrap gap-1.5 mt-1">
-                <span v-if="item.ram" class="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2 py-0.5 rounded border border-blue-100">{{ item.ram }}</span>
-                <span v-if="item.hardDrive" class="bg-blue-50 text-blue-700 text-[11px] font-semibold px-2 py-0.5 rounded border border-blue-100">{{ item.hardDrive }}</span>
-              </div>
-
-              <div class="mt-3 bg-gray-50 rounded-lg p-3 border border-dashed border-gray-300 flex flex-col gap-1">
-                <div class="text-[11px] text-gray-500 font-medium uppercase tracking-wide">
-                  Giá dự kiến:
-                </div>
-                <div class="flex flex-col">
-                  <span class="text-blue-700 text-lg font-black leading-none">{{ formatCurrency(item.salePrice) }}</span>
-                  <span class="text-gray-400 text-xs line-through font-medium mt-1">{{ formatCurrency(item.originalPrice) }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div>
-      <div class="flex items-end justify-between mb-8 border-b border-gray-200 pb-4">
-        <div>
-          <h2 class="text-2xl md:text-3xl font-black text-gray-900 flex items-center gap-2">
-            <NovaIcon icon="icon-park-solid:fire" class="text-orange-500" /> Sản phẩm mới nhất
-          </h2>
-          <p class="text-gray-500 text-sm mt-1 ml-9">
-            Cập nhật xu hướng công nghệ hàng đầu
-          </p>
-        </div>
-        <button
-          class="flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-bold text-white bg-green-600 rounded-xl shadow-md transition-all duration-300 hover:bg-green-500 hover:shadow-[0_6px_16px_rgba(22,163,74,0.4)] hover:-translate-y-1 active:scale-95"
-          @click="goProducts()"
-        >
-          Khám phá ngay
-        </button>
-      </div>
-
-      <div v-if="loading" class="py-16 flex justify-center">
-        <NSpin size="large" />
-      </div>
-      <div v-else-if="newest.length === 0" class="py-16 bg-white rounded-2xl shadow-sm border border-gray-100">
-        <NEmpty description="Rất tiếc, hiện tại chưa có sản phẩm" />
-      </div>
-
-      <div v-else class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
-        <div
-          v-for="item in newest" :key="item.id"
-          class="bg-white rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgba(0,0,0,0.12)] transition-all duration-300 hover:-translate-y-1.5 cursor-pointer border-2 border-transparent hover:border-green-400 relative group flex flex-col h-full overflow-hidden"
-          @click="handleClickProduct(item.id, item)"
-        >
-          <div class="absolute top-3 left-3 z-20">
-            <span v-if="(item.percentage ?? 0) > 0" class="bg-gradient-to-r from-red-600 to-red-500 text-white text-xs font-black px-3 py-1.5 rounded-tr-xl rounded-bl-xl rounded-tl-sm rounded-br-sm shadow-md flex items-center gap-1 border border-green-400">
-              GIẢM {{ item.percentage }}%
-            </span>
-          </div>
-
-          <div class="h-[180px] mt-6 mb-5 flex items-center justify-center group-hover:-translate-y-3 transition-transform duration-500 relative">
-            <img :src="item.urlImage" :alt="item.name" class="max-w-full max-h-[170px] object-contain drop-shadow-sm" @error="handleImageError">
-          </div>
-
-          <div class="flex flex-col flex-1 gap-2 mt-auto">
-            <h3 class="text-[15px] font-bold text-gray-800 line-clamp-2 min-h-[44px] leading-snug group-hover:text-[#d70018] transition-colors">
-              {{ item.name }}
-            </h3>
-
-            <div class="flex flex-wrap gap-2 mt-2">
-              <span v-if="item.ram" class="bg-green-50 text-green-600 text-xs font-semibold px-2.5 py-1 rounded-md border border-green-200">{{ item.ram }}</span>
-              <span v-if="item.hardDrive" class="bg-blue-50 text-blue-600 text-xs font-semibold px-2.5 py-1 rounded-md border border-blue-200">{{ item.hardDrive }}</span>
-            </div>
-
-            <div class="mt-4 flex items-end justify-between">
-              <div class="flex flex-col">
-                <span class="text-[#d70018] text-xl font-black leading-none">{{ formatCurrency(salePrice(item.price, item.percentage)) }}</span>
-                <span v-if="(item.percentage ?? 0) > 0" class="text-gray-400 text-sm line-through font-semibold mt-1">
-                  {{ formatCurrency(item.price) }}
-                </span>
-              </div>
-              <div class="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-colors text-green-600">
-                <NovaIcon icon="icon-park-outline:shopping-cart" :size="20" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      </section>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* =========================================
-   ẨN THANH CUỘN MẶC ĐỊNH CHO CONTAINER NGANG
-   ========================================= */
-.hide-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-.hide-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+.home-page {
+  background-color: #f8fafc;
+  min-height: 100vh;
 }
 
-/* =========================================
-   WRAPPER VÀ NÚT BẤM CUỘN NGANG (CÙNG PHONG CÁCH)
-   ========================================= */
-.brand-scroll-wrapper {
-  position: relative;
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* Top Banner */
+.top-banner {
+  background: linear-gradient(135deg, #18a058 0%, #2ecc71 100%);
+  color: white;
+  padding: 10px 0;
+  font-size: 14px;
+  margin-bottom: 20px;
+}
+
+.top-banner-content {
   display: flex;
   align-items: center;
-  /* Chừa 2 khoảng trống 2 bên cho nút lùi ra xa */
-  padding: 0 24px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.scroll-btn {
+.hot-label {
+  background-color: #ff6b6b;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+
+.banner-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  margin-left: auto;
+  font-weight: 500;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  transition: all 0.3s;
+}
+
+.banner-link:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(4px);
+}
+
+/* Hero Section */
+.hero-section {
+  margin-bottom: 30px;
+}
+
+.main-banner {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  height: 400px;
+}
+
+.banner-carousel {
+  width: 100%;
+  height: 100%;
+}
+
+.banner-slide {
+  position: relative;
+  height: 100%;
+  cursor: pointer;
+}
+
+.banner-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 6s;
+}
+
+.banner-slide:hover .banner-image {
+  transform: scale(1.1);
+}
+
+.banner-overlay {
   position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 30px;  /* Nút hẹp hình chữ nhật đứng */
-  height: 50px;
-  border-radius: 12px; /* Bo góc mềm mại */
-  background-color: #ffffff;
-  border: 1px solid #e5e7eb;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.7) 0%, rgba(0, 0, 0, 0.3) 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 60px;
+  color: white;
+}
+
+.banner-badge {
+  display: inline-block;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(8px);
+  padding: 6px 16px;
+  border-radius: 30px;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.banner-title {
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 12px;
+  max-width: 600px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.banner-subtitle {
+  font-size: 16px;
+  opacity: 0.9;
+  margin-bottom: 24px;
+  max-width: 500px;
+}
+
+.banner-btn {
+  background: #18a058;
+  border: none;
+  padding: 12px 32px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 40px;
+  transition: all 0.3s;
+  width: fit-content;
+}
+
+.banner-btn:hover {
+  background: #15803d;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(24, 160, 88, 0.4);
+}
+
+/* Benefits Strip */
+.benefits-strip {
+  background: white;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 30px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+}
+
+.benefit-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.benefit-item:hover {
+  background: #f0fdf4;
+  transform: translateY(-2px);
+}
+
+.benefit-icon {
+  width: 44px;
+  height: 44px;
+  background: #f0fdf4;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.benefit-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.benefit-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.benefit-desc {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Brands Section */
+.brands-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-icon {
+  width: 44px;
+  height: 44px;
+  background: #f0fdf4;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+}
+
+.header-right {
+  display: flex;
+  gap: 8px;
+}
+
+.nav-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #6b7280;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #475569;
+  transition: all 0.3s;
 }
 
-.scroll-btn:hover {
-  background-color: #48d58c; /* Màu xanh lá chuẩn theme */
-  color: #ffffff;
-  border-color: #00a651;
-  box-shadow: 0 4px 12px rgba(0, 166, 81, 0.25);
-  transform: translateY(-50%) scale(1.15);
+.nav-btn:hover {
+  background: #18a058;
+  color: white;
+  border-color: #18a058;
 }
 
-/* Đẩy 2 nút ra sát mép màn hình / mép container */
-.left-btn {
-  left: -10px;
+.brands-container {
+  overflow: hidden;
+  position: relative;
 }
 
-.right-btn {
-  right: -10px;
+.brands-grid {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  padding-bottom: 8px;
 }
 
-/* Dành riêng cho thiết bị lớn thì có thể đẩy lùi nút ra xa thêm chút nữa nếu thích */
-@media (min-width: 768px) {
-  .left-btn {
-    left: -16px;
+.brands-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.brands-grid::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+
+.brands-grid::-webkit-scrollbar-thumb {
+  background: #18a058;
+  border-radius: 10px;
+}
+
+.brand-item {
+  flex: 0 0 140px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.brand-item:hover {
+  transform: translateY(-4px);
+}
+
+.brand-logo {
+  width: 140px;
+  height: 90px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8px;
+  background: white;
+  transition: all 0.3s;
+}
+
+.brand-item:hover .brand-logo {
+  border-color: #18a058;
+  box-shadow: 0 8px 16px rgba(24, 160, 88, 0.15);
+}
+
+.brand-logo img {
+  max-width: 100px;
+  max-height: 50px;
+  object-fit: contain;
+}
+
+.brand-text {
+  font-size: 24px;
+  font-weight: 700;
+  color: #18a058;
+}
+
+.brand-name {
+  display: block;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: #475569;
+}
+
+/* Flash Sale Section */
+.flash-sale-section {
+  background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 24px rgba(220, 38, 38, 0.2);
+  color: white;
+}
+
+.flash-sale-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.flash-sale-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title-icon {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flash-sale-title h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.flash-sale-timer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 20px;
+  border-radius: 40px;
+  backdrop-filter: blur(4px);
+}
+
+.timer-label {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
+.timer-box {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.timer-number {
+  background: white;
+  color: #ef4444;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 16px;
+  min-width: 30px;
+  text-align: center;
+}
+
+.timer-colon {
+  font-weight: 700;
+  color: white;
+  font-size: 18px;
+}
+
+.flash-sale-viewall {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 30px;
+  transition: all 0.3s;
+}
+
+.flash-sale-viewall:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateX(4px);
+}
+
+/* Upcoming Section */
+.upcoming-section {
+  background: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.2);
+  color: white;
+}
+
+.upcoming-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.upcoming-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.upcoming-title h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: 1px;
+}
+
+.upcoming-timer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 8px 20px;
+  border-radius: 40px;
+  backdrop-filter: blur(4px);
+}
+
+.timer-unit {
+  font-size: 12px;
+  margin: 0 2px;
+  opacity: 0.9;
+}
+
+/* Products Grid */
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.product-card {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.3s;
+  cursor: pointer;
+  border: 1px solid #e2e8f0;
+  position: relative;
+}
+
+.product-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  border-color: #18a058;
+}
+
+.product-card.upcoming {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.product-image {
+  position: relative;
+  padding-top: 100%;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.product-image img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 16px;
+  transition: transform 0.5s;
+}
+
+.product-card:hover .product-image img {
+  transform: scale(1.08);
+}
+
+.product-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.product-card:hover .product-overlay {
+  opacity: 1;
+}
+
+.quick-view {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #1e293b;
+  transform: translateY(20px);
+  transition: all 0.3s;
+}
+
+.product-card:hover .quick-view {
+  transform: translateY(0);
+}
+
+.quick-view:hover {
+  background: #18a058;
+  color: white;
+}
+
+.discount-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #ef4444;
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  z-index: 2;
+}
+
+.upcoming-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: #2563eb;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 6px;
+  z-index: 2;
+}
+
+.product-info {
+  padding: 16px;
+}
+
+.product-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 8px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 40px;
+}
+
+.product-specs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.spec-tag {
+  background: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  color: #475569;
+}
+
+.product-price {
+  margin-bottom: 8px;
+}
+
+.current-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ef4444;
+  margin-right: 8px;
+}
+
+.old-price {
+  font-size: 13px;
+  color: #94a3b8;
+  text-decoration: line-through;
+}
+
+.product-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rating-count {
+  font-size: 11px;
+  color: #64748b;
+}
+
+/* Suggestions Section */
+.suggestions-section {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+}
+
+.suggestions-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.view-all-btn {
+  color: #18a058;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 8px;
+  transition: all 0.3s;
+}
+
+.view-all-btn:hover {
+  background: #f0fdf4;
+}
+
+/* Category Highlights */
+.category-highlights {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  border: 1px solid #e2e8f0;
+}
+
+.category-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.category-card {
+  text-align: center;
+  padding: 20px 12px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.category-card:hover {
+  background: #f0fdf4;
+  border-color: #18a058;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(24, 160, 88, 0.1);
+}
+
+.category-icon {
+  width: 64px;
+  height: 64px;
+  background: #f0fdf4;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  transition: all 0.3s;
+}
+
+.category-card:hover .category-icon {
+  background: #18a058;
+}
+
+.category-card:hover .category-icon :deep(svg) {
+  color: white !important;
+}
+
+.category-name {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 4px;
+}
+
+.category-count {
+  font-size: 12px;
+  color: #64748b;
+}
+
+/* Loading States */
+.loading-state {
+  padding: 40px 0;
+  display: flex;
+  justify-content: center;
+}
+
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+
+.skeleton-card {
+  background: #f8fafc;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 0;
+}
+
+.empty-state h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 16px 0 8px;
+}
+
+.empty-state p {
+  color: #64748b;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+  .products-grid,
+  .suggestions-grid,
+  .skeleton-grid,
+  .category-grid {
+    grid-template-columns: repeat(4, 1fr);
   }
-  .right-btn {
-    right: -16px;
+
+  .benefits-strip {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .products-grid,
+  .suggestions-grid,
+  .skeleton-grid,
+  .category-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .banner-title {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .benefits-strip {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .products-grid,
+  .suggestions-grid,
+  .skeleton-grid,
+  .category-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .banner-title {
+    font-size: 24px;
+  }
+
+  .banner-subtitle {
+    font-size: 14px;
+  }
+
+  .banner-overlay {
+    padding: 0 30px;
+  }
+
+  .flash-sale-header,
+  .upcoming-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .flash-sale-viewall {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .products-grid,
+  .suggestions-grid,
+  .skeleton-grid,
+  .category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .benefits-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .banner-title {
+    font-size: 20px;
+  }
+
+  .banner-btn {
+    padding: 8px 24px;
+    font-size: 14px;
+  }
+
+  .top-banner-content {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .banner-link {
+    margin-left: 0;
   }
 }
 </style>

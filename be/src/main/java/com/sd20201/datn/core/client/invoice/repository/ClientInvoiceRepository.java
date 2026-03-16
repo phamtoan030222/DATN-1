@@ -32,7 +32,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.trangThaiThanhToan as trangThaiThanhToan
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE ( i.code = :code OR i.id = :code ) AND i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice = 1
+            WHERE ( i.code = :code OR i.id = :code ) AND i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice IN (1, 3)
             GROUP BY
                 i.id,
                 i.code,
