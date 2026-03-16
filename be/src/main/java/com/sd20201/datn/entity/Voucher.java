@@ -49,7 +49,6 @@ public class Voucher extends PrimaryEntity implements Serializable {
 
     private String note;
 
-
     @Transient // Không lưu vào database
     private BigDecimal giaTriGiamThucTe;
 

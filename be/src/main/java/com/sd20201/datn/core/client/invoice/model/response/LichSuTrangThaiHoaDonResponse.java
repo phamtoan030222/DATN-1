@@ -12,4 +12,8 @@ public interface LichSuTrangThaiHoaDonResponse {
 
     LocalDateTime getThoiGian();
 
+    String getIdStaff();
+
+    String getNameStaff();
+
 }

@@ -86,4 +86,9 @@ public interface ClientBHVoucherDetailRepository extends JpaRepository<VoucherDe
             @Param("customerId") String customerId,
             @Param("now") Long now
     );
+
+    @Query("""
+    SELECT vd FROM VoucherDetail vd WHERE vd.customer.id = :idCustomer AND vd.status = 0 AND vd.voucher.status = 0 AND vd.voucher.id = :idVoucher
+    """)
+    Optional<VoucherDetail> findByIdVoucherAndIdCustomer(String idVoucher, String idCustomer);
 }

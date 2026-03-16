@@ -12,7 +12,7 @@
         </div>
 
         <div class="flex items-center gap-12px text-14px">
-          <span class=" flex items-center gap-4px" v-if="invoice.invoiceStatus != 5">
+          <span class=" flex items-center gap-4px">
             <n-button type="success" @click="handleClickTracking(invoice)">
               Theo dõi đơn hàng
             </n-button>
@@ -86,7 +86,7 @@
       <!-- Footer -->
       <div class="px-20px py-16px flex justify-end items-center text-14px">
         <div class="max-w-xs ml-auto text-sm space-y-3">
-          <div class="flex justify-between">
+          <!-- <div class="flex justify-between">
             <span>Tạm tính:</span>
             <span>{{ formatMoney(invoice.totalAmount) }}</span>
           </div>
@@ -97,15 +97,13 @@
           <div class="flex justify-between">
             <span>Phí vận chuyển:</span>
             <span>{{ formatMoney(invoice.shippingFee) }}</span>
-          </div>
-          <div class="flex justify-between font-bold text-lg border-t border-gray-300 p-2">
+          </div> -->
+          <div class="flex justify-between font-bold text-lg p-2">
             <span>Tổng cộng:</span>
             <span class="text-red-600">{{ formatMoney(invoice.totalAmountAfterDecrease) }}</span>
           </div>
         </div>
-
       </div>
-
     </div>
 
   </div>
