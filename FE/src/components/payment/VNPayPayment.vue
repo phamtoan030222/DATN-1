@@ -5,6 +5,7 @@ import { toast } from 'vue3-toastify'
 import PaymentService from '@/service/payment.service'
 import { NButton, NIcon, NSpace, NSpin, NText } from 'naive-ui'
 import { CheckmarkCircleOutline, CloseCircleOutline, TimeOutline } from '@vicons/ionicons5'
+import { huyYeuCauQRApp, yeuCauQRApp } from '@/service/api/admin/banhang.api'
 
 import vnpayLogo from '../../../images/vnpay.png'
 import axios from 'axios'
@@ -215,6 +216,7 @@ async function createPayment(retry = false) {
           transactionId.value = transId || `TXN_${Date.now()}`
           toast.success('Tạo thanh toán thành công!')
           startChecking()
+          yeuCauQRApp(props.invoice?.orderId || props.invoice?.id, url).catch(e => console.log(e))
           return true
         }
         else {
@@ -290,6 +292,10 @@ function closeModal() {
   stopChecking()
   reset()
   emit('update:visible', false)
+  const invoiceId = props.invoice?.orderId || props.invoice?.id
+  if (invoiceId) {
+    huyYeuCauQRApp(invoiceId).catch(e => console.log(e))
+  }
 }
 
 function finishPayment() {

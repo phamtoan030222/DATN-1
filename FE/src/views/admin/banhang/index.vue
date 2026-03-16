@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import { getAddressesByCustomer } from '@/service/api/admin/users/customer/address'
+import axios from 'axios'
 import type { Address } from '@/service/api/admin/users/customer/address'
 import type {
   GoiYVoucherResponse,
@@ -32,6 +33,7 @@ import {
   themMoiKhachHang,
   themSanPham,
   themSL,
+  thongBaoThanhToanApp,
   xoaSL,
   xoaSP,
   yeuCauQRApp,
@@ -518,11 +520,20 @@ async function showVNPayPayment() {
   vnpayVisible.value = true
 }
 
-// ✅ Sửa lại - gọi resetAfterPayment() giống thanh toán tiền mặt
 async function handlePaymentSuccess(result: any) {
   toast.success('Thanh toán VNPAY thành công!')
   vnpayVisible.value = false
-  await resetAfterPayment() // ← Xóa tab, reset toàn bộ giống thanh toán thường
+  
+  try {
+    // ✅ Gọi API thông qua hàm chuẩn đã có cấu hình Token
+    await thongBaoThanhToanApp(idHDS.value)
+  }
+  catch (e) {
+    console.error('Lỗi không gửi được tín hiệu sang App:', e)
+  }
+
+  // Cuối cùng dọn dẹp Web
+  await resetAfterPayment() 
 }
 
 function handlePaymentCompleted() {
@@ -1176,6 +1187,13 @@ function openProductSelectionModal() {
 // ==================== PAYMENT FUNCTIONS ====================
 function setPaymentMethod(method: string) {
   state.currentPaymentMethod = method
+
+  // Tự động bắn tín hiệu mở QR sang App khi chọn phương thức VNPAY, Chuyển khoản (1) hoặc Kết hợp (2)
+  if (method === '1' || method === 'VNPAY' || method === '2') {
+    triggerShowQR()
+  }
+
+  // (Tuỳ chọn) Vẫn giữ popup thanh toán trên Web nếu bạn muốn thu ngân cũng nhìn thấy
   if (method === 'VNPAY') {
     showVNPayPayment()
   }
@@ -1596,28 +1614,27 @@ const columnsGiohang: DataTableColumns<any> = [
     },
   },
   { title: 'Thành tiền', key: 'total', width: 120, align: 'right', render: row => h(NText, { type: 'primary', strong: true }, () => formatCurrency(row.giaGoc * (1 - (row.percentage || 0) / 100))) },
-  { 
+  {
     title: 'Thao tác',
-     key: 'action',
-      width: 100,
-       align: 'center',
-        render: row =>
-         h(NPopconfirm,{
-          onPositiveClick : ()=> deleteProduct(row),
-          negativeText : 'Hủy',
-           positiveText : 'Xóa'
-         }, {
+    key: 'action',
+    width: 100,
+    align: 'center',
+    render: row =>
+      h(NPopconfirm, {
+        onPositiveClick: () => deleteProduct(row),
+        negativeText: 'Hủy',
+        positiveText: 'Xóa',
+      }, {
         trigger: () =>
           h(
             NButton,
             { type: 'error', size: 'tiny', text: true },
             {
               icon: () => h(NIcon, null, () => h(TrashOutline)),
-            }
+            },
           ),
-        default: () => 'Bạn có chắc chắn muốn xóa SERIAL này ra khỏi giỏ hàng không?'
-      }
-          )
+        default: () => 'Bạn có chắc chắn muốn xóa SERIAL này ra khỏi giỏ hàng không?',
+      }),
   },
 ]
 
@@ -1775,11 +1792,7 @@ function formatCurrencyInput(value: number) {
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
-<<<<<<< HEAD
-              Quét Barcode
-=======
               Quét BARCODE
->>>>>>> e0e55dedd8a36e363f5ad362b38dbe0e3fab79c1
             </NButton>
           </NSpace>
         </template>
@@ -2134,17 +2147,6 @@ function formatCurrencyInput(value: number) {
                 Kết hợp
               </NButton>
             </NSpace>
-
-            <!-- QR App button -->
-            <NButton
-              v-if="state.currentPaymentMethod === '1' || state.currentPaymentMethod === '2'"
-              type="info"
-              dashed
-              style="width: 100%; margin-top: 8px;"
-              @click="triggerShowQR"
-            >
-              Mở mã QR trên màn hình App
-            </NButton>
           </NSpace>
 
           <NPopconfirm positive-text="Đồng ý" negative-text="Hủy" @positive-click="xacNhan(0)">
