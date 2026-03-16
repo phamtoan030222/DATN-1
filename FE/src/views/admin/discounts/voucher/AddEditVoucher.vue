@@ -464,7 +464,7 @@ const customerColumns: DataTableColumns<any> = [
                         value="ALL_CUSTOMERS" class="bold-input"
                         :disabled="isViewOnly || (mode === 'edit' && originalTargetType === 'INDIVIDUAL')"
                       >
-                        Tất cả
+                        Công khai
                       </NRadio>
                       <NRadio value="INDIVIDUAL" class="bold-input">
                         Cá nhân
@@ -573,7 +573,7 @@ const customerColumns: DataTableColumns<any> = [
           </div>
 
           <div v-if="newVoucher.targetType === 'INDIVIDUAL'" class="col-span-12 lg:col-span-5">
-            <NCard title="Chọn khách hàng" size="small" class="mb-4">
+            <NCard title="Danh sách khách hàng" size="small" class="mb-4">
               <NSpin :show="loadingCustomers">
                 <div class="flex gap-2 mb-3">
                   <NInput

@@ -8,4 +8,5 @@ public interface ADChonKhachHangResponse {
     String getXa();
     String getHuyen();
     String getTinh();
+    String getEmail();
 }

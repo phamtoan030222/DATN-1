@@ -11,7 +11,7 @@ public class PaymentRequest {
 
     private String id;
     private String code;
-    private BigDecimal totalAmountAfterDecrease;
+    private BigDecimal totalAmountAfterDecrease; // tong tien
 
     private String customerName;
     private String customerPhone;
@@ -27,5 +27,7 @@ public class PaymentRequest {
     private BigDecimal tienHang;   // Tiền hàng gốc trước giảm
     private BigDecimal tienShip;   // Phí vận chuyển
     private String idPGG;          // ID voucher
+
+    private String returnUrl;
 }
 

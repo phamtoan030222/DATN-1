@@ -1,6 +1,5 @@
 export const staticRoutes: AppRoute.RowRoute[] = [
   // Bàn làm việc
-
   {
     name: 'monitor_stats',
     path: '/monitor/stats',
@@ -26,6 +25,32 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     id: 1,
     pid: null,
   },
+
+  // ================= ĐÃ ĐƯỢC CHUYỂN LÊN ĐÂY =================
+  {
+    name: 'orders_list',
+    path: '/orders/list',
+    title: 'Danh sách đơn hàng',
+    requiresAuth: true,
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
+    icon: 'icon-park-outline:list',
+    menuType: 'page',
+    componentPath: '/admin/hoadon/index.vue',
+    id: 4,
+    pid: null,
+  },
+  {
+    name: 'orders_detail',
+    path: '/orders/detail/:id', // QUAN TRỌNG: Đây là URL sẽ dùng
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
+    title: 'Chi tiết đơn hàng',
+    requiresAuth: true,
+    hide: true,
+    componentPath: '/admin/hoadon/HoaDonDetailAdmin.vue',
+    id: 4,
+    pid: 401,
+  },
+  // ==========================================================
 
   // Quản lý sản phẩm
   {
@@ -209,56 +234,6 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     id: 30310,
     pid: 303,
   },
-  {
-    name: 'orders_list',
-    path: '/orders/list',
-    title: 'Danh sách đơn hàng',
-    requiresAuth: true,
-    roles: ['QUAN_LY', 'NHAN_VIEN'],
-    icon: 'icon-park-outline:list',
-    menuType: 'page',
-    componentPath: '/admin/hoadon/index.vue',
-    id: 4,
-    pid: null,
-  },
-  {
-    name: 'orders_detail',
-    path: '/orders/detail/:id', // QUAN TRỌNG: Đây là URL sẽ dùng
-
-    roles: ['QUAN_LY', 'NHAN_VIEN'],
-    title: 'Chi tiết đơn hàng',
-    requiresAuth: true,
-    hide: true,
-    componentPath: '/admin/hoadon/HoaDonDetailAdmin.vue',
-
-    id: 4,
-    pid: 401,
-  },
-
-  // {
-  //   name: 'invoice_list',
-  //   path: '/invoice',
-  //   title: 'Quản lý hoá đơn',
-  //   requiresAuth: true,
-  //   icon: 'icon-park-outline:list',
-  //   menuType: 'page',
-  //   componentPath: '/admin/invoice/invoiceList.vue',
-  //   id: 8,
-  //   pid: null,
-  // },
-
-  // {
-  //   name: 'invoice_list_detail',
-  //   path: '/invoice/detail/:id',
-  //   title: 'Chi tiết hoá đơn',
-  //   requiresAuth: true,
-  //   icon: 'icon-park-outline:list',
-  //   hide: true,
-  //   menuType: 'page',
-  //   componentPath: '/admin/invoice/invoiceDetail.vue',
-  //   id: 801,
-  //   pid: null,
-  // },
 
   // Quản lý người dùng
   {
@@ -427,7 +402,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     title: 'Đợt giảm giá',
     requiresAuth: true,
     roles: ['QUAN_LY'],
-    icon: 'icon-park-outline:calendar',
+    icon: 'carbon:carbon-ui-builder',
     menuType: 'page',
     componentPath: '/admin/discounts/promotion/index.vue',
     id: 601,

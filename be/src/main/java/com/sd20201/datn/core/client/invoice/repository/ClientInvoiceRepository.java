@@ -3,6 +3,8 @@ package com.sd20201.datn.core.client.invoice.repository;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailResponse;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailsResponse;
 import com.sd20201.datn.core.client.invoice.model.response.LichSuTrangThaiHoaDonResponse;
+import com.sd20201.datn.entity.Customer;
+import com.sd20201.datn.entity.Invoice;
 import com.sd20201.datn.repository.InvoiceRepository;
 import org.springframework.data.jpa.repository.Query;
 
@@ -30,9 +32,63 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.trangThaiThanhToan as trangThaiThanhToan
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE i.code = :code AND i.status = 0 AND i.customer.id = :customerId AND i.typeInvoice = 1
+            WHERE i.code = :code OR i.id = :code AND i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice = 1
+            GROUP BY
+                i.id,
+                i.code,
+                i.nameReceiver,
+                i.email,
+                i.addressReceiver,
+                i.phoneReceiver,
+                i.description,
+                i.entityTrangThaiHoaDon,
+                i.totalAmount,
+                i.totalAmountAfterDecrease,
+                i.createdDate,
+                i.shippingFee,
+                i.typePayment,
+                i.trangThaiThanhToan
             """)
     Optional<ClientInvoiceDetailResponse> getInvoiceByCode(String code, String customerId);
+
+    @Query(value = """
+            SELECT
+                i.id as id
+                , i.code as code
+                , i.nameReceiver as nameReceiver
+                , i.email as email
+                , i.addressReceiver as addressReceiver
+                , i.phoneReceiver as phoneReceiver
+                , i.description as description
+                , i.entityTrangThaiHoaDon as invoiceStatus
+                , i.totalAmount as totalAmount
+                , i.totalAmountAfterDecrease as totalAmountAfterDecrease
+                , SUM(ivd.quantity) as totalQuantity
+                , i.createdDate as createDate
+                , i.shippingFee as shippingFee
+                , i.typePayment as typePayment
+                , i.trangThaiThanhToan as trangThaiThanhToan
+            FROM Invoice i
+            LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
+            WHERE i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice = 1
+            GROUP BY
+                i.id,
+                i.code,
+                i.nameReceiver,
+                i.email,
+                i.addressReceiver,
+                i.phoneReceiver,
+                i.description,
+                i.entityTrangThaiHoaDon,
+                i.totalAmount,
+                i.totalAmountAfterDecrease,
+                i.createdDate,
+                i.shippingFee,
+                i.typePayment,
+                i.trangThaiThanhToan
+            ORDER BY i.createdDate DESC
+            """)
+    List<ClientInvoiceDetailResponse> getInvoicesByIdCustomer(String customerId);
 
     @Query("""
     SELECT
@@ -42,12 +98,14 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
         , lstthd.thoiGian as thoiGian
     FROM LichSuTrangThaiHoaDon lstthd
     WHERE lstthd.hoaDon.id = :idHoaDon
+    AND (lstthd.hoaDon.customer.id = :customerId OR (:customerId IS NULL AND lstthd.hoaDon.customer.id IS NULL))
     """)
-    List<LichSuTrangThaiHoaDonResponse> getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(String idHoaDon);
+    List<LichSuTrangThaiHoaDonResponse> getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(String idHoaDon, String customerId);
 
     @Query("""
      SELECT
         idt.id AS id,
+        idt.invoice.id as idInvoice,
         idt.code AS code,
         idt.price AS price,
         idt.quantity AS quantity,
@@ -62,7 +120,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
         idt.productDetail.product.name AS product,
         idt.productDetail.ram.name AS ram
     FROM InvoiceDetail idt
-    WHERE idt.invoice.id = :invoiceId
+    WHERE idt.invoice.id in :invoiceIds
     """)
-    List<ClientInvoiceDetailsResponse> getInvoiceDetailsByInvoiceId(String invoiceId);
+    List<ClientInvoiceDetailsResponse> getInvoiceDetailsByInvoiceId(List<String> invoiceIds);
 }

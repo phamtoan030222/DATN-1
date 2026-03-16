@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Setter
@@ -16,5 +17,7 @@ public class ADThemSanPhamRequest {
     private String invoiceId;
     private String productDetailId;
     private List<String> imeiIds;
+    private BigDecimal giaGoc;
+    private BigDecimal giaBan;
 
 }

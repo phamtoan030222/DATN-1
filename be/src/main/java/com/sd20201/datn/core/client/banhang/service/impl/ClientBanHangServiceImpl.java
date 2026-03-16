@@ -149,11 +149,15 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             );
 
             // Set tiền (Lấy từ request hoặc tính lại nếu cần bảo mật cao)
-            invoice.setTotalAmount(request.getTienHang());
+            invoice.setTotalAmount(request.getTongTien());
             invoice.setShippingFee(request.getTienShip());
-//            invoice.setDiscountAmount(request.getGiamGia());
-            invoice.setTotalAmountAfterDecrease(request.getTongTien());
-            invoice.setTypeInvoice(TypeInvoice.ONLINE);
+            invoice.setGiamGia(request.getGiamGia());
+            invoice.setTotalAmountAfterDecrease(request.getTienHang());
+            if (request.getLoaiHoaDon().equals("TAI_QUAY")) {
+                invoice.setTypeInvoice(TypeInvoice.ONLINE_TAI_QUAY);
+            } else{
+                invoice.setTypeInvoice(TypeInvoice.ONLINE);
+            }
             invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
             invoice.setCreatedDate(System.currentTimeMillis());
             invoice.setEmail(
@@ -178,6 +182,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                     switch (request.getPhuongThucThanhToan()) {
                         case "0" -> TypePayment.TIEN_MAT;
                         case "1" -> TypePayment.CHUYEN_KHOAN;
+                        case "2" -> TypePayment.CHUYEN_KHOAN;
+                        case "3" -> TypePayment.CHUYEN_KHOAN;
                         default -> TypePayment.TIEN_MAT;
                     }
             );
@@ -196,6 +202,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 detail.setProductDetail(productDetail);
                 detail.setQuantity(item.getQuantity());
                 detail.setPrice(item.getPrice()); // Giá bán tại thời điểm đặt
+                detail.setGiaGoc(item.getGiaGoc());
                 // Tính tổng tiền dòng này (để lưu DB cho chắc)
                 detail.setTotalAmount(item.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
 
@@ -233,8 +240,15 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                                              <td><<CUSTOMER_NAME>></td>
                                          </tr>
                                          <tr>
-                                             <td width="200"><b>Khách hàng:</b></td>
-                                             <td><<MA_HOA_DON>></td>
+                                             <td width="200"><b>Mã hóa đơn:</b></td>
+                                             <td>
+                                             <a
+                                                href="http://localhost:6788/tra-cuu?q=<<ID_INVOICE>>"
+                                                style="font-style: italic; text-decoration: none; color: #049d14;"
+                                             >
+                                                <<MA_HOA_DON>> (Bấm để theo dõi đơn hàng)
+                                             </a>
+                                             </td>
                                          </tr>
                                          <tr>
                                              <td><b>Ngày lập:</b></td>
@@ -392,7 +406,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 .replace("<<TONG_TIEN>>", formatterMoney.format(invoice.getTotalAmount()))
                 .replace("<<VOUCHER_VALUE>>", giaTriVoucher)
                 .replace("<<TONG_TIEN_SAU_GIAM>>", formatterMoney.format(invoice.getTotalAmountAfterDecrease()))
-                .replace("<<DANH_SACH_SAN_PHAM>>", htmlProductDetailReplace.stream().reduce("", (a, b) -> a + b));
+                .replace("<<DANH_SACH_SAN_PHAM>>", htmlProductDetailReplace.stream().reduce("", (a, b) -> a + b))
+                .replace("<<ID_INVOICE>>", invoice.getId());
 
         MimeMessage message = mailSender.createMimeMessage();
         MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");

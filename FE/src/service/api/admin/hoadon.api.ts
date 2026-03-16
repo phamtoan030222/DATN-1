@@ -27,6 +27,7 @@ export interface HoaDonItem {
   loaiHoaDon: string
   createdDate: number
   status: string
+  daHoanPhi: boolean
 }
 
 export interface HoaDonResponse {
@@ -604,6 +605,40 @@ export async function changeOrderStatus(requestData: ADChangeStatusRequest): Pro
     }
 
     return errorResponse
+  }
+}
+
+// ==================== HOÀN PHÍ ====================
+
+export interface ConfirmHoanPhiRequest {
+  maHoaDon: string
+  idNhanVien: string | number
+  hoanPhi?: number
+}
+
+export async function confirmHoanPhi(data: ConfirmHoanPhiRequest): Promise<DefaultResponse<any>> {
+  try {
+    const res = await request({
+      url: `${API_HOA_DON}/hoan-phi`,
+      method: 'PUT',
+      data,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    return res.data
+  }
+  catch (error: any) {
+    console.error('❌ Lỗi khi xác nhận hoàn phí:', error)
+
+    return {
+      status: 'ERROR',
+      data: null as any,
+      message: error instanceof Error ? error.message : 'Lỗi không xác định',
+      timestamp: new Date().toISOString(),
+      success: false,
+    }
   }
 }
 

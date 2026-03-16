@@ -31,7 +31,9 @@ public class InvoiceDetail extends PrimaryEntity implements Serializable {
         @OneToMany(mappedBy = "invoiceDetail")
         private List<IMEI> imeis;  // Danh sách IMEI trong chi tiết hóa đơn
 
-        private BigDecimal price;
+        private BigDecimal giaGoc;
+        private BigDecimal price; // Gia ban
         private Integer quantity;  // Số lượng = số IMEI
         private BigDecimal totalAmount;
+
 }

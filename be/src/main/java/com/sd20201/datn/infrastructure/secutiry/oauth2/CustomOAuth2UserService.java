@@ -134,8 +134,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             if(rolesUser.contains(RoleConstant.KHACH_HANG.name())) {
                 String email = oAuth2UserInfo.getEmail();
                 Customer customer = optionalCustomer.get();
-                if(customer.getCode().isEmpty()) customer.setCode(email.substring(0, email.indexOf("@")));
-                if(StringUtils.hasLength(customer.getAvatarUrl())) customer.setAvatarUrl(oAuth2UserInfo.getImageUrl());
+                if(!StringUtils.hasLength(customer.getCode())) customer.setCode(email.substring(0, email.indexOf("@")));
+                if(!StringUtils.hasLength(customer.getAvatarUrl())) customer.setAvatarUrl(oAuth2UserInfo.getImageUrl());
                 customerRepository.save(customer);
                 return UserPrincipal.create(customer, oAuth2UserInfo.getAttributes(), rolesUser);
             } else {

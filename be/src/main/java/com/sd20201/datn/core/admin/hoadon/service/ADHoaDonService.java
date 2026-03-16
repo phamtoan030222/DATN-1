@@ -16,4 +16,6 @@ public interface ADHoaDonService {
 
     ResponseObject<?> capNhatThongTinKhachHang(ADCapNhatKhachHangRequest request);
 
+    ResponseObject<?> hoanPhi(ADHoanPhiRequest request);
+
 }

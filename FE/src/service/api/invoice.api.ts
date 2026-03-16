@@ -1,4 +1,4 @@
-import { API_CUSTOMER_INVOICE } from "@/constants/url"
+import { API_CUSTOMER_INVOICE, API_INVOICES_ORDER_ONLINE } from "@/constants/url"
 import request from "@/service/request"
 import { DefaultResponse } from "@/typings/api/api.common"
 import { AxiosResponse } from "axios"
@@ -36,6 +36,7 @@ export interface ClientInvoiceDetailsResponse {
     material: string
     product: string
     ram: string
+    idInvoice: string
 }
 
 export interface LichSuTrangThaiHoaDonResponse {
@@ -45,19 +46,33 @@ export interface LichSuTrangThaiHoaDonResponse {
     thoiGian: string
 }
 
+export type ClientInvoiceCancelRequest = {
+    id: string;
+    note: string;
+}
+
 // API call to fetch invoice by id
 export const getInvoiceById = async (code: string): Promise<any> => {
     const res = (await request({
-        url: `${API_CUSTOMER_INVOICE}/${code}`,
+        url: `${API_INVOICES_ORDER_ONLINE}/${code}`,
         method: 'GET',
     })) as AxiosResponse<DefaultResponse<ClientInvoiceDetailResponse>>
 
     return res.data
 }
 
+export const getInvoicesByUser = async (): Promise<any> => {
+    const res = (await request({
+        url: `${API_INVOICES_ORDER_ONLINE}/user`,
+        method: 'GET',
+    })) as AxiosResponse<DefaultResponse<Array<ClientInvoiceDetailResponse>>>
+
+    return res.data
+}
+
 export const getHistoryStatusInvoice = async (id: string): Promise<DefaultResponse<Array<LichSuTrangThaiHoaDonResponse>>> => {
     const res = (await request({
-        url: `${API_CUSTOMER_INVOICE}/${id}/histories`,
+        url: `${API_INVOICES_ORDER_ONLINE}/${id}/histories`,
         method: 'GET',
     })) as AxiosResponse<DefaultResponse<Array<LichSuTrangThaiHoaDonResponse>>>
 
@@ -65,11 +80,24 @@ export const getHistoryStatusInvoice = async (id: string): Promise<DefaultRespon
 }
 
 // fetch detailed items of invoice
-export const getInvoiceDetails = async (id: string): Promise<DefaultResponse<ClientInvoiceDetailsResponse[]>> => {
+export const getInvoiceDetails = async (ids: Array<string>): Promise<DefaultResponse<ClientInvoiceDetailsResponse[]>> => {
     const res = (await request({
-        url: `${API_CUSTOMER_INVOICE}/${id}/invoices-detail`,
+        url: `${API_INVOICES_ORDER_ONLINE}/invoices-detail`,
         method: 'GET',
+        params: {
+            ids: ids.join(','),
+        }
     })) as AxiosResponse<DefaultResponse<ClientInvoiceDetailsResponse[]>>
 
     return res.data
+}
+
+export const putInvoiceCancel = async (data: ClientInvoiceCancelRequest) => {
+    const res = (await request({
+        url: `${API_INVOICES_ORDER_ONLINE}/cancel`,
+        method: 'PUT',
+        data,
+    })) as AxiosResponse<DefaultResponse<ClientInvoiceDetailsResponse[]>>
+
+    return res.data 
 }

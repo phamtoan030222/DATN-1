@@ -26,6 +26,7 @@ import {
   getPhuongThucThanhToan,
   getProductDetails,
   getRAMs,
+  getShippingFee,
   huyHoaDon,
   suaGiaoHang,
   thanhToanThanhCong,
@@ -46,7 +47,6 @@ import type { DataTableColumns } from 'naive-ui'
 import { computed, h, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { toast } from 'vue3-toastify'
 import 'vue3-toastify/dist/index.css'
-// Thêm vào cuối phần import hiện tại
 
 // Naive UI Icons
 import {
@@ -56,6 +56,7 @@ import {
   CloseOutline,
   DocumentTextOutline,
   LocationOutline, // Icon địa chỉ
+  MailOutline, // Icon email
   PersonOutline,
   QrCodeOutline, // Icon người
   ReloadOutline,
@@ -108,6 +109,7 @@ const localGPU = ref<string | null>(null)
 const localRAM = ref<string | null>(null)
 const localHardDrive = ref<string | null>(null)
 const localSelectedMaterial = ref<string | null>(null)
+const isCalculatingShipping = ref(false)
 
 // ==================== MASTER DATA ====================
 const ColorOptions = ref<{ label: string, value: string }[]>([])
@@ -144,6 +146,16 @@ const state = reactive({
   currentPaymentMethod: '',
   paginationParams: { page: 1, size: 10 },
   totalItemsKH: 0,
+  search: {
+    q: undefined as string | undefined | null,
+    cpu: undefined as string | undefined | null,
+    gpu: undefined as string | undefined | null,
+    hardDrive: undefined as string | undefined | null,
+    ram: undefined as string | undefined | null,
+    color: undefined as string | undefined | null,
+    material: undefined as string | undefined | null,
+    price: [10000, 50000000],
+  },
 })
 
 // ==================== PRODUCT STATE ====================
@@ -164,7 +176,6 @@ const applyingVoucher = ref<string | null>(null)
 const autoApplying = ref(false)
 const giamGia = ref(0)
 const betterDiscountMessage = ref('')
-// Thêm vào phần VOUCHER STATE (khoảng dòng 90-100)
 const showCheckoutVoucherModal = ref(false)
 const checkoutVoucherData = ref<any>(null)
 const checkoutVoucherType = ref<'BETTER' | 'EXPIRED' | 'NEW'>('BETTER') // Loại thông báo
@@ -177,6 +188,7 @@ const tienKhachThanhToan = ref(0)
 const tienThieu = ref(0)
 const shippingFee = ref(0)
 const isFreeShipping = ref(false)
+const isShippingCalculated = ref(false)
 const trangThaiThanhToan = ref('CHUA_THANH_TOAN')
 
 // ==================== DELIVERY STATE ====================
@@ -194,6 +206,7 @@ const isDeliveryEnabled = ref(false)
 const deliveryInfo = reactive({
   tenNguoiNhan: '',
   sdtNguoiNhan: '',
+  email: '',
   tinhThanhPho: null as string | null,
   phuongXa: null as string | null,
   diaChiCuThe: '',
@@ -218,14 +231,12 @@ async function triggerShowQR() {
 // ==================== VNPAY STATE ====================
 const vnpayVisible = ref(false)
 const vnpayLoading = ref(false)
-// ✅ FIX - Thêm đủ thông tin như processPayment() đã có
 const currentInvoice = computed(() => {
   return {
     orderId: idHDS.value,
     code: tabs.value.find(t => t.idHD === idHDS.value)?.code || '',
     totalAmountAfterDecrease: tongTien.value,
 
-    // ✅ THÊM 3 FIELD MỚI khớp với PaymentRequest
     tienHang: tienHang.value,
     tienShip: shippingFee.value,
     idPGG: selectedVoucher.value?.voucherId ?? null,
@@ -235,7 +246,7 @@ const currentInvoice = computed(() => {
     staffId: USER_INFO?.userId,
     customerName: state.detailKhachHang?.ten || deliveryInfo.tenNguoiNhan,
     customerPhone: state.detailKhachHang?.sdt || deliveryInfo.sdtNguoiNhan,
-    customerEmail: state.detailKhachHang?.email || '',
+    customerEmail: state.detailKhachHang?.email || deliveryInfo.email || '',
     customerAddress: formatFullAddress.value,
   }
 })
@@ -255,6 +266,7 @@ function openDeliveryModal() {
 function resetDeliveryData() {
   deliveryInfo.tenNguoiNhan = ''
   deliveryInfo.sdtNguoiNhan = ''
+  deliveryInfo.email = ''
   deliveryInfo.tinhThanhPho = null
   deliveryInfo.phuongXa = null
   deliveryInfo.diaChiCuThe = ''
@@ -318,6 +330,17 @@ const stateMinMaxPrice = reactive({ priceMin: 0, priceMax: 0 })
 // ==================== UTILITY FUNCTIONS ====================
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
+}
+
+function formatShippingFee(value: number | null) {
+  if (value === null)
+    return ''
+  return value.toLocaleString('vi-VN') // Tự động thêm dấu chấm: 52500 -> 52.500
+}
+
+function parseShippingFee(value: string) {
+  const nums = value.replace(/\D/g, '') // Chỉ lấy số, bỏ qua dấu chấm khi người dùng gõ
+  return nums === '' ? null : Number(nums)
 }
 
 // Hàm format Tiếng Việt có dấu cho Phường/Xã/Tỉnh
@@ -460,7 +483,6 @@ async function loadCustomerSavedAddresses(customerId: string) {
     const provinceCodenames = [...new Set(customerAddresses.value.map(a => a.provinceCity).filter(Boolean))]
     await Promise.all(provinceCodenames.map(async (pCodename) => {
       const province = addressData34.value.find(p => p.codename === pCodename)
-      // ✅ SỬA: kiểm tra cả trường hợp wards = [] (mảng rỗng)
       if (province && (!province.wards || province.wards.length === 0)) {
         try {
           const pRes = await fetch(`https://provinces.open-api.vn/api/v2/p/${province.code}?depth=2`)
@@ -522,8 +544,7 @@ async function showVNPayPayment() {
 
 async function handlePaymentSuccess(result: any) {
   toast.success('Thanh toán VNPAY thành công!')
-  vnpayVisible.value = false
-  
+  vnpayVisible.value = false  
   try {
     // ✅ Gọi API thông qua hàm chuẩn đã có cấu hình Token
     await thongBaoThanhToanApp(idHDS.value)
@@ -534,10 +555,10 @@ async function handlePaymentSuccess(result: any) {
 
   // Cuối cùng dọn dẹp Web
   await resetAfterPayment() 
+
 }
 
 function handlePaymentCompleted() {
-  // Reset lại sau khi thanh toán xong
   resetAfterPayment()
 }
 
@@ -635,6 +656,7 @@ async function loadDeliveryInfo() {
   // Tự động gán Tên và SĐT của khách hàng vào form Giao Hàng
   deliveryInfo.tenNguoiNhan = state.detailKhachHang.ten || ''
   deliveryInfo.sdtNguoiNhan = state.detailKhachHang.sdt || ''
+  deliveryInfo.email = state.detailKhachHang.email || ''
 
   await loadCustomerSavedAddresses(state.detailKhachHang.id)
   await calculateShippingFee()
@@ -644,8 +666,6 @@ async function loadDeliveryInfo() {
 async function toggleDelivery(enabled: boolean) {
   isDeliveryEnabled.value = enabled
 
-  calculateShippingFee()
-
   if (enabled && state.detailKhachHang) {
     await loadDeliveryInfo()
   }
@@ -653,10 +673,13 @@ async function toggleDelivery(enabled: boolean) {
     // Reset delivery info
     deliveryInfo.tenNguoiNhan = state.detailKhachHang?.ten || ''
     deliveryInfo.sdtNguoiNhan = state.detailKhachHang?.sdt || ''
+    deliveryInfo.email = state.detailKhachHang?.email || ''
     deliveryInfo.diaChiCuThe = ''
     deliveryInfo.tinhThanhPho = null
     deliveryInfo.phuongXa = null
     shippingFee.value = 0
+    isFreeShipping.value = false
+    isShippingCalculated.value = false // Thêm dòng này
     calculateTotalAmounts()
   }
 
@@ -671,7 +694,7 @@ async function toggleDelivery(enabled: boolean) {
   }
 }
 
-function saveDeliveryInfo() {
+async function saveDeliveryInfo() {
   // 1. Kiểm tra rỗng
   if (!deliveryInfo.tenNguoiNhan || !deliveryInfo.sdtNguoiNhan || !deliveryInfo.tinhThanhPho || !deliveryInfo.phuongXa || !deliveryInfo.diaChiCuThe) {
     toast.error('Vui lòng nhập đầy đủ thông tin (Tên, SĐT, Tỉnh, Phường/Xã, Địa chỉ cụ thể)!')
@@ -685,29 +708,88 @@ function saveDeliveryInfo() {
     return
   }
 
+  if (deliveryInfo.email) {
+    const emailRegex = /^[^\s@]+@[^\s@][^\s.@]*\.[^\s@]+$/
+    if (!emailRegex.test(deliveryInfo.email)) {
+      toast.error('Email không hợp lệ, vui lòng kiểm tra lại!')
+      return
+    }
+  }
   showDeliveryModal.value = false
   toast.success('Lưu thông tin giao hàng thành công!')
+  await calculateShippingFee()
 }
 
 async function calculateShippingFee() {
   if (!isDeliveryEnabled.value) {
     shippingFee.value = 0
     isFreeShipping.value = false
+    isShippingCalculated.value = false
     calculateTotalAmounts()
     return
   }
-  console.log('Calculating shipping fee based on tienHang:', tienHang.value)
 
-  const amount = Number(tienHang.value)
-  if (amount > 5000000) {
-    isFreeShipping.value = true
+  if (!deliveryInfo.tinhThanhPho || !deliveryInfo.phuongXa) {
+    calculateTotalAmounts()
+    return
+  }
+
+  // 👇 THÊM ĐOẠN NÀY: Nếu giỏ hàng trống thì không gọi API tính phí nữa
+  if (state.gioHang.length === 0) {
     shippingFee.value = 0
-  }
-  else {
     isFreeShipping.value = false
+    isShippingCalculated.value = false
+    calculateTotalAmounts()
+    return
   }
 
-  calculateTotalAmounts()
+  // 1. Kiểm tra điều kiện đơn hàng trên 20 triệu -> Tự động Free Ship
+  if (tienHang.value > 20000000) {
+    shippingFee.value = 0
+    isFreeShipping.value = true
+    isShippingCalculated.value = true // Khóa không cho nhập tay
+    calculateTotalAmounts()
+    return
+  }
+
+  // ✅ Tránh gọi đồng thời
+  if (isCalculatingShipping.value)
+    return
+  isCalculatingShipping.value = true
+
+  try {
+    addressDataLoading.value = true
+    const provinceName = formatAddressName(deliveryInfo.tinhThanhPho, 'province')
+    const wardName = formatAddressName(deliveryInfo.phuongXa, 'ward', deliveryInfo.tinhThanhPho)
+
+    const data = await getShippingFee({
+      provinceName,
+      wardName,
+      address: deliveryInfo.diaChiCuThe || '',
+      weight: state.gioHang.length * 2000,
+      orderValue: tienHang.value,
+    })
+
+    if (data.success) {
+      shippingFee.value = data.fee
+      isFreeShipping.value = false
+      isShippingCalculated.value = true // API tính thành công -> Khóa ô nhập tay
+      toast.success(`Phí ship: ${formatCurrency(data.fee)}`)
+    }
+    else {
+      isShippingCalculated.value = false // API tính lỗi -> Mở cho người dùng nhập tay
+      toast.warning(data.message || 'Không tính được phí ship, vui lòng nhập thủ công')
+    }
+  }
+  catch (e) {
+    isShippingCalculated.value = false // Call API lỗi -> Mở để nhập tay chữa cháy
+    toast.warning('Lỗi tính phí ship, vui lòng nhập thủ công')
+  }
+  finally {
+    addressDataLoading.value = false
+    isCalculatingShipping.value = false // ✅ Reset flag
+    calculateTotalAmounts()
+  }
 }
 
 // ==================== VOUCHER FUNCTIONS ====================
@@ -874,8 +956,25 @@ async function addSerialToCart() {
     return
   }
   try {
-    const imeisDaChon = selectedSerials.value.filter(s => selectedSerialIds.value.includes(s.id)).map(s => s.id)
-    const payload = { invoiceId: idHDS.value, productDetailId: selectedProductDetail.value!.id, imeiIds: imeisDaChon }
+    const product = selectedProductDetail.value!
+    const imeisDaChon = selectedSerials.value
+      .filter(s => selectedSerialIds.value.includes(s.id))
+      .map(s => s.id)
+
+    const giaGoc = product.price ?? 0
+    const giaBan = product.percentage > 0
+      ? Math.round(giaGoc * (1 - product.percentage / 100))
+      : giaGoc
+
+    const payload = {
+      invoiceId: idHDS.value,
+      productDetailId: product.id,
+      imeiIds: imeisDaChon,
+      quantity: imeisDaChon.length,
+      giaGoc,
+      giaBan,
+    }
+
     await themSanPham(payload)
 
     toast.success(`Đã thêm ${imeisDaChon.length} serial vào giỏ hàng!`, {
@@ -885,8 +984,6 @@ async function addSerialToCart() {
     selectedSerialIds.value = []
 
     await refreshCart()
-    // if (hasCartItems.value)
-    //   await fetchDiscounts(idHDS.value)
   }
   catch (error) { toast.error('Thêm serial vào giỏ hàng thất bại!') }
 }
@@ -896,32 +993,32 @@ async function printSerialBarcode(serialCode: string) {
     const win = window.open('', '_blank', 'width=520,height=380')
     if (!win) { toast.error('Trình duyệt chặn popup, vui lòng cho phép popup!'); return }
     win.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Barcode - ${serialCode}</title>
-          <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>
-          <style>
-            @page { margin: 0; size: 90mm 45mm; }
-            * { box-sizing: border-box; margin: 0; padding: 0; }
-            body { width: 90mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4mm 6mm; background: white; font-family: monospace; }
-            svg { width: 78mm; height: 28mm; display: block; }
-            .serial-text { font-size: 11pt; font-weight: bold; margin-top: 2mm; letter-spacing: 1px; text-align: center; }
-          </style>
-        </head>
-        <body>
-          <svg id="barcode"></svg>
-          <p class="serial-text">${serialCode}</p>
-          <script>
-            window.onload = function() {
-              try { JsBarcode("#barcode", "${serialCode}", { format: "CODE128", width: 2.2, height: 80, displayValue: false, margin: 4, background: "#ffffff", lineColor: "#000000" }); } 
-              catch(e) { document.body.innerHTML = '<p style="color:red;padding:16px">Lỗi tạo barcode: ' + e.message + '</p>'; }
-              setTimeout(function() { window.print(); }, 400);
-            }
-          <\/script>
-        </body>
-      </html>
-    `)
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Barcode - ${serialCode}</title>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.6/JsBarcode.all.min.js"><\/script>
+            <style>
+              @page { margin: 0; size: 90mm 45mm; }
+              * { box-sizing: border-box; margin: 0; padding: 0; }
+              body { width: 90mm; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 4mm 6mm; background: white; font-family: monospace; }
+              svg { width: 78mm; height: 28mm; display: block; }
+              .serial-text { font-size: 11pt; font-weight: bold; margin-top: 2mm; letter-spacing: 1px; text-align: center; }
+            </style>
+          </head>
+          <body>
+            <svg id="barcode"></svg>
+            <p class="serial-text">${serialCode}</p>
+            <script>
+              window.onload = function() {
+                try { JsBarcode("#barcode", "${serialCode}", { format: "CODE128", width: 2.2, height: 80, displayValue: false, margin: 4, background: "#ffffff", lineColor: "#000000" }); } 
+                catch(e) { document.body.innerHTML = '<p style="color:red;padding:16px">Lỗi tạo barcode: ' + e.message + '</p>'; }
+                setTimeout(function() { window.print(); }, 400);
+              }
+            <\/script>
+          </body>
+        </html>
+      `)
     win.document.close()
   }
   catch (err) { toast.error('Tạo barcode thất bại!') }
@@ -1154,7 +1251,10 @@ function calculateMinMaxPrice(products: ADProductDetailResponse[]) {
     stateMinMaxPrice.priceMin = 0; stateMinMaxPrice.priceMax = 1000000; priceRange.value = [0, 1000000]
     return
   }
-  const prices = products.map(p => p.price).filter(price => price > 0)
+  // Dùng effectivePrice (giá sau giảm) thay vì p.price (giá gốc)
+  const prices = products
+    .map(p => p.percentage > 0 ? p.price * (1 - p.percentage / 100) : p.price)
+    .filter(price => price > 0)
   if (prices.length === 0) {
     stateMinMaxPrice.priceMin = 0; stateMinMaxPrice.priceMax = 1000000; priceRange.value = [0, 1000000]
     return
@@ -1326,6 +1426,12 @@ async function xacNhan(check: number) {
     }
   }
 
+  // 1. Kiểm tra phương thức thanh toán
+  if (!state.currentPaymentMethod) {
+    toast.error('Vui lòng chọn phương thức thanh toán!')
+    return
+  }
+
   // 3. 🆕 KIỂM TRA VOUCHER TRƯỚC KHI THANH TOÁN
   toast.info('Đang kiểm tra voucher...')
   const voucherCheck = await validateVoucherBeforeCheckout()
@@ -1361,6 +1467,7 @@ async function processPayment() {
       tongTien: tongTien.value.toString(),
       ten: deliveryInfo.tenNguoiNhan,
       sdt: deliveryInfo.sdtNguoiNhan,
+      email: deliveryInfo.email, // Đã thêm email vào đây để lưu xuống Backend
       diaChi: fullAddress,
       tienShip: shippingFee.value,
       giamGia: giamGia.value,
@@ -1485,15 +1592,9 @@ watch([localSearchQuery, localColor, localCPU, localGPU, localRAM, localHardDriv
   debouncedFetchProducts()
 })
 
-watch([() => deliveryInfo.tinhThanhPho, () => deliveryInfo.phuongXa], async () => {
-  if (isDeliveryEnabled.value && idHDS.value)
-    await calculateShippingFee()
-})
-
 // ==================== INIT ====================
 onMounted(async () => {
   await load34Provinces()
-  await calculateShippingFee()
   const [colors, cpus, gpus, rams, hardDrives, materials] = await Promise.all([
     getColors(),
     getCPUs(),
@@ -1640,8 +1741,6 @@ const columnsGiohang: DataTableColumns<any> = [
 
 const columns: DataTableColumns<ADProductDetailResponse> = [
   { title: 'STT', key: 'stt', width: 60, align: 'center', render: (_, index) => h(NText, { depth: 3 }, () => `${index + 1}`) },
-  // { title: 'Ảnh', key: 'image', width: 100, align: 'center',
-  //  render: row => (!row.urlImage ? h(NText, { depth: 3 }, () => 'Không có') : h(NImage, { width: 80, height: 60, src: row.urlImage, objectFit: 'cover', style: { borderRadius: '4px' } })) },
   {
     title: 'Ảnh',
     key: 'image',
@@ -1698,10 +1797,6 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
     },
   },
 ]
-
-function formatCurrencyInput(value: number) {
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
-}
 </script>
 
 <template>
@@ -1792,8 +1887,9 @@ function formatCurrencyInput(value: number) {
               <template #icon>
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
+
               Quét BARCODE
-            </NButton>
+           </NButton>
           </NSpace>
         </template>
 
@@ -1828,7 +1924,7 @@ function formatCurrencyInput(value: number) {
 
         <div class="delivery-info-display" style="background-color: #fafafc; padding: 16px; border-radius: 8px; border: 1px dashed #e5e7eb;">
           <NSpace vertical :size="12">
-            <NGrid :cols="2" :x-gap="12">
+            <NGrid :cols="2" :x-gap="12" :y-gap="16">
               <NGi>
                 <NSpace align="center" :wrap="false" :size="8">
                   <NIcon size="18" color="#18a058">
@@ -1842,6 +1938,7 @@ function formatCurrencyInput(value: number) {
                   </NText>
                 </NSpace>
               </NGi>
+
               <NGi>
                 <NSpace align="center" :wrap="false" :size="8">
                   <NIcon size="18" color="#18a058">
@@ -1855,37 +1952,56 @@ function formatCurrencyInput(value: number) {
                   </NText>
                 </NSpace>
               </NGi>
+
+              <NGi>
+                <NSpace align="start" :wrap="false" :size="8">
+                  <NIcon size="18" color="#d03050" style="margin-top: 2px;">
+                    <LocationOutline />
+                  </NIcon>
+                  <div>
+                    <NText depth="3" style="margin-right: 8px;">
+                      Địa chỉ:
+                    </NText>
+                    <NText strong class="address-text" :type="(!deliveryInfo.tinhThanhPho && !deliveryInfo.diaChiCuThe) ? 'warning' : 'default'">
+                      {{ formatFullAddress }}
+                    </NText>
+                  </div>
+                </NSpace>
+              </NGi>
+
+              <NGi>
+                <NSpace align="start" :wrap="false" :size="8">
+                  <NIcon size="18" color="#2080f0" style="margin-top: 2px;">
+                    <MailOutline />
+                  </NIcon>
+                  <div>
+                    <NText depth="3" style="margin-right: 8px;">
+                      Email:
+                    </NText>
+                    <NText strong :type="deliveryInfo.email ? 'default' : 'warning'">
+                      {{ deliveryInfo.email || 'Chưa cập nhật' }}
+                    </NText>
+                  </div>
+                </NSpace>
+              </NGi>
             </NGrid>
 
-            <NDivider style="margin: 4px 0" />
-
-            <NSpace align="start" :wrap="false" :size="8">
-              <NIcon size="18" color="#d03050" style="margin-top: 2px;">
-                <LocationOutline />
-              </NIcon>
-              <div>
-                <NText depth="3" style="margin-right: 8px;">
-                  Địa chỉ:
-                </NText>
-                <NText strong class="address-text" :type="(!deliveryInfo.tinhThanhPho && !deliveryInfo.diaChiCuThe) ? 'warning' : 'default'">
-                  {{ formatFullAddress }}
-                </NText>
-              </div>
-            </NSpace>
-
-            <NSpace v-if="deliveryInfo.ghiChu" align="start" :wrap="false" :size="8">
-              <NIcon size="18" color="#f0a020" style="margin-top: 2px;">
-                <DocumentTextOutline />
-              </NIcon>
-              <div>
-                <NText depth="3" style="margin-right: 8px;">
-                  Ghi chú:
-                </NText>
-                <NText italic>
-                  {{ deliveryInfo.ghiChu }}
-                </NText>
-              </div>
-            </NSpace>
+            <template v-if="deliveryInfo.ghiChu">
+              <NDivider style="margin: 4px 0" />
+              <NSpace align="start" :wrap="false" :size="8">
+                <NIcon size="18" color="#f0a020" style="margin-top: 2px;">
+                  <DocumentTextOutline />
+                </NIcon>
+                <div>
+                  <NText depth="3" style="margin-right: 8px;">
+                    Ghi chú:
+                  </NText>
+                  <NText italic>
+                    {{ deliveryInfo.ghiChu }}
+                  </NText>
+                </div>
+              </NSpace>
+            </template>
           </NSpace>
         </div>
       </NCard>
@@ -2053,60 +2169,77 @@ function formatCurrencyInput(value: number) {
 
         <NSpace vertical :size="16">
           <NSpace vertical :size="12">
-            <NSpace justify="space-between">
+            <NSpace justify="space-between" align="center">
               <NText depth="3">
                 Tổng tiền hàng:
               </NText>
-              <NText strong>
-                {{ formatCurrency(tienHang) }}
-              </NText>
+              <div style="padding-right: 11px;">
+                <NText strong>
+                  {{ formatCurrency(tienHang) }}
+                </NText>
+              </div>
             </NSpace>
 
-            <NSpace v-if="giamGia > 0" justify="space-between">
+            <NSpace v-if="giamGia > 0" justify="space-between" align="center">
               <NText depth="3">
                 Giảm giá:
               </NText>
-              <NText type="success">
-                -{{ formatCurrency(giamGia) }}
-              </NText>
+              <div style="padding-right: 11px;">
+                <NText type="success">
+                  -{{ formatCurrency(giamGia) }}
+                </NText>
+              </div>
             </NSpace>
 
             <template v-if="isDeliveryEnabled">
               <NSpace justify="space-between" align="center">
-                <NText depth="3">
-                  Phí vận chuyển:
-                </NText>
+                <NSpace align="center" :size="6" :wrap="false">
+                  <NText depth="3">
+                    Phí vận chuyển:
+                  </NText>
+                  <img
+                    src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHTK-H.png"
+                    alt="GHTK"
+                    style="height: 18px; width: auto; object-fit: contain; transform: translateY(1px);"
+                  >
+                </NSpace>
+
                 <NInputNumber
                   v-model:value="shippingFee"
                   :min="0"
-                  :formatter="formatCurrencyInput"
-                  :parser="parseCurrency"
-                  :disabled="isFreeShipping"
+                  :format="formatShippingFee"
+                  :parse="parseShippingFee"
+                  :disabled="isFreeShipping || isShippingCalculated"
                   size="small"
-                  style="width: 150px"
-                  placeholder="Nhập phí ship"
-                />
-
-                <NImage
-                  width="50"
-                  src="/images/ghn-logo.webp"
-                  preview-disabled
-                />
+                  style="width: 100px ;margin-right: 3px;"
+                  placeholder="0"
+                  :show-button="false"
+                  :input-props="{ style: { textAlign: 'right', fontWeight: 'bold' } }"
+                >
+                  <template #suffix>
+                    <NText strong>
+                      ₫
+                    </NText>
+                  </template>
+                </NInputNumber>
               </NSpace>
-              <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
-                Miễn phí vận chuyển (Đơn hàng trên 5.000.000đ)
+
+              <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 4px;">
+                Miễn phí vận chuyển (Đơn hàng trên 20.000.000đ)
               </NAlert>
             </template>
 
             <NDivider style="margin: 8px 0" />
 
-            <NSpace justify="space-between">
+            <NSpace justify="space-between" align="center">
               <NText strong size="large">
                 Tổng thanh toán:
               </NText>
-              <NText strong type="primary" size="large">
-                {{ formatCurrency(tongTien) }}
-              </NText>
+              <div style="padding-right: 11px;">
+                <NText strong type="primary" size="large">
+                  {{ formatCurrency(tongTien) }}
+                </NText>
+              </div>
             </NSpace>
           </NSpace>
 
@@ -2114,7 +2247,6 @@ function formatCurrencyInput(value: number) {
             <NText depth="3">
               Phương thức thanh toán:
             </NText>
-            <!-- Thay thế phần NSpace chứa các nút phương thức thanh toán -->
             <NSpace>
               <NButton
                 :type="state.currentPaymentMethod === '0' ? 'primary' : 'default'"
@@ -2136,15 +2268,6 @@ function formatCurrencyInput(value: number) {
                   <NIcon><QrCodeOutline /></NIcon>
                 </template>
                 Thanh toán VNPAY
-              </NButton>
-
-              <NButton
-                :type="state.currentPaymentMethod === '2' ? 'primary' : 'default'"
-                size="small"
-                secondary
-                @click="setPaymentMethod('2')"
-              >
-                Kết hợp
               </NButton>
             </NSpace>
           </NSpace>
@@ -2172,13 +2295,9 @@ function formatCurrencyInput(value: number) {
                 <NInput v-model:value="localSearchQuery" placeholder="Tìm kiếm sản phẩm..." clearable />
               </NGi>
               <NGi :span="12">
-                <NSlider
-                  v-model:value="priceRange"
-                  range
-                  :step="100000"
-                  :min="priceRange[0]"
-                  :max="priceRange[1]"
-                  :format-tooltip="formatCurrency"
+                <n-slider
+                  v-model:value="state.search.price" :format-tooltip="formatTooltipRangePrice" range :step="1000"
+                  :min="stateMinMaxPrice.priceMin ?? 0" :max="stateMinMaxPrice.priceMax ?? 50000000"
                 />
               </NGi>
             </NGrid>
@@ -2229,7 +2348,6 @@ function formatCurrencyInput(value: number) {
       </NCard>
     </NModal>
 
-    <!-- Modal thông báo voucher tốt hơn -->
     <NModal
       v-model:show="showBetterVoucherModal"
       title=" Phát hiện voucher tốt hơn!"
@@ -2243,7 +2361,6 @@ function formatCurrencyInput(value: number) {
         </NAlert>
 
         <NGrid :cols="2" :x-gap="16" class="mb-4">
-          <!-- Voucher cũ -->
           <NGi>
             <div class="voucher-comparison old-voucher">
               <NText depth="3" class="block mb-2">
@@ -2263,7 +2380,6 @@ function formatCurrencyInput(value: number) {
             </div>
           </NGi>
 
-          <!-- Voucher mới -->
           <NGi>
             <div class="voucher-comparison new-voucher">
               <NText type="success" strong class="block mb-2">
@@ -2284,7 +2400,6 @@ function formatCurrencyInput(value: number) {
           </NGi>
         </NGrid>
 
-        <!-- So sánh số tiền chênh lệch -->
         <div class="comparison-summary mb-4 p-3">
           <NSpace justify="space-between" align="center">
             <NText strong>
@@ -2296,7 +2411,6 @@ function formatCurrencyInput(value: number) {
           </NSpace>
         </div>
 
-        <!-- Thông tin tổng tiền thanh toán -->
         <div class="payment-info mb-4">
           <NSpace vertical :size="8">
             <NSpace justify="space-between">
@@ -2334,10 +2448,8 @@ function formatCurrencyInput(value: number) {
         </div>
       </NCard>
 
-      <!-- Footer của Modal - đặt bên ngoài NCard nhưng trong NModal -->
       <template #footer>
         <NSpace justify="end">
-          <!-- Popconfirm cho nút Giữ voucher cũ -->
           <NPopconfirm
             positive-text="Đồng ý"
             negative-text="Hủy"
@@ -2351,7 +2463,6 @@ function formatCurrencyInput(value: number) {
             Bạn có chắc chắn muốn giữ voucher cũ?
           </NPopconfirm>
 
-          <!-- Popconfirm cho nút Dùng voucher mới -->
           <NPopconfirm
             positive-text="Đồng ý"
             negative-text="Hủy"
@@ -2372,17 +2483,21 @@ function formatCurrencyInput(value: number) {
       v-model:show="showDeliveryModal"
       preset="dialog"
       title="Thông tin người nhận"
-      style="width: 90%; max-width: 800px"
+      style="width: 90%; max-width: 600px"
       @update:show="(val) => { if (!val) closeDeliveryModal() }"
     >
       <NCard size="small" :bordered="false">
         <NForm :model="deliveryInfo" label-placement="top">
-          <NGrid :cols="12" :x-gap="12" :y-gap="0">
+          <NGrid :cols="12" :x-gap="12" :y-gap="12">
             <NFormItemGi :span="6" label="Tên người nhận" required>
               <NInput v-model:value="deliveryInfo.tenNguoiNhan" placeholder="Nhập tên người nhận" />
             </NFormItemGi>
             <NFormItemGi :span="6" label="Số điện thoại" required>
               <NInput v-model:value="deliveryInfo.sdtNguoiNhan" placeholder="Nhập số điện thoại" />
+            </NFormItemGi>
+
+            <NFormItemGi :span="12" label="Email (Tùy chọn)">
+              <NInput v-model:value="deliveryInfo.email" placeholder="Nhập email người nhận để nhận thông báo..." />
             </NFormItemGi>
           </NGrid>
 
@@ -2573,7 +2688,7 @@ function formatCurrencyInput(value: number) {
     >
       <NCard size="small" :bordered="false">
         <NAlert type="info" size="small" show-icon style="margin-bottom: 12px;">
-          Đặt mã SERIAL (15-17 số) vào khung hình để quét.
+          Đặt mã Barcode vào khung hình để quét.
         </NAlert>
 
         <div id="reader" style="width: 100%; max-width: 440px; margin: 0 auto;" />
@@ -2593,7 +2708,6 @@ function formatCurrencyInput(value: number) {
         @payment-completed="handlePaymentCompleted"
       />
     </NModal>
-    <!-- Thêm modal này sau modal showBetterVoucherModal hiện tại -->
     <NModal
       v-model:show="showCheckoutVoucherModal"
       preset="dialog"
@@ -2603,7 +2717,6 @@ function formatCurrencyInput(value: number) {
       :close-on-esc="false"
     >
       <NCard size="small" :bordered="false">
-        <!-- Trường hợp voucher hết hạn -->
         <template v-if="checkoutVoucherType === 'EXPIRED'">
           <NAlert type="error" :show-icon="true" class="mb-4">
             {{ checkoutVoucherData?.message || 'Voucher đã hết hạn sử dụng' }}
@@ -2640,7 +2753,6 @@ function formatCurrencyInput(value: number) {
           </div>
         </template>
 
-        <!-- Trường hợp có voucher tốt hơn -->
         <template v-else-if="checkoutVoucherType === 'BETTER'">
           <NAlert type="success" :show-icon="true" class="mb-4">
             {{ checkoutVoucherData?.message }}
@@ -2701,7 +2813,6 @@ function formatCurrencyInput(value: number) {
           </div>
         </template>
 
-        <!-- Trường hợp chưa chọn voucher và có voucher mới -->
         <template v-else-if="checkoutVoucherType === 'NEW'">
           <NAlert type="info" :show-icon="true" class="mb-4">
             {{ checkoutVoucherData?.message }}
@@ -2722,7 +2833,6 @@ function formatCurrencyInput(value: number) {
           </div>
         </template>
 
-        <!-- Hiển thị tổng tiền thanh toán (chỉ khi có voucher mới) -->
         <div v-if="checkoutVoucherData?.newVoucher" class="payment-info mb-4">
           <NSpace vertical :size="8">
             <NSpace justify="space-between">
@@ -2753,14 +2863,12 @@ function formatCurrencyInput(value: number) {
 
         <template #footer>
           <NSpace justify="end">
-            <!-- Trường hợp voucher hết hạn và không có voucher mới -->
             <template v-if="checkoutVoucherType === 'EXPIRED' && !checkoutVoucherData?.newVoucher">
               <NButton type="primary" @click="handleCheckoutCancel">
                 Đóng
               </NButton>
             </template>
 
-            <!-- Trường hợp voucher hết hạn nhưng có voucher mới -->
             <template v-else-if="checkoutVoucherType === 'EXPIRED' && checkoutVoucherData?.newVoucher">
               <NButton @click="handleCheckoutCancel">
                 Không dùng voucher
@@ -2770,7 +2878,6 @@ function formatCurrencyInput(value: number) {
               </NButton>
             </template>
 
-            <!-- Trường hợp có voucher tốt hơn -->
             <template v-else-if="checkoutVoucherType === 'BETTER'">
               <NButton @click="handleCheckoutKeepOldVoucher">
                 Giữ voucher cũ
@@ -2780,7 +2887,6 @@ function formatCurrencyInput(value: number) {
               </NButton>
             </template>
 
-            <!-- Trường hợp voucher mới (chưa chọn voucher) -->
             <template v-else-if="checkoutVoucherType === 'NEW'">
               <NButton @click="handleCheckoutCancel">
                 Bỏ qua
@@ -2790,7 +2896,6 @@ function formatCurrencyInput(value: number) {
               </NButton>
             </template>
 
-            <!-- Fallback -->
             <template v-else>
               <NButton type="primary" @click="handleCheckoutCancel">
                 Đóng
@@ -2831,7 +2936,6 @@ function formatCurrencyInput(value: number) {
   width: 100%;
 }
 
-/* Sau */
 .pending-invoices-wrapper {
   width: 100%;
   padding-bottom: 15px;

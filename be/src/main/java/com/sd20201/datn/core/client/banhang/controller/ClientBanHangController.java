@@ -13,6 +13,9 @@ import com.sd20201.datn.core.client.banhang.model.response.ClientPhuongThucThanh
 import com.sd20201.datn.core.client.banhang.model.response.ClientVoucherSuggestionResponse;
 import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
 import com.sd20201.datn.infrastructure.constant.MappingConstants;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeRequest;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeResponse;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeService;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +39,7 @@ import java.util.List;
 public class ClientBanHangController {
 
     public final ClientBanHangService adBanHangService;
+    private final ShippingFeeService shippingFeeService;
 
     @PostMapping("/checkout/create-order")
     public ResponseEntity<?> createOrder(@RequestBody ClientThanhToanRequest request) {
@@ -123,5 +127,19 @@ public class ClientBanHangController {
     @PostMapping("/quantity-product")
     public ResponseEntity<?> checkQuantityProduct(@RequestBody List<String> ids) {
         return Helper.createResponseEntity(adBanHangService.getQuantityProductDetail(ids));
+    }
+
+    @PostMapping("/shipping-fee")
+    public ResponseEntity<?> calculateShippingFee(@RequestBody ShippingFeeRequest req) {
+        try {
+            ShippingFeeResponse fee = shippingFeeService.calculateFee(req);
+            return ResponseEntity.ok(fee);
+        } catch (Exception e) {
+            return ResponseEntity.ok(ShippingFeeResponse.builder()
+                    .fee(0)
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
     }
 }

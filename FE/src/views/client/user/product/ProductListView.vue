@@ -472,7 +472,7 @@ function handleClickProduct(item: ADProductDetailResponse) {
                     <div class="product-info">
                       <h3 class="product-name">
                         <NEllipsis :line-clamp="2" :tooltip="{ placement: 'top', style: 'max-width: 300px' }">
-                          {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
+                          {{ item.name }}
                         </NEllipsis>
                       </h3>
 
@@ -485,7 +485,7 @@ function handleClickProduct(item: ADProductDetailResponse) {
                         </div>
 
                         <div v-if="item.gpu" class="spec-item">
-                          <span class="spec-label">CPU:</span>
+                          <span class="spec-label">GPU:</span>
                           <NEllipsis class="spec-value" :tooltip="{ placement: 'top' }">
                             {{ item.gpu }}
                           </NEllipsis>
@@ -535,7 +535,6 @@ function handleClickProduct(item: ADProductDetailResponse) {
 
 <style scoped>
 .product-page-wrapper {
-  padding: 5px;
   background-color: #ffffff;
   min-height: 100vh;
   max-width: 1400px;

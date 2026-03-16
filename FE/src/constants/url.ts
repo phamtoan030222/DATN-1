@@ -117,5 +117,6 @@ export const API_PREFIX_ORDER_ONLINE_VOUCHER = `${API_ORDER_ONLINE}/voucher` as 
 export const API_PREFIX_ORDER_ONLINE_DISCOUNT = `${API_ORDER_ONLINE}/discount` as string
 export const API_PREFIX_ORDER_ONLINE_DISCOUNTS = `${API_ORDER_ONLINE}/discounts` as string
 export const API_PREFIX_ORDER_ONLINE_DISCOUNT_DETAIL = `${API_ORDER_ONLINE}/discount-detail` as string
+export const API_INVOICES_ORDER_ONLINE = `${API_ORDER_ONLINE}/invoices` as string
 
 // ------------- END -------------

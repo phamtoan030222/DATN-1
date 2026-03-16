@@ -4,7 +4,8 @@ public enum TypeInvoice {
 
     TAI_QUAY,
     ONLINE,
-    GIAO_HANG
+    GIAO_HANG,
+    ONLINE_TAI_QUAY,
     ;
 
 }

@@ -406,7 +406,7 @@ const columns: DataTableColumns<ADVoucherResponse> = [
               h(NSwitch, {
                 value: isChecked,
                 size: 'small',
-                loading: isSwitchingThisRow, 
+                loading: isSwitchingThisRow,
                 style: { pointerEvents: 'none' },
               }),
             ]),
@@ -424,8 +424,8 @@ onMounted(() => fetchData())
 </script>
 
 <template>
-  <div>
-    <NCard class="mb-3 shadow-sm border-none">
+  <div class="flex flex-col gap-4">
+    <NCard class="shadow-sm border-none">
       <NSpace vertical :size="8">
         <NSpace align="center">
           <NIcon size="24" class="text-black-600">
@@ -437,12 +437,20 @@ onMounted(() => fetchData())
       </NSpace>
     </NCard>
 
-    <NCard title="Bộ lọc tìm kiếm" class="shadow-sm rounded-xl border border-gray-100 mb-4">
+    <NCard title="Bộ lọc tìm kiếm" class="shadow-md rounded-2xl border border-gray-100">
       <template #header-extra>
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
-              <NButton size="large" circle secondary type="success" class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="resetFilters">
+              <NButton
+                size="large"
+                circle
+                secondary
+                type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md"
+                title="Làm mới bộ lọc"
+                @click="resetFilters"
+              >
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
                 </NIcon>
@@ -453,39 +461,32 @@ onMounted(() => fetchData())
         </div>
       </template>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-        <div class="lg:col-span-3">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Tìm kiếm chung
-          </div>
-          <NInput v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
-            <template #prefix>
-              <NIcon><Icon icon="carbon:search" class="text-gray-600" /></NIcon>
-            </template>
-          </NInput>
+      <NForm label-placement="top">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+          <NFormItem label="Tìm kiếm chung" class="lg:col-span-3">
+            <NInput v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
+              <template #prefix>
+                <NIcon><Icon icon="carbon:search" class="text-gray-600" /></NIcon>
+              </template>
+            </NInput>
+          </NFormItem>
+
+          <NFormItem label="Kiểu voucher" class="lg:col-span-1">
+            <NSelect v-model:value="filters.typeVoucher" :options="typeVoucherOptions" placeholder="Tất cả" />
+          </NFormItem>
+
+          <NFormItem label="Đối tượng" class="lg:col-span-1">
+            <NSelect v-model:value="filters.targetType" :options="targetTypeOptions" placeholder="Tất cả" />
+          </NFormItem>
+
+          <NFormItem label="Trạng thái" class="lg:col-span-1">
+            <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Tất cả" />
+          </NFormItem>
         </div>
-        <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Kiểu voucher
-          </div>
-          <NSelect v-model:value="filters.typeVoucher" :options="typeVoucherOptions" placeholder="Tất cả" />
-        </div>
-        <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Đối tượng
-          </div>
-          <NSelect v-model:value="filters.targetType" :options="targetTypeOptions" placeholder="Tất cả" />
-        </div>
-        <div class="lg:col-span-1">
-          <div class="text-xs font-bold text-black-600 mb-1 ml-1">
-            Trạng thái
-          </div>
-          <NSelect v-model:value="filters.status" :options="statusOptions" placeholder="Tất cả" />
-        </div>
-      </div>
+      </NForm>
     </NCard>
 
-    <NCard title="Danh sách Phiếu Giảm Giá" class="border rounded-2xl shadow-sm border-gray-100">
+    <NCard title="Danh sách Phiếu Giảm Giá" class="shadow-sm rounded-xl border border-gray-100">
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
@@ -517,10 +518,26 @@ onMounted(() => fetchData())
         </div>
       </template>
 
-      <NDataTable v-model:checked-row-keys="checkedRowKeys" :columns="columns" :data="displayData" :loading="loading" :row-key="(row) => row.id" :pagination="false" striped :scroll-x="1200" class="rounded-lg overflow-hidden" />
+      <NDataTable
+        v-model:checked-row-keys="checkedRowKeys"
+        :columns="columns"
+        :data="displayData"
+        :loading="loading"
+        :row-key="(row) => row.id"
+        :pagination="false"
+        striped
+        :scroll-x="1200"
+        class="rounded-lg overflow-hidden"
+      />
 
       <div class="flex justify-end mt-4">
-        <NPagination v-model:page="pagination.page" v-model:page-size="pagination.pageSize" :item-count="pagination.itemCount" :page-sizes="[5, 10, 20, 50]" :show-size-picker="true" />
+        <NPagination
+          v-model:page="pagination.page"
+          v-model:page-size="pagination.pageSize"
+          :item-count="pagination.itemCount"
+          :page-sizes="[5, 10, 20, 50]"
+          :show-size-picker="true"
+        />
       </div>
     </NCard>
   </div>

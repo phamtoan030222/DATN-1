@@ -16,6 +16,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeRequest;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeResponse;
+import com.sd20201.datn.infrastructure.geo.ShippingFeeService;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
 import java.util.List;
 
 @RestController
@@ -28,6 +36,8 @@ public class ADBanHangController {
     public final ADBanHangService adBanHangService;
 
     private final java.util.concurrent.CopyOnWriteArrayList<org.springframework.web.servlet.mvc.method.annotation.SseEmitter> emitters = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    private final ShippingFeeService shippingFeeService;
 
     @GetMapping(value = "/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamPOS() {
@@ -234,5 +244,39 @@ public class ADBanHangController {
     ResponseEntity<?> getMaterials() { return Helper.createResponseEntity(adBanHangService.getMaterials()); }
 
     @GetMapping("/gpus")
-    ResponseEntity<?> getGPUs() { return Helper.createResponseEntity(adBanHangService.getGPUs()); }
+    ResponseEntity<?> getGPUs() {
+        return Helper.createResponseEntity(adBanHangService.getGPUs());
+    }
+
+    @PutMapping("/bo-chon-khach-hang/{idHoaDon}")
+    public ResponseEntity<?> boChonKhachHang(@PathVariable String idHoaDon) {
+        return Helper.createResponseEntity(adBanHangService.boChonKhachHang(idHoaDon));
+    }
+
+    @PutMapping("/gan-imei")
+    public ResponseEntity<?> ganImei(@RequestBody ADGanImeiRequest request) {
+        return Helper.createResponseEntity(adBanHangService.ganImei(request));
+    }
+
+    @GetMapping("/imei/{idProductDetail}/available")
+    ResponseEntity<?> getImeiAvailable(@PathVariable String idProductDetail) {
+        return Helper.createResponseEntity(productDetailService.getImeiAvailableForAssign(idProductDetail));
+    }
+
+    @PostMapping("/shipping-fee")
+    public ResponseEntity<?> calculateShippingFee(@RequestBody ShippingFeeRequest req) {
+        log.info("Shipping fee request: province='{}', ward='{}'",
+                req.getProvinceName(), req.getWardName());
+        try {
+            ShippingFeeResponse fee = shippingFeeService.calculateFee(req);
+            return ResponseEntity.ok(fee);
+        } catch (Exception e) {
+            log.error("Shipping fee error: {}", e.getMessage());
+            return ResponseEntity.ok(ShippingFeeResponse.builder()
+                    .fee(0)
+                    .success(false)
+                    .message(e.getMessage())
+                    .build());
+        }
+    }
 }

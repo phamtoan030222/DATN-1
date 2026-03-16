@@ -43,11 +43,11 @@ public class Invoice extends PrimaryEntity implements Serializable {
     @Enumerated(EnumType.ORDINAL)
     private TypeInvoice typeInvoice;
 
-    private BigDecimal shippingFee;
+    private BigDecimal shippingFee; // tien ship
 
-    private BigDecimal totalAmount;
+    private BigDecimal totalAmount; // tong tien
 
-    private BigDecimal totalAmountAfterDecrease;
+    private BigDecimal totalAmountAfterDecrease; //tien hang
 
     @Column(length = EntityProperties.LENGTH_NAME)
     private String nameReceiver;
@@ -81,4 +81,10 @@ public class Invoice extends PrimaryEntity implements Serializable {
     private String transactionId;
 
     private String bankCode;
+
+    private Boolean daHoanPhi;
+
+    private BigDecimal hoanPhi;
+
+    private BigDecimal giamGia;
 }

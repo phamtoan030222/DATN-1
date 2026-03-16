@@ -22,4 +22,6 @@ public class ADHoaDonSearchRequest extends PageableRequest {
     private Long endDate;
 
     private EntityTrangThaiHoaDon status;
+
+    private Boolean daHoanPhi;
 }

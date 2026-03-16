@@ -20,7 +20,9 @@ public interface ADHoaDonChiTietResponseDetail {
     String getMauSac();
     String getSize();
     Integer getSoLuong();
+    BigDecimal getGiaGoc();
     BigDecimal getGiaBan();
+    Integer getPercentage();
 
     // Thông tin giá trị
     BigDecimal getThanhTienSP();
@@ -44,6 +46,7 @@ public interface ADHoaDonChiTietResponseDetail {
     String getTrangThaiHoaDon();
     LocalDateTime getThoiGian();
     Long getNgayTao();
+    Long getNgayCapNhat();
     BigDecimal getPhiVanChuyen();
 
     // Thông tin voucher
@@ -57,8 +60,9 @@ public interface ADHoaDonChiTietResponseDetail {
 
     // Thông tin nợ và hoàn phí
     BigDecimal getDuNo();
-    BigDecimal getHoanPhi();
+    Boolean getTrangThaiHoanPhi();
     String getTrangThaiThanhToan();
+    BigDecimal getHoanPhi();
 
     // Lịch sử và trạng thái
     String getLichSuTrangThai();

@@ -2,6 +2,7 @@ namespace Entity {
     interface DecodedToken {
         userId: string
         userCode: string
+        username: string
         fullName: string
         phone: string
         rolesName: string

@@ -412,12 +412,12 @@ onUnmounted(() => {
             </div>
 
             <div class="h-[160px] mt-6 mb-4 flex items-center justify-center group-hover:-translate-y-3 transition-transform duration-500 relative">
-              <img :src="item.urlImage" :alt="item.productName" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
+              <img :src="item.urlImage" :alt="item.name" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
             </div>
 
             <div class="flex flex-col gap-2 mt-auto">
               <h3 class="text-[14px] font-bold text-gray-800 line-clamp-2 min-h-[40px] leading-snug group-hover:text-[#d70018] transition-colors">
-                {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
+                {{ item.name }}
               </h3>
 
               <div class="flex flex-wrap gap-1.5 mt-1">
@@ -496,12 +496,12 @@ onUnmounted(() => {
             </div>
 
             <div class="h-[160px] mt-6 mb-4 flex items-center justify-center group-hover:scale-105 transition-transform duration-500 relative z-20">
-              <img :src="item.urlImage" :alt="item.productName" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
+              <img :src="item.urlImage" :alt="item.name" class="max-w-full max-h-[150px] object-contain drop-shadow-sm" @error="handleImageError">
             </div>
 
             <div class="flex flex-col gap-2 mt-auto z-20 relative">
               <h3 class="text-[14px] font-bold text-gray-800 line-clamp-2 min-h-[40px] leading-snug group-hover:text-blue-700 transition-colors">
-                {{ item.productName }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
+                {{ item.name }}
               </h3>
 
               <div class="flex flex-wrap gap-1.5 mt-1">
@@ -567,7 +567,7 @@ onUnmounted(() => {
 
           <div class="flex flex-col flex-1 gap-2 mt-auto">
             <h3 class="text-[15px] font-bold text-gray-800 line-clamp-2 min-h-[44px] leading-snug group-hover:text-[#d70018] transition-colors">
-              {{ item.productName || item.name }} {{ item.cpu }} {{ item.ram }} {{ item.gpu }}
+              {{ item.name }}
             </h3>
 
             <div class="flex flex-wrap gap-2 mt-2">

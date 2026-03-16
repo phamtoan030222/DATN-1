@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, getCurrentInstance, onMounted } from 'vue'
+import { computed, getCurrentInstance, onMounted, ref } from 'vue'
 import { darkTheme } from 'naive-ui'
 import type { App } from 'vue'
 import { installRouter } from '@/router'
@@ -32,7 +32,10 @@ await initializationPromise
 
 const appStore = useAppStore()
 const chatStore = useChatStore()
-const cartStore = useCartStore() // Đã sửa: dùng biến cartStore để gọi hàm bên dưới
+const cartStore = useCartStore()
+
+// FIX: dùng ref để đánh dấu app đã sẵn sàng, tránh Suspense re-suspend khi navigate
+const isReady = ref(false)
 
 // 3. Logic nghiệp vụ
 onMounted(() => {
@@ -45,13 +48,17 @@ const naiveLocale = computed(() => {
     : naiveI18nOptions.enUS
 })
 
-// 4. Xử lý giỏ hàng (Dùng await trực tiếp vì trong script setup có Top-level await)
+// 4. Xử lý giỏ hàng
 try {
   await cartStore.fetchCartId()
   await cartStore.fetchCartItem()
 }
 catch (e) {
   console.error('Lỗi khởi tạo giỏ hàng:', e)
+}
+finally {
+  // Đánh dấu sẵn sàng SAU KHI tất cả await hoàn thành
+  isReady.value = true
 }
 </script>
 
@@ -65,7 +72,12 @@ catch (e) {
     :theme-overrides="appStore.theme"
   >
     <naive-provider>
-      <router-view />
+      <!--
+        FIX: v-if="isReady" đảm bảo router-view chỉ mount SAU KHI
+        tất cả top-level await hoàn thành. Điều này ngăn Suspense
+        re-suspend và unmount router-view khi navigate giữa các trang.
+      -->
+      <router-view v-if="isReady" />
       <Watermark :show-watermark="appStore.showWatermark" />
       <ShiftStartModal />
     </naive-provider>

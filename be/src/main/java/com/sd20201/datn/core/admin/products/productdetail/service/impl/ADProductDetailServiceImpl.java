@@ -181,6 +181,7 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         ProductDetail productDetail = new ProductDetail();
 
         productDetail.setProduct(productOptional.get());
+        productDetail.setName(productOptional.get().getName() +" " + cpuOptional.get().getName() + " " + gpuOptional.get().getName() + " " + ramOptional.get().getName() + " " + hardDriveOptional.get().getName());
         productDetail.setRam(ramOptional.get());
         productDetail.setMaterial(materialOptional.get());
         productDetail.setHardDrive(hardDriveOptional.get());
@@ -195,59 +196,80 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
 
     @Override
     public ResponseObject<?> update(ADPDProductDetailCreateUpdateRequest request) {
+        // 1. Tìm kiếm ProductDetail hiện tại
         Optional<ProductDetail> productDetailOptional = productDetailRepository.findById(request.getId());
-        if (productDetailOptional.isEmpty())
+        if (productDetailOptional.isEmpty()) {
             return ResponseObject.errorForward("Product detail not found", HttpStatus.NOT_FOUND);
+        }
 
         ProductDetail productDetail = productDetailOptional.get();
-        if (!productDetail.getGpu().getId().equals(request.getIdGPU())) {
-            Optional<GPU> gpuOptional = gpuRepository.findById(request.getIdGPU());
-            if (gpuOptional.isEmpty()) return ResponseObject.errorForward("GPU not found", HttpStatus.NOT_FOUND);
 
-            productDetail.setGpu(gpuOptional.get());
+        // 2. Kiểm tra và cập nhật từng linh kiện (Chỉ gọi DB khi ID client gửi lên khác với ID hiện tại)
+
+        // -- Cập nhật Product
+        if (request.getIdProduct() != null && !productDetail.getProduct().getId().equals(request.getIdProduct())) {
+            Optional<Product> productOpt = productRepository.findById(request.getIdProduct());
+            if (productOpt.isEmpty()) return ResponseObject.errorForward("Product not found", HttpStatus.NOT_FOUND);
+            productDetail.setProduct(productOpt.get());
         }
 
-        if (!productDetail.getCpu().getId().equals(request.getIdCPU())) {
-            Optional<CPU> cpuOptional = cpuRepository.findById(request.getIdCPU());
-            if (cpuOptional.isEmpty()) return ResponseObject.errorForward("CPU not found", HttpStatus.NOT_FOUND);
-
-            productDetail.setCpu(cpuOptional.get());
+        // -- Cập nhật GPU
+        if (request.getIdGPU() != null && !productDetail.getGpu().getId().equals(request.getIdGPU())) {
+            Optional<GPU> gpuOpt = gpuRepository.findById(request.getIdGPU());
+            if (gpuOpt.isEmpty()) return ResponseObject.errorForward("GPU not found", HttpStatus.NOT_FOUND);
+            productDetail.setGpu(gpuOpt.get());
         }
 
-        if (!productDetail.getRam().getId().equals(request.getIdRAM())) {
-            Optional<RAM> ramOptional = ramRepository.findById(request.getIdRAM());
-            if (ramOptional.isEmpty()) return ResponseObject.errorForward("RAM not found", HttpStatus.NOT_FOUND);
-
-            productDetail.setRam(ramOptional.get());
+        // -- Cập nhật CPU
+        if (request.getIdCPU() != null && !productDetail.getCpu().getId().equals(request.getIdCPU())) {
+            Optional<CPU> cpuOpt = cpuRepository.findById(request.getIdCPU());
+            if (cpuOpt.isEmpty()) return ResponseObject.errorForward("CPU not found", HttpStatus.NOT_FOUND);
+            productDetail.setCpu(cpuOpt.get());
         }
 
-        if (!productDetail.getMaterial().getId().equals(request.getIdMaterial())) {
-            Optional<Material> materialOptional = materialRepository.findById(request.getIdMaterial());
-            if (materialOptional.isEmpty())
-                return ResponseObject.errorForward("Material not found", HttpStatus.NOT_FOUND);
-
-            productDetail.setMaterial(materialOptional.get());
+        // -- Cập nhật RAM
+        if (request.getIdRAM() != null && !productDetail.getRam().getId().equals(request.getIdRAM())) {
+            Optional<RAM> ramOpt = ramRepository.findById(request.getIdRAM());
+            if (ramOpt.isEmpty()) return ResponseObject.errorForward("RAM not found", HttpStatus.NOT_FOUND);
+            productDetail.setRam(ramOpt.get());
         }
 
-        if (!productDetail.getColor().getId().equals(request.getIdMaterial())) {
-            Optional<Color> colorOptional = colorRepository.findById(request.getIdColor());
-            if (colorOptional.isEmpty()) return ResponseObject.errorForward("Color not found", HttpStatus.NOT_FOUND);
-
-            productDetail.setColor(colorOptional.get());
+        // -- Cập nhật Material
+        if (request.getIdMaterial() != null && !productDetail.getMaterial().getId().equals(request.getIdMaterial())) {
+            Optional<Material> materialOpt = materialRepository.findById(request.getIdMaterial());
+            if (materialOpt.isEmpty()) return ResponseObject.errorForward("Material not found", HttpStatus.NOT_FOUND);
+            productDetail.setMaterial(materialOpt.get());
         }
 
-        if (!productDetail.getHardDrive().getId().equals(request.getIdHardDrive())) {
-            Optional<HardDrive> hardDriveOptional = hardDriveRepository.findById(request.getIdHardDrive());
-            if (hardDriveOptional.isEmpty())
-                return ResponseObject.errorForward("HardDrive not found", HttpStatus.NOT_FOUND);
-
-            productDetail.setHardDrive(hardDriveOptional.get());
+        // -- Cập nhật Color
+        if (request.getIdColor() != null && !productDetail.getColor().getId().equals(request.getIdColor())) {
+            Optional<Color> colorOpt = colorRepository.findById(request.getIdColor());
+            if (colorOpt.isEmpty()) return ResponseObject.errorForward("Color not found", HttpStatus.NOT_FOUND);
+            productDetail.setColor(colorOpt.get());
         }
 
+        // -- Cập nhật HardDrive
+        if (request.getIdHardDrive() != null && !productDetail.getHardDrive().getId().equals(request.getIdHardDrive())) {
+            Optional<HardDrive> hdOpt = hardDriveRepository.findById(request.getIdHardDrive());
+            if (hdOpt.isEmpty()) return ResponseObject.errorForward("HardDrive not found", HttpStatus.NOT_FOUND);
+            productDetail.setHardDrive(hdOpt.get());
+        }
+
+        // 3. Xây dựng tên sản phẩm từ các Entity đã được chốt (An toàn 100%, không lo NullPointerException)
+        String newProductName = productDetail.getProduct().getName() + " "
+                + productDetail.getCpu().getName() + " "
+                + productDetail.getGpu().getName() + " "
+                + productDetail.getRam().getName() + " "
+                + productDetail.getHardDrive().getName();
+
+        // 4. Set các thông số còn lại và lưu vào DB
+        productDetail.setName(newProductName);
         productDetail.setPrice(BigDecimal.valueOf(request.getPrice()));
         productDetail.setDescription(request.getDescription());
 
-        return ResponseObject.successForward(productDetailRepository.save(productDetail), "Update product success");
+        ProductDetail savedProductDetail = productDetailRepository.save(productDetail);
+
+        return ResponseObject.successForward(savedProductDetail, "Update product success");
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -295,9 +317,8 @@ public class ADProductDetailServiceImpl implements ADProductDetailService {
         }
 
         ProductDetail productDetail = new ProductDetail();
-
         productDetail.setCode(Helper.generateCodeProductDetail());
-        productDetail.setName(product.getName());
+        productDetail.setName(product.getName() + " " + cpuOptional.get().getName() + " " + gpuOptional.get().getName() + " " + ramOptional.get().getName() + " " + hardDriveOptional.get().getName());
         productDetail.setProduct(product);
         productDetail.setRam(ramOptional.get());
         productDetail.setMaterial(materialOptional.get());

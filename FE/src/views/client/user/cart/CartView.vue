@@ -80,7 +80,7 @@ const subTotal = computed(() => {
     }, 0)
 })
 
-const MAX_TOTAL_AMOUNT = 500000000 // 500 triệu VNĐ
+const MAX_TOTAL_AMOUNT = 200000000 // 200 triệu VNĐ
 
 async function handleUpdateQuantity(item: any, newQuantity: number | null) {
   if (newQuantity === null || newQuantity < 1)
@@ -93,7 +93,7 @@ async function handleUpdateQuantity(item: any, newQuantity: number | null) {
 
   const unitPrice = item.percentage ? item.price * (1 - item.percentage / 100) : item.price
 
-  // Tính tổng để chặn 500tr
+  // Tính tổng để chặn 200tr
   const currentCartTotal = cartItems.value.reduce((total, cartItem) => {
     const p = cartItem.percentage ? cartItem.price * (1 - cartItem.percentage / 100) : cartItem.price
     return total + (p * cartItem.quantity)
@@ -132,6 +132,16 @@ function formatCurrency(val: number) {
 }
 
 function handleClickCheckout() {
+  if (subTotal.value > MAX_TOTAL_AMOUNT) {
+    notification.error({
+      title: 'Không thể thanh toán',
+      content: `Tổng giá trị đơn hàng vượt quá ${formatCurrency(MAX_TOTAL_AMOUNT)}. Vui lòng bỏ bớt sản phẩm!`,
+      duration: 5000,
+    })
+    return // Chặn đứng tại đây, không cho qua trang checkout
+  }
+  // ----------------------------------------
+
   if (cartItemBuyNow.value) {
     removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
   }
@@ -149,7 +159,7 @@ function goToDetail(idProductDetail: string) {
 <template>
   <div class="container mx-auto px-4 py-8 max-w-4xl min-h-[60vh]">
     <h1 class="text-2xl font-bold mb-6 flex items-center gap-2 text-gray-800">
-      <NIcon color="#d70018">
+      <NIcon color="#00AA00">
         <BagCheckOutline />
       </NIcon> Giỏ hàng của bạn
     </h1>
@@ -164,7 +174,7 @@ function goToDetail(idProductDetail: string) {
     >
       <NEmpty description="Giỏ hàng đang trống" size="large">
         <template #extra>
-          <NButton type="primary" color="#d70018" @click="router.push('/home')">
+          <NButton type="primary" color="#00AA00" @click="router.push('/home')">
             TIẾP TỤC MUA SẮM
           </NButton>
         </template>
@@ -210,20 +220,20 @@ function goToDetail(idProductDetail: string) {
                   class="font-bold text-gray-800 text-lg cursor-pointer hover:text-red-600 transition-colors line-clamp-2"
                   @click="goToDetail(item.productDetailId)"
                 >
-                  {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
+                  {{ item.name }}
                 </h3>
                 <div class="text-xs text-gray-500 mt-2 flex flex-wrap gap-2">
-                  <NTag v-if="item.ram" size="small" :bordered="false" type="info">
+                  <NTag v-if="item.cpu" size="small" :bordered="false" class="bg-purple-200">
+                    {{ item.cpu }}
+                  </NTag>
+                  <NTag v-if="item.gpu" size="small" :bordered="false" class="bg-blue-200">
+                    {{ item.gpu }}
+                  </NTag>
+                  <NTag v-if="item.ram" size="small" :bordered="false" class="bg-green-200">
                     {{ item.ram }}
                   </NTag>
-                  <NTag v-if="item.hardDrive" size="small" :bordered="false" type="info">
+                  <NTag v-if="item.hardDrive" size="small" :bordered="false" class="bg-red-200">
                     {{ item.hardDrive }}
-                  </NTag>
-                  <NTag v-if="item.color" size="small" :bordered="false" type="warning">
-                    {{ item.color }}
-                  </NTag>
-                  <NTag v-if="item.gpu" size="small" :bordered="false" type="primary">
-                    {{ item.gpu }}
                   </NTag>
                 </div>
               </div>
@@ -310,7 +320,7 @@ function goToDetail(idProductDetail: string) {
             </div>
             <NButton
               block type="success" size="large" class="font-bold h-12 shadow-lg"
-              :disabled="selectedItemIds.length === 0"
+              :disabled="selectedItemIds.length === 0 || subTotal > MAX_TOTAL_AMOUNT"
               @click="handleClickCheckout"
             >
               Thanh toán <NIcon class="ml-2">

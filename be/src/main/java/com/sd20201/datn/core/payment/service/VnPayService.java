@@ -83,7 +83,9 @@ public class VnPayService {
 
             Customer kh = invoice.getCustomer();
 
-            if (invoice.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
+            if (invoice.getTypeInvoice() == TypeInvoice.GIAO_HANG
+                    || invoice.getTypeInvoice() == TypeInvoice.ONLINE) {
+                // Ưu tiên thông tin từ request (khách nhập khi checkout)
                 if (request.getCustomerName() != null && !request.getCustomerName().isBlank())
                     invoice.setNameReceiver(request.getCustomerName());
                 if (request.getCustomerPhone() != null && !request.getCustomerPhone().isBlank())
@@ -91,7 +93,7 @@ public class VnPayService {
                 if (request.getCustomerAddress() != null && !request.getCustomerAddress().isBlank())
                     invoice.setAddressReceiver(request.getCustomerAddress());
             } else {
-                // Tại quầy: ưu tiên request, fallback sang customer
+                // TAI_QUAY: ưu tiên request, fallback sang customer
                 invoice.setNameReceiver(
                         (request.getCustomerName() != null && !request.getCustomerName().isBlank())
                                 ? request.getCustomerName()
@@ -121,9 +123,9 @@ public class VnPayService {
 // 1. Tiền hàng gốc (trước giảm giá, chưa cộng ship)
             if (request.getTienHang() != null
                     && request.getTienHang().compareTo(BigDecimal.ZERO) > 0) {
-                invoice.setTotalAmount(request.getTienHang());
+                invoice.setTotalAmountAfterDecrease(request.getTienHang());
             } else {
-                invoice.setTotalAmount(requestAmount); // fallback nếu FE không truyền
+                invoice.setTotalAmountAfterDecrease(requestAmount); // fallback nếu FE không truyền
             }
 
 // 2. Phí vận chuyển
@@ -141,7 +143,7 @@ public class VnPayService {
             }
 
 // 4. Tổng tiền thực tế thanh toán (sau giảm + ship)
-            invoice.setTotalAmountAfterDecrease(requestAmount);
+            invoice.setTotalAmount(requestAmount);
 
             logger.info("Đã lưu đầy đủ: tienHang={}, ship={}, voucher={}, total={}",
                     invoice.getTotalAmount(),
@@ -428,6 +430,8 @@ public class VnPayService {
 
             if (hoaDon.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
                 xuLyHoaDonGiaoHangVNPay(hoaDon, maGiaoDich, bankCode, finalAmount);
+            } else if (hoaDon.getTypeInvoice() == TypeInvoice.ONLINE || hoaDon.getTypeInvoice() == TypeInvoice.ONLINE_TAI_QUAY) {
+                xuLyHoaDonOnlineVNPay(hoaDon, maGiaoDich, bankCode, finalAmount);
             } else {
                 xuLyHoaDonTaiQuayVNPay(hoaDon, maGiaoDich, bankCode, finalAmount);
             }
@@ -660,7 +664,11 @@ public class VnPayService {
         params.put("vnp_OrderInfo", orderInfo);
         params.put("vnp_OrderType", request.getOrderType());
         params.put("vnp_Locale", request.getLanguage() != null ? request.getLanguage() : "vn");
-        params.put("vnp_ReturnUrl", vnPayConfig.getReturnUrl());
+        String returnUrl = (request.getReturnUrl() != null && !request.getReturnUrl().isBlank())
+                ? request.getReturnUrl()
+                : vnPayConfig.getReturnUrl();
+        params.put("vnp_ReturnUrl", returnUrl);
+
         params.put("vnp_IpAddr", ipAddr);
         params.put("vnp_CreateDate", new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
 
@@ -783,5 +791,30 @@ public class VnPayService {
                 "trangThai", "DA_THANH_TOAN",
                 "message", "Xác nhận thành công"
         );
+    }
+
+    private void xuLyHoaDonOnlineVNPay(Invoice invoice, String maGiaoDich,
+                                       String bankCode, BigDecimal amount) {
+        logger.info("=== XỬ LÝ HÓA ĐƠN ONLINE (VNPAY) - Số tiền: {} ===", amount);
+
+        // Đơn online sau thanh toán → CHO_XAC_NHAN
+        invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+        invoice.setPaymentDate(System.currentTimeMillis());
+        invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+        invoice.setTypePayment(TypePayment.VNPAY);
+        invoice.setTransactionId(maGiaoDich);
+        invoice.setBankCode(bankCode);
+
+        Invoice savedInvoice = adTaoHoaDonRepository.save(invoice);
+        Staff staff = savedInvoice.getStaff();
+
+        createStatusHistory(savedInvoice, EntityTrangThaiHoaDon.CHO_XAC_NHAN,
+                "Đơn hàng online thanh toán VNPAY thành công - chờ shop xác nhận", staff);
+
+        createPaymentHistoryVNPay(savedInvoice, maGiaoDich, bankCode, amount);
+
+        // KHÔNG gọi updateProductQuantityAndImei — serial chưa được gán
+
+        logger.info("Đã xử lý đơn online VNPAY, trạng thái: CHO_XAC_NHAN");
     }
 }

@@ -16,5 +16,5 @@ public class LayThuocTinhRequest {
 
     String idGpu;
 
-    String idCPU;
+    String idCpu;
 }

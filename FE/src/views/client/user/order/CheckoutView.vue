@@ -40,7 +40,7 @@ import { storeToRefs } from 'pinia'
 
 // Import Store & API
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { createOrder, getMaGiamGia, getQuantityProdudtDetail } from '@/service/api/client/banhang.api'
+import { createMomoPayment, createOrder, createVNPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
 
 import {
   createAddress,
@@ -54,9 +54,17 @@ import { useCartStore } from '@/store/app/cart'
 import { localStorageAction } from '@/utils'
 
 const themeOverrides = {
+  common: {
+    primaryColor: '#16a34a',
+    primaryColorHover: '#15803d',
+    primaryColorPressed: '#166534',
+    primaryColorSuppl: '#16a34a',
+  },
   Input: {
-    borderHover: '1px solid #16a34a',
-    borderFocus: '1px solid #16a34a',
+    primaryColor: '#16a34a',
+    primaryColorHover: '#15803d',
+    primaryColorPressed: '#166534',
+    primaryColorSuppl: '#16a34a',
     boxShadowFocus: '0 0 0 2px rgba(22, 163, 74, 0.2)',
   },
   Select: {
@@ -77,9 +85,6 @@ const processing = ref(false)
 const { cartId, cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
 const { removeCart } = useCartStore()
 
-// ====================================================
-// LỌC SẢN PHẨM THANH TOÁN TỪ GIỎ HÀNG
-// ====================================================
 const selectedIdsRaw = localStorage.getItem('SELECTED_CART_ITEMS')
 const selectedItemIds = selectedIdsRaw ? JSON.parse(selectedIdsRaw) : []
 
@@ -90,7 +95,6 @@ const cartItemsRef = computed(() => {
   return cartItems.value.filter(item => selectedItemIds.includes(item.productDetailId))
 })
 
-// TÍNH TỔNG SỐ LƯỢNG MÁY CHUẨN BỊ THANH TOÁN
 const totalCheckoutQuantity = computed(() => {
   return cartItemsRef.value.reduce((total, item) => total + (item.quantity || 0), 0)
 })
@@ -102,9 +106,6 @@ const deliveryType = ref<'GIAO_HANG' | 'TAI_QUAY'>('GIAO_HANG')
 const paymentMethod = ref('0')
 const isOpenModalSelectVouchers = ref(false)
 
-// ====================================================
-// FORM THANH TOÁN CHÍNH
-// ====================================================
 const checkoutFormRef = ref<FormInst | null>(null)
 const checkoutForm = reactive({
   ten: '',
@@ -148,9 +149,6 @@ function hydrateCustomerInfoFromProfile() {
   }
 }
 
-// ====================================================
-// API ĐỊA CHỈ & COMBOBOX
-// ====================================================
 interface Option { label: string, value: string, code?: number }
 const provinceOptions = ref<Option[]>([])
 
@@ -198,6 +196,7 @@ const guestWardOptions = ref<Option[]>([])
 async function onGuestProvinceChange(val: string | null) {
   checkoutForm.wardName = null
   guestWardOptions.value = []
+  shippingFee.value = 0 // reset khi đổi tỉnh
   if (val) {
     guestWardOptions.value = await fetchWardsFromAPI(val)
   }
@@ -207,9 +206,6 @@ const guestFullAddress = computed(() => {
   return [checkoutForm.addressDetail?.trim(), checkoutForm.wardName, checkoutForm.provinceName].filter(Boolean).join(', ')
 })
 
-// ====================================================
-// QUẢN LÝ SỔ ĐỊA CHỈ
-// ====================================================
 const showAddressModal = ref(false)
 const showAddAddressForm = ref(false)
 const isFetchingAddresses = ref(false)
@@ -400,9 +396,6 @@ async function handleSetDefault(addrId: string) {
   catch (error) { message.error('Lỗi khi cài đặt mặc định') }
 }
 
-// ====================================================
-// VOUCHER & CART & CHECKOUT
-// ====================================================
 const selectedVoucher = ref<string | null>(null)
 const availableVouchers = ref<any[]>([])
 
@@ -414,18 +407,15 @@ const discountAmount = computed(() => {
   if (!voucher)
     return 0
 
-  // 1. Nếu là loại giảm thẳng tiền mặt (hoặc giá trị > 100)
   if (voucher.typeVoucher !== 'PERCENTAGE' && voucher.discountValue > 100) {
     return voucher.discountValue
   }
 
-  // 2. Nếu là loại giảm theo %
   // eslint-disable-next-line ts/no-use-before-define
   let calculatedDiscount = subTotal.value * (voucher.discountValue / 100)
 
-  // 3. CHỐT CHẶN: Kiểm tra giới hạn mức giảm tối đa (maxValue)
   if (voucher.maxValue && voucher.maxValue > 0 && calculatedDiscount > voucher.maxValue) {
-    calculatedDiscount = voucher.maxValue // Ép về mức tối đa (ví dụ: 1.000.000đ)
+    calculatedDiscount = voucher.maxValue
   }
 
   return calculatedDiscount
@@ -444,7 +434,12 @@ onMounted(async () => {
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
 
 const subTotal = computed(() => cartItemsRef.value.reduce((t, i) => t + (i.percentage ? (i.price * (1 - i.percentage / 100)) * i.quantity : i.price * i.quantity), 0))
-const shippingFee = computed(() => deliveryType.value === 'GIAO_HANG' ? (isFreeShipping.value ? 0 : 30000) : 0)
+const shippingFee = ref(0)
+const isCalculatingShip = ref(false)
+
+const isFreeShipping = computed(() =>
+  deliveryType.value === 'GIAO_HANG' && subTotal.value >= 20000000,
+)
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -468,6 +463,67 @@ async function loadVouchers() {
   catch (e) { console.error('Lỗi load voucher:', e) }
 }
 
+async function calculateShippingFee() {
+  // Không giao hàng hoặc miễn phí ship
+  if (deliveryType.value !== 'GIAO_HANG') {
+    shippingFee.value = 0
+    return
+  }
+
+  if (isFreeShipping.value) {
+    shippingFee.value = 0
+    return
+  }
+
+  // Lấy tên tỉnh/phường
+  let provinceName = ''
+  let wardName = ''
+
+  if (userInfo.value) {
+    // Khách đã đăng nhập - lấy từ địa chỉ đã chọn
+    const selected = myAddresses.value.find(a => a.id === selectedAddressId.value)
+    if (!selected)
+      return
+    provinceName = selected.provinceCity || selected.province || ''
+    wardName = selected.wardCommune || selected.ward || ''
+  }
+  else {
+    // Khách vãng lai - lấy từ form
+    if (!checkoutForm.provinceName || !checkoutForm.wardName)
+      return
+    provinceName = checkoutForm.provinceName
+    wardName = checkoutForm.wardName
+  }
+
+  if (!provinceName || !wardName)
+    return
+
+  try {
+    isCalculatingShip.value = true
+    const result = await getShippingFeeClient({
+      provinceName,
+      wardName,
+      address: checkoutForm.addressDetail || '',
+      weight: cartItemsRef.value.length * 2000, // 2kg/laptop
+      orderValue: subTotal.value,
+    })
+
+    if (result.success) {
+      shippingFee.value = result.fee
+      message.success(`Phí vận chuyển: ${formatCurrency(result.fee)}`)
+    }
+    else {
+      shippingFee.value = 30000 // fallback mặc định
+    }
+  }
+  catch (e) {
+    shippingFee.value = 30000 // fallback nếu lỗi
+  }
+  finally {
+    isCalculatingShip.value = false
+  }
+}
+
 function handleSelectVoucher(voucherId: string | null) {
   selectedVoucher.value = voucherId
   if (voucherId) {
@@ -485,6 +541,36 @@ watch(subTotal, (total) => {
     return
   }
   loadVouchers()
+})
+
+// Watch khi khách vãng lai chọn phường/xã
+watch(() => checkoutForm.wardName, async (val) => {
+  if (val && deliveryType.value === 'GIAO_HANG') {
+    await calculateShippingFee()
+  }
+})
+
+// Watch khi khách đăng nhập đổi địa chỉ
+watch(selectedAddressId, async (val) => {
+  if (val && deliveryType.value === 'GIAO_HANG') {
+    await calculateShippingFee()
+  }
+})
+
+// Watch khi đổi hình thức giao hàng
+watch(deliveryType, async (val) => {
+  if (val === 'GIAO_HANG') {
+    await calculateShippingFee()
+  }
+  else {
+    shippingFee.value = 0
+  }
+})
+
+// Watch miễn phí ship
+watch(isFreeShipping, (val) => {
+  if (val)
+    shippingFee.value = 0
 })
 
 async function handleCheckout() {
@@ -515,23 +601,17 @@ async function handleCheckout() {
 
   processing.value = true
   try {
-    // ==========================================================
-    // 🛡️ CHỐT CHẶN 1: KIỂM TRA TỔNG TIỀN (MAX 500 TRIỆU)
-    // ==========================================================
     const MAX_TOTAL_AMOUNT = 500000000
     if (finalTotal.value > MAX_TOTAL_AMOUNT) {
-      message.error(`Tổng thanh toán vượt quá ${formatCurrency(MAX_TOTAL_AMOUNT)}. Vui lòng quay lại giỏ hàng để điều chỉnh!`)
+      message.error(`Tổng thanh toán vượt quá ${formatCurrency(MAX_TOTAL_AMOUNT)}!`)
       processing.value = false
       return
     }
 
-    // ==========================================================
-    // 🛡️ CHỐT CHẶN 2: KIỂM TRA TỒN KHO TOÀN BỘ GIỎ HÀNG CÙNG LÚC
-    // ==========================================================
+    // Kiểm tra tồn kho
     const productIds = cartItemsRef.value.map(item => item.productDetailId)
     const stockRes = await getQuantityProdudtDetail(productIds)
     const stockData = stockRes.data || []
-
     const outOfStockErrors: { name: string, stock: number, selected: number }[] = []
 
     for (const cartItem of cartItemsRef.value) {
@@ -540,9 +620,7 @@ async function handleCheckout() {
         || String(s.productDetailId) === String(cartItem.productDetailId)
         || String(s.idProductDetail) === String(cartItem.productDetailId),
       )
-
       const availableStock = currentStockItem ? (currentStockItem.quantity || 0) : 0
-
       if (cartItem.quantity > availableStock) {
         outOfStockErrors.push({
           name: `${cartItem.name} ${cartItem.cpu} ${cartItem.ram} ${cartItem.hardDrive}`,
@@ -558,10 +636,10 @@ async function handleCheckout() {
           h('div', { class: 'font-bold text-red-600 text-[15px] mb-3' }, `Có ${outOfStockErrors.length} sản phẩm không đủ số lượng:`),
           h('ul', { class: 'space-y-2' }, outOfStockErrors.map(err =>
             h('li', { class: 'bg-red-50 p-2.5 rounded-md border border-red-200' }, [
-              h('div', { class: 'font-semibold text-gray-800 text-sm leading-tight mb-1' }, err.name),
+              h('div', { class: 'font-semibold text-gray-800 text-sm' }, err.name),
               h('div', { class: 'text-[13px] text-gray-600 flex justify-between' }, [
-                h('span', null, ['Kho hiện còn: ', h('span', { class: 'font-bold text-red-600' }, err.stock)]),
-                h('span', null, ['Bạn chọn: ', h('span', { class: 'font-bold text-gray-800' }, err.selected)]),
+                h('span', null, ['Kho còn: ', h('span', { class: 'font-bold text-red-600' }, err.stock)]),
+                h('span', null, ['Bạn chọn: ', h('span', { class: 'font-bold' }, err.selected)]),
               ]),
             ]),
           )),
@@ -571,12 +649,13 @@ async function handleCheckout() {
       processing.value = false
       return
     }
-    // ==========================================================
 
+    // Build payload
     const productPayload = cartItemsRef.value.map(item => ({
       productDetailId: item.productDetailId,
       quantity: item.quantity,
       price: item.percentage ? item.price * (1 - item.percentage / 100) : item.price,
+      giaGoc: item.price,
     }))
 
     const payload = {
@@ -596,26 +675,99 @@ async function handleCheckout() {
       cartId: cartId.value || null,
     }
 
+    // Tạo đơn hàng trước
     const res: any = await createOrder(payload)
-    if (res.status === 200 || res.status === 'OK' || res.data) {
+
+    if (!(res.status === 200 || res.status === 'OK' || res.data)) {
+      message.error('Tạo đơn hàng thất bại!')
+      return
+    }
+
+    const createdOrder = res.data?.data
+
+    // ===== XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN =====
+    if (paymentMethod.value === '2') {
+      // VNPAY → redirect sang trang thanh toán VNPAY
+      message.loading('Đang tạo liên kết thanh toán VNPAY...')
+
+      const vnpayRes = await createVNPayPayment({
+        orderId: createdOrder?.id || '',
+        code: createdOrder?.code || '',
+        totalAmountAfterDecrease: finalTotal.value,
+        tienHang: subTotal.value,
+        tienShip: shippingFee.value,
+        idPGG: selectedVoucher.value || null,
+        orderType: '250000',
+        language: 'vn',
+        customerName: checkoutForm.ten.trim(),
+        customerPhone: checkoutForm.sdt.trim(),
+        customerAddress: finalAddressStr.trim(),
+      })
+
+      if (vnpayRes.code === '00' && vnpayRes.paymentUrl) {
+        // Xóa giỏ hàng
+        if (cartItemBuyNow.value) {
+          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+        }
+        else {
+          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
+          await Promise.all(removeRequests)
+          localStorage.removeItem('SELECTED_CART_ITEMS')
+        }
+
+        // Lưu mã đơn để dùng sau khi return
+        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
+
+        // Redirect sang VNPAY
+        window.location.href = vnpayRes.paymentUrl
+      }
+      else {
+        message.error(vnpayRes.message || 'Tạo thanh toán VNPAY thất bại!')
+      }
+    }
+    else if (paymentMethod.value === '1') {
+      // ← THÊM CASE MOMO
+      message.loading('Đang tạo liên kết thanh toán MoMo...')
+
+      const momoRes = await createMomoPayment({
+        invoiceId: createdOrder?.id || '',
+        amount: finalTotal.value,
+      })
+
+      if (momoRes.code === '00' && momoRes.payUrl) {
+        // Xóa giỏ hàng
+        if (cartItemBuyNow.value) {
+          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+        }
+        else {
+          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
+          await Promise.all(removeRequests)
+          localStorage.removeItem('SELECTED_CART_ITEMS')
+        }
+
+        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
+        window.location.href = momoRes.payUrl // ← Redirect sang MoMo
+      }
+      else {
+        message.error(momoRes.message || 'Tạo thanh toán MoMo thất bại!')
+      }
+    }
+    else {
+      // COD, VietQR → bình thường
       message.success('Đặt hàng thành công!')
       router.push({
         name: 'OrderSuccess',
-        query: {
-          'ma-hoa-don': res.data?.data?.code || '',
-        },
+        query: { 'ma-hoa-don': createdOrder?.code || '' },
       })
-    }
 
-    // Dọn dẹp giỏ hàng sau khi đặt thành công
-    if (cartItemBuyNow.value) {
-      await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
-    }
-    else {
-      const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
-      await Promise.all(removeRequests)
-      // Clear localStorage selected items sau khi mua xong
-      localStorage.removeItem('SELECTED_CART_ITEMS')
+      if (cartItemBuyNow.value) {
+        await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+      }
+      else {
+        const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
+        await Promise.all(removeRequests)
+        localStorage.removeItem('SELECTED_CART_ITEMS')
+      }
     }
   }
   catch (error: any) {
@@ -625,8 +777,6 @@ async function handleCheckout() {
     processing.value = false
   }
 }
-
-const isFreeShipping = computed(() => deliveryType.value === 'GIAO_HANG' && subTotal.value >= 5000000)
 
 function formatCurrencyInput(value: number) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value)
@@ -664,9 +814,9 @@ function handleSelectVoucherInModal(voucherId: string) {
 
 <template>
   <NConfigProvider :theme-overrides="themeOverrides">
-    <div class="py-8 font-sans bg-gray-50 min-h-screen">
-      <div class="py-8 font-sans bg-gray-50 min-h-screen">
-        <div class="container mx-auto px-4 max-w-[1100px]">
+    <div class="py-8 font-sans m-0 bg-white min-h-screen">
+      <div class="py-8 font-sans m-0 bg-white min-h-screen">
+        <div class="container mx-auto px-4 lg:px-8 max-w-[1440px]">
           <h1 class="text-2xl font-bold mb-6 text-gray-800 border-l-4 border-green-600 pl-3">
             Thanh toán đơn hàng
           </h1>
@@ -678,7 +828,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   <div class="flex gap-4">
                     <div
                       class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
-                      :class="deliveryType === 'GIAO_HANG' ? 'border-green-600 bg-green-50 text-green-700 font-bold ring-1 ring-green-600' : 'hover:bg-gray-50 border-gray-200'"
+                      :class="deliveryType === 'GIAO_HANG' ? 'border-green-600 bg-green-50 text-green-700 font-bold ring-1 ring-green-600' : 'hover:bg-green-100 border-gray-200'"
                       @click="deliveryType = 'GIAO_HANG'"
                     >
                       <NIcon size="20">
@@ -687,7 +837,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                     </div>
                     <div
                       class="flex-1 p-3 border rounded-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
-                      :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-gray-50 border-gray-200'"
+                      :class="deliveryType === 'TAI_QUAY' ? 'border-blue-500 bg-blue-50 text-blue-700 font-bold ring-1 ring-blue-500' : 'hover:bg-blue-100 border-gray-200'"
                       @click="deliveryType = 'TAI_QUAY'"
                     >
                       <NIcon size="20">
@@ -721,8 +871,8 @@ function handleSelectVoucherInModal(voucherId: string) {
                         ĐỊA CHỈ NHẬN HÀNG
                       </div>
                       <NButton
-                        v-if="deliveryType === 'GIAO_HANG' && userInfo" type="primary" text size="small"
-                        @click="openAddressModal"
+                        v-if="deliveryType === 'GIAO_HANG' && userInfo" class="text-blue-600 hover:text-green"
+                        text size="small" @click="openAddressModal"
                       >
                         <template #icon>
                           <NIcon size="16">
@@ -804,7 +954,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   <NRadioGroup v-model:value="paymentMethod" name="payment" class="w-full">
                     <div class="space-y-3">
                       <div
-                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-green-50 transition-colors"
                         :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '0' }"
                         @click="paymentMethod = '0'"
                       >
@@ -819,7 +969,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                       </div>
 
                       <div
-                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-green-50 transition-colors"
                         :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '1' }"
                         @click="paymentMethod = '1'"
                       >
@@ -832,7 +982,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                       </div>
 
                       <div
-                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-green-50 transition-colors"
                         :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '2' }"
                         @click="paymentMethod = '2'"
                       >
@@ -845,7 +995,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                       </div>
 
                       <div
-                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-gray-50 transition-colors"
+                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-green-50 transition-colors"
                         :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '3' }"
                         @click="paymentMethod = '3'"
                       >
@@ -875,7 +1025,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   >
                     <div class="flex justify-between items-start mb-2">
                       <div class="font-semibold text-gray-800 leading-snug pr-4 text-[15px]">
-                        {{ item.name }} {{ item.cpu }} {{ item.ram }} {{ item.hardDrive }}
+                        {{ item.name }}
                       </div>
                       <button
                         class="w-6 h-6 flex items-center justify-center shrink-0 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
@@ -894,7 +1044,8 @@ function handleSelectVoucherInModal(voucherId: string) {
 
                       <div class="text-right flex flex-col items-end">
                         <div class="font-bold text-red-600 text-[16px]">
-                          {{ formatCurrency((item.percentage && item.percentage > 0 ? item.price * (1 - item.percentage / 100)
+                          {{ formatCurrency((item.percentage && item.percentage > 0 ? item.price * (1 - item.percentage
+                            / 100)
                             : item.price) * item.quantity) }}
                         </div>
                         <div v-if="(item.percentage ?? 0) > 0" class="text-[12px] text-gray-500 line-through mt-0.5">
@@ -924,22 +1075,46 @@ function handleSelectVoucherInModal(voucherId: string) {
                   <div class="flex justify-between">
                     <span>Tạm tính:</span><span class="font-medium text-gray-800">{{ formatCurrency(subTotal) }}</span>
                   </div>
-                  <div class="flex justify-between">
-                    <div><span>Phí vận chuyển:</span></div>
+                  <div class="flex justify-between items-center">
+                    <span>Phí vận chuyển:</span>
                     <div class="flex items-center gap-2">
-                      <span v-if="isFreeShipping" class="font-medium text-gray-800">
+                      <!-- Logo GHTK bên trái -->
+                      <img
+                        src="https://cdn.haitrieu.com/wp-content/uploads/2022/05/Logo-GHTK-H.png"
+                        alt="GHTK"
+                        style="height: 18px; width: auto; object-fit: contain; margin-right: 25px;"
+                      >
+
+                      <!-- Đang tính phí -->
+                      <NSpin v-if="isCalculatingShip" size="small" />
+
+                      <!-- Miễn phí ship -->
+                      <span v-else-if="isFreeShipping" class="font-medium text-green-600">
+                        Miễn phí
+                      </span>
+
+                      <!-- Hiển thị phí tính được -->
+                      <span v-else-if="shippingFee > 0" class="font-medium text-gray-800">
                         {{ formatCurrency(shippingFee) }}
                       </span>
+
+                      <!-- Chưa chọn địa chỉ - cho nhập tay -->
                       <NInputNumber
-                        v-else v-model:value="shippingFee" :min="0" :formatter="formatCurrencyInput"
-                        :parser="parseCurrency" :disabled="isFreeShipping" size="small" style="width: 100px"
-                        placeholder="Nhập phí ship" :show-button="false"
+                        v-else
+                        v-model:value="shippingFee"
+                        :min="0"
+                        :formatter="formatCurrencyInput"
+                        :parser="parseCurrency"
+                        size="small"
+                        style="width: 130px"
+                        placeholder="Nhập phí ship"
+                        :show-button="false"
                       />
-                      <NImage width="80" src="../../../../../images/ghn-logo.webp" />
                     </div>
                   </div>
+
                   <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
-                    Miễn phí vận chuyển (Đơn hàng trên 5.000.000đ)
+                    Miễn phí vận chuyển (Đơn hàng trên 20.000.000đ)
                   </NAlert>
                   <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
                     <span>Voucher giảm:</span><span>-{{ formatCurrency(discountAmount) }}</span>
@@ -980,10 +1155,14 @@ function handleSelectVoucherInModal(voucherId: string) {
           </NGrid>
         </div>
 
-        <NModal :show="isOpenModalSelectVouchers">
+        <NModal :show="isOpenModalSelectVouchers" @mask-click="handleCloseVoucherModal">
           <NCard
-            style="width: 850px; max-width: 95vw;" title="Chọn phiếu giảm giá" :bordered="false" size="huge"
-            role="dialog" aria-modal="true"
+            style="width: 850px; max-width: 95vw;"
+            title="Chọn phiếu giảm giá"
+            :bordered="false"
+            size="huge"
+            role="dialog"
+            aria-modal="true"
           >
             <template #header-extra>
               <NButton text @click="handleCloseVoucherModal">
@@ -996,55 +1175,74 @@ function handleSelectVoucherInModal(voucherId: string) {
             <div :style="{ maxHeight: '500px', overflowY: 'auto' }" class="custom-scrollbar pr-2 py-2">
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div
-                  v-for="voucher in availableVouchers" :key="voucher.voucherId"
-                  class="relative flex bg-white border rounded-md shadow-sm overflow-hidden cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
-                  :class="selectedVoucher === voucher.voucherId ? 'border-[#16a34a] ring-1 ring-[#16a34a] bg-[#f0fdf4]' : 'border-gray-200'"
+                  v-for="voucher in availableVouchers"
+                  :key="voucher.voucherId"
+                  class="voucher-ticket relative flex border rounded-md shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-0.5"
+                  :class="
+                    selectedVoucher === voucher.voucherId
+                      ? 'border-[#16a34a] ring-1 ring-[#16a34a] bg-[#f0fdf4] is-active'
+                      : 'border-gray-200 bg-white'
+                  "
                   @click="handleSelectVoucherInModal(voucher.voucherId)"
                 >
-                  <div class="flex-1 p-3 pl-4 relative bg-white flex flex-col justify-center">
+                  <div class="flex-1 p-3 pl-4 relative flex flex-col justify-center rounded-l-md">
                     <div
-                      class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md z-10 shadow-sm"
+                      v-if="selectedVoucher === voucher.voucherId"
+                      class="absolute bottom-2 right-2 text-[#16a34a] bg-white rounded-full flex items-center justify-center shadow-sm z-20"
+                    >
+                      <NIcon size="26">
+                        <CheckmarkCircleOutline />
+                      </NIcon>
+                    </div>
+
+                    <div
+                      class="absolute top-0 left-0 bg-[#16a34a] text-white text-[10px] font-bold px-2 py-0.5 rounded-br-md rounded-tl-md z-10 shadow-sm"
                     >
                       {{ voucher.code }}
                     </div>
 
                     <div class="mt-4">
-                      <h4 class="text-[#16a34a] font-bold text-[15px] truncate mb-1.5">
-                        {{ voucher.ten || (voucher.typeVoucher === 'PERCENTAGE' ? `Giảm giá ${voucher.discountValue}%`
-                          : `Giảm
-                        ${formatCurrency(voucher.discountValue)}`) }}
+                      <h4 class="text-[#16a34a] font-bold text-[15px] truncate mb-1.5 pr-8">
+                        {{
+                          voucher.ten
+                            || (voucher.typeVoucher === 'PERCENTAGE'
+                              ? `Giảm giá ${voucher.discountValue}%`
+                              : `Giảm ${formatCurrency(voucher.discountValue)}`)
+                        }}
                       </h4>
 
-                      <div class="text-[12px] text-black-500 leading-relaxed pr-2">
-                        <div>Đơn tối thiểu: {{ formatCurrency(voucher.dieuKien || 0) }}</div>
-                        <div v-if="voucher.typeVoucher === 'PERCENTAGE' && voucher.maxValue && voucher.maxValue > 0">
+                      <div class="text-[12px] text-gray-500 leading-relaxed pr-8">
+                        <div
+                          v-if="voucher.typeVoucher === 'PERCENTAGE' && voucher.maxValue && voucher.maxValue > 0"
+                          class="font-medium text-gray-700"
+                        >
                           Giảm tối đa: {{ formatCurrency(voucher.maxValue) }}
                         </div>
+                        <div>Đơn tối thiểu: {{ formatCurrency(voucher.dieuKien || 0) }}</div>
                       </div>
                     </div>
                   </div>
 
-                  <div
-                    class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2"
-                  >
+                  <div class="w-[135px] shrink-0 bg-[#00AA00] flex flex-col items-center justify-center text-white relative px-2 rounded-r-md">
                     <div
-                      class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white"
-                    />
-
-                    <div
-                      class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none"
+                      class="voucher-split absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white"
                     >
+                      <span class="cutout-top" />
+                      <span class="cutout-bottom" />
+                    </div>
+
+                    <div class="text-[17px] font-bold flex items-baseline justify-center flex-wrap text-center leading-none">
                       <template v-if="voucher.typeVoucher === 'PERCENTAGE'">
                         {{ voucher.discountValue }}<span class="text-sm ml-0.5">%</span>
                       </template>
                       <template v-else>
-                        {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}<span
-                          class="text-sm ml-0.5"
-                        >đ</span>
+                        {{ formatCurrency(voucher.discountValue).replace('₫', '').trim() }}
+                        <span class="text-sm ml-0.5">đ</span>
                       </template>
                     </div>
+
                     <div class="text-[10px] uppercase font-bold mt-1.5 tracking-wider opacity-90">
-                      {{ voucher.typeVoucher === 'PERCENTAGE' ? 'OFF' : 'VALUE' }}
+                      SALE OFF
                     </div>
                   </div>
                 </div>
@@ -1062,9 +1260,10 @@ function handleSelectVoucherInModal(voucherId: string) {
             </div>
           </NCard>
         </NModal>
+
         <NModal
-          v-model:show="showAddressModal" preset="card" title="Sổ Địa Chỉ Của Bạn" style="width: 650px"
-          size="huge"
+          v-model:show="showAddressModal" preset="card" title="Sổ Địa Chỉ Của Bạn" class="text-blue-600"
+          style="width: 650px" size="huge"
         >
           <NSpin :show="isFetchingAddresses">
             <div v-if="!showAddAddressForm">
@@ -1126,7 +1325,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                       </div>
 
                       <NButton
-                        v-if="selectedAddressId !== addr.id" type="primary" ghost size="small"
+                        v-if="selectedAddressId !== addr.id" class="text-blue-600" ghost size="small"
                         @click="selectAddressFromModal(addr)"
                       >
                         Giao đến địa chỉ này
@@ -1142,8 +1341,8 @@ function handleSelectVoucherInModal(voucherId: string) {
                       </div>
 
                       <NButton
-                        v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text type="primary"
-                        class="mt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        v-if="!(String(addr.status) === '1' || addr.isDefault)" size="tiny" text
+                        class="mt-1 opacity-0 group-hover:opacity-100 transition-opacity text-blue-600"
                         @click="handleSetDefault(addr.id)"
                       >
                         Thiết lập mặc định
@@ -1180,17 +1379,22 @@ function handleSelectVoucherInModal(voucherId: string) {
                 </NFormItem>
 
                 <div class=" text-white relative px-2">
-                  <div
-                    class="absolute left-0 top-0 bottom-0 w-[4px] -ml-[2px] border-l-[4px] border-dashed border-white"
-                  />
-
                   <div class="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
                     <NButton @click="showAddAddressForm = false">
                       Trở lại
                     </NButton>
-                    <NButton type="success" :loading="isSavingAddress" @click="saveNewAddress">
-                      Lưu địa chỉ
-                    </NButton>
+
+                    <NPopconfirm
+                      :positive-button-props="{ type: 'success' }" positive-text="Xác nhận"
+                      negative-text="Hủy" @positive-click="saveNewAddress"
+                    >
+                      <template #trigger>
+                        <NButton type="success" :loading="isSavingAddress">
+                          Lưu địa chỉ
+                        </NButton>
+                      </template>
+                      Bạn có chắc chắn muốn lưu thông tin địa chỉ này không?
+                    </NPopconfirm>
                   </div>
                 </div>
               </NForm>
@@ -1208,7 +1412,55 @@ function handleSelectVoucherInModal(voucherId: string) {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
   border-radius: 4px;
+}
+
+/* --- VẾT CẮT & ĐƯỜNG VIỀN UỐN LƯỢN --- */
+
+.cutout-top,
+.cutout-bottom {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 16px;
+  height: 16px;
+  background-color: #ffffff; /* Cập nhật lại màu này nếu Nền Modal của bạn có màu khác nhé */
+  border-radius: 50%;
+  z-index: 20;
+}
+
+.cutout-top::after,
+.cutout-bottom::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid #e5e7eb;
+}
+
+/* ========================================= */
+/* TRẠNG THÁI MẶC ĐỊNH (CHƯA CHỌN)           */
+/* ========================================= */
+
+.cutout-top { top: -9px; }
+.cutout-bottom { bottom: -9px; }
+
+.cutout-top::after {
+  clip-path: inset(50% 0 0 0);
+}
+.cutout-bottom::after {
+  clip-path: inset(0 0 50% 0);
+}
+
+/* ========================================= */
+/* TRẠNG THÁI KHI ĐƯỢC CHỌN (IS-ACTIVE)      */
+/* ========================================= */
+
+.is-active .cutout-top { top: -10px; }
+.is-active .cutout-bottom { bottom: -10px; }
+
+.is-active .cutout-top::after,
+.is-active .cutout-bottom::after {
+  border: 2px solid #16a34a;
 }
 </style>
