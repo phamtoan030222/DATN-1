@@ -355,7 +355,7 @@ function maskEmail(email: string) {
         <div class="order-success__total">
           <div class="total-row">
             <span>Tạm tính</span>
-            <span>{{ formatCurrency(invoiceData.totalAmount) }}</span>
+            <span>{{ formatCurrency(invoiceData.totalAmountAfterDecrease) }}</span>
           </div>
           <div class="total-row">
             <span>Phí vận chuyển</span>
@@ -365,7 +365,7 @@ function maskEmail(email: string) {
           </div>
           <div class="total-row final">
             <span>Tổng thanh toán</span>
-            <span class="final-price">{{ formatCurrency(invoiceData.totalAmountAfterDecrease) }}</span>
+            <span class="final-price">{{ formatCurrency(invoiceData.totalAmount) }}</span>
           </div>
         </div>
 
