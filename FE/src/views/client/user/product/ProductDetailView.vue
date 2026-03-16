@@ -743,47 +743,33 @@ onUnmounted(() => {
               </div>
 
               <div class="flex gap-4 h-12">
-                <NPopconfirm
-                  :positive-button-props="{ type: 'success' }" :disabled="isOutOfStock"
-                  positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleBuyNow"
+                <NButton
+                  v-if="!isOutOfStock" type="primary"
+                  class="flex-1 h-full text-lg font-bold shadow-lg shadow-green-200 hover:-translate-y-0.5 transition-transform"
+                  color="#059669" :loading="loadingCart"
+                  @click="handleBuyNow"
                 >
-                  <template #trigger>
-                    <NButton
-                      v-if="!isOutOfStock" type="primary"
-                      class="flex-1 h-full text-lg font-bold shadow-lg shadow-green-200 hover:-translate-y-0.5 transition-transform"
-                      color="#059669" :loading="loadingCart"
-                    >
-                      MUA NGAY
-                    </NButton>
-                    <NButton
-                      v-else disabled
-                      class="flex-1 h-full text-lg font-bold bg-gray-300 text-gray-500 cursor-not-allowed"
-                    >
-                      <template #icon>
-                        <NIcon><AlertCircleOutline /></NIcon>
-                      </template> HẾT HÀNG
-                    </NButton>
-                  </template>
-                  Bạn chắc chắn muốn thao tác
-                </NPopconfirm>
+                  MUA NGAY
+                </NButton>
+                <NButton
+                  v-else disabled
+                  class="flex-1 h-full text-lg font-bold bg-gray-300 text-gray-500 cursor-not-allowed"
+                >
+                  <template #icon>
+                    <NIcon><AlertCircleOutline /></NIcon>
+                  </template> HẾT HÀNG
+                </NButton>
 
-                <NPopconfirm
-                  :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
-                  @positive-click="handleAddToCart"
+                <NButton
+                  strong secondary type="info"
+                  class="flex-1 h-full text-lg font-bold hover:-translate-y-0.5 transition-transform"
+                  :disabled="isOutOfStock" :loading="loadingCart"
+                  @click="handleAddToCart"
                 >
-                  <template #trigger>
-                    <NButton
-                      strong secondary type="info"
-                      class="flex-1 h-full text-lg font-bold hover:-translate-y-0.5 transition-transform"
-                      :disabled="isOutOfStock" :loading="loadingCart"
-                    >
-                      <template #icon>
-                        <NIcon><CartOutline /></NIcon>
-                      </template> Thêm giỏ
-                    </NButton>
-                  </template>
-                  Bạn chắc chắn muốn thao tác
-                </NPopconfirm>
+                  <template #icon>
+                    <NIcon><CartOutline /></NIcon>
+                  </template> Thêm giỏ
+                </NButton>
               </div>
               <div v-if="isOutOfStock" class="text-red-500 text-sm mt-2 text-center italic">
                 Sản phẩm hiện tại chưa có sẵn trong kho.

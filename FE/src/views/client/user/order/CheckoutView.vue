@@ -82,6 +82,10 @@ const router = useRouter()
 const message = useMessage()
 const processing = ref(false)
 
+// Modal xác nhận thanh toán
+const showConfirmPaymentModal = ref(false)
+const confirmProcessing = ref(false)
+
 const { cartId, cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
 const { removeCart } = useCartStore()
 
@@ -440,6 +444,14 @@ const isCalculatingShip = ref(false)
 const isFreeShipping = computed(() =>
   deliveryType.value === 'GIAO_HANG' && subTotal.value >= 20000000,
 )
+
+// Khi chọn nhận tại cửa hàng thì phí ship = 0
+watch(deliveryType, (newVal) => {
+  if (newVal === 'TAI_QUAY') {
+    shippingFee.value = 0
+  }
+})
+
 const finalTotal = computed(() => {
   const total = subTotal.value + shippingFee.value - discountAmount.value
   return total > 0 ? total : 0
@@ -464,7 +476,7 @@ async function loadVouchers() {
 }
 
 async function calculateShippingFee() {
-  // Không giao hàng hoặc miễn phí ship
+  // Không giao hàng thì không tính phí
   if (deliveryType.value !== 'GIAO_HANG') {
     shippingFee.value = 0
     return
@@ -573,38 +585,65 @@ watch(isFreeShipping, (val) => {
     shippingFee.value = 0
 })
 
-async function handleCheckout() {
-  try {
-    await checkoutFormRef.value?.validate()
-  }
-  catch (errors) {
-    message.error('Vui lòng kiểm tra lại thông tin nhận hàng')
-    return
-  }
+// Mở modal xác nhận thanh toán
+function openConfirmPaymentModal() {
+  // Validate form trước khi mở modal
+  checkoutFormRef.value?.validate((errors) => {
+    if (errors) {
+      message.error('Vui lòng kiểm tra lại thông tin nhận hàng')
+      return
+    }
 
-  let finalAddressStr = STORE_ADDRESS
-
-  if (deliveryType.value === 'GIAO_HANG') {
-    if (userInfo.value) {
-      const selected = myAddresses.value.find(a => a.id === selectedAddressId.value)
-      if (!selected) {
-        message.warning('Vui lòng thêm và chọn địa chỉ giao hàng trong sổ địa chỉ')
-        openAddressModal()
-        return
+    // Kiểm tra địa chỉ nếu chọn giao hàng
+    if (deliveryType.value === 'GIAO_HANG') {
+      if (userInfo.value) {
+        const selected = myAddresses.value.find(a => a.id === selectedAddressId.value)
+        if (!selected) {
+          message.warning('Vui lòng thêm và chọn địa chỉ giao hàng trong sổ địa chỉ')
+          openAddressModal()
+          return
+        }
       }
-      finalAddressStr = formatFullAddress(selected)
+      else {
+        if (!checkoutForm.provinceName || !checkoutForm.wardName || !checkoutForm.addressDetail) {
+          message.error('Vui lòng nhập đầy đủ địa chỉ giao hàng')
+          return
+        }
+      }
     }
-    else {
-      finalAddressStr = guestFullAddress.value
-    }
-  }
 
-  processing.value = true
+    // Mở modal xác nhận
+    showConfirmPaymentModal.value = true
+  })
+}
+
+// Xử lý đặt hàng sau khi xác nhận
+async function handleConfirmCheckout() {
+  confirmProcessing.value = true
+
   try {
+    let finalAddressStr = STORE_ADDRESS
+
+    if (deliveryType.value === 'GIAO_HANG') {
+      if (userInfo.value) {
+        const selected = myAddresses.value.find(a => a.id === selectedAddressId.value)
+        if (!selected) {
+          message.warning('Vui lòng thêm và chọn địa chỉ giao hàng trong sổ địa chỉ')
+          openAddressModal()
+          return
+        }
+        finalAddressStr = formatFullAddress(selected)
+      }
+      else {
+        finalAddressStr = guestFullAddress.value
+      }
+    }
+
     const MAX_TOTAL_AMOUNT = 500000000
     if (finalTotal.value > MAX_TOTAL_AMOUNT) {
       message.error(`Tổng thanh toán vượt quá ${formatCurrency(MAX_TOTAL_AMOUNT)}!`)
-      processing.value = false
+      confirmProcessing.value = false
+      showConfirmPaymentModal.value = false
       return
     }
 
@@ -646,7 +685,8 @@ async function handleCheckout() {
         ]),
         { duration: 4000 },
       )
-      processing.value = false
+      confirmProcessing.value = false
+      showConfirmPaymentModal.value = false
       return
     }
 
@@ -726,7 +766,7 @@ async function handleCheckout() {
       }
     }
     else if (paymentMethod.value === '1') {
-      // ← THÊM CASE MOMO
+      // MoMo
       message.loading('Đang tạo liên kết thanh toán MoMo...')
 
       const momoRes = await createMomoPayment({
@@ -746,7 +786,7 @@ async function handleCheckout() {
         }
 
         localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
-        window.location.href = momoRes.payUrl // ← Redirect sang MoMo
+        window.location.href = momoRes.payUrl
       }
       else {
         message.error(momoRes.message || 'Tạo thanh toán MoMo thất bại!')
@@ -774,7 +814,8 @@ async function handleCheckout() {
     message.error(error.response?.data?.message || 'Có lỗi xảy ra trong quá trình đặt hàng')
   }
   finally {
-    processing.value = false
+    confirmProcessing.value = false
+    showConfirmPaymentModal.value = false
   }
 }
 
@@ -1075,7 +1116,9 @@ function handleSelectVoucherInModal(voucherId: string) {
                   <div class="flex justify-between">
                     <span>Tạm tính:</span><span class="font-medium text-gray-800">{{ formatCurrency(subTotal) }}</span>
                   </div>
-                  <div class="flex justify-between items-center">
+
+                  <!-- Chỉ hiển thị phí vận chuyển khi chọn hình thức GIAO_HANG -->
+                  <div v-if="deliveryType === 'GIAO_HANG'" class="flex justify-between items-center">
                     <span>Phí vận chuyển:</span>
                     <div class="flex items-center gap-2">
                       <!-- Logo GHTK bên trái -->
@@ -1135,25 +1178,69 @@ function handleSelectVoucherInModal(voucherId: string) {
                   </div>
                 </div>
 
-                <NPopconfirm
-                  :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
-                  @positive-click="handleCheckout"
+                <NButton
+                  block type="success" size="large"
+                  class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
+                  :loading="processing" :disabled="cartItemsRef.length === 0 || processing"
+                  @click="openConfirmPaymentModal"
                 >
-                  <template #trigger>
-                    <NButton
-                      block type="success" size="large"
-                      class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
-                      :loading="processing" :disabled="cartItemsRef.length === 0 || processing"
-                    >
-                      Đặt hàng ngay
-                    </NButton>
-                  </template>
-                  Bạn chắc chắn muốn thao tác
-                </NPopconfirm>
+                  Đặt hàng ngay
+                </NButton>
               </div>
             </NGi>
           </NGrid>
         </div>
+
+        <!-- Modal xác nhận thanh toán -->
+        <NModal v-model:show="showConfirmPaymentModal" preset="card" style="width: 450px" title="Xác nhận thanh toán" :bordered="false" size="huge">
+          <div class="space-y-4">
+            <div class="bg-green-50 p-4 rounded-lg">
+              <div class="flex justify-between items-center mb-2">
+                <span class="text-gray-600">Tạm tính:</span>
+                <span class="font-medium">{{ formatCurrency(subTotal) }}</span>
+              </div>
+              <div v-if="deliveryType === 'GIAO_HANG'" class="flex justify-between items-center mb-2">
+                <span class="text-gray-600">Phí vận chuyển:</span>
+                <span class="font-medium">{{ formatCurrency(shippingFee) }}</span>
+              </div>
+              <div v-if="discountAmount > 0" class="flex justify-between items-center mb-2 text-green-600">
+                <span>Giảm giá:</span>
+                <span>-{{ formatCurrency(discountAmount) }}</span>
+              </div>
+              <NDivider />
+              <div class="flex justify-between items-center text-lg font-bold">
+                <span>Tổng thanh toán:</span>
+                <span class="text-red-600">{{ formatCurrency(finalTotal) }}</span>
+              </div>
+            </div>
+
+            <div class="text-sm text-gray-500">
+              <p>
+                Phương thức thanh toán:
+                <span class="font-medium text-gray-700">
+                  {{ paymentMethod === '0' ? 'Thanh toán khi nhận hàng (COD)'
+                    : paymentMethod === '1' ? 'Momo'
+                      : paymentMethod === '2' ? 'VNPAY' : 'VietQR' }}
+                </span>
+              </p>
+              <p class="mt-1">
+                Hình thức nhận hàng:
+                <span class="font-medium text-gray-700">
+                  {{ deliveryType === 'GIAO_HANG' ? 'Giao tận nơi' : 'Nhận tại cửa hàng' }}
+                </span>
+              </p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-3">
+              <NButton @click="showConfirmPaymentModal = false">
+                Hủy
+              </NButton>
+              <NButton type="success" :loading="confirmProcessing" @click="handleConfirmCheckout">
+                Xác nhận thanh toán
+              </NButton>
+            </div>
+          </div>
+        </NModal>
 
         <NModal :show="isOpenModalSelectVouchers" @mask-click="handleCloseVoucherModal">
           <NCard
