@@ -430,7 +430,7 @@ public class VnPayService {
 
             if (hoaDon.getTypeInvoice() == TypeInvoice.GIAO_HANG) {
                 xuLyHoaDonGiaoHangVNPay(hoaDon, maGiaoDich, bankCode, finalAmount);
-            } else if (hoaDon.getTypeInvoice() == TypeInvoice.ONLINE) {
+            } else if (hoaDon.getTypeInvoice() == TypeInvoice.ONLINE || hoaDon.getTypeInvoice() == TypeInvoice.ONLINE_TAI_QUAY) {
                 xuLyHoaDonOnlineVNPay(hoaDon, maGiaoDich, bankCode, finalAmount);
             } else {
                 xuLyHoaDonTaiQuayVNPay(hoaDon, maGiaoDich, bankCode, finalAmount);

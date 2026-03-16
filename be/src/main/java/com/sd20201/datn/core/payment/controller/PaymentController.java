@@ -83,7 +83,7 @@ public class PaymentController {
                     ".success{color:#28a745;}.info{margin:20px 0;}" +
                     "</style></head>" +
                     "<body>" +
-                    "<h1 class='success'>✅ Thanh toán thành công!</h1>" +
+                    "<h1 class='success'> Thanh toán thành công!</h1>" +
                     "<div class='info'>" +
                     "<p>Mã hóa đơn: <strong>" + response.getOrderId() + "</strong></p>" +
                     "<p>Mã giao dịch: <strong>" + response.getTransactionId() + "</strong></p>" +

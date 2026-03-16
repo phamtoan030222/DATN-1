@@ -2,6 +2,7 @@ package com.sd20201.datn.core.admin.hoadon.model.response;
 
 
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import com.sd20201.datn.infrastructure.constant.TypeInvoice;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,4 +22,6 @@ public class ADHoaDonResponse {
     private TypeInvoice loaiHoaDon;
     private Long createdDate;
     private EntityTrangThaiHoaDon status;
+    private Boolean daHoanPhi;
+    private TrangThaiThanhToan trangThaiThanhToan;
 }

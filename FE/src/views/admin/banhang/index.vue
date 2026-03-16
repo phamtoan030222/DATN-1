@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
 import { getAddressesByCustomer } from '@/service/api/admin/users/customer/address'
+import axios from 'axios'
 import type { Address } from '@/service/api/admin/users/customer/address'
 import type {
   GoiYVoucherResponse,
@@ -33,6 +34,7 @@ import {
   themMoiKhachHang,
   themSanPham,
   themSL,
+  thongBaoThanhToanApp,
   xoaSL,
   xoaSP,
   yeuCauQRApp,
@@ -542,8 +544,18 @@ async function showVNPayPayment() {
 
 async function handlePaymentSuccess(result: any) {
   toast.success('Thanh toán VNPAY thành công!')
-  vnpayVisible.value = false
-  await resetAfterPayment()
+  vnpayVisible.value = false  
+  try {
+    // ✅ Gọi API thông qua hàm chuẩn đã có cấu hình Token
+    await thongBaoThanhToanApp(idHDS.value)
+  }
+  catch (e) {
+    console.error('Lỗi không gửi được tín hiệu sang App:', e)
+  }
+
+  // Cuối cùng dọn dẹp Web
+  await resetAfterPayment() 
+
 }
 
 function handlePaymentCompleted() {
@@ -1275,6 +1287,13 @@ function openProductSelectionModal() {
 // ==================== PAYMENT FUNCTIONS ====================
 function setPaymentMethod(method: string) {
   state.currentPaymentMethod = method
+
+  // Tự động bắn tín hiệu mở QR sang App khi chọn phương thức VNPAY, Chuyển khoản (1) hoặc Kết hợp (2)
+  if (method === '1' || method === 'VNPAY' || method === '2') {
+    triggerShowQR()
+  }
+
+  // (Tuỳ chọn) Vẫn giữ popup thanh toán trên Web nếu bạn muốn thu ngân cũng nhìn thấy
   if (method === 'VNPAY') {
     showVNPayPayment()
   }
@@ -1869,8 +1888,8 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
                 <NIcon><BarcodeOutline /></NIcon>
               </template>
 
-              Quét Barcode
-            </NButton>
+              Quét BARCODE
+           </NButton>
           </NSpace>
         </template>
 
@@ -2251,16 +2270,6 @@ const serialColumns: DataTableColumns<ADPDImeiResponse> = [
                 Thanh toán VNPAY
               </NButton>
             </NSpace>
-
-            <NButton
-              v-if="state.currentPaymentMethod === '1' || state.currentPaymentMethod === '2'"
-              type="info"
-              dashed
-              style="width: 100%; margin-top: 8px;"
-              @click="triggerShowQR"
-            >
-              Mở mã QR trên màn hình App
-            </NButton>
           </NSpace>
 
           <NPopconfirm positive-text="Đồng ý" negative-text="Hủy" @positive-click="xacNhan(0)">

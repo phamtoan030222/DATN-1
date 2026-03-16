@@ -35,7 +35,9 @@ public class ADHoaDonRepositoryCustomImpl
                         hd.totalAmount,
                         hd.typeInvoice,
                         hd.createdDate,
-                        hd.entityTrangThaiHoaDon
+                        hd.entityTrangThaiHoaDon,
+                        hd.daHoanPhi,
+                        hd.trangThaiThanhToan
                     )
                     FROM Invoice hd
                     LEFT JOIN hd.customer kh
