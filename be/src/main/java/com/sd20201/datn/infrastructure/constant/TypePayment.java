@@ -4,8 +4,8 @@ public enum TypePayment {
     TIEN_MAT("Tiền mặt"),
     VNPAY("VNPay"),
     CHUYEN_KHOAN("Chuyển khoản"),
-    THE_TIN_DUNG("Thẻ tín dụng/Thẻ ghi nợ"),
-    VI_DIEN_TU("Ví điện tử"),
+    MOMO("Momo"),
+    ZALOPAY("Zalo Pay"),
     TIEN_MAT_CHUYEN_KHOAN("Tiền mặt + Chuyển khoản");
 
 

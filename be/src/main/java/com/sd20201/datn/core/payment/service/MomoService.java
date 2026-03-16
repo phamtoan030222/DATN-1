@@ -201,7 +201,7 @@ public class MomoService {
 
         invoice.setEntityTrangThaiHoaDon(trangThai);
         invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
-        invoice.setTypePayment(TypePayment.VI_DIEN_TU);
+        invoice.setTypePayment(TypePayment.MOMO);
         invoice.setTransactionId(transId);
         invoice.setPaymentDate(System.currentTimeMillis());
 

@@ -3,8 +3,10 @@ package com.sd20201.datn.core.payment.controller;
 import com.sd20201.datn.core.payment.dto.IpnResponse;
 import com.sd20201.datn.core.payment.dto.PaymentRequest;
 import com.sd20201.datn.core.payment.dto.PaymentResponse;
+import com.sd20201.datn.core.payment.dto.ZaloPayRequest;
 import com.sd20201.datn.core.payment.service.MomoService;
 import com.sd20201.datn.core.payment.service.VnPayService;
+import com.sd20201.datn.core.payment.service.ZaloPayService;
 import com.sd20201.datn.entity.Invoice;
 import com.sd20201.datn.repository.InvoiceRepository; // Nhớ import cái này
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,10 +29,10 @@ public class PaymentController {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
-    // Bỏ @Autowired đi và thêm chữ 'final' cho đúng chuẩn Lombok @RequiredArgsConstructor
     private final VnPayService vnPayService;
 
-    // BỔ SUNG: Khai báo InvoiceRepository để dùng cho hàm check-status
+    private final ZaloPayService zaloPayService;
+
     private final InvoiceRepository invoiceRepository;
 
     private final MomoService momoService;
@@ -221,5 +223,56 @@ public class PaymentController {
         logger.info("=== MOMO IPN: {}", params);
         Map<String, Object> result = momoService.processReturn(params);
         return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/create-zalopay")
+    public ResponseEntity<?> createZaloPayPayment(@RequestBody ZaloPayRequest request) {
+        try {
+            String description = request.getDescription() != null
+                    ? request.getDescription()
+                    : "Thanh toan don hang My Laptop - " + request.getInvoiceId();
+
+            Map<String, Object> result = zaloPayService.createPayment(
+                    request.getInvoiceId(),
+                    request.getAmount(),
+                    description);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("code",    "99");
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
+        }
+    }
+
+    @PostMapping("/zalopay-callback")
+    public ResponseEntity<?> zaloPayCallback(@RequestBody Map<String, Object> params) {
+        logger.info("=== ZALOPAY CALLBACK ===");
+        Map<String, Object> result = zaloPayService.processCallback(params);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/zalopay-return-client")
+    public String zaloPayReturnClient(
+            @RequestParam(required = false) String invoiceId,
+            @RequestParam(required = false) String status) {
+
+        String clientUrl = "http://localhost:6788";
+        Map<String, Object> result = zaloPayService.processReturn(invoiceId, status);
+
+        if ("00".equals(result.get("code"))) {
+            String orderCode = (String) result.getOrDefault("orderCode", "");
+            return "<html><head><meta charset='UTF-8'>" +
+                    "<script>window.location.href = '" + clientUrl +
+                    "/order-success?payment=success&ma-hoa-don=" + orderCode + "';" +
+                    "</script></head><body>Đang chuyển hướng...</body></html>";
+        } else {
+            // ← FAILED hoặc bất kỳ lỗi nào → redirect về checkout
+            return "<html><head><meta charset='UTF-8'>" +
+                    "<script>window.location.href = '" + clientUrl +
+                    "/order-success?payment=failed';" +
+                    "</script></head><body>Đang chuyển hướng...</body></html>";
+        }
     }
 }

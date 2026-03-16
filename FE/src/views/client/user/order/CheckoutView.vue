@@ -40,7 +40,7 @@ import { storeToRefs } from 'pinia'
 
 // Import Store & API
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { createMomoPayment, createOrder, createVNPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
+import { createMomoPayment, createOrder, createVNPayPayment, createZaloPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
 
 import {
   createAddress,
@@ -752,6 +752,33 @@ async function handleCheckout() {
         message.error(momoRes.message || 'Tạo thanh toán MoMo thất bại!')
       }
     }
+
+    else if (paymentMethod.value === '4') {
+      // ZALOPAY → redirect
+      message.loading('Đang tạo liên kết thanh toán ZaloPay...')
+
+      const zaloRes = await createZaloPayPayment({
+        invoiceId: createdOrder?.id || '',
+        amount: finalTotal.value,
+      })
+
+      if (zaloRes.code === '00' && zaloRes.payUrl) {
+        if (cartItemBuyNow.value) {
+          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+        }
+        else {
+          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
+          await Promise.all(removeRequests)
+          localStorage.removeItem('SELECTED_CART_ITEMS')
+        }
+
+        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
+        window.location.href = zaloRes.payUrl // ← Redirect sang ZaloPay
+      }
+      else {
+        message.error(zaloRes.message || 'Tạo thanh toán ZaloPay thất bại!')
+      }
+    }
     else {
       // COD, VietQR → bình thường
       message.success('Đặt hàng thành công!')
@@ -1003,6 +1030,23 @@ function handleSelectVoucherInModal(voucherId: string) {
                           <div class="flex items-center gap-3 font-medium text-gray-800">
                             <NImage width="40" src="../../../../../images/vietqr.png" />
                             VietQR
+                          </div>
+                        </NRadio>
+                      </div>
+
+                      <!-- Thêm sau div VietQR value="3" -->
+                      <div
+                        class="border border-gray-200 rounded-lg p-4 cursor-pointer hover:bg-green-50 transition-colors"
+                        :class="{ 'ring-1 ring-green-500 border-green-500 bg-green-50/30': paymentMethod === '4' }"
+                        @click="paymentMethod = '4'"
+                      >
+                        <NRadio value="4" class="w-full">
+                          <div class="flex items-center gap-3 font-medium text-gray-800">
+                            <img
+                              src="https://zalopay.vn/images/zalopay-icon.png"
+                              style="width: 25px; height: 25px; object-fit: contain;"
+                              alt="ZaloPay"
+                            >
                           </div>
                         </NRadio>
                       </div>

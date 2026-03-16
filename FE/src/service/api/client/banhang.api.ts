@@ -581,3 +581,27 @@ export async function createMomoPayment(
   })
   return res.data
 }
+
+export interface ZaloPayCreateRequest {
+  invoiceId: string
+  amount: number
+}
+
+export interface ZaloPayCreateResponse {
+  code: string
+  payUrl?: string
+  transId?: string
+  message?: string
+}
+
+export async function createZaloPayPayment(
+  data: ZaloPayCreateRequest,
+): Promise<ZaloPayCreateResponse> {
+  const res = await request({
+    url: '/api/payment/create-zalopay',
+    method: 'POST',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
