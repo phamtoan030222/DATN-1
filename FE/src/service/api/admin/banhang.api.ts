@@ -490,10 +490,20 @@ export async function boChonKhachHang(idHoaDon: string) {
   return res.data
 }
 
-// api của tâm
-export async function yeuCauQRApp(idHD: string) {
+//api của tâm
+export async function yeuCauQRApp(idHD: string, qrUrl: string = '') {
   const res = (await request({
     url: `${PREFIX_API_BAN_HANG_ADMIN}/yeu-cau-qr/${idHD}`,
+    method: 'POST',
+    params: { qrUrl }
+  })) as AxiosResponse<any>
+  return res.data
+}
+
+// tâm ũng thêm
+export async function huyYeuCauQRApp(idHD: string) {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/huy-yeu-cau-qr/${idHD}`,
     method: 'POST',
   })) as AxiosResponse<any>
   return res.data
@@ -526,6 +536,15 @@ export async function doiImei(data: DoiImeiRequest) {
   return res.data
 }
 
+
+export async function thongBaoThanhToanApp(idHD: string) {
+  const res = (await request({
+    url: `${PREFIX_API_BAN_HANG_ADMIN}/payment-success-notify/${idHD}`,
+    method: 'POST',
+  })) as AxiosResponse<any>
+  return res.data
+}
+
 export interface ShippingFeeRequest {
   provinceName: string
   wardName: string
@@ -543,3 +562,4 @@ export async function getShippingFee(data: ShippingFeeRequest) {
   })
   return res.data
 }
+
