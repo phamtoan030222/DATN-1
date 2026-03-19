@@ -107,7 +107,7 @@ public class ZaloPayService {
 
             if (zaloRes.getReturnCode() == 1) {
                 invoiceRepository.findById(invoiceId).ifPresent(invoice -> {
-                    invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN_VNPAY);
+                    invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN);
                     invoiceRepository.save(invoice);
                 });
 
@@ -199,42 +199,64 @@ public class ZaloPayService {
     }
 
     // ==================== XỬ LÝ RETURN ====================
+    @Transactional
     public Map<String, Object> processReturn(String invoiceId, String status) {
-        // Nếu không có invoiceId → user hủy
         if (invoiceId == null || invoiceId.isBlank()) {
-            Map<String, Object> fail = new HashMap<>();
-            fail.put("code",    "FAILED");
-            fail.put("message", "Thanh toán bị hủy");
-            return fail;
+            return Map.of("code", "CANCELLED", "message", "Thanh toán bị hủy");
         }
 
         try {
             Invoice invoice = invoiceRepository.findById(invoiceId).orElse(null);
             if (invoice == null) {
-                Map<String, Object> fail = new HashMap<>();
-                fail.put("code",    "FAILED");
-                fail.put("message", "Không tìm thấy hóa đơn");
-                return fail;
+                return Map.of("code", "FAILED", "message", "Không tìm thấy hóa đơn");
             }
 
-            if (invoice.getTrangThaiThanhToan() == TrangThaiThanhToan.DA_THANH_TOAN) {
-                Map<String, Object> success = new HashMap<>();
-                success.put("code",      "00");
-                success.put("orderCode", invoice.getCode());
-                return success;
+            if ("1".equals(status)) {
+                // Chống trùng
+                if (invoice.getTrangThaiThanhToan() == TrangThaiThanhToan.DA_THANH_TOAN) {
+                    return Map.of("code", "00", "orderCode", invoice.getCode());
+                }
+
+                // Cập nhật LUU_TAM → CHO_XAC_NHAN
+                String transId = "ZALOPAY_" + System.currentTimeMillis();
+                invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+                invoice.setTypePayment(TypePayment.ZALOPAY);
+                invoice.setTransactionId(transId);
+                invoice.setPaymentDate(System.currentTimeMillis());
+                Invoice saved = adTaoHoaDonRepository.save(invoice);
+
+                LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
+                history.setHoaDon(saved);
+                history.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+                history.setNote("Thanh toán ZaloPay thành công - chờ xác nhận");
+                history.setThoiGian(LocalDateTime.now());
+                lichSuTrangThaiHoaDonRepository.save(history);
+
+                LichSuThanhToan lichSu = new LichSuThanhToan();
+                lichSu.setHoaDon(saved);
+                BigDecimal soTien = saved.getTotalAmount() != null
+                        ? saved.getTotalAmount()
+                        : saved.getTotalAmountAfterDecrease();
+                lichSu.setSoTien(soTien != null ? soTien : BigDecimal.ZERO);
+                lichSu.setLoaiGiaoDich("ZALOPAY");
+                lichSu.setMaGiaoDich(transId);
+                lichSu.setThoiGian(LocalDateTime.now());
+                lichSu.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+                lichSu.setGhiChu("ZaloPay return thành công");
+                lichSuThanhToanRepository.save(lichSu);
+
+                return Map.of("code", "00", "orderCode", saved.getCode());
+            } else {
+                // Hủy → giữ LUU_TAM
+                logger.info("ZaloPay return hủy - invoiceId: {}", invoiceId);
+                return Map.of("code", "CANCELLED",
+                        "message", "Thanh toán bị hủy",
+                        "invoiceId", invoiceId);
             }
-
-            // Chưa thanh toán = user hủy
-            Map<String, Object> fail = new HashMap<>();
-            fail.put("code",    "FAILED");
-            fail.put("message", "Thanh toán bị hủy hoặc chưa hoàn thành");
-            return fail;
-
         } catch (Exception e) {
-            Map<String, Object> fail = new HashMap<>();
-            fail.put("code",    "FAILED");
-            fail.put("message", e.getMessage());
-            return fail;
+            logger.error("Lỗi ZaloPay processReturn: ", e);
+            return Map.of("code", "FAILED", "message", e.getMessage());
         }
     }
 

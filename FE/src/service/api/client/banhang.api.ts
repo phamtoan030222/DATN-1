@@ -545,10 +545,7 @@ export async function createVNPayPayment(
   const res = await request({
     url: '/api/payment/create-vnpay',
     method: 'POST',
-    data: {
-      ...data,
-      returnUrl: 'http://localhost:2345/api/payment/vnpay-return-client',
-    },
+    data,
     headers: { 'Content-Type': 'application/json' },
   })
   return res.data
@@ -573,10 +570,7 @@ export async function createMomoPayment(
   const res = await request({
     url: '/api/payment/create-momo',
     method: 'POST',
-    data: {
-      ...data,
-      returnUrl: 'http://localhost:2345/api/payment/momo-return-client',
-    },
+    data,
     headers: { 'Content-Type': 'application/json' },
   })
   return res.data

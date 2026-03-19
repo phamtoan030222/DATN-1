@@ -35,7 +35,7 @@ import {
   useMessage,
 } from 'naive-ui'
 import { computed, h, onMounted, reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
 // Import Store & API
@@ -79,8 +79,12 @@ const themeOverrides = {
 }
 
 const router = useRouter()
+const route = useRoute()
 const message = useMessage()
 const processing = ref(false)
+const paymentCancelled = ref(false)
+const pendingInvoiceId = ref<string | null>(null)
+const pendingInvoiceCode = ref<string | null>(null)
 
 const { cartId, cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
 const { removeCart } = useCartStore()
@@ -429,6 +433,17 @@ onMounted(async () => {
     await fetchMyAddresses()
   }
   loadVouchers()
+
+  if (route.query.payment === 'cancelled') {
+    paymentCancelled.value = true
+    const cancelledId = route.query.invoiceId as string
+    const cancelledCode = route.query.invoiceCode as string
+    if (cancelledId) {
+      pendingInvoiceId.value = cancelledId
+      pendingInvoiceCode.value = cancelledCode || ''
+    }
+    router.replace({ path: '/checkout' })
+  }
 })
 
 watch(userInfo, () => hydrateCustomerInfoFromProfile())
@@ -574,14 +589,16 @@ watch(isFreeShipping, (val) => {
 })
 
 async function handleCheckout() {
+  // 1. Validate form
   try {
     await checkoutFormRef.value?.validate()
   }
-  catch (errors) {
+  catch {
     message.error('Vui lòng kiểm tra lại thông tin nhận hàng')
     return
   }
 
+  // 2. Xác định địa chỉ giao hàng
   let finalAddressStr = STORE_ADDRESS
 
   if (deliveryType.value === 'GIAO_HANG') {
@@ -600,31 +617,32 @@ async function handleCheckout() {
   }
 
   processing.value = true
+
   try {
+    // 3. Kiểm tra giới hạn tổng tiền
     const MAX_TOTAL_AMOUNT = 500000000
     if (finalTotal.value > MAX_TOTAL_AMOUNT) {
       message.error(`Tổng thanh toán vượt quá ${formatCurrency(MAX_TOTAL_AMOUNT)}!`)
-      processing.value = false
       return
     }
 
-    // Kiểm tra tồn kho
+    // 4. Kiểm tra tồn kho
     const productIds = cartItemsRef.value.map(item => item.productDetailId)
     const stockRes = await getQuantityProdudtDetail(productIds)
     const stockData = stockRes.data || []
     const outOfStockErrors: { name: string, stock: number, selected: number }[] = []
 
     for (const cartItem of cartItemsRef.value) {
-      const currentStockItem = stockData.find((s: any) =>
+      const stockItem = stockData.find((s: any) =>
         String(s.id) === String(cartItem.productDetailId)
         || String(s.productDetailId) === String(cartItem.productDetailId)
         || String(s.idProductDetail) === String(cartItem.productDetailId),
       )
-      const availableStock = currentStockItem ? (currentStockItem.quantity || 0) : 0
-      if (cartItem.quantity > availableStock) {
+      const available = stockItem ? (stockItem.quantity || 0) : 0
+      if (cartItem.quantity > available) {
         outOfStockErrors.push({
           name: `${cartItem.name} ${cartItem.cpu} ${cartItem.ram} ${cartItem.hardDrive}`,
-          stock: availableStock,
+          stock: available,
           selected: cartItem.quantity,
         })
       }
@@ -646,11 +664,10 @@ async function handleCheckout() {
         ]),
         { duration: 4000 },
       )
-      processing.value = false
       return
     }
 
-    // Build payload
+    // 5. Build payload chung
     const productPayload = cartItemsRef.value.map(item => ({
       productDetailId: item.productDetailId,
       quantity: item.quantity,
@@ -661,33 +678,52 @@ async function handleCheckout() {
     const payload = {
       ten: checkoutForm.ten.trim(),
       sdt: checkoutForm.sdt.trim(),
+      email: checkoutForm.email.trim(),
       diaChi: finalAddressStr.trim(),
-      ghiChu: checkoutForm.ghiChu ? checkoutForm.ghiChu.trim() : '',
+      ghiChu: checkoutForm.ghiChu?.trim() || '',
       tongTien: finalTotal.value,
       tienHang: subTotal.value,
       tienShip: shippingFee.value,
-      email: checkoutForm.email.trim(),
       giamGia: discountAmount.value,
-      phuongThucThanhToan: paymentMethod.value,
-      loaiHoaDon: deliveryType.value,
       idPGG: selectedVoucher.value || null,
-      products: productPayload,
+      loaiHoaDon: deliveryType.value,
+      phuongThucThanhToan: paymentMethod.value,
       cartId: cartId.value || null,
+      products: productPayload,
     }
 
-    // Tạo đơn hàng trước
-    const res: any = await createOrder(payload)
+    // 6. Tạo đơn hàng — reuse invoice cũ nếu user vừa hủy TT
+    // 6. Tạo đơn hàng — reuse invoice cũ CHỈ KHI thanh toán online
+    let createdOrder: any
 
-    if (!(res.status === 200 || res.status === 'OK' || res.data)) {
-      message.error('Tạo đơn hàng thất bại!')
-      return
+    const isOnlinePayment = ['1', '2', '4'].includes(paymentMethod.value)
+
+    if (pendingInvoiceId.value && isOnlinePayment) {
+      // Reuse invoice LUU_TAM cho online payment (Momo/VNPAY/ZaloPay)
+      createdOrder = {
+        id: pendingInvoiceId.value,
+        code: pendingInvoiceCode.value || '',
+      }
+      pendingInvoiceId.value = null
+      pendingInvoiceCode.value = null
+    }
+    else {
+      // COD / VietQR hoặc không có pending → tạo mới
+      // Reset pending nếu có (user đổi sang COD)
+      pendingInvoiceId.value = null
+      pendingInvoiceCode.value = null
+
+      const res: any = await createOrder(payload)
+      if (!(res.status === 200 || res.status === 'OK' || res.data)) {
+        message.error('Tạo đơn hàng thất bại!')
+        return
+      }
+      createdOrder = res.data?.data
     }
 
-    const createdOrder = res.data?.data
-
-    // ===== XỬ LÝ THEO PHƯƠNG THỨC THANH TOÁN =====
+    // 7. Xử lý theo phương thức thanh toán
     if (paymentMethod.value === '2') {
-      // VNPAY → redirect sang trang thanh toán VNPAY
+      // ── VNPAY ──────────────────────────────────────────────
       message.loading('Đang tạo liên kết thanh toán VNPAY...')
 
       const vnpayRes = await createVNPayPayment({
@@ -702,23 +738,11 @@ async function handleCheckout() {
         customerName: checkoutForm.ten.trim(),
         customerPhone: checkoutForm.sdt.trim(),
         customerAddress: finalAddressStr.trim(),
+        returnUrl: 'http://localhost:2345/api/payment/vnpay-return-client',
       })
 
       if (vnpayRes.code === '00' && vnpayRes.paymentUrl) {
-        // Xóa giỏ hàng
-        if (cartItemBuyNow.value) {
-          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
-        }
-        else {
-          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
-          await Promise.all(removeRequests)
-          localStorage.removeItem('SELECTED_CART_ITEMS')
-        }
-
-        // Lưu mã đơn để dùng sau khi return
-        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
-
-        // Redirect sang VNPAY
+        // Không xóa cart ở đây — xóa trong OrderSuccess sau khi TT thành công
         window.location.href = vnpayRes.paymentUrl
       }
       else {
@@ -726,35 +750,24 @@ async function handleCheckout() {
       }
     }
     else if (paymentMethod.value === '1') {
-      // ← THÊM CASE MOMO
+      // ── MOMO ───────────────────────────────────────────────
       message.loading('Đang tạo liên kết thanh toán MoMo...')
 
       const momoRes = await createMomoPayment({
         invoiceId: createdOrder?.id || '',
         amount: finalTotal.value,
+        returnUrl: 'http://localhost:2345/api/payment/momo-return-client',
       })
 
       if (momoRes.code === '00' && momoRes.payUrl) {
-        // Xóa giỏ hàng
-        if (cartItemBuyNow.value) {
-          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
-        }
-        else {
-          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
-          await Promise.all(removeRequests)
-          localStorage.removeItem('SELECTED_CART_ITEMS')
-        }
-
-        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
-        window.location.href = momoRes.payUrl // ← Redirect sang MoMo
+        window.location.href = momoRes.payUrl
       }
       else {
         message.error(momoRes.message || 'Tạo thanh toán MoMo thất bại!')
       }
     }
-
     else if (paymentMethod.value === '4') {
-      // ZALOPAY → redirect
+      // ── ZALOPAY ────────────────────────────────────────────
       message.loading('Đang tạo liên kết thanh toán ZaloPay...')
 
       const zaloRes = await createZaloPayPayment({
@@ -763,38 +776,20 @@ async function handleCheckout() {
       })
 
       if (zaloRes.code === '00' && zaloRes.payUrl) {
-        if (cartItemBuyNow.value) {
-          await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
-        }
-        else {
-          const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
-          await Promise.all(removeRequests)
-          localStorage.removeItem('SELECTED_CART_ITEMS')
-        }
-
-        localStorage.setItem('PENDING_ORDER_CODE', createdOrder?.code || '')
-        window.location.href = zaloRes.payUrl // ← Redirect sang ZaloPay
+        window.location.href = zaloRes.payUrl
       }
       else {
         message.error(zaloRes.message || 'Tạo thanh toán ZaloPay thất bại!')
       }
     }
     else {
-      // COD, VietQR → bình thường
+      // ── COD / VietQR ────────────────────────────────────────
       message.success('Đặt hàng thành công!')
+      await cleanupCart() // COD xóa cart ngay, không redirect sang cổng TT
       router.push({
         name: 'OrderSuccess',
         query: { 'ma-hoa-don': createdOrder?.code || '' },
       })
-
-      if (cartItemBuyNow.value) {
-        await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
-      }
-      else {
-        const removeRequests = cartItemsRef.value.map(item => removeCart(item.productDetailId))
-        await Promise.all(removeRequests)
-        localStorage.removeItem('SELECTED_CART_ITEMS')
-      }
     }
   }
   catch (error: any) {
@@ -802,6 +797,16 @@ async function handleCheckout() {
   }
   finally {
     processing.value = false
+  }
+}
+
+async function cleanupCart() {
+  if (cartItemBuyNow.value) {
+    await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+  }
+  else {
+    await Promise.all(cartItemsRef.value.map(item => removeCart(item.productDetailId)))
+    localStorage.removeItem('SELECTED_CART_ITEMS')
   }
 }
 
@@ -847,7 +852,17 @@ function handleSelectVoucherInModal(voucherId: string) {
           <h1 class="text-2xl font-bold mb-6 text-gray-800 border-l-4 border-green-600 pl-3">
             Thanh toán đơn hàng
           </h1>
-
+          <NAlert
+            v-if="paymentCancelled"
+            type="warning"
+            closable
+            title="Thanh toán chưa hoàn tất"
+            style="margin-bottom: 20px;"
+            @close="paymentCancelled = false"
+          >
+            Bạn đã hủy hoặc thanh toán thất bại. Đơn hàng vẫn đang chờ —
+            vui lòng chọn lại phương thức thanh toán và thử lại.
+          </NAlert>
           <NGrid x-gap="24" cols="1 l:3" responsive="screen">
             <NGi span="2">
               <div class="space-y-6">

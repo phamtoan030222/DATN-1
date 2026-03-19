@@ -177,7 +177,7 @@ public class VnPayService {
 
             saveLichSuThanhToan(invoice, request, maGiaoDich, paymentUrl);
 
-            invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN_VNPAY);
+            invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN);
             invoiceRepository.save(invoice);
 
             logger.info("Tạo payment URL thành công cho invoice: {}, maGiaoDich: {}",
@@ -203,14 +203,11 @@ public class VnPayService {
     @Transactional
     public PaymentResponse processReturn(Map<String, String> params) {
         PaymentResponse response = new PaymentResponse();
-
         try {
-            logger.info("=== PARAMS FROM VNPAY RETURN ===");
-            params.forEach((key, value) -> logger.info("{} = {}", key, value));
-
-            if (!params.containsKey("vnp_ResponseCode") || !params.containsKey("vnp_TxnRef")) {
+            if (!params.containsKey("vnp_ResponseCode")
+                    || !params.containsKey("vnp_TxnRef")) {
                 response.setCode("98");
-                response.setMessage("Thiếu thông tin giao dịch từ VNPAY");
+                response.setMessage("Thiếu thông tin từ VNPAY");
                 return response;
             }
 
@@ -220,90 +217,88 @@ public class VnPayService {
                 return response;
             }
 
-            String responseCode   = params.get("vnp_ResponseCode");
-            String invoiceId      = params.get("vnp_TxnRef").split("_")[0];
-            String transactionNo  = params.get("vnp_TransactionNo");
-            String amountStr      = params.get("vnp_Amount");
-            String bankCode       = params.get("vnp_BankCode");
-            String payDate        = params.get("vnp_PayDate");
+            String responseCode  = params.get("vnp_ResponseCode");
+            String invoiceId     = params.get("vnp_TxnRef").split("_")[0];
+            String transactionNo = params.get("vnp_TransactionNo");
+            String amountStr     = params.get("vnp_Amount");
+            String bankCode      = params.get("vnp_BankCode");
 
-            // ✅ Parse vnpayAmount ĐÚNG từ VNPAY (chia 100 vì VNPAY nhân 100)
             BigDecimal vnpayAmount = BigDecimal.ZERO;
             if (amountStr != null && !amountStr.isEmpty()) {
                 try {
                     vnpayAmount = new BigDecimal(Long.parseLong(amountStr) / 100);
-                } catch (NumberFormatException e) {
-                    logger.warn("Không parse được vnp_Amount: {}", amountStr);
-                }
+                } catch (NumberFormatException ignored) {}
             }
 
-            logger.info("VNPAY return - Invoice ID: {}, ResponseCode: {}, Amount: {}, Transaction: {}",
-                    invoiceId, responseCode, vnpayAmount, transactionNo);
+            response.setOrderId(invoiceId);
+            response.setTransactionId(transactionNo);
+            response.setAmount(vnpayAmount);
 
             Optional<Invoice> invoiceOpt = invoiceRepository.findById(invoiceId);
+            if (invoiceOpt.isEmpty()) {
+                response.setCode("01");
+                response.setMessage("Không tìm thấy hóa đơn");
+                return response;
+            }
 
-            if (invoiceOpt.isPresent()) {
-                Invoice invoice = invoiceOpt.get();
+            Invoice invoice = invoiceOpt.get();
 
-                LichSuThanhToan lichSuReturn = new LichSuThanhToan();
-                lichSuReturn.setSoTien(vnpayAmount);
-                lichSuReturn.setThoiGian(LocalDateTime.now());
-                lichSuReturn.setMaGiaoDich(transactionNo);
-                lichSuReturn.setLoaiGiaoDich("VNPAY_RETURN");
-                lichSuReturn.setHoaDon(invoice);
-                lichSuReturn.setGhiChu(String.format(
-                        "VNPAY return - ResponseCode: %s, BankCode: %s, PayDate: %s",
-                        responseCode, bankCode, payDate));
-
-                if ("00".equals(responseCode)) {
-                    lichSuReturn.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
-
-                    try {
-                        // ✅ Truyền vnpayAmount xuống toàn bộ call chain
-                        xuLyThanhToanThanhCongVNPay(invoice, transactionNo, bankCode, vnpayAmount);
-                    } catch (Exception e) {
-                        logger.error("Lỗi khi xử lý thanh toán thành công: ", e);
-                    }
-
+            if ("00".equals(responseCode)) {
+                // Chống xử lý trùng
+                if (invoice.getTrangThaiThanhToan() == TrangThaiThanhToan.DA_THANH_TOAN) {
                     response.setCode("00");
                     response.setMessage("Thanh toán thành công");
-
-                } else {
-                    lichSuReturn.setTrangThaiThanhToan(TrangThaiThanhToan.THANH_TOAN_THAT_BAI);
-                    invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHUA_THANH_TOAN);
-                    invoiceRepository.save(invoice);
-
-                    response.setCode(responseCode);
-                    response.setMessage("Thanh toán thất bại - Mã lỗi: " + responseCode);
+                    return response;
                 }
 
-                lichSuThanhToanRepository.save(lichSuReturn);
+                // Cập nhật invoice LUU_TAM → CHO_XAC_NHAN
+                invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+                invoice.setTypePayment(TypePayment.VNPAY);
+                invoice.setTransactionId(transactionNo);
+                invoice.setBankCode(bankCode);
+                invoice.setPaymentDate(System.currentTimeMillis());
+                Invoice saved = invoiceRepository.save(invoice);
 
-                // Cập nhật lịch sử CREATE
-                lichSuThanhToanRepository
-                        .findFirstByHoaDonIdAndLoaiGiaoDichOrderByThoiGianDesc(invoice.getId(), "VNPAY_CREATE")
-                        .ifPresent(lichSu -> {
-                            lichSu.setTrangThaiThanhToan(lichSuReturn.getTrangThaiThanhToan());
-                            lichSu.setGhiChu(lichSu.getGhiChu() + " -> Completed");
-                            lichSuThanhToanRepository.save(lichSu);
-                        });
+                // Lịch sử trạng thái
+                LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
+                history.setHoaDon(saved);
+                history.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+                history.setNote("Thanh toán VNPAY thành công - chờ xác nhận");
+                history.setThoiGian(LocalDateTime.now());
+                lichSuTrangThaiHoaDonRepository.save(history);
 
-                response.setOrderId(invoiceId);
-                response.setTransactionId(transactionNo);
-                response.setAmount(vnpayAmount);
+                // Lịch sử thanh toán
+                LichSuThanhToan lichSu = new LichSuThanhToan();
+                lichSu.setHoaDon(saved);
+                lichSu.setSoTien(vnpayAmount);
+                lichSu.setLoaiGiaoDich("VNPAY");
+                lichSu.setMaGiaoDich(transactionNo);
+                lichSu.setThoiGian(LocalDateTime.now());
+                lichSu.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+                lichSu.setGhiChu("VNPAY return - BankCode: " + bankCode);
+                lichSuThanhToanRepository.save(lichSu);
 
+                response.setCode("00");
+                response.setMessage("Thanh toán thành công");
             } else {
-                response.setCode("01");
-                response.setMessage("Không tìm thấy hóa đơn: " + invoiceId);
+                // Thất bại / hủy → giữ LUU_TAM để user thử lại
+                response.setCode(responseCode);
+                response.setMessage("Thanh toán thất bại hoặc bị hủy");
+                logger.info("VNPAY return thất bại - invoiceId: {}, code: {}",
+                        invoiceId, responseCode);
             }
 
         } catch (Exception e) {
-            logger.error("Lỗi xử lý return VNPAY: ", e);
+            logger.error("Lỗi processReturn VNPAY: ", e);
             response.setCode("99");
-            response.setMessage("Lỗi xử lý: " + e.getMessage());
+            response.setMessage(e.getMessage());
         }
-
         return response;
+    }
+
+    public boolean validateSignaturePublic(Map<String, String> params) {
+        return validateSignature(params);
     }
 
     // ==================== XỬ LÝ IPN ====================
@@ -346,12 +341,12 @@ public class VnPayService {
 
             Invoice invoice = invoiceOpt.get();
 
-            // Kiểm tra số tiền khớp
-            BigDecimal invoiceAmount = invoice.getTotalAmountAfterDecrease();
-            if (invoiceAmount != null && vnpayAmount.compareTo(invoiceAmount) != 0) {
-                logger.warn("IPN - Số tiền không khớp. Invoice: {}, VNPAY: {}", invoiceAmount, vnpayAmount);
-                return new IpnResponse("04", "Amount invalid");
-            }
+//            // Kiểm tra số tiền khớp
+//            BigDecimal invoiceAmount = invoice.getTotalAmountAfterDecrease();
+//            if (invoiceAmount != null && vnpayAmount.compareTo(invoiceAmount) != 0) {
+//                logger.warn("IPN - Số tiền không khớp. Invoice: {}, VNPAY: {}", invoiceAmount, vnpayAmount);
+//                return new IpnResponse("04", "Amount invalid");
+//            }
 
             if (invoice.getTrangThaiThanhToan() == TrangThaiThanhToan.DA_THANH_TOAN) {
                 logger.info("IPN - Hóa đơn đã được thanh toán trước đó: {}", invoiceId);
@@ -758,7 +753,7 @@ public class VnPayService {
         lichSu.setMaGiaoDich(maGiaoDich);
         lichSu.setLoaiGiaoDich("VNPAY_CREATE");
         lichSu.setHoaDon(invoice);
-        lichSu.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN_VNPAY);
+        lichSu.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN);
 
         String shortUrl = paymentUrl != null && paymentUrl.length() > 200
                 ? paymentUrl.substring(0, 200) + "..."

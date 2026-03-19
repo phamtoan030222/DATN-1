@@ -37,6 +37,8 @@ public class PaymentController {
 
     private final MomoService momoService;
 
+    private static final String CLIENT_URL = "http://localhost:6788";
+
     @PostMapping("/create-vnpay")
     public ResponseEntity<PaymentResponse> createPayment(
             @RequestBody PaymentRequest request,
@@ -148,39 +150,6 @@ public class PaymentController {
         }
     }
 
-    @GetMapping("/vnpay-return-client")
-    public String paymentReturnPageClient(@RequestParam Map<String, String> params) {
-        PaymentResponse response = vnPayService.processReturn(params);
-
-        String clientUrl = "http://localhost:6788";
-
-        if ("00".equals(response.getCode())) {
-            // Lấy invoiceId từ vnp_TxnRef (format: invoiceId_timestamp)
-            String invoiceId = params.getOrDefault("vnp_TxnRef", "").split("_")[0];
-
-            // Tìm mã hóa đơn để hiển thị trên trang success
-            String orderCode = invoiceRepository.findById(invoiceId)
-                    .map(Invoice::getCode)
-                    .orElse("");
-
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>" +
-                    "window.location.href = '" + clientUrl + "/order-success" +
-                    "?payment=success" +
-                    "&ma-hoa-don=" + orderCode +
-                    "';" +
-                    "</script>" +
-                    "</head><body>Đang chuyển hướng...</body></html>";
-        }
-        else {
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>" +
-                    "window.location.href = '" + clientUrl + "/order-success?payment=failed';" +
-                    "</script>" +
-                    "</head><body>Đang chuyển hướng...</body></html>";
-        }
-    }
-
     @PostMapping("/create-momo")
     public ResponseEntity<?> createMomoPayment(@RequestBody Map<String, Object> request) {
         try {
@@ -199,30 +168,10 @@ public class PaymentController {
         }
     }
 
-    @GetMapping("/momo-return-client")
-    public String momoReturnClient(@RequestParam Map<String, String> params) {
-        Map<String, Object> result = momoService.processReturn(params);
-        String clientUrl = "http://localhost:6788";
-
-        if ("00".equals(result.get("code"))) {
-            String orderCode = (String) result.getOrDefault("orderCode", "");
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>window.location.href = '" + clientUrl +
-                    "/order-success?payment=success&ma-hoa-don=" + orderCode + "';" +
-                    "</script></head><body>Đang chuyển hướng...</body></html>";
-        } else {
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>window.location.href = '" + clientUrl +
-                    "/order-success?payment=failed';" +
-                    "</script></head><body>Đang chuyển hướng...</body></html>";
-        }
-    }
-
     @PostMapping("/momo-ipn")
     public ResponseEntity<?> momoIpn(@RequestBody Map<String, String> params) {
-        logger.info("=== MOMO IPN: {}", params);
-        Map<String, Object> result = momoService.processReturn(params);
-        return ResponseEntity.ok(result);
+        logger.info("=== MOMO IPN (ignored on localhost): {}", params);
+        return ResponseEntity.ok(Map.of("resultCode", 0, "message", "Acknowledged"));
     }
 
     @PostMapping("/create-zalopay")
@@ -253,26 +202,62 @@ public class PaymentController {
         return ResponseEntity.ok(result);
     }
 
+
+
+    @GetMapping("/vnpay-return-client")
+    public String paymentReturnPageClient(@RequestParam Map<String, String> params) {
+        PaymentResponse response = vnPayService.processReturn(params);
+        String invoiceId = params.getOrDefault("vnp_TxnRef", "").split("_")[0];
+
+        if ("00".equals(response.getCode())) {
+            String orderCode = invoiceRepository.findById(invoiceId)
+                    .map(Invoice::getCode).orElse("");
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + orderCode);
+        }
+        else {
+            // ← thêm invoiceCode để FE reuse
+            String invoiceCode = invoiceRepository.findById(invoiceId)
+                    .map(Invoice::getCode).orElse("");
+            return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                    + "&invoiceId=" + invoiceId
+                    + "&invoiceCode=" + invoiceCode);  // ← THÊM
+        }
+    }
+
+    @GetMapping("/momo-return-client")
+    public String momoReturnClient(@RequestParam Map<String, String> params) {
+        Map<String, Object> result = momoService.processReturn(params);
+        if ("00".equals(result.get("code"))) {
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + result.get("orderCode"));
+        }
+        String invoiceId   = (String) result.getOrDefault("invoiceId", "");
+        String invoiceCode = invoiceRepository.findById(invoiceId)
+                .map(Invoice::getCode).orElse("");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + invoiceId
+                + "&invoiceCode=" + invoiceCode);  // ← THÊM
+    }
+
     @GetMapping("/zalopay-return-client")
     public String zaloPayReturnClient(
             @RequestParam(required = false) String invoiceId,
-            @RequestParam(required = false) String status) {
-
-        String clientUrl = "http://localhost:6788";
+            @RequestParam(required = false, defaultValue = "-1") String status) {
         Map<String, Object> result = zaloPayService.processReturn(invoiceId, status);
-
         if ("00".equals(result.get("code"))) {
-            String orderCode = (String) result.getOrDefault("orderCode", "");
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>window.location.href = '" + clientUrl +
-                    "/order-success?payment=success&ma-hoa-don=" + orderCode + "';" +
-                    "</script></head><body>Đang chuyển hướng...</body></html>";
-        } else {
-            // ← FAILED hoặc bất kỳ lỗi nào → redirect về checkout
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>window.location.href = '" + clientUrl +
-                    "/order-success?payment=failed';" +
-                    "</script></head><body>Đang chuyển hướng...</body></html>";
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + result.get("orderCode"));
         }
+        String id   = invoiceId != null ? invoiceId : "";
+        String code = id.isBlank() ? "" : invoiceRepository.findById(id)
+                .map(Invoice::getCode).orElse("");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + id
+                + "&invoiceCode=" + code);  // ← THÊM
+    }
+
+    // Helper tránh lặp code
+    private String redirect(String url) {
+        return "<html><head><meta charset='UTF-8'>" +
+                "<script>window.location.href='" + url + "';</script>" +
+                "</head><body>Đang chuyển hướng...</body></html>";
     }
 }

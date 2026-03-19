@@ -78,9 +78,9 @@ SELECT
     CASE hd.phuong_thuc_thanh_toan
         WHEN 0 THEN 'TIEN_MAT'
         WHEN 1 THEN 'VNPAY'
-        WHEN 2 THEN 'CHUYEN_KHOAN'
-        WHEN 3 THEN 'THE_TIN_DUNG'
-        WHEN 4 THEN 'VI_DIEN_TU'
+        WHEN 2 THEN  'CHUYEN_KHOAN' 
+        WHEN 3 THEN 'MOMO'
+        WHEN 4 THEN 'ZALOPAY'
         WHEN 5 THEN 'TIEN_MAT_CHUYEN_KHOAN'
         ELSE NULL
     END                                      AS phuongThucThanhToan,

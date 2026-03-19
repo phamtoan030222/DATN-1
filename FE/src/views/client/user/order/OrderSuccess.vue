@@ -1,28 +1,62 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { NButton, NResult } from 'naive-ui'
+import { computed, onMounted, ref } from 'vue' // ← thêm computed, onMounted, ref
+import { useRoute, useRouter } from 'vue-router' // ← thêm useRoute
+import { NButton, NResult, NSpin } from 'naive-ui' // ← thêm NSpin
+import { useCartStore } from '@/store/app/cart'
+import { storeToRefs } from 'pinia'
 
 const router = useRouter()
-
 const route = useRoute()
 
-const maHoaDon = computed(() => route.query['ma-hoa-don'] || '')
+const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { removeCart } = useCartStore()
 
-function goHome() {
-  router.push('/')
-}
+const maHoaDon = computed(() => route.query['ma-hoa-don'] as string || '')
+const status = ref<'success' | 'cancelled'>('success')
 
-const handleClickTracking = () => {
-  router.push({
-  name: 'OrderTracking',
-  query: {
-    q: maHoaDon.value
+onMounted(async () => {
+  const payment = route.query.payment as string
+
+  if (payment === 'cancelled') {
+    // Không nên đến đây vì BE đã redirect về /checkout
+    // Giữ lại để an toàn
+    router.replace('/checkout?payment=cancelled')
+    return
+  }
+
+  if (maHoaDon.value) {
+    status.value = 'success'
+    // Xóa cart sau khi TT thành công qua cổng (VNPAY/Momo/ZaloPay)
+    // COD đã xóa trong Checkout.vue rồi, gọi lại cũng không sao (no-op)
+    await cleanupCart()
+  }
+  else {
+    router.replace('/')
   }
 })
+
+async function cleanupCart() {
+  try {
+    const selectedIdsRaw = localStorage.getItem('SELECTED_CART_ITEMS')
+    const selectedIds = selectedIdsRaw ? JSON.parse(selectedIdsRaw) : []
+    if (cartItemBuyNow.value) {
+      await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+    }
+    else {
+      const items = cartItems.value.filter(i => selectedIds.includes(i.productDetailId))
+      await Promise.all(items.map(i => removeCart(i.productDetailId)))
+      localStorage.removeItem('SELECTED_CART_ITEMS')
+    }
+  }
+  catch (e) {
+    console.error('Lỗi xóa cart:', e)
+  }
 }
 
-function continueShopping() {
-  router.push('/san-pham')
+function goHome() { router.push('/') }
+
+function handleClickTracking() {
+  router.push({ name: 'OrderTracking', query: { q: maHoaDon.value } })
 }
 </script>
 
@@ -32,8 +66,7 @@ function continueShopping() {
       <NResult
         status="success"
         title="Đặt Hàng Thành Công!"
-        description="Cảm ơn bạn đã tin tưởng và mua sắm.
-        "
+        description="Cảm ơn bạn đã tin tưởng và mua sắm."
         size="huge"
       >
         <template #default>
