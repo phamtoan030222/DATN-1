@@ -10,6 +10,8 @@ public interface ClientInvoiceDetailsResponse {
 
     BigDecimal getPrice();
 
+    BigDecimal getGiaGoc();
+
     Integer getQuantity();
 
     BigDecimal getTotalAmount();
@@ -33,4 +35,8 @@ public interface ClientInvoiceDetailsResponse {
     String getRam();
 
     String getIdInvoice();
+
+    String getIdProductDetail();
+
+    Long getCreatedDate();
 }

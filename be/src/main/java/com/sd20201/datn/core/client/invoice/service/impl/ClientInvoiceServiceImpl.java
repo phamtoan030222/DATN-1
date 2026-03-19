@@ -1,26 +1,38 @@
 package com.sd20201.datn.core.client.invoice.service.impl;
 
 import com.sd20201.datn.core.client.invoice.model.request.ClientInvoiceCancelRequest;
+import com.sd20201.datn.core.client.invoice.model.request.ClientPutInvoiceDetailRequest;
+import com.sd20201.datn.core.client.invoice.model.request.ClientPutReceiverRequest;
 import com.sd20201.datn.core.client.invoice.repository.ClientInvoiceRepository;
 import com.sd20201.datn.core.client.invoice.service.ClientInvoiceService;
 import com.sd20201.datn.core.common.base.ResponseObject;
 import com.sd20201.datn.entity.Invoice;
+import com.sd20201.datn.entity.InvoiceDetail;
 import com.sd20201.datn.entity.LichSuTrangThaiHoaDon;
+import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.entity.Voucher;
 import com.sd20201.datn.entity.VoucherDetail;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
+import com.sd20201.datn.infrastructure.constant.TypeVoucher;
+import com.sd20201.datn.infrastructure.exception.BusinessException;
 import com.sd20201.datn.repository.CustomerRepository;
+import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
+import com.sd20201.datn.repository.ProductDetailRepository;
 import com.sd20201.datn.repository.VoucherDetailRepository;
 import com.sd20201.datn.repository.VoucherRepository;
 import com.sd20201.datn.utils.UserContextHelper;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -39,6 +51,8 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     private final VoucherDetailRepository voucherDetailRepository;
 
     private final VoucherRepository voucherRepository;
+    private final InvoiceDetailRepository invoiceDetailRepository;
+    private final ProductDetailRepository productDetailRepository;
 
     @Override
     public ResponseObject<?> getById(String code) {
@@ -142,4 +156,85 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         return voucherRepository.save(voucher);
     }
 
+    @Override
+    public ResponseObject<?> putReceiver(String id, ClientPutReceiverRequest request) {
+        return invoiceRepository.findById(id)
+                .map(invoice -> {
+                    invoice.setNameReceiver(request.getTenKhachHang());
+                    invoice.setAddressReceiver(request.getDiaChi());
+                    invoice.setPhoneReceiver(request.getSdtKH());
+                    invoice.setEmail(request.getEmail());
+
+                    invoiceRepository.save(invoice);
+
+                    return ResponseObject.successForward(invoice.getId(), "Update invoice success");
+                })
+                .orElse(ResponseObject.errorForward("Invoice not found", HttpStatus.NOT_FOUND));
+    }
+
+    @Transactional
+    @Override
+    public ResponseObject<?> putInvoiceDetails(String id, ClientPutInvoiceDetailRequest request) {
+        Optional<Invoice> invoiceOptional = invoiceRepository.findById(id);
+        if (invoiceOptional.isEmpty()) return ResponseObject.errorForward("Invoice not found", HttpStatus.NOT_FOUND);
+
+        Invoice invoice = invoiceOptional.get();
+
+        invoice.setTotalAmountAfterDecrease(request.getTotalAmount());
+        invoice.setTotalAmount(
+                Optional.ofNullable(invoice.getVoucher())
+                        .map(
+                                voucher ->
+                                        voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE ?
+                                                request.getTotalAmount().multiply(BigDecimal.valueOf(100).subtract(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP))
+                                                : request.getTotalAmount().subtract(voucher.getDiscountValue())
+                                )
+                        .orElse(request.getTotalAmount())
+        );
+        invoiceRepository.saveAndFlush(invoice);
+
+        List<InvoiceDetail> invoiceDetails = invoiceDetailRepository.findAllById(
+                request.getUpdateProductDetails().stream()
+                        .map(ClientPutInvoiceDetailRequest.UpdateInvoiceDetail::getIdInvoiceDetail)
+                        .toList()
+        );
+        List<InvoiceDetail> newInvoiceDetails = new ArrayList<>();
+        for(ClientPutInvoiceDetailRequest.UpdateInvoiceDetail item : request.getUpdateProductDetails()) {
+            InvoiceDetail invoiceDetail = invoiceDetails.stream()
+                    .filter(it -> it.getId().equals(item.getIdInvoiceDetail()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (invoiceDetail == null) {
+                InvoiceDetail newInvoiceDetail = new InvoiceDetail();
+                ProductDetail productDetail = productDetailRepository.findById(item.getIdProductDetail()).orElseThrow(() -> new BusinessException("ProductDetailRepository detail not found"));
+
+                newInvoiceDetail.setInvoice(invoice);
+                newInvoiceDetail.setProductDetail(productDetail);
+                newInvoiceDetail.setGiaGoc(productDetail.getPrice());
+                newInvoiceDetail.setPrice(item.getPrice());
+                newInvoiceDetail.setQuantity(item.getQuantity());
+                newInvoiceDetail.setTotalAmount(item.getTotalAmount());
+                newInvoiceDetails.add(newInvoiceDetail);
+                continue;
+            };
+
+            if (item.getQuantity() == 0) {
+                invoiceDetailRepository.delete(invoiceDetail);
+                invoiceDetails.remove(invoiceDetail);
+                continue;
+            }
+
+            invoiceDetail.setGiaGoc(item.getPrice());
+            invoiceDetail.setPrice(item.getPrice());
+            invoiceDetail.setQuantity(item.getQuantity());
+            invoiceDetail.setTotalAmount(item.getTotalAmount());
+        }
+
+        if (!newInvoiceDetails.isEmpty()) invoiceDetails.addAll(newInvoiceDetails);
+
+        invoiceDetailRepository.saveAll(invoiceDetails);
+
+        return ResponseObject.successForward(invoice.getId(), "Update invoice success");
+    }
 }

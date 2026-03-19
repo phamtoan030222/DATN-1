@@ -108,8 +108,10 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
      SELECT
         idt.id AS id,
         idt.invoice.id as idInvoice,
+        idt.productDetail.id as idProductDetail,
         idt.code AS code,
         idt.price AS price,
+        idt.giaGoc as giaGoc,
         idt.quantity AS quantity,
         idt.totalAmount AS totalAmount,
         CONCAT(idt.productDetail.product.name, ' - ', idt.productDetail.code)  AS nameProductDetail,
@@ -120,7 +122,8 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
         idt.productDetail.hardDrive.name AS hardDrive,
         idt.productDetail.material.name AS material,
         idt.productDetail.product.name AS product,
-        idt.productDetail.ram.name AS ram
+        idt.productDetail.ram.name AS ram,
+        idt.createdDate AS createdDate
     FROM InvoiceDetail idt
     WHERE idt.invoice.id in :invoiceIds
     """)
