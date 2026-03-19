@@ -232,6 +232,13 @@
           </div>
         </div>
 
+        <div v-if="isEditQuantityProduct" class="ml-5">
+          <span class="italic font-semibold">
+            <span class="text-red-500">* Chú ý: </span>
+            Mỗi sản phẩm chỉ được thêm tối đa 5 sản phẩm
+          </span>
+        </div>
+
         <!-- product list -->
         <div v-if="invoiceDetails.length > 0" class="space-y-4">
           <div v-for="(detail, index) in invoiceDetails" :key="detail.id"
@@ -310,11 +317,11 @@
               <span>Tạm tính:</span>
               <span>{{ formatCurrency(invoice.totalAmountAfterDecrease) }}</span>
             </div>
-            <div class="flex justify-between text-red-600">
+            <div v-if="discount != 0" class="flex justify-between text-red-600">
               <span>Giảm giá:</span>
               <span>-{{ formatCurrency(discount) }}</span>
             </div>
-            <div class="flex justify-between">
+            <div v-if="shippingFee != 0" class="flex justify-between">
               <span>Phí vận chuyển:</span>
               <span>{{ formatCurrency(shippingFee) }}</span>
             </div>
@@ -573,8 +580,6 @@ const removeProductDetails = ref<UpdateProductDetailType[]>([])
 const currentStatus = computed(() => {
   return invoice.value?.invoiceStatus ?? 0
 })
-
-const totalQuantity = computed(() => updateProductDetails.value.reduce((total, it) => total += it.quantity, 0))
 
 const customerForm = reactive<CustomerForm>({
   tenKhachHang: '',
@@ -897,7 +902,7 @@ const handleClickSaveCustomerForm = async () => {
 const handleClickSaveEditQuantity = async () => {
   if (!invoice.value) return;
   try {
-    const totalAmount = updateProductDetails.value.reduce((total, it) => total + it.totalAmount, 0)
+    const totalAmount = updateProductDetails.value.reduce((total, it) => total + it.totalAmount, 0);
     await putInvoiceDetail(invoice.value?.id, {
       totalAmount,
       updateProductDetails: _.concat(updateProductDetails.value, removeProductDetails.value)
