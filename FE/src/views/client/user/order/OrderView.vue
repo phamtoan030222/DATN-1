@@ -14,7 +14,7 @@
         <div class="flex items-center gap-12px text-14px">
           <span class=" flex items-center gap-4px">
             <n-button type="success" @click="handleClickTracking(invoice)">
-              Theo dõi đơn hàng
+              {{ invoice.invoiceStatus !== 5 ? 'Theo dõi đơn hàng' : 'Xem chi tiết đơn hàng' }}
             </n-button>
           </span>
           <span class="text-green-600 flex items-center gap-4px">
