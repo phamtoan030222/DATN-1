@@ -31,9 +31,11 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.NumberFormat;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -178,19 +180,34 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         Optional<Invoice> invoiceOptional = invoiceRepository.findById(id);
         if (invoiceOptional.isEmpty()) return ResponseObject.errorForward("Invoice not found", HttpStatus.NOT_FOUND);
 
+        NumberFormat formatterMoney = NumberFormat.getInstance(new Locale("vi", "VN"));
+
+        StringBuilder note = new StringBuilder();
         Invoice invoice = invoiceOptional.get();
 
-        invoice.setTotalAmountAfterDecrease(request.getTotalAmount());
-        invoice.setTotalAmount(
-                Optional.ofNullable(invoice.getVoucher())
-                        .map(
-                                voucher ->
-                                        voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE ?
-                                                request.getTotalAmount().multiply(BigDecimal.valueOf(100).subtract(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP))
-                                                : request.getTotalAmount().subtract(voucher.getDiscountValue())
-                                )
-                        .orElse(request.getTotalAmount())
+        BigDecimal totalAmount = request.getTotalAmount();
+        BigDecimal totalAmountAfterDecrease = request.getTotalAmount();
+        if (!Objects.isNull(invoice.getShippingFee())) {
+            totalAmount = totalAmount.add(invoice.getShippingFee());
+        }
+
+        if (!Objects.isNull(invoice.getShippingFee())) {
+            Voucher voucher = invoice.getVoucher();
+            if (voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE) {
+                totalAmount = totalAmount.multiply(BigDecimal.valueOf(100).subtract(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP));
+            } else if (voucher.getTypeVoucher() == TypeVoucher.FIXED_AMOUNT) {
+                totalAmount = totalAmount.subtract(voucher.getDiscountValue());
+            }
+        }
+
+        note.append(
+                "Giá hóa đơn thay đổi đổi từ <<OLD_TOTAL_AMOUNT>> thành <<NEW_TOTAL_AMOUNT>>\n"
+                .replace("<<OLD_TOTAL_AMOUNT>>", formatterMoney.format(invoice.getTotalAmount()))
+                .replace("<<NEW_TOTAL_AMOUNT>>", formatterMoney.format(totalAmount))
         );
+        invoice.setTotalAmountAfterDecrease(totalAmountAfterDecrease);
+        invoice.setTotalAmount(totalAmount);
+
         invoiceRepository.saveAndFlush(invoice);
 
         List<InvoiceDetail> invoiceDetails = invoiceDetailRepository.findAllById(
@@ -206,25 +223,47 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
                     .orElse(null);
 
             if (invoiceDetail == null) {
-                InvoiceDetail newInvoiceDetail = new InvoiceDetail();
-                ProductDetail productDetail = productDetailRepository.findById(item.getIdProductDetail()).orElseThrow(() -> new BusinessException("ProductDetailRepository detail not found"));
+                if (item.getQuantity() != 0) {
+                    InvoiceDetail newInvoiceDetail = new InvoiceDetail();
+                    ProductDetail productDetail = productDetailRepository.findById(item.getIdProductDetail()).orElseThrow(() -> new BusinessException("ProductDetailRepository detail not found"));
 
-                newInvoiceDetail.setInvoice(invoice);
-                newInvoiceDetail.setProductDetail(productDetail);
-                newInvoiceDetail.setGiaGoc(productDetail.getPrice());
-                newInvoiceDetail.setPrice(item.getPrice());
-                newInvoiceDetail.setQuantity(item.getQuantity());
-                newInvoiceDetail.setTotalAmount(item.getTotalAmount());
-                newInvoiceDetails.add(newInvoiceDetail);
+                    note.append(
+                            "Thêm sản phẩm <<NAME_PRODUCT>>, giá sản phẩm: <<PRICE>>, số lượng: <<QUANTITY>>\n"
+                                    .replace("<<NAME_PRODUCT>>", productDetail.getProduct().getName() + " - "  + productDetail.getName())
+                                    .replace("<<PRICE>>", formatterMoney.format(item.getPrice()))
+                                    .replace("<<QUANTITY>>", item.getQuantity().toString())
+                    );
+                    newInvoiceDetail.setInvoice(invoice);
+                    newInvoiceDetail.setProductDetail(productDetail);
+                    newInvoiceDetail.setGiaGoc(productDetail.getPrice());
+                    newInvoiceDetail.setPrice(item.getPrice());
+                    newInvoiceDetail.setQuantity(item.getQuantity());
+                    newInvoiceDetail.setTotalAmount(item.getTotalAmount());
+                    newInvoiceDetails.add(newInvoiceDetail);
+                }
                 continue;
             };
 
             if (item.getQuantity() == 0) {
+                note.append(
+                        "Xóa sản phẩm <<NAME_PRODUCT>>, giá sản phẩm: <<PRICE>>, số lượng: <<QUANTITY>>\n"
+                                .replace("<<NAME_PRODUCT>>", invoiceDetail.getProductDetail().getProduct().getName() + " - "  + invoiceDetail.getProductDetail().getName())
+                                .replace("<<PRICE>>", formatterMoney.format(invoiceDetail.getPrice()))
+                                .replace("<<QUANTITY>>", invoiceDetail.getQuantity().toString())
+                );
                 invoiceDetailRepository.delete(invoiceDetail);
                 invoiceDetails.remove(invoiceDetail);
                 continue;
             }
 
+
+            note.append(
+                    "Thay đổi sản phẩm <<NAME_PRODUCT>>, giá sản phẩm: <<PRICE>>, số lượng: <<OLD_QUANTITY>> sang <<NEW_QUANTITY>>\n"
+                            .replace("<<NAME_PRODUCT>>", invoiceDetail.getProductDetail().getProduct().getName() + " - "  + invoiceDetail.getProductDetail().getName())
+                            .replace("<<PRICE>>", formatterMoney.format(invoiceDetail.getPrice()))
+                            .replace("<<OLD_QUANTITY>>", invoiceDetail.getQuantity().toString())
+                            .replace("<<NEW_QUANTITY>>", item.getQuantity().toString())
+            );
             invoiceDetail.setGiaGoc(item.getPrice());
             invoiceDetail.setPrice(item.getPrice());
             invoiceDetail.setQuantity(item.getQuantity());
@@ -234,6 +273,19 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         if (!newInvoiceDetails.isEmpty()) invoiceDetails.addAll(newInvoiceDetails);
 
         invoiceDetailRepository.saveAll(invoiceDetails);
+
+        LichSuTrangThaiHoaDon lstthd = new LichSuTrangThaiHoaDon();
+
+        lstthd.setHoaDon(invoice);
+        lstthd.setCustomer(userContextHelper.getCurrentUserId()
+                .flatMap(customerRepository::findById)
+                .orElse(null)
+        );
+        lstthd.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+        lstthd.setNote(note.toString());
+        lstthd.setThoiGian(LocalDateTime.now());
+
+        lichSuTrangThaiHoaDonRepository.save(lstthd);
 
         return ResponseObject.successForward(invoice.getId(), "Update invoice success");
     }
