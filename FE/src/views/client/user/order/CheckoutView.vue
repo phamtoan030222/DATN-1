@@ -1072,11 +1072,8 @@ function handleSelectVoucherInModal(voucherId: string) {
                       >
                         <NRadio value="4" class="w-full">
                           <div class="flex items-center gap-3 font-medium text-gray-800">
-                            <img
-                              src="https://zalopay.vn/images/zalopay-icon.png"
-                              style="width: 25px; height: 25px; object-fit: contain;"
-                              alt="ZaloPay"
-                            >
+                            <NImage width="25" src="../../../../../images/zalopay.webp" />
+                            Zalo Pay
                           </div>
                         </NRadio>
                       </div>
@@ -1209,14 +1206,14 @@ function handleSelectVoucherInModal(voucherId: string) {
                   </div>
                 </div>
 
-                    <NButton 
-                      @click="handleCheckout"
-                      block type="success" size="large"
-                      class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
-                      :loading="processing" :disabled="cartItemsRef.length === 0 || processing"
-                    >
-                      Đặt hàng ngay
-                    </NButton>
+                <NButton
+                  block
+                  type="success" size="large" class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
+                  :loading="processing"
+                  :disabled="cartItemsRef.length === 0 || processing" @click="handleCheckout"
+                >
+                  Đặt hàng ngay
+                </NButton>
               </div>
             </NGi>
           </NGrid>
