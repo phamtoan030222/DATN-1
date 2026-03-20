@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NIcon, NResult, NSpace, NSpin, NTag } from 'naive-ui'
 import {
@@ -11,39 +12,80 @@ import {
   ReceiptOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
-import { computed, onMounted, ref } from 'vue'
-import { getInvoiceById, getInvoiceDetails } from '@/service/api/invoice.api' // Import đúng API
+import { useCartStore } from '@/store/app/cart'
+import { storeToRefs } from 'pinia'
+import { getInvoiceById, getInvoiceDetails } from '@/service/api/invoice.api'
 
 const router = useRouter()
 const route = useRoute()
 
-const maHoaDon = computed(() => route.query['ma-hoa-don'] || '')
+// --- LOGIC QUẢN LÝ GIỎ HÀNG ---
+const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { removeCart } = useCartStore()
+
+// --- LOGIC HIỂN THỊ ĐƠN HÀNG ---
+const maHoaDon = computed(() => route.query['ma-hoa-don'] as string || '')
+const status = ref<'success' | 'cancelled'>('success')
 const loading = ref(true)
 const error = ref<string | null>(null)
 
 // Dữ liệu hóa đơn
-const invoiceData = ref<ClientInvoiceDetailResponse | null>(null)
-const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
+const invoiceData = ref<any>(null)
+const invoiceDetails = ref<any[]>([])
 
-// Lấy thông tin đơn hàng từ API
-async function fetchOrderDetail() {
-  if (!maHoaDon.value) {
-    error.value = 'Không tìm thấy mã đơn hàng'
-    loading.value = false
+onMounted(async () => {
+  const payment = route.query.payment as string
+
+  // Xử lý khi khách hàng hủy thanh toán
+  if (payment === 'cancelled') {
+    router.replace('/checkout?payment=cancelled')
     return
   }
 
+  // Chặn nếu không có mã hóa đơn
+  if (!maHoaDon.value) {
+    router.replace('/')
+    return
+  }
+
+  status.value = 'success'
+
+  // 1. Dọn dẹp giỏ hàng sau khi mua thành công
+  await cleanupCart()
+
+  // 2. Lấy dữ liệu đơn hàng để hiển thị
+  await fetchOrderDetail()
+})
+
+// Hàm xóa giỏ hàng
+async function cleanupCart() {
+  try {
+    const selectedIdsRaw = localStorage.getItem('SELECTED_CART_ITEMS')
+    const selectedIds = selectedIdsRaw ? JSON.parse(selectedIdsRaw) : []
+    if (cartItemBuyNow.value) {
+      await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+    }
+    else {
+      const items = cartItems.value.filter(i => selectedIds.includes(i.productDetailId))
+      await Promise.all(items.map(i => removeCart(i.productDetailId)))
+      localStorage.removeItem('SELECTED_CART_ITEMS')
+    }
+  }
+  catch (e) {
+    console.error('Lỗi xóa cart:', e)
+  }
+}
+
+// Hàm gọi API lấy thông tin đơn hàng
+async function fetchOrderDetail() {
   loading.value = true
   error.value = null
 
   try {
-    // Gọi API lấy thông tin hóa đơn
     const invoiceRes = await getInvoiceById(maHoaDon.value as string)
 
     if (invoiceRes?.data) {
       invoiceData.value = invoiceRes.data
-
-      // Gọi API lấy chi tiết sản phẩm của hóa đơn
       const detailsRes = await getInvoiceDetails([invoiceRes.data.id])
 
       if (detailsRes?.data) {
@@ -63,28 +105,24 @@ async function fetchOrderDetail() {
   }
 }
 
-onMounted(() => {
-  fetchOrderDetail()
-})
-
-function handleClickTracking() {
-  router.push({
-    name: 'OrderTracking',
-    query: {
-      q: maHoaDon.value,
-    },
-  })
-}
-
-function continueShopping() {
-  router.push('/san-pham')
-}
-
+// --- CÁC HÀM XỬ LÝ SỰ KIỆN NÚT BẤM ---
 function goHome() {
   router.push('/')
 }
 
-// Format ngày đặt hàng (timestamp)
+function continueShopping() {
+  router.push('/') // Điều hướng về trang chủ/sản phẩm để mua tiếp
+}
+
+function handleClickTracking() {
+  router.push({
+    name: 'OrderTracking',
+    query: { q: maHoaDon.value },
+  })
+}
+
+// --- CÁC HÀM FORMAT DỮ LIỆU ---
+
 function formatDate(timestamp: number) {
   if (!timestamp)
     return ''
@@ -98,7 +136,6 @@ function formatDate(timestamp: number) {
   })
 }
 
-// Format currency
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -106,7 +143,6 @@ function formatCurrency(amount: number) {
   }).format(amount)
 }
 
-// Lấy phương thức thanh toán text
 function getPaymentMethodText(typePayment: string) {
   const methods: Record<string, string> = {
     0: 'Thanh toán khi nhận hàng (COD)',
@@ -117,7 +153,6 @@ function getPaymentMethodText(typePayment: string) {
   return methods[typePayment] || typePayment
 }
 
-// Lấy trạng thái thanh toán
 function getPaymentStatus(status: string) {
   const statusMap: Record<string, { text: string, type: 'success' | 'warning' | 'error' }> = {
     CHUA_THANH_TOAN: { text: 'Chưa thanh toán', type: 'warning' },
@@ -127,7 +162,6 @@ function getPaymentStatus(status: string) {
   return statusMap[status] || { text: status, type: 'info' }
 }
 
-// Lấy trạng thái đơn hàng
 function getOrderStatus(status: number) {
   const statusMap: Record<number, { text: string, type: 'success' | 'info' | 'warning' | 'error' }> = {
     0: { text: 'Chờ xác nhận', type: 'warning' },
@@ -139,7 +173,6 @@ function getOrderStatus(status: number) {
   return statusMap[status] || { text: 'Không xác định', type: 'info' }
 }
 
-// Ẩn email
 function maskEmail(email: string) {
   if (!email)
     return ''
@@ -150,16 +183,18 @@ function maskEmail(email: string) {
 </script>
 
 <template>
-  <div class="order-success">
-    <div class="order-success__container">
+  <div class="os-page">
+    <div class="os-wrapper">
       <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
+      <div v-if="loading" class="os-loading">
         <NSpin size="large" />
-        <p>Đang tải thông tin đơn hàng...</p>
+        <p class="os-loading__text">
+          Đang tải thông tin đơn hàng...
+        </p>
       </div>
 
       <!-- Error State -->
-      <div v-else-if="error || !invoiceData" class="error-state">
+      <div v-else-if="error || !invoiceData" class="os-error">
         <NResult
           status="error"
           title="Không tìm thấy đơn hàng"
@@ -173,238 +208,214 @@ function maskEmail(email: string) {
         </NResult>
       </div>
 
-      <!-- Success State with Real Data -->
+      <!-- Main Content -->
       <template v-else>
-        <!-- Header với icon success -->
-        <div class="order-success__header">
-          <div class="success-icon-wrapper">
-            <div class="success-icon-circle">
-              <NIcon size="48" class="success-icon">
-                <CheckmarkCircleOutline />
-              </NIcon>
-            </div>
+        <!-- Hero Header -->
+        <div class="os-hero">
+          <div class="os-hero__check">
+            <div class="os-hero__check-ring os-hero__check-ring--outer" />
+            <div class="os-hero__check-ring os-hero__check-ring--inner" />
+            <NIcon size="40" class="os-hero__check-icon">
+              <CheckmarkCircleOutline />
+            </NIcon>
           </div>
-          <h1 class="order-success__title">
+          <h1 class="os-hero__title">
             Đặt hàng thành công!
           </h1>
-          <p class="order-success__subtitle">
-            Cảm ơn bạn đã tin tưởng và mua sắm tại cửa hàng của chúng tôi
+          <p class="os-hero__subtitle">
+            Cảm ơn bạn đã tin tưởng mua sắm tại cửa hàng của chúng tôi
           </p>
+          <div class="os-hero__code-badge">
+            <span class="os-hero__code-label">Mã đơn hàng</span>
+            <span class="os-hero__code-value">{{ invoiceData.code }}</span>
+            <NTag size="small" :type="getOrderStatus(invoiceData.invoiceStatus).type" round class="os-hero__status-tag">
+              {{ getOrderStatus(invoiceData.invoiceStatus).text }}
+            </NTag>
+          </div>
         </div>
 
-        <!-- Thông tin đơn hàng -->
-        <div class="order-success__info">
-          <div class="info-card">
-            <div class="info-card__header">
-              <NIcon size="20">
-                <ReceiptOutline />
-              </NIcon>
-              <span>Thông tin đơn hàng</span>
-            </div>
-
-            <div class="info-card__content">
-              <div class="info-row">
-                <span class="info-label">Mã đơn hàng:</span>
-                <div class="info-value-wrapper">
-                  <span class="info-value order-code">{{ invoiceData.code }}</span>
-                  <NTag size="small" :type="getOrderStatus(invoiceData.invoiceStatus).type" round>
-                    {{ getOrderStatus(invoiceData.invoiceStatus).text }}
+        <!-- Body -->
+        <div class="os-body">
+          <!-- Left Column -->
+          <div class="os-col os-col--left">
+            <!-- Order Info Card -->
+            <div class="os-card">
+              <div class="os-card__head">
+                <NIcon size="18">
+                  <ReceiptOutline />
+                </NIcon>
+                <span>Chi tiết đơn hàng</span>
+              </div>
+              <div class="os-info-list">
+                <div class="os-info-row">
+                  <span class="os-info-row__label">Thời gian đặt</span>
+                  <span class="os-info-row__value">{{ formatDate(invoiceData.createDate) }}</span>
+                </div>
+                <div class="os-info-row">
+                  <span class="os-info-row__label">Thanh toán</span>
+                  <span class="os-info-row__value">{{ getPaymentMethodText(invoiceData.typePayment) }}</span>
+                </div>
+                <div class="os-info-row">
+                  <span class="os-info-row__label">Trạng thái TT</span>
+                  <NTag size="small" :type="getPaymentStatus(invoiceData.trangThaiThanhToan).type" round>
+                    {{ getPaymentStatus(invoiceData.trangThaiThanhToan).text }}
                   </NTag>
                 </div>
-              </div>
-
-              <div class="info-row">
-                <span class="info-label">Thời gian đặt:</span>
-                <span class="info-value">{{ formatDate(invoiceData.createDate) }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="info-label">Phương thức thanh toán:</span>
-                <span class="info-value">{{ getPaymentMethodText(invoiceData.typePayment) }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="info-label">Trạng thái thanh toán:</span>
-                <NTag size="small" :type="getPaymentStatus(invoiceData.trangThaiThanhToan).type" round>
-                  {{ getPaymentStatus(invoiceData.trangThaiThanhToan).text }}
-                </NTag>
-              </div>
-
-              <div class="info-divider" />
-
-              <div class="info-row">
-                <span class="info-label">
-                  <NIcon size="16">
-                    <MailOutline />
-                  </NIcon>
-                  Email:
-                </span>
-                <span class="info-value">{{ maskEmail(invoiceData.email) }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="info-label">
-                  <NIcon size="16">
-                    <LocationOutline />
-                  </NIcon>
-                  Địa chỉ:
-                </span>
-                <span class="info-value">{{ invoiceData.addressReceiver }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="info-label">
-                  <NIcon size="16">
-                    <MailOutline />
-                  </NIcon>
-                  Người nhận:
-                </span>
-                <span class="info-value">{{ invoiceData.nameReceiver }}</span>
-              </div>
-
-              <div class="info-row">
-                <span class="info-label">
-                  <NIcon size="16">
-                    <MailOutline />
-                  </NIcon>
-                  SĐT:
-                </span>
-                <span class="info-value">{{ invoiceData.phoneReceiver }}</span>
-              </div>
-
-              <div v-if="invoiceData.description" class="info-row">
-                <span class="info-label">Ghi chú:</span>
-                <span class="info-value">{{ invoiceData.description }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Hướng dẫn tiếp theo -->
-          <div class="guide-card">
-            <div class="guide-card__header">
-              <NIcon size="20">
-                <TimeOutline />
-              </NIcon>
-              <span>Các bước tiếp theo</span>
-            </div>
-
-            <div class="guide-steps">
-              <div class="step-item">
-                <div class="step-number">
-                  1
+                <div class="os-info-divider" />
+                <div class="os-info-row">
+                  <span class="os-info-row__label">
+                    <NIcon size="14"><MailOutline /></NIcon> Email
+                  </span>
+                  <span class="os-info-row__value">{{ maskEmail(invoiceData.email) }}</span>
                 </div>
-                <div class="step-content">
-                  <h4>Xác nhận đơn hàng</h4>
-                  <p>Chúng tôi sẽ gọi điện xác nhận đơn hàng trong vòng 15 phút</p>
+                <div class="os-info-row">
+                  <span class="os-info-row__label">
+                    <NIcon size="14"><MailOutline /></NIcon> Người nhận
+                  </span>
+                  <span class="os-info-row__value os-info-row__value--bold">{{ invoiceData.nameReceiver }}</span>
                 </div>
-              </div>
-
-              <div class="step-item">
-                <div class="step-number">
-                  2
+                <div class="os-info-row">
+                  <span class="os-info-row__label">
+                    <NIcon size="14"><MailOutline /></NIcon> SĐT
+                  </span>
+                  <span class="os-info-row__value">{{ invoiceData.phoneReceiver }}</span>
                 </div>
-                <div class="step-content">
-                  <h4>Đóng gói và vận chuyển</h4>
-                  <p>Đơn hàng sẽ được đóng gói và bàn giao cho đơn vị vận chuyển</p>
+                <div class="os-info-row os-info-row--address">
+                  <span class="os-info-row__label">
+                    <NIcon size="14"><LocationOutline /></NIcon> Địa chỉ
+                  </span>
+                  <span class="os-info-row__value">{{ invoiceData.addressReceiver }}</span>
                 </div>
-              </div>
-
-              <div class="step-item">
-                <div class="step-number">
-                  3
-                </div>
-                <div class="step-content">
-                  <h4>Theo dõi đơn hàng</h4>
-                  <p>Bạn có thể theo dõi trạng thái đơn hàng qua mã vận đơn</p>
+                <div v-if="invoiceData.description" class="os-info-row">
+                  <span class="os-info-row__label">Ghi chú</span>
+                  <span class="os-info-row__value os-info-row__value--note">{{ invoiceData.description }}</span>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        <!-- Sản phẩm đã mua -->
-        <div class="order-success__products">
-          <h3 class="products-title">
-            Sản phẩm đã mua ({{ invoiceDetails.length }})
-          </h3>
-
-          <div v-for="item in invoiceDetails" :key="item.id" class="product-item">
-            <div class="product-image">
-              <img :src="item.urlImage || 'https://via.placeholder.com/80x80'" :alt="item.nameProductDetail">
-            </div>
-            <div class="product-details">
-              <h4 class="product-name">
-                {{ item.nameProductDetail }}
-              </h4>
-              <div class="product-specs">
-                <span v-if="item.cpu">CPU: {{ item.cpu }}</span>
-                <span v-if="item.ram">RAM: {{ item.ram }}</span>
-                <span v-if="item.hardDrive">Ổ cứng: {{ item.hardDrive }}</span>
-                <span v-if="item.gpu">GPU: {{ item.gpu }}</span>
-                <span v-if="item.color">Màu: {{ item.color }}</span>
-              </div>
-              <div class="product-meta">
-                <span class="product-quantity">Số lượng: {{ item.quantity }}</span>
-                <span class="product-price">{{ formatCurrency(item.price * item.quantity) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tổng thanh toán -->
-        <div class="order-success__total">
-          <div class="total-row">
-            <span>Tạm tính</span>
-            <span>{{ formatCurrency(invoiceData.totalAmountAfterDecrease) }}</span>
-          </div>
-          <div class="total-row">
-            <span>Phí vận chuyển</span>
-            <span :class="{ 'free-ship': invoiceData.shippingFee === 0 }">
-              {{ invoiceData.shippingFee === 0 ? 'Miễn phí' : formatCurrency(invoiceData.shippingFee) }}
-            </span>
-          </div>
-          <div class="total-row final">
-            <span>Tổng thanh toán</span>
-            <span class="final-price">{{ formatCurrency(invoiceData.totalAmount) }}</span>
-          </div>
-        </div>
-
-        <!-- Action buttons -->
-        <div class="order-success__actions">
-          <NSpace justify="center" size="large" wrap>
-            <NButton size="large" class="btn-outline" @click="goHome">
-              <template #icon>
-                <NIcon>
-                  <HomeOutline />
+            <!-- Steps Card -->
+            <div class="os-card os-card--steps">
+              <div class="os-card__head">
+                <NIcon size="18">
+                  <TimeOutline />
                 </NIcon>
-              </template>
-              Về trang chủ
-            </NButton>
+                <span>Các bước tiếp theo</span>
+              </div>
+              <div class="os-steps">
+                <div class="os-step">
+                  <div class="os-step__dot">
+                    <span>1</span>
+                  </div>
+                  <div class="os-step__line" />
+                  <div class="os-step__body">
+                    <h4>Xác nhận đơn hàng</h4>
+                    <p>Chúng tôi sẽ gọi điện xác nhận trong vòng 15 phút</p>
+                  </div>
+                </div>
+                <div class="os-step">
+                  <div class="os-step__dot">
+                    <span>2</span>
+                  </div>
+                  <div class="os-step__line" />
+                  <div class="os-step__body">
+                    <h4>Đóng gói & vận chuyển</h4>
+                    <p>Đơn hàng được đóng gói và bàn giao đơn vị vận chuyển</p>
+                  </div>
+                </div>
+                <div class="os-step os-step--last">
+                  <div class="os-step__dot">
+                    <span>3</span>
+                  </div>
+                  <div class="os-step__body">
+                    <h4>Theo dõi đơn hàng</h4>
+                    <p>Theo dõi trạng thái đơn hàng qua mã vận đơn</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <NButton size="large" class="btn-primary" @click="handleClickTracking">
-              <template #icon>
-                <NIcon>
-                  <PaperPlaneOutline />
-                </NIcon>
-              </template>
-              Theo dõi đơn hàng
-            </NButton>
-
-            <NButton size="large" class="btn-secondary" @click="continueShopping">
-              <template #icon>
-                <NIcon>
+          <!-- Right Column -->
+          <div class="os-col os-col--right">
+            <!-- Products Card -->
+            <div class="os-card">
+              <div class="os-card__head">
+                <NIcon size="18">
                   <CartOutline />
                 </NIcon>
-              </template>
-              Mua thêm sản phẩm
-            </NButton>
-          </NSpace>
-        </div>
+                <span>Sản phẩm đã mua</span>
+                <span class="os-card__badge">{{ invoiceDetails.length }}</span>
+              </div>
+              <div class="os-products">
+                <div v-for="item in invoiceDetails" :key="item.id" class="os-product">
+                  <div class="os-product__img">
+                    <img :src="item.urlImage || 'https://via.placeholder.com/80x80'" :alt="item.nameProductDetail">
+                  </div>
+                  <div class="os-product__info">
+                    <h4 class="os-product__name">
+                      {{ item.nameProductDetail }}
+                    </h4>
+                    <div class="os-product__specs">
+                      <span v-if="item.cpu">{{ item.cpu }}</span>
+                      <span v-if="item.ram">{{ item.ram }}</span>
+                      <span v-if="item.hardDrive">{{ item.hardDrive }}</span>
+                      <span v-if="item.gpu">{{ item.gpu }}</span>
+                      <span v-if="item.color">{{ item.color }}</span>
+                    </div>
+                    <div class="os-product__foot">
+                      <span class="os-product__qty">x{{ item.quantity }}</span>
+                      <span class="os-product__price">{{ formatCurrency(item.price * item.quantity) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-        <!-- Footer -->
-        <div class="order-success__footer">
-          <p>Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900 1234</strong> (Miễn phí)</p>
-          <p>Email hỗ trợ: <strong>support@shop.com</strong></p>
+              <!-- Total -->
+              <div class="os-total">
+                <div class="os-total__row">
+                  <span>Tạm tính</span>
+                  <span>{{ formatCurrency(invoiceData.totalAmountAfterDecrease) }}</span>
+                </div>
+                <div class="os-total__row">
+                  <span>Phí vận chuyển</span>
+                  <span :class="invoiceData.shippingFee === 0 ? 'os-total__free' : ''">
+                    {{ invoiceData.shippingFee === 0 ? '🎉 Miễn phí' : formatCurrency(invoiceData.shippingFee) }}
+                  </span>
+                </div>
+                <div class="os-total__row os-total__row--final">
+                  <span>Tổng thanh toán</span>
+                  <span class="os-total__amount">{{ formatCurrency(invoiceData.totalAmount) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="os-actions">
+              <button class="os-btn os-btn--primary" @click="handleClickTracking">
+                <NIcon size="18">
+                  <PaperPlaneOutline />
+                </NIcon>
+                Theo dõi đơn hàng
+              </button>
+              <button class="os-btn os-btn--outline" @click="continueShopping">
+                <NIcon size="18">
+                  <CartOutline />
+                </NIcon>
+                Mua thêm sản phẩm
+              </button>
+              <button class="os-btn os-btn--ghost" @click="goHome">
+                <NIcon size="18">
+                  <HomeOutline />
+                </NIcon>
+                Về trang chủ
+              </button>
+            </div>
+
+            <!-- Footer note -->
+            <div class="os-support">
+              <p>Cần hỗ trợ? Hotline <strong>1900 1234</strong> (miễn phí) · <strong>support@store.vn</strong></p>
+            </div>
+          </div>
         </div>
       </template>
     </div>
@@ -412,508 +423,376 @@ function maskEmail(email: string) {
 </template>
 
 <style scoped>
-.order-success {
+/* ─── Base ───────────────────────────────── */
+.os-page {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 40px 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #f5f5f5;
+  padding: 32px 16px 48px;
 }
 
-.order-success__container {
-  max-width: 800px;
-  width: 100%;
-  background: white;
-  border-radius: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
-  animation: slideUp 0.5s ease;
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Loading State */
-.loading-state {
-  padding: 80px 20px;
-  text-align: center;
-  background: white;
-}
-
-.loading-state p {
-  margin-top: 20px;
-  color: #64748b;
-  font-size: 16px;
-}
-
-/* Error State */
-.error-state {
-  padding: 40px 20px;
-  background: white;
-}
-
-/* Header Styles */
-.order-success__header {
-  background: linear-gradient(135deg, #00b09b, #96c93d);
-  padding: 48px 32px 40px;
-  text-align: center;
-  color: white;
-  position: relative;
-  overflow: hidden;
-}
-
-.order-success__header::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  right: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 50%);
-  animation: rotate 20s linear infinite;
-}
-
-@keyframes rotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.success-icon-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 24px;
-  position: relative;
-  z-index: 1;
-}
-
-.success-icon-circle {
-  width: 96px;
-  height: 96px;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 3px solid rgba(255, 255, 255, 0.5);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-}
-
-.success-icon {
-  color: white;
-}
-
-.order-success__title {
-  font-size: 32px;
-  font-weight: 700;
-  margin-bottom: 12px;
-  position: relative;
-  z-index: 1;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.order-success__subtitle {
-  font-size: 16px;
-  opacity: 0.9;
-  position: relative;
-  z-index: 1;
-  max-width: 400px;
+.os-wrapper {
+  max-width: 1020px;
   margin: 0 auto;
 }
 
-/* Info Section */
-.order-success__info {
-  padding: 32px;
+/* ─── Loading / Error ────────────────────── */
+.os-loading {
+  background: #fff;
+  border-radius: 8px;
+  padding: 64px 20px;
+  text-align: center;
+  border: 1px solid #e5e5e5;
+}
+.os-loading__text {
+  margin-top: 16px;
+  color: #888;
+  font-size: 14px;
+}
+.os-error {
+  background: #fff;
+  border-radius: 8px;
+  padding: 40px 20px;
+  border: 1px solid #e5e5e5;
+}
+
+/* ─── Hero ───────────────────────────────── */
+.os-hero {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 36px 24px 28px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+.os-hero__check {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.os-hero__check-icon {
+  color: #22c55e;
+  background: #f0fdf4;
+  border-radius: 50%;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #bbf7d0;
+}
+/* hide unused rings */
+.os-hero__check-ring { display: none; }
+
+.os-hero__title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 6px;
+}
+.os-hero__subtitle {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 20px;
+}
+.os-hero__code-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f9f9f9;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 8px 16px;
+}
+.os-hero__code-label {
+  font-size: 13px;
+  color: #888;
+}
+.os-hero__code-value {
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
+}
+
+/* ─── Body ───────────────────────────────── */
+.os-body {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
+  grid-template-columns: 320px 1fr;
+  gap: 16px;
+  align-items: start;
 }
 
-.info-card {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+/* ─── Card ───────────────────────────────── */
+.os-card {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 16px;
 }
+.os-card--steps { margin-bottom: 0; }
 
-.info-card__header {
+.os-card__head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
-  color: #1e293b;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 13.5px;
   font-weight: 600;
-  font-size: 16px;
+  color: #333;
+  background: #fafafa;
+}
+.os-card__badge {
+  margin-left: auto;
+  background: #e5e7eb;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 700;
+  min-width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
 }
 
-.info-card__content {
+/* ─── Info List ──────────────────────────── */
+.os-info-list {
+  padding: 14px 18px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
-
-.info-row {
+.os-info-row {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
+  gap: 10px;
+  font-size: 13.5px;
 }
-
-.info-label {
-  min-width: 100px;
-  color: #64748b;
-  font-size: 14px;
+.os-info-row__label {
+  min-width: 110px;
+  color: #888;
+  font-weight: 500;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 4px;
+  padding-top: 1px;
 }
-
-.info-value-wrapper {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.info-value {
-  color: #1e293b;
+.os-info-row__value {
+  color: #222;
   font-weight: 500;
-  font-size: 14px;
+  flex: 1;
+  line-height: 1.5;
 }
-
-.order-code {
-  font-weight: 700;
-  color: #2563eb;
-  background: #eff6ff;
-  padding: 4px 8px;
-  border-radius: 6px;
-  font-family: monospace;
-}
-
-.info-divider {
+.os-info-row__value--bold { font-weight: 700; }
+.os-info-row__value--note { color: #888; font-style: italic; }
+.os-info-divider {
   height: 1px;
-  background: #e2e8f0;
-  margin: 8px 0;
+  background: #f0f0f0;
+  margin: 2px 0;
 }
 
-/* Guide Card */
-.guide-card {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-.guide-card__header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  color: #1e293b;
-  font-weight: 600;
-  font-size: 16px;
-}
-
-.guide-steps {
+/* ─── Steps ──────────────────────────────── */
+.os-steps {
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 0;
 }
-
-.step-item {
+.os-step {
   display: flex;
   gap: 12px;
-  align-items: flex-start;
+  padding-bottom: 14px;
+  position: relative;
 }
-
-.step-number {
-  width: 28px;
-  height: 28px;
-  background: #00b09b;
-  color: white;
+.os-step--last { padding-bottom: 0; }
+.os-step__dot {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  background: #22c55e;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 600;
-  font-size: 14px;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
   flex-shrink: 0;
+  position: relative;
+  z-index: 1;
 }
-
-.step-content {
-  flex: 1;
+.os-step__line {
+  display: none;
 }
-
-.step-content h4 {
-  font-size: 15px;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 4px;
+.os-step:not(.os-step--last) .os-step__dot::after {
+  content: '';
+  position: absolute;
+  top: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: calc(100% + 14px);
+  background: #e5e5e5;
+  z-index: 0;
 }
-
-.step-content p {
+.os-step__body { padding-top: 3px; flex: 1; min-width: 0; }
+.os-step__body h4 {
   font-size: 13px;
-  color: #64748b;
+  font-weight: 600;
+  color: #222;
+  margin-bottom: 2px;
+}
+.os-step__body p {
+  font-size: 12px;
+  color: #888;
   line-height: 1.5;
 }
 
-/* Products Section */
-.order-success__products {
-  padding: 32px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.products-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 20px;
-}
-
-.product-item {
+/* ─── Products ───────────────────────────── */
+.os-products { padding: 4px 0; }
+.os-product {
   display: flex;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px dashed #e2e8f0;
+  gap: 12px;
+  padding: 12px 18px;
+  border-bottom: 1px solid #f5f5f5;
 }
+.os-product:last-child { border-bottom: none; }
 
-.product-item:last-child {
-  border-bottom: none;
-}
-
-.product-image {
-  width: 80px;
-  height: 80px;
-  border-radius: 12px;
+.os-product__img {
+  width: 68px;
+  height: 68px;
+  border-radius: 6px;
   overflow: hidden;
-  background: #f1f5f9;
+  background: #f5f5f5;
+  border: 1px solid #eee;
   flex-shrink: 0;
 }
+.os-product__img img { width: 100%; height: 100%; object-fit: cover; }
 
-.product-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.product-details {
+.os-product__info {
   flex: 1;
   display: flex;
   flex-direction: column;
+  gap: 5px;
   justify-content: center;
-  gap: 8px;
 }
-
-.product-name {
-  font-size: 15px;
-  font-weight: 500;
-  color: #1e293b;
+.os-product__name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #222;
   line-height: 1.4;
 }
-
-.product-specs {
+.os-product__specs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  font-size: 12px;
-  color: #64748b;
+  gap: 4px;
 }
-
-.product-specs span {
-  background: #f1f5f9;
-  padding: 2px 8px;
+.os-product__specs span {
+  background: #f5f5f5;
+  color: #666;
+  font-size: 11px;
+  padding: 2px 7px;
   border-radius: 4px;
 }
-
-.product-meta {
+.os-product__foot {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
-
-.product-quantity {
-  font-size: 13px;
-  color: #64748b;
+.os-product__qty { font-size: 12px; color: #888; }
+.os-product__price {
+  font-size: 14px;
+  font-weight: 700;
+  color: #111;
 }
 
-.product-price {
-  font-size: 15px;
-  font-weight: 600;
-  color: #2563eb;
+/* ─── Total ──────────────────────────────── */
+.os-total {
+  margin: 0 18px 16px;
+  border: 1px solid #f0f0f0;
+  border-radius: 6px;
+  padding: 14px 16px;
+  background: #fafafa;
 }
-
-/* Total Section */
-.order-success__total {
-  padding: 32px;
-  background: #f8fafc;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.total-row {
+.os-total__row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
-  color: #64748b;
-  font-size: 15px;
+  font-size: 13.5px;
+  color: #666;
+  margin-bottom: 8px;
 }
-
-.total-row.final {
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 2px dashed #e2e8f0;
-  font-size: 18px;
+.os-total__row:last-child { margin-bottom: 0; }
+.os-total__free { color: #22c55e; font-weight: 600; }
+.os-total__row--final {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e5e5;
   font-weight: 700;
-  color: #1e293b;
-}
-
-.free-ship {
-  color: #00b09b;
-  font-weight: 500;
-}
-
-.final-price {
-  color: #2563eb;
-  font-size: 24px;
-  font-weight: 700;
-}
-
-/* Actions Section */
-.order-success__actions {
-  padding: 32px;
-  text-align: center;
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #00b09b, #96c93d);
-  border: none;
-  color: white;
-  font-weight: 600;
-  padding: 0 32px;
-  height: 48px;
-  border-radius: 24px;
-  transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(0, 176, 155, 0.3);
-}
-
-.btn-outline {
-  background: transparent;
-  border: 2px solid #00b09b;
-  color: #00b09b;
-  font-weight: 600;
-  padding: 0 32px;
-  height: 48px;
-  border-radius: 24px;
-  transition: all 0.3s ease;
-}
-
-.btn-outline:hover {
-  background: #00b09b;
-  color: white;
-  transform: translateY(-2px);
-}
-
-.btn-secondary {
-  background: #f1f5f9;
-  border: none;
-  color: #1e293b;
-  font-weight: 600;
-  padding: 0 32px;
-  height: 48px;
-  border-radius: 24px;
-  transition: all 0.3s ease;
-}
-
-.btn-secondary:hover {
-  background: #e2e8f0;
-  transform: translateY(-2px);
-}
-
-/* Footer */
-.order-success__footer {
-  padding: 24px 32px;
-  background: #f1f5f9;
-  text-align: center;
-  color: #64748b;
+  color: #111;
   font-size: 14px;
 }
-
-.order-success__footer p {
-  margin: 4px 0;
+.os-total__amount {
+  font-size: 18px;
+  font-weight: 700;
+  color: #111;
 }
 
-.order-success__footer strong {
-  color: #00b09b;
+/* ─── Actions ────────────────────────────── */
+.os-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
 }
-
-/* Responsive */
-@media (max-width: 768px) {
-  .order-success__header {
-    padding: 40px 20px;
-  }
-
-  .order-success__title {
-    font-size: 28px;
-  }
-
-  .order-success__info {
-    grid-template-columns: 1fr;
-    padding: 20px;
-  }
-
-  .order-success__actions {
-    padding: 20px;
-  }
-
-  .total-row.final {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .final-price {
-    font-size: 20px;
-  }
+.os-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 42px;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: opacity 0.15s, background 0.15s;
 }
+.os-btn:hover { opacity: 0.88; }
+.os-btn--primary { background: #22c55e; color: #fff; }
+.os-btn--outline {
+  background: #fff;
+  color: #22c55e;
+  border: 1.5px solid #22c55e;
+}
+.os-btn--ghost { background: #f0f0f0; color: #444; }
 
+/* ─── Support ────────────────────────────── */
+.os-support {
+  background: #fff;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  padding: 12px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.6;
+}
+.os-support strong { color: #333; }
+
+/* ─── Responsive ─────────────────────────── */
+@media (max-width: 820px) {
+  .os-body { grid-template-columns: 1fr; }
+}
 @media (max-width: 480px) {
-  .product-item {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .product-meta {
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .info-row {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .info-label {
-    min-width: auto;
-  }
-
-  .product-specs {
-    justify-content: center;
-  }
+  .os-product { flex-direction: column; }
+  .os-product__foot { justify-content: space-between; }
+  .os-info-row { flex-direction: column; gap: 2px; }
+  .os-info-row__label { min-width: unset; }
 }
 </style>

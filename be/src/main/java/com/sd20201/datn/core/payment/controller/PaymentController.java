@@ -1,12 +1,11 @@
 package com.sd20201.datn.core.payment.controller;
 
-import com.sd20201.datn.core.payment.dto.IpnResponse;
-import com.sd20201.datn.core.payment.dto.PaymentRequest;
-import com.sd20201.datn.core.payment.dto.PaymentResponse;
-import com.sd20201.datn.core.payment.service.MomoService;
-import com.sd20201.datn.core.payment.service.VnPayService;
+import com.sd20201.datn.core.payment.dto.*;
+import com.sd20201.datn.core.payment.service.*;
 import com.sd20201.datn.entity.Invoice;
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import com.sd20201.datn.repository.InvoiceRepository; // Nhớ import cái này
+import io.swagger.v3.oas.annotations.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -27,13 +26,17 @@ public class PaymentController {
 
     private static final Logger logger = LoggerFactory.getLogger(PaymentController.class);
 
-    // Bỏ @Autowired đi và thêm chữ 'final' cho đúng chuẩn Lombok @RequiredArgsConstructor
     private final VnPayService vnPayService;
 
-    // BỔ SUNG: Khai báo InvoiceRepository để dùng cho hàm check-status
+    private final ZaloPayService zaloPayService;
+
     private final InvoiceRepository invoiceRepository;
 
     private final MomoService momoService;
+
+    private static final String CLIENT_URL = "http://localhost:6788";
+
+    private final PayOSService payOSService;
 
     @PostMapping("/create-vnpay")
     public ResponseEntity<PaymentResponse> createPayment(
@@ -146,39 +149,6 @@ public class PaymentController {
         }
     }
 
-    @GetMapping("/vnpay-return-client")
-    public String paymentReturnPageClient(@RequestParam Map<String, String> params) {
-        PaymentResponse response = vnPayService.processReturn(params);
-
-        String clientUrl = "http://localhost:6788";
-
-        if ("00".equals(response.getCode())) {
-            // Lấy invoiceId từ vnp_TxnRef (format: invoiceId_timestamp)
-            String invoiceId = params.getOrDefault("vnp_TxnRef", "").split("_")[0];
-
-            // Tìm mã hóa đơn để hiển thị trên trang success
-            String orderCode = invoiceRepository.findById(invoiceId)
-                    .map(Invoice::getCode)
-                    .orElse("");
-
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>" +
-                    "window.location.href = '" + clientUrl + "/order-success" +
-                    "?payment=success" +
-                    "&ma-hoa-don=" + orderCode +
-                    "';" +
-                    "</script>" +
-                    "</head><body>Đang chuyển hướng...</body></html>";
-        }
-        else {
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>" +
-                    "window.location.href = '" + clientUrl + "/order-success?payment=failed';" +
-                    "</script>" +
-                    "</head><body>Đang chuyển hướng...</body></html>";
-        }
-    }
-
     @PostMapping("/create-momo")
     public ResponseEntity<?> createMomoPayment(@RequestBody Map<String, Object> request) {
         try {
@@ -197,29 +167,162 @@ public class PaymentController {
         }
     }
 
-    @GetMapping("/momo-return-client")
-    public String momoReturnClient(@RequestParam Map<String, String> params) {
-        Map<String, Object> result = momoService.processReturn(params);
-        String clientUrl = "http://localhost:6788";
+    @PostMapping("/momo-ipn")
+    public ResponseEntity<?> momoIpn(@RequestBody Map<String, String> params) {
+        logger.info("=== MOMO IPN (ignored on localhost): {}", params);
+        return ResponseEntity.ok(Map.of("resultCode", 0, "message", "Acknowledged"));
+    }
 
-        if ("00".equals(result.get("code"))) {
-            String orderCode = (String) result.getOrDefault("orderCode", "");
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>window.location.href = '" + clientUrl +
-                    "/order-success?payment=success&ma-hoa-don=" + orderCode + "';" +
-                    "</script></head><body>Đang chuyển hướng...</body></html>";
-        } else {
-            return "<html><head><meta charset='UTF-8'>" +
-                    "<script>window.location.href = '" + clientUrl +
-                    "/order-success?payment=failed';" +
-                    "</script></head><body>Đang chuyển hướng...</body></html>";
+    @PostMapping("/create-zalopay")
+    public ResponseEntity<?> createZaloPayPayment(@RequestBody ZaloPayRequest request) {
+        try {
+            String description = request.getDescription() != null
+                    ? request.getDescription()
+                    : "Thanh toan don hang My Laptop - " + request.getInvoiceId();
+
+            Map<String, Object> result = zaloPayService.createPayment(
+                    request.getInvoiceId(),
+                    request.getAmount(),
+                    description);
+
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("code",    "99");
+            error.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(error);
         }
     }
 
-    @PostMapping("/momo-ipn")
-    public ResponseEntity<?> momoIpn(@RequestBody Map<String, String> params) {
-        logger.info("=== MOMO IPN: {}", params);
+    @PostMapping("/zalopay-callback")
+    public ResponseEntity<?> zaloPayCallback(@RequestBody Map<String, Object> params) {
+        logger.info("=== ZALOPAY CALLBACK ===");
+        Map<String, Object> result = zaloPayService.processCallback(params);
+        return ResponseEntity.ok(result);
+    }
+
+
+
+    @GetMapping("/vnpay-return-client")
+    public String paymentReturnPageClient(@RequestParam Map<String, String> params) {
+        PaymentResponse response = vnPayService.processReturn(params);
+        String invoiceId = params.getOrDefault("vnp_TxnRef", "").split("_")[0];
+
+        if ("00".equals(response.getCode())) {
+            String orderCode = invoiceRepository.findById(invoiceId)
+                    .map(Invoice::getCode).orElse("");
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + orderCode);
+        }
+        else {
+            // ← thêm invoiceCode để FE reuse
+            String invoiceCode = invoiceRepository.findById(invoiceId)
+                    .map(Invoice::getCode).orElse("");
+            return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                    + "&invoiceId=" + invoiceId
+                    + "&invoiceCode=" + invoiceCode);  // ← THÊM
+        }
+    }
+
+    @GetMapping("/momo-return-client")
+    public String momoReturnClient(@RequestParam Map<String, String> params) {
         Map<String, Object> result = momoService.processReturn(params);
+        if ("00".equals(result.get("code"))) {
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + result.get("orderCode"));
+        }
+        String invoiceId   = (String) result.getOrDefault("invoiceId", "");
+        String invoiceCode = invoiceRepository.findById(invoiceId)
+                .map(Invoice::getCode).orElse("");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + invoiceId
+                + "&invoiceCode=" + invoiceCode);  // ← THÊM
+    }
+
+    @GetMapping("/zalopay-return-client")
+    public String zaloPayReturnClient(
+            @RequestParam(required = false) String invoiceId,
+            @RequestParam(required = false, defaultValue = "-1") String status) {
+        Map<String, Object> result = zaloPayService.processReturn(invoiceId, status);
+        if ("00".equals(result.get("code"))) {
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + result.get("orderCode"));
+        }
+        String id   = invoiceId != null ? invoiceId : "";
+        String code = id.isBlank() ? "" : invoiceRepository.findById(id)
+                .map(Invoice::getCode).orElse("");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + id
+                + "&invoiceCode=" + code);  // ← THÊM
+    }
+
+    // Helper tránh lặp code
+    private String redirect(String url) {
+        return "<html><head><meta charset='UTF-8'>" +
+                "<script>window.location.href='" + url + "';</script>" +
+                "</head><body>Đang chuyển hướng...</body></html>";
+    }
+
+// ── Thêm các endpoint bên dưới các endpoint hiện có ──
+
+    @PostMapping("/create-payos")
+    public ResponseEntity<?> createPayOS(@RequestBody PayOSRequest request) {
+        logger.info("Tạo PayOS link cho invoice: {}", request.getInvoiceId());
+        PayOSResponse response = payOSService.createPaymentLink(request);
+        if ("00".equals(response.getCode())) {
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @GetMapping("/payos-return")
+    public String payOSReturn(
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String invoiceId) {
+        logger.info("=== PAYOS RETURN: orderCode={}, status={}, invoiceId={}",
+                orderCode, status, invoiceId);
+
+        Map<String, Object> result = payOSService.processReturn(orderCode, status, invoiceId);
+
+        if ("00".equals(result.get("code"))) {
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + result.get("orderCode"));
+        }
+        String id   = (String) result.getOrDefault("invoiceId", "");
+        String code = (String) result.getOrDefault("invoiceCode", "");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + id
+                + "&invoiceCode=" + code);
+    }
+
+    @GetMapping("/payos-cancel-return")
+    public String payOSCancelReturn(
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String invoiceId) {
+
+        if (invoiceId != null && !invoiceId.isBlank()) {
+            invoiceRepository.findById(invoiceId).ifPresent(invoice -> {
+                if (invoice.getTrangThaiThanhToan() != TrangThaiThanhToan.DA_THANH_TOAN) {
+                    invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHUA_THANH_TOAN);
+                    invoiceRepository.save(invoice);
+                }
+            });
+        }
+
+        String id   = invoiceId != null ? invoiceId : "";
+        String code = id.isBlank() ? "" : invoiceRepository.findById(id)
+                .map(Invoice::getCode).orElse("");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + id
+                + "&invoiceCode=" + code);
+    }
+
+    @GetMapping("/payos-status/{invoiceId}")
+    public ResponseEntity<?> checkPayOSStatus(@PathVariable String invoiceId) {
+        return ResponseEntity.ok(payOSService.checkStatus(invoiceId));
+    }
+
+    @PostMapping("/payos-webhook")
+    public ResponseEntity<?> payOSWebhook(@RequestBody Map<String, Object> webhookBody) {
+        logger.info("=== PAYOS WEBHOOK ===");
+        Map<String, Object> result = payOSService.processWebhook(webhookBody);
         return ResponseEntity.ok(result);
     }
 }

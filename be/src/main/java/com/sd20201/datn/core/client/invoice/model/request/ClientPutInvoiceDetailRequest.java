@@ -27,7 +27,7 @@ public class ClientPutInvoiceDetailRequest {
 
         private String idInvoiceDetail;
 
-        private int quantity;
+        private Integer quantity;
 
         private BigDecimal price;
 

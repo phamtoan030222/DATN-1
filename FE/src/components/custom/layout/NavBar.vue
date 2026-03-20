@@ -67,7 +67,7 @@ const totalCartQuantity = computed(() => {
 const menuOptions: MenuOption[] = [
   { label: 'Sản phẩm', key: 'products', href: '/san-pham' },
   { label: 'Giới thiệu', key: 'about', href: '/gioi-thieu' },
-  { label: 'Tra cứu đơn hàng', key: 'tracking', href: '/tra-cuu' },
+  { label: 'Đơn hàng', key: 'tracking', href: '/tra-cuu' },
 ]
 
 const userOptions = computed(() => {

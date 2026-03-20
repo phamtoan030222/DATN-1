@@ -116,9 +116,8 @@ public class Helper {
         return "";
     }
 
-    // --- [MỚI] LOGIC VALIDATE DỮ LIỆU ĐẦU VÀO ---
+    // --- LOGIC VALIDATE DỮ LIỆU ĐẦU VÀO ---
     public static void validateVoucherInput(AdVoucherCreateUpdateRequest request) throws BadRequestException {
-        // 1. Validate Ngày tháng
         Long now = DateTimeUtil.getCurrentTimeMillisecondsStamp();
         if (request.getStartDate() == null || request.getEndDate() == null)
             throw new BadRequestException("Thời gian không được để trống!");
@@ -131,14 +130,12 @@ public class Helper {
             throw new BadRequestException("Ngày kết thúc không được ở trong quá khứ");
         }
 
-        // 2. Validate Độ dài tên (Dưới 50 ký tự)
         if (request.getName() != null && request.getName().trim().length() > 50) {
             throw new BadRequestException("Tên voucher quá dài! Vui lòng đặt dưới 50 ký tự.");
         }
 
-        // 3. Validate Giá trị tiền (Dưới 100 triệu và 1 tỷ)
-        BigDecimal limit100Mil = new BigDecimal("100000000"); // 100 triệu
-        BigDecimal limit1Bil = new BigDecimal("1000000000");  // 1 tỷ
+        BigDecimal limit100Mil = new BigDecimal("100000000");
+        BigDecimal limit1Bil = new BigDecimal("1000000000");
 
         if (request.getMaxValue() != null && request.getMaxValue().compareTo(limit100Mil) >= 0) {
             throw new BadRequestException("Giá giảm tối đa phải nhỏ hơn 100 triệu VNĐ!");
@@ -180,17 +177,11 @@ public class Helper {
     private static String getTicketHtmlTemplate(String headerColor, String customerName, String messageBody,
                                                 String logoUrl, String statusBadge, String voucherName, String discountDisplay,
                                                 String maxReduceStr, String voucherCode, String infoTableRows, String btnText, String btnColor) {
-        // Link Logo dự phòng
-        if (logoUrl == null || logoUrl.isEmpty()) {
-            logoUrl = "https://caodang.fpt.edu.vn/wp-content/uploads/2018/01/logo-fpt-polytechnic.png";
-        }
-
         return """
                 <!DOCTYPE html>
                 <html>
                 <head>
                 <style>
-                    /* Import Font Nghệ thuật từ Google Fonts */
                     @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Playfair+Display:wght@700&display=swap');
                 
                     body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; background-color: #eeeeee; margin: 0; padding: 0; }
@@ -203,15 +194,13 @@ public class Helper {
                     .voucher-table { width: 100%; border-collapse: collapse; background-color: transparent; }
                 
                     .left-side { background-color: #1a4d2e; width: 28%; text-align: center; vertical-align: middle; padding: 20px 10px; border-right: 2px dashed #f8f9fa; position: relative; }
-                    .vertical-text { color: #fff; font-size: 26px; font-weight: bold; text-transform: uppercase; writing-mode: vertical-rl; text-orientation: mixed; letter-spacing: 6px; display: inline-block; transform: rotate(-180deg); }
                 
                     .right-side { background-color: #fffdf5; width: 72%; padding: 25px 30px; vertical-align: middle; position: relative; }
                 
                     .logo-img { float: right; width: 80px; height: 80px; object-fit: contain; margin-left: 10px; }
                 
-                    /* --- FONT NGHỆ THUẬT CHO TÊN VOUCHER --- */
                     .voucher-name { 
-                        font-family: 'Dancing Script', cursive; /* Font viết tay nghệ thuật */
+                        font-family: 'Dancing Script', cursive; 
                         font-size: 32px; 
                         font-weight: 700; 
                         color: #1a4d2e; 
@@ -219,7 +208,7 @@ public class Helper {
                         line-height: 1.2; 
                     }
                 
-                    .sale-value { font-family: 'Playfair Display', serif; font-size: 60px; font-weight: 900; color: #1a4d2e; margin: 5px 0; line-height: 1; letter-spacing: -1px; }
+                    .sale-value { font-family: 'Playfair Display', serif; font-size: 50px; font-weight: 900; color: #1a4d2e; margin: 5px 0; line-height: 1; letter-spacing: -1px; }
                     .sale-off-text { font-family: 'Arial', sans-serif; font-size: 18px; font-weight: bold; color: #d4af37; text-transform: uppercase; letter-spacing: 2px; }
                 
                     .notch-top { position: absolute; top: -12px; right: -12px; width: 24px; height: 24px; background-color: #eeeeee; border-radius: 50%; z-index: 10; box-shadow: inset 0 -2px 2px rgba(0,0,0,0.1); }
@@ -299,6 +288,10 @@ public class Helper {
         return generateCommonBody(voucher, customer, "START");
     }
 
+    public static String createUpcomingEmailBody(Voucher voucher, Customer customer) {
+        return generateCommonBody(voucher, customer, "UPCOMING");
+    }
+
     public static String createPausedEmailBody(Voucher voucher, Customer customer) {
         return generateCommonBody(voucher, customer, "PAUSED");
     }
@@ -315,10 +308,8 @@ public class Helper {
         LocalDateTime start = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getStartDate()), ZoneId.systemDefault());
         LocalDateTime end = LocalDateTime.ofInstant(Instant.ofEpochMilli(voucher.getEndDate()), ZoneId.systemDefault());
 
-        // --- XỬ LÝ SỐ LIỆU (BỎ .00) ---
         String discountDisplay;
         if (voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE) {
-            // stripTrailingZeros(): 68.00 -> 68
             discountDisplay = voucher.getDiscountValue().stripTrailingZeros().toPlainString() + "%";
         } else {
             discountDisplay = currencyVN.format(voucher.getDiscountValue());
@@ -330,7 +321,8 @@ public class Helper {
         String endTimeStr = end.format(dateFormatter);
         String customerName = (customer.getName() != null) ? customer.getName() : "Quý khách";
         String voucherName = (voucher.getName() != null) ? voucher.getName() : "Gift Voucher";
-        String logoUrl = "https://i.postimg.cc/cCtdbqwT/logggggggo.png";
+
+        String logoUrl = "cid:logoImage";
 
         String headerColor = "#218838";
         String messageBody = "";
@@ -340,27 +332,34 @@ public class Helper {
         String btnColor = "#218838";
 
         if (type.equals("PAUSED")) {
-            headerColor = "#ff6600"; // Cam
+            headerColor = "#ff6600";
             messageBody = "Chúng tôi thành thật xin lỗi. Voucher <strong>" + voucherName + "</strong> hiện đang tạm ngưng sử dụng do <strong>lỗi hệ thống</strong>. Chúng tôi sẽ khắc phục sớm nhất.";
             statusBadge = "<div style='display: inline-block; background: #ffebee; color: #d32f2f; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #ffcdd2; margin-bottom: 5px;'>● TẠM KHÓA</div>";
             btnText = "VỀ TRANG CHỦ";
             btnColor = "#ff6600";
-
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
                     "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>";
+
         } else if (type.equals("RESUMED")) {
-            headerColor = "#218838"; // Xanh
+            headerColor = "#218838";
             messageBody = "Tin vui! Voucher <strong>" + voucherName + "</strong> đã hoạt động trở lại. Số lượng có hạn, sử dụng ngay!";
             statusBadge = "<div style='display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #c8e6c9; margin-bottom: 5px;'>● ĐANG HOẠT ĐỘNG</div>";
-
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
-                    "<tr><td class='info-label'>Số lượng còn:</td><td class='info-val' style='color:#1565c0'>" + voucher.getRemainingQuantity() + "</td></tr>" +
+//                    "<tr><td class='info-label'>Số lượng còn:</td><td class='info-val' style='color:#1565c0'>" + voucher.getRemainingQuantity() + "</td></tr>" +
                     "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
+
+        } else if (type.equals("UPCOMING")) {
+            headerColor = "#17a2b8";
+            messageBody = "Chúng tôi xin gửi tặng bạn một mã giảm giá đặc biệt. Hãy lưu lại và sử dụng khi chương trình bắt đầu nhé!";
+            statusBadge = "<div style='display: inline-block; background: #e0f7fa; color: #00838f; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #b2ebf2; margin-bottom: 5px;'>● SẮP DIỄN RA</div>";
+            infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
+                    "<tr><td class='info-label'>Bắt đầu lúc:</td><td class='info-val' style='color:#00838f; font-weight:800'>" + startTimeStr + "</td></tr>" +
+                    "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
+
         } else { // START
             headerColor = "#218838";
             messageBody = "Chúng tôi xin gửi tặng bạn một mã giảm giá đặc biệt. Hãy sử dụng ngay để mua sắm thả ga nhé!";
             statusBadge = "<div style='display: inline-block; background: #e8f5e9; color: #2e7d32; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; border: 1px solid #c8e6c9; margin-bottom: 5px;'>● ĐANG HOẠT ĐỘNG</div>";
-
             infoTableRows = "<tr><td class='info-label'>Đơn tối thiểu:</td><td class='info-val'>" + minConditionStr + "</td></tr>" +
                     "<tr><td class='info-label'>Bắt đầu:</td><td class='info-val'>" + startTimeStr + "</td></tr>" +
                     "<tr><td class='info-label'>Hạn sử dụng:</td><td class='info-val' style='color:#d32f2f; font-weight:800'>" + endTimeStr + "</td></tr>";
@@ -372,10 +371,7 @@ public class Helper {
     }
 
     public static String convertLongToDateString(Long timestamp) {
-        // Định dạng ngày tháng bạn mong muốn
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm:ss");
-
-        // Chuyển Long (milliseconds) sang Instant, sau đó áp dụng múi giờ hệ thống
         return Instant.ofEpochMilli(timestamp)
                 .atZone(ZoneId.systemDefault())
                 .format(formatter);

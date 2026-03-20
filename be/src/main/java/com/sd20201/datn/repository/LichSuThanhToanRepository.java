@@ -27,6 +27,9 @@ public interface LichSuThanhToanRepository extends JpaRepository<LichSuThanhToan
 
     Optional<LichSuThanhToan> findByMaGiaoDich(String maGiaoDich);
 
+    Optional<LichSuThanhToan> findFirstByMaGiaoDichAndLoaiGiaoDich(
+            String maGiaoDich, String loaiGiaoDich);
+
     @Modifying
     @Transactional
     @Query("UPDATE LichSuThanhToan l SET l.trangThaiThanhToan = :trangThai, " +

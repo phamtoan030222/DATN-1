@@ -47,7 +47,7 @@ export const routes: RouteRecordRaw[] = [
         name: 'OrderTracking',
         // Lưu ý: Bạn cần tạo file TrackingView.vue
         component: () => import('@/views/client/user/tracking/TrackingView.vue'),
-        meta: { title: 'Tra cứu đơn hàng' },
+        meta: { title: 'Đơn hàng' },
       },
       {
         path: 'san-pham',

@@ -534,193 +534,172 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="product-detail-page">
-    <div class="container">
+  <div class="pd-page">
+    <div class="pd-container">
       <!-- Breadcrumb -->
-      <div class="breadcrumb">
-        <span class="breadcrumb-item" @click="router.push('/')">Trang chủ</span>
-        <span class="breadcrumb-separator">/</span>
-        <span class="breadcrumb-item" @click="router.push('/san-pham')">Sản phẩm</span>
-        <span class="breadcrumb-separator">/</span>
-        <span class="breadcrumb-item active">{{ product?.name || 'Chi tiết sản phẩm' }}</span>
+      <div class="pd-breadcrumb">
+        <span @click="router.push('/')">Trang chủ</span>
+        <span class="sep">/</span>
+        <span @click="router.push('/san-pham')">Sản phẩm</span>
+        <span class="sep">/</span>
+        <span class="active">{{ product?.name || 'Chi tiết sản phẩm' }}</span>
       </div>
 
-      <!-- Loading State -->
-      <div v-if="loading" class="loading-state">
+      <!-- Loading -->
+      <div v-if="loading" class="pd-loading">
         <NSpin size="large" />
         <p>Đang tải thông tin sản phẩm...</p>
       </div>
 
-      <div v-else-if="product" class="product-wrapper">
-        <!-- Main Product Section -->
-        <div class="product-main">
-          <!-- Left Column - Image -->
-          <div class="product-gallery">
-            <div class="main-image">
-              <img
-                :src="selectedImage"
-                :alt="product.name"
-                @error="selectedImage = 'https://via.placeholder.com/500'"
-              >
-              <div class="image-badges">
-                <span v-if="isOngoingSale && rawPercent > 0" class="badge discount">-{{ rawPercent }}%</span>
-                <span v-if="isUpcomingSale && rawPercent > 0" class="badge upcoming">Sắp giảm</span>
-                <span v-if="isOutOfStock" class="badge out-of-stock">Hết hàng</span>
+      <div v-else-if="product">
+        <!-- ══ MAIN LAYOUT ══ -->
+        <div class="pd-main">
+          <!-- CỘT TRÁI: Ảnh + Thông số kỹ thuật -->
+          <div class="pd-left">
+            <div class="pd-gallery">
+              <div class="pd-image-wrap">
+                <img
+                  :src="selectedImage"
+                  :alt="product.name"
+                  @error="selectedImage = 'https://via.placeholder.com/500'"
+                >
+                <div class="pd-badges">
+                  <span v-if="isOngoingSale && rawPercent > 0" class="badge badge--sale">-{{ rawPercent }}%</span>
+                  <span v-if="isUpcomingSale && rawPercent > 0" class="badge badge--upcoming">Sắp giảm</span>
+                  <span v-if="isOutOfStock" class="badge badge--oos">Hết hàng</span>
+                </div>
               </div>
+            </div>
+
+            <!-- Thông số kỹ thuật ngay dưới ảnh -->
+            <div class="pd-specs-card">
+              <div class="pd-specs-card__title">
+                Thông số kỹ thuật
+              </div>
+              <NDescriptions
+                bordered :column="1" size="small"
+                label-style="width: 120px; font-weight: 600; background: #f9f9f9; font-size: 12.5px;"
+                content-style="font-size: 12.5px;"
+              >
+                <NDescriptionsItem label="CPU">
+                  {{ product.cpuName || product.cpu || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="RAM">
+                  {{ product.ramName || product.ram || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Ổ cứng">
+                  {{ product.hardDriveName || product.hardDrive || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="GPU">
+                  {{ product.gpuName || product.gpu || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Màn hình">
+                  {{ product.screenName || product.screen || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Màu sắc">
+                  {{ product.colorName || product.color || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Pin">
+                  {{ product.batteryName || product.battery || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="HĐH">
+                  {{ product.operatingSystem || '—' }}
+                </NDescriptionsItem>
+              </NDescriptions>
             </div>
           </div>
 
-          <!-- Center Column - Product Info -->
-          <div class="product-info">
-            <div class="product-header">
-              <h1 class="product-title">
-                {{ product.name }}
-              </h1>
-              <div class="product-meta">
-                <!-- <div class="rating">
-                  <NRate :default-value="5" readonly size="small" />
-                  <span class="rating-count">(12 đánh giá)</span>
-                </div> -->
-                <span class="product-code">Mã: {{ product.code }}</span>
-              </div>
-            </div>
+          <!-- CỘT PHẢI: Thông tin + mua hàng -->
+          <div class="pd-info">
+            <h1 class="pd-title">
+              {{ product.name }}
+            </h1>
+            <p class="pd-code">
+              Mã SP: <strong>{{ product.code }}</strong>
+            </p>
 
-            <!-- Flash Sale Timer -->
-            <div v-if="isOngoingSale || isUpcomingSale" class="sale-timer" :class="{ ongoing: isOngoingSale, upcoming: isUpcomingSale }">
-              <div class="timer-left">
-                <NIcon size="24" :class="{ 'animate-pulse': isOngoingSale, 'animate-bounce': isUpcomingSale }">
-                  <Flash v-if="isOngoingSale" />
-                  <TimeOutline v-else />
+            <!-- Flash Sale -->
+            <div
+              v-if="isOngoingSale || isUpcomingSale" class="pd-timer"
+              :class="{ 'pd-timer--ongoing': isOngoingSale, 'pd-timer--upcoming': isUpcomingSale }"
+            >
+              <div class="pd-timer__left">
+                <NIcon size="17">
+                  <Flash v-if="isOngoingSale" /><TimeOutline v-else />
                 </NIcon>
-                <div class="timer-text">
-                  <span class="timer-label">{{ isOngoingSale ? 'FLASH SALE' : 'SẮP DIỄN RA' }}</span>
-                  <span class="timer-sub">{{ isOngoingSale ? 'Kết thúc trong' : 'Bắt đầu sau' }}</span>
+                <div>
+                  <div class="pd-timer__label">
+                    {{ isOngoingSale ? 'FLASH SALE' : 'SẮP DIỄN RA' }}
+                  </div>
+                  <div class="pd-timer__sub">
+                    {{ isOngoingSale ? 'Kết thúc trong' : 'Bắt đầu sau' }}
+                  </div>
                 </div>
               </div>
-              <div class="timer-display">
-                <span class="time-value">{{ timeLeft }}</span>
+              <div class="pd-timer__value">
+                {{ timeLeft }}
               </div>
             </div>
 
-            <!-- Price Section -->
-            <div class="price-section" :class="{ 'has-sale': isOngoingSale || isUpcomingSale }">
-              <div class="price-wrapper">
-                <div v-if="isOngoingSale && rawPercent > 0" class="price-old">
-                  <span class="label">Giá niêm yết:</span>
-                  <span class="value">{{ formatCurrency(listPrice) }}</span>
-                </div>
-                <div class="price-current">
-                  <span class="label">Giá bán:</span>
-                  <span class="value" :class="{ 'sale-price': isOngoingSale }">{{ formatCurrency(sellingPrice) }}</span>
-                  <span v-if="isUpcomingSale && rawPercent > 0" class="upcoming-tag">Dự kiến giảm {{ rawPercent }}%</span>
-                </div>
+            <!-- Giá -->
+            <div class="pd-price-block" :class="{ 'pd-price-block--sale': isOngoingSale }">
+              <div v-if="isOngoingSale && rawPercent > 0" class="pd-price-original">
+                {{ formatCurrency(listPrice) }}
+              </div>
+              <div class="pd-price-row">
+                <span class="pd-price-main" :class="{ 'pd-price-main--sale': isOngoingSale }">{{ formatCurrency(sellingPrice) }}</span>
+                <span v-if="isOngoingSale && rawPercent > 0" class="pd-price-pct">-{{ rawPercent }}%</span>
+                <span v-if="isUpcomingSale && rawPercent > 0" class="pd-upcoming-tag">Dự kiến -{{ rawPercent }}%</span>
               </div>
             </div>
 
-            <!-- Short Specs -->
-            <div class="short-specs">
-              <div v-if="product.cpu" class="spec-item">
-                <span class="spec-label">CPU:</span>
-                <span class="spec-value">{{ product.cpu }}</span>
-              </div>
-              <div v-if="product.ram" class="spec-item">
-                <span class="spec-label">RAM:</span>
-                <span class="spec-value">{{ product.ram }}</span>
-              </div>
-              <div v-if="product.hardDrive" class="spec-item">
-                <span class="spec-label">Ổ cứng:</span>
-                <span class="spec-value">{{ product.hardDrive }}</span>
-              </div>
-              <div v-if="product.gpu" class="spec-item">
-                <span class="spec-label">VGA:</span>
-                <span class="spec-value">{{ product.gpu }}</span>
-              </div>
-              <div v-if="product.screen" class="spec-item">
-                <span class="spec-label">Màn hình:</span>
-                <span class="spec-value">{{ product.screen }}</span>
-              </div>
-            </div>
-
-            <!-- Variants Selection -->
-            <div v-if="cpuOptions.length > 0 || gpuOptions.length > 0 || ramOptions.length > 0 || hardDriveOptions.length > 0 || colorOptions.length > 0" class="variants-section">
-              <div class="variants-header">
-                <h3 class="variants-title">
-                  Tuỳ chọn phiên bản
-                </h3>
-                <button class="reset-filter-btn" @click="handleResetFilter">
-                  <NIcon size="14">
+            <!-- Chọn phiên bản -->
+            <div v-if="cpuOptions.length > 0 || gpuOptions.length > 0 || ramOptions.length > 0 || hardDriveOptions.length > 0 || colorOptions.length > 0" class="pd-variants">
+              <div class="pd-variants__head">
+                <span class="pd-variants__title">Tuỳ chọn phiên bản</span>
+                <button class="pd-reset-btn" @click="handleResetFilter">
+                  <NIcon size="12">
                     <RefreshOutline />
-                  </NIcon>
-                  Làm mới
+                  </NIcon> Làm mới
                 </button>
               </div>
-
-              <div class="variants-grid">
-                <div v-if="cpuOptions.length > 0" class="variant-group">
-                  <span class="variant-label">CPU:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in cpuOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedCpu === opt.value }"
-                      @click="selectVariantOption('CPU', opt.value)"
-                    >
+              <div class="pd-variants__body">
+                <div v-if="cpuOptions.length > 0" class="pd-vgroup">
+                  <span class="pd-vgroup__label">CPU:</span>
+                  <div class="pd-vgroup__chips">
+                    <button v-for="opt in cpuOptions" :key="opt.value" class="pd-chip" :class="{ 'pd-chip--active': selectedCpu === opt.value }" @click="selectVariantOption('CPU', opt.value)">
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-
-                <div v-if="ramOptions.length > 0" class="variant-group">
-                  <span class="variant-label">RAM:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in ramOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedRam === opt.value }"
-                      @click="selectVariantOption('RAM', opt.value)"
-                    >
+                <div v-if="ramOptions.length > 0" class="pd-vgroup">
+                  <span class="pd-vgroup__label">RAM:</span>
+                  <div class="pd-vgroup__chips">
+                    <button v-for="opt in ramOptions" :key="opt.value" class="pd-chip" :class="{ 'pd-chip--active': selectedRam === opt.value }" @click="selectVariantOption('RAM', opt.value)">
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-
-                <div v-if="hardDriveOptions.length > 0" class="variant-group">
-                  <span class="variant-label">Ổ cứng:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in hardDriveOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedHardDrive === opt.value }"
-                      @click="selectVariantOption('HDD', opt.value)"
-                    >
+                <div v-if="hardDriveOptions.length > 0" class="pd-vgroup">
+                  <span class="pd-vgroup__label">Ổ cứng:</span>
+                  <div class="pd-vgroup__chips">
+                    <button v-for="opt in hardDriveOptions" :key="opt.value" class="pd-chip" :class="{ 'pd-chip--active': selectedHardDrive === opt.value }" @click="selectVariantOption('HDD', opt.value)">
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-
-                <div v-if="gpuOptions.length > 0" class="variant-group">
-                  <span class="variant-label">VGA:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in gpuOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedGpu === opt.value }"
-                      @click="selectVariantOption('GPU', opt.value)"
-                    >
+                <div v-if="gpuOptions.length > 0" class="pd-vgroup">
+                  <span class="pd-vgroup__label">VGA:</span>
+                  <div class="pd-vgroup__chips">
+                    <button v-for="opt in gpuOptions" :key="opt.value" class="pd-chip" :class="{ 'pd-chip--active': selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)">
                       {{ opt.label }}
                     </button>
                   </div>
                 </div>
-
-                <div v-if="colorOptions.length > 0" class="variant-group">
-                  <span class="variant-label">Màu sắc:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in colorOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedColor === opt.value }"
-                      @click="selectVariantOption('COLOR', opt.value)"
-                    >
+                <div v-if="colorOptions.length > 0" class="pd-vgroup">
+                  <span class="pd-vgroup__label">Màu:</span>
+                  <div class="pd-vgroup__chips">
+                    <button v-for="opt in colorOptions" :key="opt.value" class="pd-chip" :class="{ 'pd-chip--active': selectedColor === opt.value }" @click="selectVariantOption('COLOR', opt.value)">
                       {{ opt.label }}
                     </button>
                   </div>
@@ -728,228 +707,99 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Quantity & Actions -->
-            <div class="actions-section">
-              <div class="quantity-box">
-                <span class="quantity-label">Số lượng:</span>
-                <NInputNumber
-                  v-model:value="quantity"
-                  :min="1"
-                  :max="Math.min(5, stockQuantity)"
-                  :disabled="isOutOfStock"
-                  button-placement="both"
-                  size="large"
-                />
-                <div v-if="stockQuantity > 0" class="stock-info">
-                  <NIcon size="16" color="#16a34a">
-                    <CheckmarkCircleOutline />
-                  </NIcon>
-                  <span>Còn <strong>{{ stockQuantity }}</strong> sản phẩm</span>
-                </div>
-              </div>
-
-              <div class="action-buttons">
-                <NButton
-                  v-if="!isOutOfStock"
-                  size="large"
-                  class="btn-buy-now"
-                  :loading="loadingCart"
-                  @click="handleBuyNow"
-                >
-                  <template #icon>
-                    <NIcon><RocketOutline /></NIcon>
-                  </template>
-                  MUA NGAY
-                </NButton>
-                <NButton
-                  v-else
-                  size="large"
-                  class="btn-disabled"
-                  disabled
-                >
-                  <template #icon>
-                    <NIcon><AlertCircleOutline /></NIcon>
-                  </template>
-                  HẾT HÀNG
-                </NButton>
-
-                <NButton
-                  size="large"
-                  class="btn-add-cart"
-                  :disabled="isOutOfStock"
-                  :loading="loadingCart"
-                  @click="handleAddToCart"
-                >
-                  <template #icon>
-                    <NIcon><CartOutline /></NIcon>
-                  </template>
-                  Thêm giỏ hàng
-                </NButton>
-              </div>
+            <!-- Số lượng + tồn kho -->
+            <div class="pd-qty-row">
+              <span class="pd-qty-label">Số lượng:</span>
+              <NInputNumber
+                v-model:value="quantity"
+                :min="1" :max="Math.min(5, stockQuantity)"
+                :disabled="isOutOfStock"
+                button-placement="both" size="medium"
+                style="width: 110px"
+              />
+              <span v-if="stockQuantity > 0" class="pd-stock">
+                <NIcon size="14" color="#16a34a"><CheckmarkCircleOutline /></NIcon>
+                Còn <strong>{{ stockQuantity }}</strong> sp
+              </span>
             </div>
-          </div>
 
-          <!-- Right Column - Store Info -->
-          <div class="store-sidebar">
-            <!-- Service Promise -->
-            <div class="promise-card">
-              <div class="promise-item">
-                <NIcon size="18" color="#18a058">
+            <!-- Nút mua -->
+            <div class="pd-btn-row">
+              <NButton v-if="!isOutOfStock" size="large" class="pd-btn-buy" :loading="loadingCart" @click="handleBuyNow">
+                <template #icon>
+                  <NIcon><RocketOutline /></NIcon>
+                </template>
+                MUA NGAY
+              </NButton>
+              <NButton v-else size="large" class="pd-btn-oos" disabled>
+                <template #icon>
+                  <NIcon><AlertCircleOutline /></NIcon>
+                </template>
+                HẾT HÀNG
+              </NButton>
+              <NButton size="large" class="pd-btn-cart" :disabled="isOutOfStock" :loading="loadingCart" @click="handleAddToCart">
+                <template #icon>
+                  <NIcon><CartOutline /></NIcon>
+                </template>
+                Thêm giỏ hàng
+              </NButton>
+            </div>
+
+            <!-- Cam kết + Voucher -->
+            <div class="pd-promises">
+              <div class="pd-promise">
+                <NIcon size="14" color="#16a34a">
                   <ShieldCheckmarkOutline />
-                </NIcon>
-                <span>Giao hàng tiết kiệm</span>
+                </NIcon><span>Giao hàng toàn quốc</span>
               </div>
-              <div class="promise-item">
-                <NIcon size="18" color="#18a058">
+              <div class="pd-promise">
+                <NIcon size="14" color="#16a34a">
                   <ReturnDownBackOutline />
-                </NIcon>
-                <span>Đổi trả trong 30 ngày</span>
+                </NIcon><span>Đổi trả 30 ngày</span>
               </div>
-              <div class="promise-item">
-                <NIcon size="18" color="#18a058">
+              <div class="pd-promise">
+                <NIcon size="14" color="#16a34a">
                   <HeadsetOutline />
-                </NIcon>
-                <span>Hỗ trợ 24/7</span>
+                </NIcon><span>Hỗ trợ 24/7</span>
               </div>
-              <div class="promise-item">
-                <NIcon size="18" color="#18a058">
-                  <LocationOutline />
-                </NIcon>
-                <span>Giao hàng toàn quốc</span>
+              <div class="pd-promise">
+                <NIcon size="14" color="#16a34a">
+                  <RocketOutline />
+                </NIcon><span>Giao nhanh 2H</span>
               </div>
             </div>
 
-            <!-- Voucher Section -->
-            <div class="voucher-card" @click="showVoucherModal = true">
-              <div class="voucher-header">
-                <NIcon size="20" color="#18a058">
-                  <GiftOutline />
-                </NIcon>
-                <span>Mã giảm giá</span>
-              </div>
-              <div class="voucher-preview">
-                <span v-if="validVouchers.length > 0" class="voucher-count">
-                  {{ validVouchers.length }} mã khả dụng
-                </span>
-                <span v-else class="voucher-count">Chưa có mã</span>
-                <NIcon size="16">
-                  <ArrowBack style="transform: rotate(180deg)" />
-                </NIcon>
-              </div>
+            <div class="pd-voucher" @click="showVoucherModal = true">
+              <NIcon size="15" color="#16a34a">
+                <GiftOutline />
+              </NIcon>
+              <span>Mã giảm giá:</span>
+              <strong>{{ validVouchers.length > 0 ? `${validVouchers.length} mã khả dụng` : 'Chưa có mã' }}</strong>
+              <NIcon size="13" style="margin-left: auto">
+                <ArrowBack style="transform: rotate(180deg)" />
+              </NIcon>
             </div>
           </div>
         </div>
 
-        <!-- Product Details Tabs -->
-        <div class="product-tabs">
-          <NTabs v-model:value="activeTab" type="line" animated>
-            <NTabPane name="description" tab="Mô tả sản phẩm">
-              <div class="tab-content">
-                <h3 class="tab-title">
-                  Thông số kỹ thuật
-                </h3>
-                <NDescriptions
-                  bordered
-                  :column="1"
-                  size="medium"
-                  label-style="width: 160px; font-weight: 600; background-color: #f8fafc;"
-                >
-                  <NDescriptionsItem label="CPU">
-                    {{ product.cpuName || product.cpu || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem label="RAM">
-                    {{ product.ramName || product.ram || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem label="Ổ cứng">
-                    {{ product.hardDriveName || product.hardDrive || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem label="GPU">
-                    {{ product.gpuName || product.gpu || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem label="Màn hình">
-                    {{ product.screenName || product.screen || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem label="Màu sắc">
-                    {{ product.colorName || product.color || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem label="Pin">
-                    {{ product.batteryName || product.battery || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                  <NDescriptionsItem label="Hệ điều hành">
-                    {{ product.operatingSystem || 'Đang cập nhật' }}
-                  </NDescriptionsItem>
-                </NDescriptions>
-              </div>
-            </NTabPane>
-            <!-- <NTabPane name="reviews" tab="Đánh giá (12)">
-              <div class="tab-content">
-                <div class="reviews-summary">
-                  <div class="average-rating">
-                    <span class="rating-number">4.5</span>
-                    <NRate :value="4.5" readonly size="small" />
-                    <span class="rating-total">12 đánh giá</span>
-                  </div>
-                  <div class="rating-bars">
-                    <div v-for="i in 5" :key="i" class="rating-bar-item">
-                      <span>{{ 6 - i }} sao</span>
-                      <div class="bar">
-                        <div class="bar-fill" :style="{ width: `${[80, 10, 5, 3, 2][i - 1]}%` }" />
-                      </div>
-                      <span>{{ [8, 1, 1, 1, 1][i - 1] }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="reviews-list">
-                  <div v-for="i in 3" :key="i" class="review-item">
-                    <div class="reviewer">
-                      <NAvatar size="small" round>
-                        U
-                      </NAvatar>
-                      <div>
-                        <div class="reviewer-name">
-                          Nguyễn Văn A
-                        </div>
-                        <NRate :value="5" readonly size="small" />
-                      </div>
-                    </div>
-                    <p class="review-content">
-                      Sản phẩm tốt, đóng gói cẩn thận, giao hàng nhanh.
-                    </p>
-                    <span class="review-date">2 ngày trước</span>
-                  </div>
-                </div>
-              </div>
-            </NTabPane> -->
-          </NTabs>
-        </div>
-
-        <!-- Related Products -->
-        <div v-if="relatedProducts.length > 0" class="related-products">
-          <h2 class="section-title">
+        <!-- Sản phẩm liên quan -->
+        <div v-if="relatedProducts.length > 0" class="pd-related">
+          <h2 class="pd-related__title">
             Sản phẩm liên quan
           </h2>
-          <div class="related-grid">
-            <div
-              v-for="item in relatedProducts"
-              :key="item.id"
-              class="related-card"
-              @click="router.push(`/product-detail/${item.id}`)"
-            >
-              <div class="card-image">
+          <div class="pd-related__grid">
+            <div v-for="item in relatedProducts" :key="item.id" class="pd-rcard" @click="router.push(`/product-detail/${item.id}`)">
+              <div class="pd-rcard__img">
                 <img :src="item.urlImage" :alt="item.name">
-                <div v-if="item.percentage" class="card-badge">
+                <div v-if="item.percentage" class="pd-rcard__badge">
                   -{{ item.percentage }}%
                 </div>
               </div>
-              <div class="card-info">
-                <h3 class="card-name">
+              <div class="pd-rcard__body">
+                <p class="pd-rcard__name">
                   {{ item.name }}
-                </h3>
-                <div class="card-price">
-                  <span class="current">{{ formatCurrency(item.price) }}</span>
-                  <span v-if="item.percentage" class="old">{{ formatCurrency(item.price) }}</span>
-                </div>
+                </p>
+                <span class="pd-rcard__cur">{{ formatCurrency(item.price) }}</span>
               </div>
             </div>
           </div>
@@ -958,36 +808,29 @@ onUnmounted(() => {
     </div>
 
     <!-- Voucher Modal -->
-    <NModal v-model:show="showVoucherModal" preset="card" title="Mã giảm giá khả dụng" style="width: 500px">
-      <div v-if="validVouchers.length === 0" class="empty-voucher">
+    <NModal v-model:show="showVoucherModal" preset="card" title="Mã giảm giá khả dụng" style="width: 480px">
+      <div v-if="validVouchers.length === 0" style="padding: 32px; text-align: center">
         <NEmpty description="Chưa có mã giảm giá phù hợp" />
       </div>
-      <div v-else class="voucher-list">
+      <div v-else class="pd-vmodal-list">
         <div
-          v-for="(v, index) in validVouchers"
-          :key="v.id"
-          class="voucher-item"
-          :class="{ selected: selectedVoucher?.id === v.id }"
+          v-for="(v, index) in validVouchers" :key="v.id"
+          class="pd-vmodal-item" :class="{ 'pd-vmodal-item--selected': selectedVoucher?.id === v.id }"
           @click="handleSelectVoucher(v)"
         >
-          <div v-if="index === 0" class="voucher-badge">
+          <div v-if="index === 0" class="pd-vmodal-best">
             TỐT NHẤT
           </div>
-          <div class="voucher-left">
-            <span class="voucher-code">{{ v.code }}</span>
-            <span class="voucher-name">{{ v.name }}</span>
-            <div class="voucher-desc">
-              <span>Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue || 0) }}</span>
-              <span v-if="v.maxValue"> • Tối đa: {{ formatCurrency(v.maxValue) }}</span>
-            </div>
-            <span class="voucher-condition">Đơn tối thiểu: {{ formatCurrency(v.conditions || 0) }}</span>
+          <div class="pd-vmodal-left">
+            <span class="pd-vmodal-code">{{ v.code }}</span>
+            <span class="pd-vmodal-name">{{ v.name }}</span>
+            <span class="pd-vmodal-desc">Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue || 0) }}<template v-if="v.maxValue"> · Tối đa: {{ formatCurrency(v.maxValue) }}</template></span>
+            <span class="pd-vmodal-cond">Đơn tối thiểu: {{ formatCurrency(v.conditions || 0) }}</span>
           </div>
-          <div class="voucher-right">
-            <div class="voucher-check" :class="{ checked: selectedVoucher?.id === v.id }">
-              <NIcon v-if="selectedVoucher?.id === v.id" color="white" size="14">
-                <CheckmarkCircle />
-              </NIcon>
-            </div>
+          <div class="pd-vmodal-check" :class="{ 'pd-vmodal-check--on': selectedVoucher?.id === v.id }">
+            <NIcon v-if="selectedVoucher?.id === v.id" color="white" size="13">
+              <CheckmarkCircle />
+            </NIcon>
           </div>
         </div>
       </div>
@@ -996,943 +839,141 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.product-detail-page {
-  background-color: #f5f5f5;
-  min-height: 100vh;
-  padding: 20px 0 40px;
-}
-
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 15px;
-}
+.pd-page { background: #f5f5f5; min-height: 100vh; padding: 20px 0 48px; }
+.pd-container { max-width: 1100px; margin: 0 auto; padding: 0 16px; }
 
 /* Breadcrumb */
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 20px;
-  font-size: 14px;
-  color: #666;
-}
+.pd-breadcrumb { font-size: 13px; color: #888; margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+.pd-breadcrumb span { cursor: pointer; }
+.pd-breadcrumb span:hover { color: #22c55e; }
+.pd-breadcrumb .active { color: #22c55e; font-weight: 500; cursor: default; }
+.pd-breadcrumb .sep { color: #ccc; cursor: default; }
 
-.breadcrumb-item {
-  cursor: pointer;
-  transition: color 0.2s;
-}
+/* Loading */
+.pd-loading { display: flex; flex-direction: column; align-items: center; padding: 64px; background: #fff; border-radius: 8px; border: 1px solid #e5e5e5; }
+.pd-loading p { margin-top: 14px; color: #888; font-size: 14px; }
 
-.breadcrumb-item:hover {
-  color: #18a058;
-}
-
-.breadcrumb-item.active {
-  color: #18a058;
-  font-weight: 500;
-}
-
-.breadcrumb-separator {
-  color: #999;
-}
-
-/* Loading State */
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px;
-  background: white;
-  border-radius: 12px;
-}
-
-.loading-state p {
-  margin-top: 16px;
-  color: #666;
-}
-
-/* Product Main Layout */
-.product-main {
+/* ── MAIN GRID: 420px trái | 1fr phải ── */
+.pd-main {
   display: grid;
-  grid-template-columns: 400px 1fr 280px;
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-/* Gallery Section */
-.product-gallery {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-.main-image {
-  position: relative;
-  padding-top: 100%;
-  background: #fafafa;
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-.main-image img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.image-badges {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  gap: 8px;
-  z-index: 2;
-}
-
-.badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  color: white;
-}
-
-.badge.discount {
-  background: #18a058;
-}
-
-.badge.upcoming {
-  background: #2563eb;
-}
-
-.badge.out-of-stock {
-  background: #6b7280;
-}
-
-.favorite-btn, .share-btn {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  z-index: 2;
-  transition: all 0.2s;
-}
-
-.favorite-btn:hover, .share-btn:hover {
-  transform: scale(1.1);
-}
-
-.favorite-btn {
-  top: 12px;
-  right: 60px;
-}
-
-.share-btn {
-  top: 12px;
-  right: 12px;
-}
-
-/* Product Info */
-.product-info {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-.product-header {
-  margin-bottom: 20px;
-}
-
-.product-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 8px;
-  line-height: 1.3;
-}
-
-.product-meta {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.rating {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rating-count {
-  font-size: 14px;
-  color: #666;
-}
-
-.product-code {
-  font-size: 14px;
-  color: #666;
-}
-
-/* Sale Timer */
-.sale-timer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  color: white;
-}
-
-.sale-timer.ongoing {
-  background: linear-gradient(135deg, #18a058, #16f92d);
-}
-
-.sale-timer.upcoming {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-}
-
-.timer-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.timer-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.timer-label {
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.timer-sub {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.timer-display {
-  background: rgba(0,0,0,0.2);
-  padding: 8px 16px;
-  border-radius: 40px;
-  backdrop-filter: blur(4px);
-}
-
-.time-value {
-  font-weight: 700;
-  font-size: 18px;
-  font-family: monospace;
-}
-
-/* Price Section */
-.price-section {
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.price-section.has-sale {
-  background: #fff1f0;
-}
-
-.price-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.price-old {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.price-old .value {
-  text-decoration: line-through;
-  color: #999;
-}
-
-.price-current {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.price-current .value {
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.price-current .value.sale-price {
-  color: #18a058;
-}
-
-.upcoming-tag {
-  background: #2563eb;
-  color: white;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* Short Specs */
-.short-specs {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.spec-item {
-  display: flex;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.spec-label {
-  color: #666;
-  font-weight: 500;
-}
-
-.spec-value {
-  color: #1e293b;
-  font-weight: 600;
-}
-
-/* Variants Section */
-.variants-section {
-  margin-bottom: 20px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-}
-
-.variants-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.variants-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.reset-filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  font-size: 12px;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.reset-filter-btn:hover {
-  background: #18a058;
-  color: white;
-  border-color: #18a058;
-}
-
-.variants-grid {
-  display: flex;
-  flex-direction: column;
+  grid-template-columns: 400px 1fr;
   gap: 16px;
-}
-
-.variant-group {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.variant-label {
-  min-width: 60px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #666;
-  padding-top: 6px;
-}
-
-.variant-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  flex: 1;
-}
-
-.variant-chip {
-  padding: 6px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.variant-chip:hover {
-  border-color: #18a058;
-}
-
-.variant-chip.active {
-  border-color: #18a058;
-  background: #fff1f0;
-  color: #18a058;
-  font-weight: 600;
-}
-
-/* Actions Section */
-.actions-section {
-  border-top: 1px solid #e2e8f0;
-  padding-top: 20px;
-}
-
-.quantity-box {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.quantity-label {
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.stock-info {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: #16a34a;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.btn-buy-now {
-  flex: 1;
-  background: #18a058;
-  border: none;
-  color: white;
-  font-weight: 700;
-  height: 48px;
-}
-
-.btn-buy-now:hover {
-  background: #18a058;
-}
-
-.btn-add-cart {
-  flex: 1;
-  background: white;
-  border: 1px solid #18a058;
-  color: #18a058;
-  font-weight: 700;
-  height: 48px;
-}
-
-.btn-add-cart:hover {
-  background: #fff1f0;
-}
-
-.btn-disabled {
-  flex: 1;
-  background: #e2e8f0;
-  border: none;
-  color: #999;
-  font-weight: 700;
-  height: 48px;
-}
-
-/* Store Sidebar */
-.store-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.store-card, .promise-card, .voucher-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-.store-header {
-  display: flex;
-  gap: 12px;
   margin-bottom: 16px;
+  align-items: start;
 }
 
-.store-info h4 {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
+/* Cột trái */
+.pd-left { display: flex; flex-direction: column; gap: 12px; }
 
-.store-rating {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
+/* Ảnh */
+.pd-gallery { background: #fff; border-radius: 8px; border: 1px solid #e5e5e5; padding: 12px; }
+.pd-image-wrap { position: relative; padding-top: 100%; background: #fafafa; border-radius: 6px; border: 1px solid #f0f0f0; overflow: hidden; }
+.pd-image-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.pd-badges { position: absolute; top: 8px; left: 8px; display: flex; flex-direction: column; gap: 4px; z-index: 2; }
+.badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #fff; }
+.badge--sale { background: #22c55e; }
+.badge--upcoming { background: #3b82f6; }
+.badge--oos { background: #9ca3af; }
 
-.store-rating span {
-  font-size: 12px;
-  color: #666;
-  margin-left: 4px;
-}
+/* Thông số kỹ thuật */
+.pd-specs-card { background: #fff; border-radius: 8px; border: 1px solid #e5e5e5; overflow: hidden; }
+.pd-specs-card__title { font-size: 13px; font-weight: 700; color: #333; padding: 10px 14px; background: #fafafa; border-bottom: 1px solid #e5e5e5; }
 
-.store-stats {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 16px;
-  padding: 12px 0;
-  border-top: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-}
+/* Cột phải */
+.pd-info { background: #fff; border-radius: 8px; border: 1px solid #e5e5e5; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
 
-.stat {
-  text-align: center;
-}
+.pd-title { font-size: 18px; font-weight: 700; color: #111; line-height: 1.35; margin: 0; }
+.pd-code { font-size: 12px; color: #999; margin: 0; }
+.pd-code strong { color: #666; }
 
-.stat-value {
-  display: block;
-  font-size: 16px;
-  font-weight: 700;
-  color: #18a058;
-}
+/* Timer */
+.pd-timer { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-radius: 6px; color: #fff; }
+.pd-timer--ongoing { background: #16a34a; }
+.pd-timer--upcoming { background: #2563eb; }
+.pd-timer__left { display: flex; align-items: center; gap: 8px; }
+.pd-timer__label { font-weight: 700; font-size: 12px; }
+.pd-timer__sub { font-size: 11px; opacity: 0.85; }
+.pd-timer__value { font-family: monospace; font-size: 16px; font-weight: 700; background: rgba(0,0,0,0.15); padding: 4px 10px; border-radius: 4px; }
 
-.stat-label {
-  font-size: 11px;
-  color: #666;
-}
+/* Giá */
+.pd-price-block { padding: 12px 14px; background: #f9f9f9; border-radius: 6px; border: 1px solid #f0f0f0; }
+.pd-price-block--sale { background: #f0fdf4; border-color: #bbf7d0; }
+.pd-price-original { font-size: 12px; color: #aaa; text-decoration: line-through; margin-bottom: 2px; }
+.pd-price-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pd-price-main { font-size: 26px; font-weight: 700; color: #111; }
+.pd-price-main--sale { color: #16a34a; }
+.pd-price-pct { background: #16a34a; color: #fff; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; }
+.pd-upcoming-tag { background: #3b82f6; color: #fff; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
 
-.view-shop-btn {
-  border-color: #18a058;
-  color: #18a058;
-}
+/* Variants */
+.pd-variants { border: 1px solid #f0f0f0; border-radius: 6px; overflow: hidden; }
+.pd-variants__head { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; background: #f9f9f9; border-bottom: 1px solid #f0f0f0; }
+.pd-variants__title { font-size: 12.5px; font-weight: 700; color: #333; }
+.pd-reset-btn { display: flex; align-items: center; gap: 4px; padding: 3px 8px; border: 1px solid #e5e5e5; border-radius: 4px; background: #fff; font-size: 11.5px; color: #666; cursor: pointer; }
+.pd-reset-btn:hover { background: #f5f5f5; }
+.pd-variants__body { padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.pd-vgroup { display: flex; align-items: flex-start; gap: 8px; }
+.pd-vgroup__label { min-width: 56px; font-size: 12px; font-weight: 600; color: #666; padding-top: 5px; flex-shrink: 0; }
+.pd-vgroup__chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.pd-chip { padding: 4px 10px; border: 1px solid #e5e5e5; border-radius: 4px; background: #fff; font-size: 12px; cursor: pointer; }
+.pd-chip:hover { border-color: #22c55e; }
+.pd-chip--active { border-color: #22c55e; background: #f0fdf4; color: #16a34a; font-weight: 600; }
 
-.view-shop-btn:hover {
-  background: #fff1f0;
-}
+/* Số lượng */
+.pd-qty-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pd-qty-label { font-size: 13px; font-weight: 600; color: #333; }
+.pd-stock { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #16a34a; }
 
-.promise-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  font-size: 13px;
-  color: #666;
-}
+/* Nút mua */
+.pd-btn-row { display: flex; gap: 8px; }
+.pd-btn-buy  { flex: 1; background: #22c55e !important; border: none !important; color: #fff !important; font-weight: 700 !important; height: 44px !important; }
+.pd-btn-cart { flex: 1; background: #fff !important; border: 1.5px solid #22c55e !important; color: #16a34a !important; font-weight: 700 !important; height: 44px !important; }
+.pd-btn-cart:hover { background: #f0fdf4 !important; }
+.pd-btn-oos  { flex: 1; background: #f0f0f0 !important; border: none !important; color: #aaa !important; font-weight: 700 !important; height: 44px !important; }
 
-.promise-item:not(:last-child) {
-  border-bottom: 1px dashed #e2e8f0;
-}
+/* Cam kết */
+.pd-promises { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px 12px; background: #f9f9f9; border-radius: 6px; border: 1px solid #f0f0f0; }
+.pd-promise { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #555; }
 
-.voucher-card {
-  cursor: pointer;
-  transition: all 0.2s;
-}
+/* Voucher */
+.pd-voucher { display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid #e5e5e5; border-radius: 6px; cursor: pointer; font-size: 12.5px; color: #333; background: #fff; }
+.pd-voucher:hover { background: #f9f9f9; }
+.pd-voucher strong { color: #16a34a; }
 
-.voucher-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.voucher-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-
-.voucher-preview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.voucher-count {
-  font-size: 14px;
-  color: #18a058;
-  font-weight: 500;
-}
-
-/* Product Tabs */
-.product-tabs {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-.tab-content {
-  padding: 20px 0;
-}
-
-.tab-title {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 16px;
-}
-
-/* Reviews */
-.reviews-summary {
-  display: flex;
-  gap: 40px;
-  padding: 20px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 30px;
-}
-
-.average-rating {
-  text-align: center;
-  min-width: 120px;
-}
-
-.rating-number {
-  font-size: 48px;
-  font-weight: 700;
-  color: #18a058;
-  display: block;
-  line-height: 1;
-}
-
-.rating-total {
-  display: block;
-  font-size: 14px;
-  color: #666;
-  margin-top: 4px;
-}
-
-.rating-bars {
-  flex: 1;
-}
-
-.rating-bar-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.rating-bar-item span {
-  min-width: 45px;
-  font-size: 13px;
-}
-
-.bar {
-  flex: 1;
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.bar-fill {
-  height: 100%;
-  background: #18a058;
-  border-radius: 4px;
-}
-
-.reviews-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.review-item {
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-}
-
-.reviewer {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.reviewer-name {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.review-content {
-  color: #1e293b;
-  margin-bottom: 8px;
-  line-height: 1.6;
-}
-
-.review-date {
-  font-size: 12px;
-  color: #999;
-}
-
-/* Related Products */
-.related-products {
-  margin-top: 30px;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-
-.related-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-}
-
-.related-card {
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid #e2e8f0;
-}
-
-.related-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  border-color: #18a058;
-}
-
-.card-image {
-  position: relative;
-  padding-top: 100%;
-  background: #f8fafc;
-}
-
-.card-image img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 12px;
-}
-
-.card-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: #18a058;
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.card-info {
-  padding: 12px;
-}
-
-.card-name {
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 36px;
-}
-
-.card-price {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.current {
-  font-size: 14px;
-  font-weight: 700;
-  color: #18a058;
-}
-
-.old {
-  font-size: 12px;
-  color: #999;
-  text-decoration: line-through;
-}
+/* Related */
+.pd-related { margin-bottom: 16px; }
+.pd-related__title { font-size: 15px; font-weight: 700; color: #111; margin-bottom: 10px; }
+.pd-related__grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+.pd-rcard { background: #fff; border: 1px solid #e5e5e5; border-radius: 6px; overflow: hidden; cursor: pointer; }
+.pd-rcard:hover { border-color: #22c55e; }
+.pd-rcard__img { position: relative; padding-top: 100%; background: #f5f5f5; }
+.pd-rcard__img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 8px; }
+.pd-rcard__badge { position: absolute; top: 5px; left: 5px; background: #22c55e; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 5px; border-radius: 3px; }
+.pd-rcard__body { padding: 8px 10px; }
+.pd-rcard__name { font-size: 12px; font-weight: 500; color: #222; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 32px; margin-bottom: 4px; }
+.pd-rcard__cur { font-size: 12.5px; font-weight: 700; color: #16a34a; }
 
 /* Voucher Modal */
-.empty-voucher {
-  padding: 40px;
-}
-
-.voucher-list {
-  max-height: 400px;
-  overflow-y: auto;
-  padding: 4px;
-}
-
-.voucher-item {
-  position: relative;
-  display: flex;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.voucher-item:hover {
-  border-color: #18a058;
-  background: #fff1f0;
-}
-
-.voucher-item.selected {
-  border-color: #18a058;
-  background: #fff1f0;
-}
-
-.voucher-badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: #fbbf24;
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-  z-index: 2;
-}
-
-.voucher-left {
-  flex: 1;
-}
-
-.voucher-code {
-  display: block;
-  font-weight: 700;
-  color: #18a058;
-  margin-bottom: 4px;
-}
-
-.voucher-name {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.voucher-desc {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 4px;
-}
-
-.voucher-condition {
-  font-size: 12px;
-  color: #999;
-}
-
-.voucher-right {
-  display: flex;
-  align-items: center;
-  padding-left: 16px;
-}
-
-.voucher-check {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.voucher-check.checked {
-  background: #18a058;
-  border-color: #18a058;
-}
+.pd-vmodal-list { max-height: 420px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+.pd-vmodal-item { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid #e5e5e5; border-radius: 6px; cursor: pointer; }
+.pd-vmodal-item:hover, .pd-vmodal-item--selected { border-color: #22c55e; background: #f0fdf4; }
+.pd-vmodal-best { position: absolute; top: -7px; right: -7px; background: #f59e0b; color: #fff; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 10px; }
+.pd-vmodal-left { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pd-vmodal-code { font-weight: 700; color: #16a34a; font-size: 12.5px; }
+.pd-vmodal-name { font-size: 13.5px; font-weight: 600; color: #111; }
+.pd-vmodal-desc { font-size: 12.5px; color: #666; }
+.pd-vmodal-cond { font-size: 11.5px; color: #aaa; }
+.pd-vmodal-check { width: 20px; height: 20px; border-radius: 50%; border: 2px solid #e5e5e5; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.pd-vmodal-check--on { background: #22c55e; border-color: #22c55e; }
 
 /* Responsive */
-@media (max-width: 1024px) {
-  .product-main {
-    grid-template-columns: 1fr;
-  }
-
-  .related-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
+@media (max-width: 860px) {
+  .pd-main { grid-template-columns: 1fr; }
+  .pd-related__grid { grid-template-columns: repeat(4, 1fr); }
 }
-
-@media (max-width: 768px) {
-  .related-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .reviews-summary {
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .quantity-box {
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 480px) {
-  .related-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .action-buttons {
-    flex-direction: column;
-  }
-
-  .product-meta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
+@media (max-width: 540px) {
+  .pd-related__grid { grid-template-columns: repeat(2, 1fr); }
+  .pd-btn-row { flex-direction: column; }
+  .pd-promises { grid-template-columns: 1fr; }
 }
 </style>

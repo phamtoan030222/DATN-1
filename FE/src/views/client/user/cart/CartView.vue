@@ -370,33 +370,6 @@ function goToDetail(idProductDetail: string) {
                 </div>
               </div>
             </NCheckboxGroup>
-
-            <!-- Service Promise -->
-            <div class="service-promise">
-              <div class="promise-item">
-                <div class="promise-icon">
-                  <NIcon size="20" color="#18a058">
-                    <ShieldCheckmarkOutline />
-                  </NIcon>
-                </div>
-                <div class="promise-text">
-                  <span class="promise-title">Giao hàng tiết kiệm</span>
-                  <span class="promise-desc">Giao hàng nhanh, tiết kiệm</span>
-                </div>
-              </div>
-
-              <div class="promise-item">
-                <div class="promise-icon">
-                  <NIcon size="20" color="#18a058">
-                    <GiftOutline />
-                  </NIcon>
-                </div>
-                <div class="promise-text">
-                  <span class="promise-title">Quà tặng hấp dẫn</span>
-                  <span class="promise-desc">Kèm theo sản phẩm</span>
-                </div>
-              </div>
-            </div>
           </div>
 
           <!-- Right Column - Order Summary -->

@@ -205,17 +205,14 @@ function handleClientSideFilter() {
   loading.value = true
   let filtered = allData.value
 
-  if (filters.keyword) {
-    const k = filters.keyword.toLowerCase()
+  if (filters.keyword.trim()) {
+    const k = filters.keyword.trim().toLowerCase()
     filtered = filtered.filter(item =>
-      (item.code && item.code.toLowerCase().includes(k)) || (item.name && item.name.toLowerCase().includes(k)),
+      (item.code && item.code.toLowerCase().includes(k))
+      || (item.name && item.name.toLowerCase().includes(k)),
     )
   }
 
-  if (filters.startDate)
-    filtered = filtered.filter(item => (item.startDate || 0) >= filters.startDate!)
-  if (filters.endDate)
-    filtered = filtered.filter(item => (item.endDate || 0) <= filters.endDate!)
   if (filters.typeVoucher)
     filtered = filtered.filter(item => item.typeVoucher === filters.typeVoucher)
   if (filters.targetType)
@@ -464,7 +461,7 @@ onMounted(() => fetchData())
       <NForm label-placement="top">
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
           <NFormItem label="Tìm kiếm chung" class="lg:col-span-3">
-            <NInput v-model:value="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
+            <NInput v-model:value.trim="filters.keyword" placeholder="Tìm theo mã hoặc tên phiếu..." clearable @input="handleSearch">
               <template #prefix>
                 <NIcon><Icon icon="carbon:search" class="text-gray-600" /></NIcon>
               </template>

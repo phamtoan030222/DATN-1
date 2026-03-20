@@ -43,7 +43,6 @@ public class AdVoucherServiceImpl implements AdVoucherService {
     private final AdVoucherDetailRepository voucherDetailRepository;
     private final JavaMailSender mailSender;
 
-    // ... (Query methods giữ nguyên)
     @Override
     public ResponseObject<?> getVouchers(AdVoucherRequest request) {
         return ResponseObject.successForward(PageableObject.of(voucherRepository.getVouchers(Helper.createPageable(request), request)), "Lấy danh sách voucher thành công");
@@ -54,7 +53,6 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         return voucherRepository.getVoucherById(id).map(res -> ResponseObject.successForward(res, "Lấy chi tiết voucher thành công")).orElse(ResponseObject.errorForward("Lấy chi tiết thất bại", HttpStatus.NOT_FOUND));
     }
 
-    // --- STATUS CHANGE (Đã sửa lỗi gửi mail) ---
     @Override
     public ResponseObject<?> changeStatusVoucherToStart(String id) {
         Long now = System.currentTimeMillis();
@@ -66,12 +64,11 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             List<String> failedEmails = new ArrayList<>();
             int count = 0;
             try {
-                // Logic gửi mail cho khách hàng đã được gán voucher này
                 List<VoucherDetail> details = voucherDetailRepository.findAllByVoucher(v);
                 for (VoucherDetail vd : details) {
                     Customer c = vd.getCustomer();
                     if (c != null && c.getEmail() != null && !c.getEmail().isBlank()) {
-                        sendVoucherStartNowEmail(c, v, failedEmails);
+                        sendVoucherNotificationEmail(c, v, failedEmails);
                         count++;
                     }
                 }
@@ -130,14 +127,12 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         }).orElse(ResponseObject.errorForward("Không tìm thấy voucher", HttpStatus.NOT_FOUND));
     }
 
-    // --- CRUD (Có Validate) ---
     @Override
     public ResponseObject<?> create(@Valid AdVoucherCreateUpdateRequest request) throws BadRequestException {
-        // 1. VALIDATE MỚI (Length & Value)
         Helper.validateVoucherInput(request);
 
         if (voucherRepository.findVoucherByName(request.getName()).isPresent())
-            throw new DuplicateKeyException("Tên trùng: " + request.getName());
+            throw new DuplicateKeyException("Phiếu " + request.getName() + " này đã tồn tại");
         Voucher voucher = new Voucher();
         voucher.setCode(Helper.generateCodeVoucher());
         Helper.mapRequestToVoucher(request, voucher);
@@ -164,7 +159,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
             List<VoucherDetail> details = new ArrayList<>();
             for (Customer c : customers) details.add(createVoucherDetail(voucher, c));
             voucherDetailRepository.saveAll(details);
-            for (Customer c : customers) sendVoucherStartNowEmail(c, voucher, failedEmails);
+            for (Customer c : customers) sendVoucherNotificationEmail(c, voucher, failedEmails);
         } else {
             throw new IllegalArgumentException("TargetType lỗi");
         }
@@ -174,7 +169,6 @@ public class AdVoucherServiceImpl implements AdVoucherService {
 
     @Override
     public ResponseObject<?> update(String id, @Valid AdVoucherCreateUpdateRequest request) throws BadRequestException {
-        // 1. VALIDATE MỚI
         Helper.validateVoucherInput(request);
 
         Voucher voucher = voucherRepository.findById(id).orElse(null);
@@ -221,7 +215,7 @@ public class AdVoucherServiceImpl implements AdVoucherService {
                 customersToSendEmail.addAll(oldCustomers);
             }
             for (Customer c : customersToSendEmail.stream().distinct().toList())
-                sendVoucherStartNowEmail(c, voucher, failedEmails);
+                sendVoucherNotificationEmail(c, voucher, failedEmails);
         }
         return ResponseObject.successForward(null, "Cập nhật thành công");
     }
@@ -236,6 +230,25 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         vd.setUsageStatus(false);
         vd.setDescription("Assigned to customer " + c.getId());
         return vd;
+    }
+
+    private void sendVoucherNotificationEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
+        try {
+            long now = System.currentTimeMillis();
+            String htmlBody;
+            String subject;
+
+            if (voucher.getStartDate() > now) {
+                htmlBody = Helper.createUpcomingEmailBody(voucher, customer);
+                subject = "⏰ Voucher sắp tới dành cho bạn: " + voucher.getCode();
+            } else {
+                htmlBody = Helper.createVoucherEmailBody(voucher, customer);
+                subject = "🎁 Voucher đang hoạt động: " + voucher.getCode();
+            }
+            sendHtmlEmail(customer.getEmail(), subject, htmlBody, failedEmails);
+        } catch (Exception e) {
+            log.error("Error sending notification email: {}", e.getMessage());
+        }
     }
 
     private void sendVoucherPausedEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
@@ -256,23 +269,25 @@ public class AdVoucherServiceImpl implements AdVoucherService {
         }
     }
 
-    private void sendVoucherStartNowEmail(Customer customer, Voucher voucher, List<String> failedEmails) {
-        try {
-            String htmlBody = Helper.createVoucherEmailBody(voucher, customer);
-            sendHtmlEmail(customer.getEmail(), "🎁 Voucher dành cho bạn: " + voucher.getCode(), htmlBody, failedEmails);
-        } catch (Exception e) {
-            log.error("Error start email: {}", e.getMessage());
-        }
-    }
-
     private void sendHtmlEmail(String toEmail, String subject, String htmlBody, List<String> failedEmails) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
+            // Cờ 'true' để cho phép đính kèm ảnh inline
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, StandardCharsets.UTF_8.toString());
+
             helper.setTo(toEmail);
             helper.setSubject(subject);
             helper.setText(htmlBody, true);
+
+            // --- TRẢ LẠI ĐOẠN CODE ĐÍNH KÈM ẢNH ĐÃ TỪNG HOẠT ĐỘNG ---
+            org.springframework.core.io.ClassPathResource imageResource =
+                    new org.springframework.core.io.ClassPathResource("static/logo.png");
+            helper.addInline("logoImage", imageResource);
+            // --------------------------------------------------------
+
+            // Lệnh gửi thư phải nằm ở cuối cùng
             mailSender.send(mimeMessage);
+
             log.info("✅ Email sent to: {}", toEmail);
         } catch (Exception e) {
             log.error("Error sending email to {}: {}", toEmail, e.getMessage());

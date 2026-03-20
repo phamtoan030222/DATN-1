@@ -1,5 +1,18 @@
 <template>
-  <div class="container mx-auto px-4">
+  <div class="container mx-auto px-5">
+
+    <div class="flex mt-5" v-if="route.query.q">
+      <n-button type="success" secondary @click="() => router.push({ name: 'Orders' })">
+        <n-icon :size="20">
+          <ArrowBackOutline />
+        </n-icon>
+      </n-button>
+      <div class="mx-2 w-1 bg-[#049d14] rounded m-r-2"></div>
+      <h2 class="text-2xl font-bold">
+        Trở về danh sách đơn hàng
+      </h2>
+    </div>
+
     <!-- Search Card -->
     <div class="flex gap-2 flex-1 items-end">
       <n-form-item path="searchInvoiceCode" class="flex-1 mb-0">
@@ -232,6 +245,13 @@
           </div>
         </div>
 
+        <div v-if="isEditQuantityProduct" class="ml-5">
+          <span class="italic font-semibold">
+            <span class="text-red-500">* Chú ý: </span>
+            Mỗi sản phẩm chỉ được thêm tối đa 5 sản phẩm
+          </span>
+        </div>
+
         <!-- product list -->
         <div v-if="invoiceDetails.length > 0" class="space-y-4">
           <div v-for="(detail, index) in invoiceDetails" :key="detail.id"
@@ -310,11 +330,11 @@
               <span>Tạm tính:</span>
               <span>{{ formatCurrency(invoice.totalAmountAfterDecrease) }}</span>
             </div>
-            <div class="flex justify-between text-red-600">
+            <div v-if="discount != 0" class="flex justify-between text-red-600">
               <span>Giảm giá:</span>
               <span>-{{ formatCurrency(discount) }}</span>
             </div>
-            <div class="flex justify-between">
+            <div v-if="shippingFee != 0" class="flex justify-between">
               <span>Phí vận chuyển:</span>
               <span>{{ formatCurrency(shippingFee) }}</span>
             </div>
@@ -518,6 +538,7 @@ import {
 import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, LichSuTrangThaiHoaDonResponse, putInvoiceCancel, putInvoiceDetail, putReceiver } from '@/service/api/invoice.api'
 import {
   AddOutline,
+  ArrowBackOutline,
   CartOutline,
   CheckmarkCircleOutline,
   CheckmarkDoneOutline,
@@ -533,6 +554,7 @@ import {
 import { getProductDetailById } from '@/service/api/client/product/productDetail.api'
 import _ from 'lodash'
 import { useAuthStore } from '@/store'
+import { router } from '@/router'
 
 interface CustomerForm {
   tenKhachHang: string
@@ -573,8 +595,6 @@ const removeProductDetails = ref<UpdateProductDetailType[]>([])
 const currentStatus = computed(() => {
   return invoice.value?.invoiceStatus ?? 0
 })
-
-const totalQuantity = computed(() => updateProductDetails.value.reduce((total, it) => total += it.quantity, 0))
 
 const customerForm = reactive<CustomerForm>({
   tenKhachHang: '',
@@ -897,7 +917,7 @@ const handleClickSaveCustomerForm = async () => {
 const handleClickSaveEditQuantity = async () => {
   if (!invoice.value) return;
   try {
-    const totalAmount = updateProductDetails.value.reduce((total, it) => total + it.totalAmount, 0)
+    const totalAmount = updateProductDetails.value.reduce((total, it) => total + it.totalAmount, 0);
     await putInvoiceDetail(invoice.value?.id, {
       totalAmount,
       updateProductDetails: _.concat(updateProductDetails.value, removeProductDetails.value)

@@ -108,7 +108,7 @@ public class MomoService {
             if (momoRes.getResultCode() == 0) {
                 // Lưu trạng thái chờ thanh toán
                 invoiceRepository.findById(invoiceId).ifPresent(invoice -> {
-                    invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN_VNPAY);
+                    invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN);
                     invoiceRepository.save(invoice);
                 });
 
@@ -135,15 +135,14 @@ public class MomoService {
     @Transactional
     public Map<String, Object> processReturn(Map<String, String> params) {
         try {
-            logger.info("=== MOMO RETURN PARAMS: {}", params);
+            logger.info("=== MOMO RETURN: {}", params);
 
             String resultCode = params.get("resultCode");
-            String orderId    = params.get("orderId"); // format: invoiceId_timestamp
+            String orderId    = params.get("orderId");
             String invoiceId  = orderId != null ? orderId.split("_")[0] : "";
             String transId    = params.get("transId");
             String amountStr  = params.get("amount");
 
-            // Verify signature
             if (!verifyReturnSignature(params)) {
                 logger.warn("MoMo return - Chữ ký không hợp lệ");
                 return Map.of("code", "97", "message", "Chữ ký không hợp lệ");
@@ -154,23 +153,54 @@ public class MomoService {
                 return Map.of("code", "01", "message", "Không tìm thấy hóa đơn");
             }
 
-            BigDecimal amount = amountStr != null
-                    ? new BigDecimal(amountStr) : BigDecimal.ZERO;
-
             if ("0".equals(resultCode)) {
-                // Thanh toán thành công
-                xuLyThanhToanThanhCongMomo(invoice, transId, amount);
+                // Chống trùng lặp
+                if (invoice.getTrangThaiThanhToan() == TrangThaiThanhToan.DA_THANH_TOAN) {
+                    return Map.of("code", "00", "message", "Đã xử lý",
+                            "orderCode", invoice.getCode());
+                }
+
+                BigDecimal amount = amountStr != null
+                        ? new BigDecimal(amountStr) : BigDecimal.ZERO;
+
+                // Cập nhật LUU_TAM → CHO_XAC_NHAN
+                invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+                invoice.setTypePayment(TypePayment.MOMO);
+                invoice.setTransactionId(transId);
+                invoice.setPaymentDate(System.currentTimeMillis());
+                Invoice saved = adTaoHoaDonRepository.save(invoice);
+
+                LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
+                history.setHoaDon(saved);
+                history.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+                history.setNote("Thanh toán MoMo thành công - chờ xác nhận");
+                history.setThoiGian(LocalDateTime.now());
+                lichSuTrangThaiHoaDonRepository.save(history);
+
+                LichSuThanhToan lichSu = new LichSuThanhToan();
+                lichSu.setHoaDon(saved);
+                lichSu.setSoTien(amount);
+                lichSu.setLoaiGiaoDich("MOMO");
+                lichSu.setMaGiaoDich(transId);
+                lichSu.setThoiGian(LocalDateTime.now());
+                lichSu.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+                lichSu.setGhiChu("MoMo return - TransId: " + transId);
+                lichSuThanhToanRepository.save(lichSu);
+
                 return Map.of("code", "00", "message", "Thành công",
-                        "orderCode", invoice.getCode());
+                        "orderCode", saved.getCode());
             } else {
-                // Thanh toán thất bại
-                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHUA_THANH_TOAN);
-                invoiceRepository.save(invoice);
-                return Map.of("code", resultCode, "message", "Thanh toán thất bại");
+                // Hủy / thất bại → giữ nguyên LUU_TAM
+                logger.info("MoMo return thất bại - invoiceId: {}, resultCode: {}",
+                        invoiceId, resultCode);
+                return Map.of("code", resultCode,
+                        "message", "Thanh toán thất bại hoặc bị hủy",
+                        "invoiceId", invoiceId);
             }
 
         } catch (Exception e) {
-            logger.error("Lỗi xử lý MoMo return: ", e);
+            logger.error("Lỗi processReturn MoMo: ", e);
             return Map.of("code", "99", "message", e.getMessage());
         }
     }
@@ -201,7 +231,7 @@ public class MomoService {
 
         invoice.setEntityTrangThaiHoaDon(trangThai);
         invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
-        invoice.setTypePayment(TypePayment.VI_DIEN_TU);
+        invoice.setTypePayment(TypePayment.MOMO);
         invoice.setTransactionId(transId);
         invoice.setPaymentDate(System.currentTimeMillis());
 

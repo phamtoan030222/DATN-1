@@ -545,10 +545,7 @@ export async function createVNPayPayment(
   const res = await request({
     url: '/api/payment/create-vnpay',
     method: 'POST',
-    data: {
-      ...data,
-      returnUrl: 'http://localhost:2345/api/payment/vnpay-return-client',
-    },
+    data,
     headers: { 'Content-Type': 'application/json' },
   })
   return res.data
@@ -573,11 +570,75 @@ export async function createMomoPayment(
   const res = await request({
     url: '/api/payment/create-momo',
     method: 'POST',
-    data: {
-      ...data,
-      returnUrl: 'http://localhost:2345/api/payment/momo-return-client',
-    },
+    data,
     headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
+
+export interface ZaloPayCreateRequest {
+  invoiceId: string
+  amount: number
+}
+
+export interface ZaloPayCreateResponse {
+  code: string
+  payUrl?: string
+  transId?: string
+  message?: string
+}
+
+export async function createZaloPayPayment(
+  data: ZaloPayCreateRequest,
+): Promise<ZaloPayCreateResponse> {
+  const res = await request({
+    url: '/api/payment/create-zalopay',
+    method: 'POST',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
+
+// ==================== PAYOS ====================
+export interface PayOSCreateRequest {
+  invoiceId: string
+  amount: number
+  description?: string
+  returnUrl?: string
+  cancelUrl?: string
+}
+
+export interface PayOSCreateResponse {
+  code: string
+  message?: string
+  checkoutUrl?: string
+  qrCode?: string
+  paymentLinkId?: string
+  orderCode?: string
+  amount?: number
+  invoiceId?: string
+  invoiceCode?: string
+}
+
+export async function createPayOSPayment(
+  data: PayOSCreateRequest,
+): Promise<PayOSCreateResponse> {
+  const res = await request({
+    url: '/api/payment/create-payos',
+    method: 'POST',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
+
+export async function checkPayOSStatus(
+  invoiceId: string,
+): Promise<{ status: string, isPaid: boolean, invoiceCode: string }> {
+  const res = await request({
+    url: `/api/payment/payos-status/${invoiceId}`,
+    method: 'GET',
   })
   return res.data
 }
