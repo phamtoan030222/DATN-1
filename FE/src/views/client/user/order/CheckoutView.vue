@@ -1135,21 +1135,14 @@ function handleSelectVoucherInModal(voucherId: string) {
                   </div>
                 </div>
 
-                <NPopconfirm
-                  :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
-                  @positive-click="handleCheckout"
-                >
-                  <template #trigger>
-                    <NButton
+                    <NButton 
+                      @click="handleCheckout"
                       block type="success" size="large"
                       class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
                       :loading="processing" :disabled="cartItemsRef.length === 0 || processing"
                     >
                       Đặt hàng ngay
                     </NButton>
-                  </template>
-                  Bạn chắc chắn muốn thao tác
-                </NPopconfirm>
               </div>
             </NGi>
           </NGrid>

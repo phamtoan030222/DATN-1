@@ -1,5 +1,18 @@
 <template>
-  <div class="container mx-auto px-4">
+  <div class="container mx-auto px-5">
+
+    <div class="flex mt-5" v-if="route.query.q">
+      <n-button type="success" secondary @click="() => router.push({ name: 'Orders' })">
+        <n-icon :size="20">
+          <ArrowBackOutline />
+        </n-icon>
+      </n-button>
+      <div class="mx-2 w-1 bg-[#049d14] rounded m-r-2"></div>
+      <h2 class="text-2xl font-bold">
+        Trở về danh sách đơn hàng
+      </h2>
+    </div>
+
     <!-- Search Card -->
     <div class="flex gap-2 flex-1 items-end">
       <n-form-item path="searchInvoiceCode" class="flex-1 mb-0">
@@ -525,6 +538,7 @@ import {
 import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, LichSuTrangThaiHoaDonResponse, putInvoiceCancel, putInvoiceDetail, putReceiver } from '@/service/api/invoice.api'
 import {
   AddOutline,
+  ArrowBackOutline,
   CartOutline,
   CheckmarkCircleOutline,
   CheckmarkDoneOutline,
@@ -540,6 +554,7 @@ import {
 import { getProductDetailById } from '@/service/api/client/product/productDetail.api'
 import _ from 'lodash'
 import { useAuthStore } from '@/store'
+import { router } from '@/router'
 
 interface CustomerForm {
   tenKhachHang: string
