@@ -7,8 +7,8 @@ import ChatWidget from '../../views/client/user/chat/index.vue'
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#d70018',
-    primaryColorHover: '#c40016',
+    primaryColor: '#00d718',
+    primaryColorHover: '#00c416',
     fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
   },
   Menu: {
