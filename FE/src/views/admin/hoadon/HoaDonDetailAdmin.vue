@@ -191,6 +191,9 @@ const PAYMENT_METHOD_MAP: Record<string, string> = {
   TIEN_MAT_CHUYEN_KHOAN: 'Tiền mặt + Chuyển khoản',
   CASH: 'Tiền mặt',
   BANKING: 'Chuyển khoản',
+  MOMO: 'MoMo',
+  ZALOPAY: 'ZaloPay',
+  VIETQR: 'VietQR',
 }
 
 const SHIPPING_METHOD_MAP: Record<string, string> = {
@@ -402,7 +405,7 @@ const isCashOnlineOrder = computed(() => {
 const isTransferPayment = computed(() => {
   const pt = hoaDonData.value?.phuongThucThanhToan
   return pt === 'CHUYEN_KHOAN' || pt === 'BANKING' || pt === 'VNPAY' || pt === 'THE_TIN_DUNG' || pt === 'VI_DIEN_TU' || pt === 'TIEN_MAT_CHUYEN_KHOAN' || pt === 'MOMO'
-    || pt === 'ZALOPAY'
+    || pt === 'ZALOPAY' || pt === 'VIETQR'
 })
 
 const needsRefund = computed(() => {

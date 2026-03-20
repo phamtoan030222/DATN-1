@@ -599,3 +599,46 @@ export async function createZaloPayPayment(
   })
   return res.data
 }
+
+// ==================== PAYOS ====================
+export interface PayOSCreateRequest {
+  invoiceId: string
+  amount: number
+  description?: string
+  returnUrl?: string
+  cancelUrl?: string
+}
+
+export interface PayOSCreateResponse {
+  code: string
+  message?: string
+  checkoutUrl?: string
+  qrCode?: string
+  paymentLinkId?: string
+  orderCode?: string
+  amount?: number
+  invoiceId?: string
+  invoiceCode?: string
+}
+
+export async function createPayOSPayment(
+  data: PayOSCreateRequest,
+): Promise<PayOSCreateResponse> {
+  const res = await request({
+    url: '/api/payment/create-payos',
+    method: 'POST',
+    data,
+    headers: { 'Content-Type': 'application/json' },
+  })
+  return res.data
+}
+
+export async function checkPayOSStatus(
+  invoiceId: string,
+): Promise<{ status: string, isPaid: boolean, invoiceCode: string }> {
+  const res = await request({
+    url: `/api/payment/payos-status/${invoiceId}`,
+    method: 'GET',
+  })
+  return res.data
+}

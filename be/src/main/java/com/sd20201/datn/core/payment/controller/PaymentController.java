@@ -1,14 +1,11 @@
 package com.sd20201.datn.core.payment.controller;
 
-import com.sd20201.datn.core.payment.dto.IpnResponse;
-import com.sd20201.datn.core.payment.dto.PaymentRequest;
-import com.sd20201.datn.core.payment.dto.PaymentResponse;
-import com.sd20201.datn.core.payment.dto.ZaloPayRequest;
-import com.sd20201.datn.core.payment.service.MomoService;
-import com.sd20201.datn.core.payment.service.VnPayService;
-import com.sd20201.datn.core.payment.service.ZaloPayService;
+import com.sd20201.datn.core.payment.dto.*;
+import com.sd20201.datn.core.payment.service.*;
 import com.sd20201.datn.entity.Invoice;
+import com.sd20201.datn.infrastructure.constant.TrangThaiThanhToan;
 import com.sd20201.datn.repository.InvoiceRepository; // Nhớ import cái này
+import io.swagger.v3.oas.annotations.Webhook;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -38,6 +35,8 @@ public class PaymentController {
     private final MomoService momoService;
 
     private static final String CLIENT_URL = "http://localhost:6788";
+
+    private final PayOSService payOSService;
 
     @PostMapping("/create-vnpay")
     public ResponseEntity<PaymentResponse> createPayment(
@@ -259,5 +258,71 @@ public class PaymentController {
         return "<html><head><meta charset='UTF-8'>" +
                 "<script>window.location.href='" + url + "';</script>" +
                 "</head><body>Đang chuyển hướng...</body></html>";
+    }
+
+// ── Thêm các endpoint bên dưới các endpoint hiện có ──
+
+    @PostMapping("/create-payos")
+    public ResponseEntity<?> createPayOS(@RequestBody PayOSRequest request) {
+        logger.info("Tạo PayOS link cho invoice: {}", request.getInvoiceId());
+        PayOSResponse response = payOSService.createPaymentLink(request);
+        if ("00".equals(response.getCode())) {
+            return ResponseEntity.ok(response);
+        }
+        return ResponseEntity.badRequest().body(response);
+    }
+
+    @GetMapping("/payos-return")
+    public String payOSReturn(
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String invoiceId) {
+        logger.info("=== PAYOS RETURN: orderCode={}, status={}, invoiceId={}",
+                orderCode, status, invoiceId);
+
+        Map<String, Object> result = payOSService.processReturn(orderCode, status, invoiceId);
+
+        if ("00".equals(result.get("code"))) {
+            return redirect(CLIENT_URL + "/order-success?ma-hoa-don=" + result.get("orderCode"));
+        }
+        String id   = (String) result.getOrDefault("invoiceId", "");
+        String code = (String) result.getOrDefault("invoiceCode", "");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + id
+                + "&invoiceCode=" + code);
+    }
+
+    @GetMapping("/payos-cancel-return")
+    public String payOSCancelReturn(
+            @RequestParam(required = false) String orderCode,
+            @RequestParam(required = false) String invoiceId) {
+
+        if (invoiceId != null && !invoiceId.isBlank()) {
+            invoiceRepository.findById(invoiceId).ifPresent(invoice -> {
+                if (invoice.getTrangThaiThanhToan() != TrangThaiThanhToan.DA_THANH_TOAN) {
+                    invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHUA_THANH_TOAN);
+                    invoiceRepository.save(invoice);
+                }
+            });
+        }
+
+        String id   = invoiceId != null ? invoiceId : "";
+        String code = id.isBlank() ? "" : invoiceRepository.findById(id)
+                .map(Invoice::getCode).orElse("");
+        return redirect(CLIENT_URL + "/checkout?payment=cancelled"
+                + "&invoiceId=" + id
+                + "&invoiceCode=" + code);
+    }
+
+    @GetMapping("/payos-status/{invoiceId}")
+    public ResponseEntity<?> checkPayOSStatus(@PathVariable String invoiceId) {
+        return ResponseEntity.ok(payOSService.checkStatus(invoiceId));
+    }
+
+    @PostMapping("/payos-webhook")
+    public ResponseEntity<?> payOSWebhook(@RequestBody Map<String, Object> webhookBody) {
+        logger.info("=== PAYOS WEBHOOK ===");
+        Map<String, Object> result = payOSService.processWebhook(webhookBody);
+        return ResponseEntity.ok(result);
     }
 }

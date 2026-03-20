@@ -6,8 +6,8 @@ public enum TypePayment {
     CHUYEN_KHOAN("Chuyển khoản"),
     MOMO("Momo"),
     ZALOPAY("Zalo Pay"),
-    TIEN_MAT_CHUYEN_KHOAN("Tiền mặt + Chuyển khoản");
-
+    TIEN_MAT_CHUYEN_KHOAN("Tiền mặt + Chuyển khoản"),
+    VIETQR("Việt QR");
 
     private final String description;
 

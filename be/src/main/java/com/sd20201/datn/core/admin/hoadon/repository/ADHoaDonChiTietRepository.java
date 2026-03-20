@@ -82,6 +82,7 @@ SELECT
         WHEN 3 THEN 'MOMO'
         WHEN 4 THEN 'ZALOPAY'
         WHEN 5 THEN 'TIEN_MAT_CHUYEN_KHOAN'
+        WHEN 6 THEN 'VIETQR'
         ELSE NULL
     END                                      AS phuongThucThanhToan,
 

@@ -40,7 +40,7 @@ import { storeToRefs } from 'pinia'
 
 // Import Store & API
 import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
-import { createMomoPayment, createOrder, createVNPayPayment, createZaloPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
+import { checkPayOSStatus, createMomoPayment, createOrder, createPayOSPayment, createVNPayPayment, createZaloPayPayment, getMaGiamGia, getQuantityProdudtDetail, getShippingFeeClient } from '@/service/api/client/banhang.api'
 
 import {
   createAddress,
@@ -696,7 +696,7 @@ async function handleCheckout() {
     // 6. Tạo đơn hàng — reuse invoice cũ CHỈ KHI thanh toán online
     let createdOrder: any
 
-    const isOnlinePayment = ['1', '2', '4'].includes(paymentMethod.value)
+    const isOnlinePayment = ['1', '2', '3', '4'].includes(paymentMethod.value)
 
     if (pendingInvoiceId.value && isOnlinePayment) {
       // Reuse invoice LUU_TAM cho online payment (Momo/VNPAY/ZaloPay)
@@ -782,8 +782,23 @@ async function handleCheckout() {
         message.error(zaloRes.message || 'Tạo thanh toán ZaloPay thất bại!')
       }
     }
+    else if (paymentMethod.value === '3') {
+      message.loading('Đang tạo mã thanh toán VietQR...')
+      const payosRes = await createPayOSPayment({
+        invoiceId: createdOrder?.id || '',
+        amount: finalTotal.value,
+        description: `Thanh toan ${createdOrder?.code || ''}`,
+      })
+      if (payosRes.code === '00' && payosRes.checkoutUrl) {
+        window.location.href = payosRes.checkoutUrl
+      }
+      else {
+        message.error(payosRes.message || 'Tạo thanh toán VietQR thất bại!')
+        processing.value = false
+      }
+    }
     else {
-      // ── COD / VietQR ────────────────────────────────────────
+      // ── COD
       message.success('Đặt hàng thành công!')
       await cleanupCart() // COD xóa cart ngay, không redirect sang cổng TT
       router.push({
