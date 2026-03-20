@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { NButton, NIcon, NResult, NSpace, NSpin, NTag } from 'naive-ui'
 import {
@@ -11,39 +12,80 @@ import {
   ReceiptOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
-import { computed, onMounted, ref } from 'vue'
-import { getInvoiceById, getInvoiceDetails } from '@/service/api/invoice.api' // Import đúng API
+import { useCartStore } from '@/store/app/cart'
+import { storeToRefs } from 'pinia'
+import { getInvoiceById, getInvoiceDetails } from '@/service/api/invoice.api'
 
 const router = useRouter()
 const route = useRoute()
 
-const maHoaDon = computed(() => route.query['ma-hoa-don'] || '')
+// --- LOGIC QUẢN LÝ GIỎ HÀNG ---
+const { cartItems, cartItemBuyNow } = storeToRefs(useCartStore())
+const { removeCart } = useCartStore()
+
+// --- LOGIC HIỂN THỊ ĐƠN HÀNG ---
+const maHoaDon = computed(() => route.query['ma-hoa-don'] as string || '')
+const status = ref<'success' | 'cancelled'>('success')
 const loading = ref(true)
 const error = ref<string | null>(null)
 
 // Dữ liệu hóa đơn
-const invoiceData = ref<ClientInvoiceDetailResponse | null>(null)
-const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
+const invoiceData = ref<any>(null)
+const invoiceDetails = ref<any[]>([])
 
-// Lấy thông tin đơn hàng từ API
-async function fetchOrderDetail() {
-  if (!maHoaDon.value) {
-    error.value = 'Không tìm thấy mã đơn hàng'
-    loading.value = false
+onMounted(async () => {
+  const payment = route.query.payment as string
+
+  // Xử lý khi khách hàng hủy thanh toán
+  if (payment === 'cancelled') {
+    router.replace('/checkout?payment=cancelled')
     return
   }
 
+  // Chặn nếu không có mã hóa đơn
+  if (!maHoaDon.value) {
+    router.replace('/')
+    return
+  }
+
+  status.value = 'success'
+
+  // 1. Dọn dẹp giỏ hàng sau khi mua thành công
+  await cleanupCart()
+
+  // 2. Lấy dữ liệu đơn hàng để hiển thị
+  await fetchOrderDetail()
+})
+
+// Hàm xóa giỏ hàng
+async function cleanupCart() {
+  try {
+    const selectedIdsRaw = localStorage.getItem('SELECTED_CART_ITEMS')
+    const selectedIds = selectedIdsRaw ? JSON.parse(selectedIdsRaw) : []
+    if (cartItemBuyNow.value) {
+      await removeCart(cartItemBuyNow.value.productDetailId, { buyNow: true })
+    }
+    else {
+      const items = cartItems.value.filter(i => selectedIds.includes(i.productDetailId))
+      await Promise.all(items.map(i => removeCart(i.productDetailId)))
+      localStorage.removeItem('SELECTED_CART_ITEMS')
+    }
+  }
+  catch (e) {
+    console.error('Lỗi xóa cart:', e)
+  }
+}
+
+// Hàm gọi API lấy thông tin đơn hàng
+async function fetchOrderDetail() {
   loading.value = true
   error.value = null
 
   try {
-    // Gọi API lấy thông tin hóa đơn
     const invoiceRes = await getInvoiceById(maHoaDon.value as string)
 
     if (invoiceRes?.data) {
       invoiceData.value = invoiceRes.data
-
-      // Gọi API lấy chi tiết sản phẩm của hóa đơn
       const detailsRes = await getInvoiceDetails([invoiceRes.data.id])
 
       if (detailsRes?.data) {
@@ -63,28 +105,24 @@ async function fetchOrderDetail() {
   }
 }
 
-onMounted(() => {
-  fetchOrderDetail()
-})
-
-function handleClickTracking() {
-  router.push({
-    name: 'OrderTracking',
-    query: {
-      q: maHoaDon.value,
-    },
-  })
-}
-
-function continueShopping() {
-  router.push('/san-pham')
-}
-
+// --- CÁC HÀM XỬ LÝ SỰ KIỆN NÚT BẤM ---
 function goHome() {
   router.push('/')
 }
 
-// Format ngày đặt hàng (timestamp)
+function continueShopping() {
+  router.push('/') // Điều hướng về trang chủ/sản phẩm để mua tiếp
+}
+
+function handleClickTracking() {
+  router.push({
+    name: 'OrderTracking',
+    query: { q: maHoaDon.value },
+  })
+}
+
+// --- CÁC HÀM FORMAT DỮ LIỆU ---
+
 function formatDate(timestamp: number) {
   if (!timestamp)
     return ''
@@ -98,7 +136,6 @@ function formatDate(timestamp: number) {
   })
 }
 
-// Format currency
 function formatCurrency(amount: number) {
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
@@ -106,7 +143,6 @@ function formatCurrency(amount: number) {
   }).format(amount)
 }
 
-// Lấy phương thức thanh toán text
 function getPaymentMethodText(typePayment: string) {
   const methods: Record<string, string> = {
     0: 'Thanh toán khi nhận hàng (COD)',
@@ -117,7 +153,6 @@ function getPaymentMethodText(typePayment: string) {
   return methods[typePayment] || typePayment
 }
 
-// Lấy trạng thái thanh toán
 function getPaymentStatus(status: string) {
   const statusMap: Record<string, { text: string, type: 'success' | 'warning' | 'error' }> = {
     CHUA_THANH_TOAN: { text: 'Chưa thanh toán', type: 'warning' },
@@ -127,7 +162,6 @@ function getPaymentStatus(status: string) {
   return statusMap[status] || { text: status, type: 'info' }
 }
 
-// Lấy trạng thái đơn hàng
 function getOrderStatus(status: number) {
   const statusMap: Record<number, { text: string, type: 'success' | 'info' | 'warning' | 'error' }> = {
     0: { text: 'Chờ xác nhận', type: 'warning' },
@@ -139,7 +173,6 @@ function getOrderStatus(status: number) {
   return statusMap[status] || { text: 'Không xác định', type: 'info' }
 }
 
-// Ẩn email
 function maskEmail(email: string) {
   if (!email)
     return ''
@@ -152,13 +185,11 @@ function maskEmail(email: string) {
 <template>
   <div class="order-success">
     <div class="order-success__container">
-      <!-- Loading State -->
       <div v-if="loading" class="loading-state">
         <NSpin size="large" />
         <p>Đang tải thông tin đơn hàng...</p>
       </div>
 
-      <!-- Error State -->
       <div v-else-if="error || !invoiceData" class="error-state">
         <NResult
           status="error"
@@ -173,9 +204,7 @@ function maskEmail(email: string) {
         </NResult>
       </div>
 
-      <!-- Success State with Real Data -->
       <template v-else>
-        <!-- Header với icon success -->
         <div class="order-success__header">
           <div class="success-icon-wrapper">
             <div class="success-icon-circle">
@@ -192,7 +221,6 @@ function maskEmail(email: string) {
           </p>
         </div>
 
-        <!-- Thông tin đơn hàng -->
         <div class="order-success__info">
           <div class="info-card">
             <div class="info-card__header">
@@ -279,7 +307,6 @@ function maskEmail(email: string) {
             </div>
           </div>
 
-          <!-- Hướng dẫn tiếp theo -->
           <div class="guide-card">
             <div class="guide-card__header">
               <NIcon size="20">
@@ -322,7 +349,6 @@ function maskEmail(email: string) {
           </div>
         </div>
 
-        <!-- Sản phẩm đã mua -->
         <div class="order-success__products">
           <h3 class="products-title">
             Sản phẩm đã mua ({{ invoiceDetails.length }})
@@ -351,7 +377,6 @@ function maskEmail(email: string) {
           </div>
         </div>
 
-        <!-- Tổng thanh toán -->
         <div class="order-success__total">
           <div class="total-row">
             <span>Tạm tính</span>
@@ -369,7 +394,6 @@ function maskEmail(email: string) {
           </div>
         </div>
 
-        <!-- Action buttons -->
         <div class="order-success__actions">
           <NSpace justify="center" size="large" wrap>
             <NButton size="large" class="btn-outline" @click="goHome">
@@ -401,7 +425,6 @@ function maskEmail(email: string) {
           </NSpace>
         </div>
 
-        <!-- Footer -->
         <div class="order-success__footer">
           <p>Mọi thắc mắc vui lòng liên hệ hotline: <strong>1900 1234</strong> (Miễn phí)</p>
           <p>Email hỗ trợ: <strong>support@shop.com</strong></p>

@@ -149,17 +149,20 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             invoice.setShippingFee(request.getTienShip());
             invoice.setGiamGia(request.getGiamGia());
             invoice.setTotalAmountAfterDecrease(request.getTienHang());
-            if (request.getLoaiHoaDon().equals("TAI_QUAY")) {
+            String loaiHoaDon = request.getLoaiHoaDon() != null
+                    ? request.getLoaiHoaDon() : "GIAO_HANG"; // ← fix NPE
+
+            if ("TAI_QUAY".equals(loaiHoaDon)) {
                 invoice.setTypeInvoice(TypeInvoice.ONLINE_TAI_QUAY);
-            } else{
+            } else {
                 invoice.setTypeInvoice(TypeInvoice.ONLINE);
             }
-            invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN); // Mới đặt -> Chờ xác nhận
-            invoice.setCreatedDate(System.currentTimeMillis());
-            invoice.setEmail(
-                    request.getEmail()
-            );
 
+            String pttt = request.getPhuongThucThanhToan();
+            boolean isOnlinePayment = "1".equals(pttt)  // MOMO
+                    || "2".equals(pttt)               // VNPAY
+                    || "3".equals(pttt)
+                    || "4".equals(pttt);                 // ZALOPAY
             if (request.getIdPGG() != null) {
                 Optional<Voucher> voucherOptional = voucherRepository.findById(request.getIdPGG());
                 if (voucherOptional.isPresent()) {
@@ -169,21 +172,24 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 }
             }
 
-            invoice.setTrangThaiThanhToan(
-                    switch (request.getPhuongThucThanhToan()) {
-                        case "0" -> TrangThaiThanhToan.CHUA_THANH_TOAN;
-                        case "1" -> TrangThaiThanhToan.DA_THANH_TOAN;
-                        default -> TrangThaiThanhToan.CHUA_THANH_TOAN;
-                    }
-            );
+            if (isOnlinePayment) {
+                // Chờ cổng TT xác nhận → lưu tạm
+                invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.LUU_TAM);
+                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHO_THANH_TOAN);
+            } else {
+                // COD / VietQR → chờ xác nhận luôn
+                invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.CHUA_THANH_TOAN);
+            }
 
             invoice.setTypePayment(
                     switch (request.getPhuongThucThanhToan()) {
-                        case "0" -> TypePayment.TIEN_MAT;
-                        case "1" -> TypePayment.CHUYEN_KHOAN;
-                        case "2" -> TypePayment.CHUYEN_KHOAN;
-                        case "3" -> TypePayment.CHUYEN_KHOAN;
-                        default -> TypePayment.TIEN_MAT;
+                        case "0" -> TypePayment.TIEN_MAT;    // COD
+                        case "1" -> TypePayment.MOMO;        // MoMo
+                        case "2" -> TypePayment.VNPAY;       // VNPAY
+                        case "3" -> TypePayment.VIETQR;      // VietQR
+                        case "4" -> TypePayment.ZALOPAY;     // ZaloPay
+                        default  -> TypePayment.TIEN_MAT;
                     }
             );
 
@@ -212,13 +218,20 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             // 3. Ghi log lịch sử trạng thái
             LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
             history.setHoaDon(invoice);
-            history.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+            history.setTrangThai(invoice.getEntityTrangThaiHoaDon()); // ← lấy đúng trạng thái đã set
+            history.setNote(isOnlinePayment
+                    ? "Khách đặt hàng - chờ thanh toán qua cổng"
+                    : "Khách đặt hàng COD - chờ xác nhận");
             history.setThoiGian(LocalDateTime.now());
             history.setNote("Khách đặt hàng Online mới");
             history.setCustomer(invoice.getCustomer());
             lichSuTrangThaiHoaDonRepository.save(history);
 
-            sendEmail(invoice, invoiceDetails, request.getEmail(), request);
+            if (!isOnlinePayment) {
+                // Chỉ gửi email khi COD (đã chắc chắn đặt hàng)
+                // Đơn online payment sẽ gửi email sau khi TT thành công
+                sendEmail(invoice, invoiceDetails, request.getEmail(), request);
+            }
 
             return ResponseObject.successForward(invoice, "Đặt hàng thành công");
         } catch (Exception e) {
@@ -668,7 +681,10 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             adTaoHoaDonRepository.save(hoaDonToUpdate);
 
             // 7. Ghi lịch sử
-            createStatusHistory(hoaDonToUpdate, EntityTrangThaiHoaDon.CHO_XAC_NHAN, "Khách đặt đơn Online (" + (id.getLoaiHoaDon().equals("GIAO_HANG") ? "Giao tận nơi" : "Nhận tại cửa hàng") + ")");
+            String loai = id.getLoaiHoaDon() != null ? id.getLoaiHoaDon() : "GIAO_HANG";
+            createStatusHistory(hoaDonToUpdate, EntityTrangThaiHoaDon.CHO_XAC_NHAN,
+                    "Khách đặt đơn Online (" + ("GIAO_HANG".equals(loai)
+                            ? "Giao tận nơi" : "Nhận tại cửa hàng") + ")");
 
             // 8. Ghi lịch sử thanh toán (Nếu là chuyển khoản)
             if ("1".equals(id.getPhuongThucThanhToan())) {
