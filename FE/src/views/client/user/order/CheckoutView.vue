@@ -1149,7 +1149,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                   <div class="flex justify-between">
                     <span>Tạm tính:</span><span class="font-medium text-gray-800">{{ formatCurrency(subTotal) }}</span>
                   </div>
-                  <div class="flex justify-between items-center">
+                  <div v-if="deliveryType === 'GIAO_HANG'" class="flex justify-between items-center">
                     <span>Phí vận chuyển:</span>
                     <div class="flex items-center gap-2">
                       <!-- Logo GHTK bên trái -->
@@ -1187,7 +1187,7 @@ function handleSelectVoucherInModal(voucherId: string) {
                     </div>
                   </div>
 
-                  <NAlert v-if="isFreeShipping" type="success" size="small" show-icon style="margin-top: 8px;">
+                  <NAlert v-if="isFreeShipping && deliveryType === 'GIAO_HANG'" type="success" size="small" show-icon style="margin-top: 8px;">
                     Miễn phí vận chuyển (Đơn hàng trên 20.000.000đ)
                   </NAlert>
                   <div v-if="discountAmount > 0" class="flex justify-between text-green-600 font-bold">
@@ -1209,21 +1209,14 @@ function handleSelectVoucherInModal(voucherId: string) {
                   </div>
                 </div>
 
-                <NPopconfirm
-                  :positive-button-props="{ type: 'success' }" positive-text="Xác nhận" negative-text="Hủy"
-                  @positive-click="handleCheckout"
-                >
-                  <template #trigger>
-                    <NButton
+                    <NButton 
+                      @click="handleCheckout"
                       block type="success" size="large"
                       class="font-bold h-12 text-lg mt-6 shadow-md hover:-translate-y-0.5 transition-transform"
                       :loading="processing" :disabled="cartItemsRef.length === 0 || processing"
                     >
                       Đặt hàng ngay
                     </NButton>
-                  </template>
-                  Bạn chắc chắn muốn thao tác
-                </NPopconfirm>
               </div>
             </NGi>
           </NGrid>

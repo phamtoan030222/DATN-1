@@ -42,6 +42,7 @@ import com.sd20201.datn.entity.Product;
 import com.sd20201.datn.entity.ProductDetail;
 import com.sd20201.datn.entity.Staff;
 import com.sd20201.datn.entity.Voucher;
+import com.sd20201.datn.entity.VoucherDetail;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
 import com.sd20201.datn.infrastructure.constant.ImeiStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
@@ -55,7 +56,6 @@ import com.sd20201.datn.repository.InvoiceDetailRepository;
 import com.sd20201.datn.repository.InvoiceRepository;
 import com.sd20201.datn.repository.LichSuThanhToanRepository;
 import com.sd20201.datn.repository.LichSuTrangThaiHoaDonRepository;
-import com.sd20201.datn.repository.VoucherRepository;
 import com.sd20201.datn.utils.Helper;
 import com.sd20201.datn.utils.UserContextHelper;
 import jakarta.mail.internet.MimeMessage;
@@ -63,15 +63,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.coyote.BadRequestException;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -99,11 +96,11 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientTaoHoaDonChiTietRepository adTaoHoaDonChiTietRepository;
     private final ClientBanHangIMEIRepository imeiRepository;
     private final ADStaffRepository adNhanVienRepository;
-    public final ClientVoucherRepository adVoucherRepository;
+    public final ClientVoucherRepository voucherRepository;
     public final ADPDProductDetailRepository adPDProductDetailRepository;
     public final LichSuThanhToanRepository adLichSuThanhToanRepository;
     public final ClientBanHangSanPhamChiTiet productDetailRepository;
-    public final ClientBHVoucherDetailRepository adbhvoucher;
+    public final ClientBHVoucherDetailRepository voucherDetailRepository;
     public final AdCustomerRepository khachHangRepository;
     public final InvoiceRepository invoiceRepository;
     private final InvoiceDetailRepository invoiceDetailRepository;
@@ -119,7 +116,6 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientBanHangProductDetailDiscountRepository productDetailDiscountRepository;
 
     private final JavaMailSender mailSender;
-    private final VoucherRepository voucherRepository;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -164,8 +160,17 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
             String pttt = request.getPhuongThucThanhToan();
             boolean isOnlinePayment = "1".equals(pttt)  // MOMO
-                    || "2".equals(pttt)                  // VNPAY
+                    || "2".equals(pttt)               // VNPAY
+                    || "3".equals(pttt)
                     || "4".equals(pttt);                 // ZALOPAY
+            if (request.getIdPGG() != null) {
+                Optional<Voucher> voucherOptional = voucherRepository.findById(request.getIdPGG());
+                if (voucherOptional.isPresent()) {
+                    Voucher voucher = handleUsingVoucher(voucherOptional.get());
+
+                    invoice.setVoucher(voucher);
+                }
+            }
 
             if (isOnlinePayment) {
                 // Chờ cổng TT xác nhận → lưu tạm
@@ -182,7 +187,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                         case "0" -> TypePayment.TIEN_MAT;    // COD
                         case "1" -> TypePayment.MOMO;        // MoMo
                         case "2" -> TypePayment.VNPAY;       // VNPAY
-                        case "3" -> TypePayment.CHUYEN_KHOAN; // VietQR
+                        case "3" -> TypePayment.VIETQR;      // VietQR
                         case "4" -> TypePayment.ZALOPAY;     // ZaloPay
                         default  -> TypePayment.TIEN_MAT;
                     }
@@ -218,6 +223,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                     ? "Khách đặt hàng - chờ thanh toán qua cổng"
                     : "Khách đặt hàng COD - chờ xác nhận");
             history.setThoiGian(LocalDateTime.now());
+            history.setNote("Khách đặt hàng Online mới");
+            history.setCustomer(invoice.getCustomer());
             lichSuTrangThaiHoaDonRepository.save(history);
 
             if (!isOnlinePayment) {
@@ -231,6 +238,35 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
             log.error("Lỗi đặt hàng: ", e);
             throw new BusinessException(e.getMessage()); // Throw ra để Controller bắt lỗi trả về 400
         }
+    }
+
+    private Voucher handleUsingVoucher(Voucher voucher) {
+        switch (voucher.getTargetType()) {
+            case INDIVIDUAL -> {
+                Optional<String> customerIdOptional = userContextHelper.getCurrentUserId();
+                if (customerIdOptional.isEmpty()) return voucher;
+
+                Optional<VoucherDetail> voucherDetailOptional = voucherDetailRepository.findByIdVoucherAndIdCustomer(voucher.getId(), customerIdOptional.get());
+                if (voucherDetailOptional.isPresent()) {
+                    VoucherDetail voucherDetail = voucherDetailOptional.get();
+
+                    voucherDetail.setUsageStatus(true);
+                    voucherDetail.setUsedDate(System.currentTimeMillis());
+
+                    voucherDetailRepository.save(voucherDetail);
+                }
+            }
+
+            case ALL_CUSTOMERS -> {
+                voucher.setRemainingQuantity(voucher.getRemainingQuantity() - 1);
+            }
+
+            default -> {
+
+            }
+        }
+
+        return voucherRepository.save(voucher);
     }
 
     private void sendEmail(Invoice invoice, List<InvoiceDetail> invoiceDetails, String email, ClientThanhToanRequest request) throws Exception {
@@ -607,10 +643,10 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
         // 2. Xử lý Voucher (Nếu có)
         if (id.getIdPGG() != null && !id.getIdPGG().trim().isEmpty()) {
             try {
-                Voucher voucher = adVoucherRepository.findById(id.getIdPGG()).orElse(null);
+                Voucher voucher = voucherRepository.findById(id.getIdPGG()).orElse(null);
                 if (voucher != null && voucher.getRemainingQuantity() > 0) {
                     voucher.setRemainingQuantity(voucher.getRemainingQuantity() - 1);
-                    adVoucherRepository.save(voucher);
+                    voucherRepository.save(voucher);
                     hoaDonToUpdate.setVoucher(voucher);
                 }
             } catch (Exception e) {
@@ -744,9 +780,9 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     public ClientVoucherSuggestionResponse goiYVoucher(ClientVoucherSuggestionRequest req) {
         BigDecimal tongTien = req.getTongTien();
         Long now = System.currentTimeMillis();
-        List<Voucher> vouchers = new ArrayList<>(adbhvoucher.findVoucherHopLe(TargetType.ALL_CUSTOMERS, now));
+        List<Voucher> vouchers = new ArrayList<>(voucherDetailRepository.findVoucherHopLe(TargetType.ALL_CUSTOMERS, now));
         if (req.getCustomerId() != null && !req.getCustomerId().isEmpty()) {
-            vouchers.addAll(adbhvoucher.findVoucherRiengCuaKH(req.getCustomerId(), now));
+            vouchers.addAll(voucherDetailRepository.findVoucherRiengCuaKH(req.getCustomerId(), now));
         }
 
         List<ClientApplicableVoucherResponse> apDung = new ArrayList<>();

@@ -1,4 +1,4 @@
-import { API_CUSTOMER_INVOICE, API_INVOICES_ORDER_ONLINE } from "@/constants/url"
+import { API_INVOICES_ORDER_ONLINE } from "@/constants/url"
 import request from "@/service/request"
 import { DefaultResponse } from "@/typings/api/api.common"
 import { AxiosResponse } from "axios"
@@ -25,6 +25,7 @@ export interface ClientInvoiceDetailsResponse {
     id: string
     code: string
     price: number
+    giaGoc: number
     quantity: number
     totalAmount: number
     nameProductDetail: string
@@ -37,6 +38,8 @@ export interface ClientInvoiceDetailsResponse {
     product: string
     ram: string
     idInvoice: string
+    idProductDetail: string
+    createdDate: number,
 }
 
 export interface LichSuTrangThaiHoaDonResponse {
@@ -44,11 +47,27 @@ export interface LichSuTrangThaiHoaDonResponse {
     note: string
     trangThai: number
     thoiGian: string
+    idStaff: string,
+    nameStaff: string,
 }
 
 export type ClientInvoiceCancelRequest = {
     id: string;
     note: string;
+}
+
+export interface ClientPutInvoiceDetailRequest {
+  updateProductDetails: UpdateInvoiceDetail[];
+  totalAmount: number;
+}
+
+export interface UpdateInvoiceDetail {
+  idProductDetail: string;
+  idInvoiceDetail: string;
+  quantity: number;
+  price: number;
+  giaGoc: number;
+  totalAmount: number;
 }
 
 // API call to fetch invoice by id
@@ -97,7 +116,28 @@ export const putInvoiceCancel = async (data: ClientInvoiceCancelRequest) => {
         url: `${API_INVOICES_ORDER_ONLINE}/cancel`,
         method: 'PUT',
         data,
-    })) as AxiosResponse<DefaultResponse<ClientInvoiceDetailsResponse[]>>
+    })) as AxiosResponse<DefaultResponse<string>>
 
     return res.data 
 }
+
+export const putReceiver = async (id: string, data: any) => {
+    const res = (await request({
+        url: `${API_INVOICES_ORDER_ONLINE}/${id}/receiver`,
+        method: 'PUT',
+        data,
+    })) as AxiosResponse<DefaultResponse<string>>
+
+    return res.data 
+}
+
+export const putInvoiceDetail = async (id: string, data: ClientPutInvoiceDetailRequest) => {
+    const res = (await request({
+        url: `${API_INVOICES_ORDER_ONLINE}/${id}/invoices-detail`,
+        method: 'PUT',
+        data,
+    })) as AxiosResponse<DefaultResponse<string>>
+
+    return res.data 
+}
+ 
