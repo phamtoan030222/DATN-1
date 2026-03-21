@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.client.invoice.repository;
 
+import com.sd20201.datn.core.client.invoice.model.request.ClientGetInvoicesRequest;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailResponse;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailsResponse;
 import com.sd20201.datn.core.client.invoice.model.response.LichSuTrangThaiHoaDonResponse;
@@ -70,7 +71,16 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.trangThaiThanhToan as trangThaiThanhToan
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice = 1
+            WHERE i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null ))
+                  AND (:#{#request.searchQuery} IS NULL OR :#{#request.searchQuery} = ''
+                        OR LOWER(i.code) LIKE LOWER(CONCAT('%', :#{#request.searchQuery}, '%'))
+                        )
+                      AND ( :#{#request.searchStatus} IS NULL OR i.entityTrangThaiHoaDon = :#{#request.searchStatus})
+                      AND ( :#{#request.loaiHoaDon} IS NULL OR i.typeInvoice = :#{#request.loaiHoaDon})
+                      AND (:#{#request.startDate} IS NULL OR CAST(i.createdDate AS BIGINTEGER) >= :#{#request.startDate})
+                      AND (:#{#request.endDate} IS NULL OR CAST(i.createdDate AS BIGINTEGER) <= :#{#request.endDate})
+                      AND i.entityTrangThaiHoaDon != 7
+                      AND i.totalAmount > 0
             GROUP BY
                 i.id,
                 i.code,
@@ -88,7 +98,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 i.trangThaiThanhToan
             ORDER BY i.createdDate DESC
             """)
-    List<ClientInvoiceDetailResponse> getInvoicesByIdCustomer(String customerId);
+    List<ClientInvoiceDetailResponse> getInvoicesByIdCustomer(String customerId, ClientGetInvoicesRequest request);
 
     @Query("""
     SELECT

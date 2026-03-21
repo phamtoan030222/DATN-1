@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.client.invoice.service.impl;
 
+import com.sd20201.datn.core.client.invoice.model.request.ClientGetInvoicesRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientInvoiceCancelRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientPutInvoiceDetailRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientPutReceiverRequest;
@@ -82,9 +83,9 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     }
 
     @Override
-    public ResponseObject<?> getInvoiceByIdCustomer() {
+    public ResponseObject<?> getInvoiceByIdCustomer(ClientGetInvoicesRequest request) {
         return ResponseObject.successForward(
-                invoiceRepository.getInvoicesByIdCustomer(userContextHelper.getCurrentUserId().orElse(null)),
+                invoiceRepository.getInvoicesByIdCustomer(userContextHelper.getCurrentUserId().orElse(null), request),
                 "OKE"
         );
     }

@@ -1,20 +1,7 @@
 <template>
   <div class="container mx-auto px-5">
-
-    <div class="flex mt-5" v-if="route.query.q">
-      <n-button type="success" secondary @click="() => router.push({ name: 'Orders' })">
-        <n-icon :size="20">
-          <ArrowBackOutline />
-        </n-icon>
-      </n-button>
-      <div class="mx-2 w-1 bg-[#049d14] rounded m-r-2"></div>
-      <h2 class="text-2xl font-bold">
-        Trở về danh sách đơn hàng
-      </h2>
-    </div>
-
     <!-- Search Card -->
-    <div class="flex gap-2 flex-1 items-end">
+    <div class="flex gap-2 flex-1 items-end" v-if="!route.query.q">
       <n-form-item path="searchInvoiceCode" class="flex-1 mb-0">
         <n-input v-model:value="searchInvoiceCode" placeholder="Nhập mã hóa đơn để tìm kiếm" clearable />
       </n-form-item>
@@ -36,7 +23,12 @@
         <n-space justify="space-between" class="m-y-2">
           <!-- Header with invoice code -->
           <div v-if="invoice" class="mb-4 p-2 flex">
-            <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
+            <n-button v-if="route.query.q" type="success" secondary @click="() => router.push({ name: 'Orders' })">
+              <n-icon :size="20">
+                <ArrowBackOutline />
+              </n-icon>
+            </n-button>
+            <div class="mx-2 w-1 bg-[#049d14] rounded m-r-2"></div>
             <h2 class="text-2xl font-bold">
               Tiến độ đơn hàng -
               <div class="inline-block rounded">
@@ -339,7 +331,7 @@
               <span>{{ formatCurrency(shippingFee) }}</span>
             </div>
             <div class="flex justify-between font-bold text-lg border-t border-gray-300 p-2">
-              <span>Tổng cộng:</span>
+              <span class="">Tổng cộng:</span>
               <span class="text-red-600">{{ formatCurrency(invoice.totalAmount) }}</span>
             </div>
           </div>
@@ -583,7 +575,7 @@ const dialog = useDialog()
 
 // State
 const invoice = ref<ClientInvoiceDetailResponse | null>(null)
-const searchInvoiceCode = ref('')
+const searchInvoiceCode = ref<string>(route.query.q as string)
 const statusNote = ref('')
 const isOpenModalCancelInvoice = ref(false)
 
@@ -852,7 +844,7 @@ const handleClickCancelInvoice = async () => {
 
     notification.success({ content: 'Hủy hóa đơn thành công', duration: 3000 })
     isOpenModalCancelInvoice.value = false
-    fetchInvoice(route.query.q as string)
+    fetchInvoice()
   } catch (e) {
     notification.error({ content: 'Hủy hóa đơn thất bại. Vui lòng thử lại', duration: 3000 })
   }
@@ -903,7 +895,7 @@ const handleClickSaveCustomerForm = async () => {
 
     notification.success({ content: 'Cập nhật thông tin người nhật thành công', duration: 3000 })
 
-    fetchInvoice(route.query.q as string)
+    fetchInvoice()
 
     isOpenCustomerForm.value = false
   } catch {
@@ -930,13 +922,13 @@ const handleClickSaveEditQuantity = async () => {
     notification.error({ content: 'Thay đổi số lượng sản phẩm thất bại', duration: 3000 })
   } finally {
     isEditQuantityProduct.value = false
-    fetchInvoice(route.query.q as string)
+    fetchInvoice()
   }
 }
 
 const handleClickCancelSaveEditQuantity = async () => {
   isEditQuantityProduct.value = false
-  fetchInvoice(route.query.q as string)
+  fetchInvoice()
 }
 
 const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) => {
@@ -1014,7 +1006,7 @@ const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) =
 
 // Lifecycle
 onMounted(() => {
-  fetchInvoice(route.query.q as string)
+  fetchInvoice()
 })
 </script>
 

@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.client.invoice.controller;
 
+import com.sd20201.datn.core.client.invoice.model.request.ClientGetInvoicesRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientInvoiceCancelRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientPutInvoiceDetailRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientPutReceiverRequest;
@@ -31,8 +32,8 @@ public class ClientInvoiceController {
     }
 
     @GetMapping("/user")
-    public ResponseEntity<?> getInvoiceByCustomer() {
-        return Helper.createResponseEntity(invoiceService.getInvoiceByIdCustomer());
+    public ResponseEntity<?> getInvoiceByCustomer(ClientGetInvoicesRequest request) {
+        return Helper.createResponseEntity(invoiceService.getInvoiceByIdCustomer(request));
     }
 
     @GetMapping("/invoices-detail")
