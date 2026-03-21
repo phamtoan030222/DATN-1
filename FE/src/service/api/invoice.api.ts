@@ -57,17 +57,25 @@ export type ClientInvoiceCancelRequest = {
 }
 
 export interface ClientPutInvoiceDetailRequest {
-  updateProductDetails: UpdateInvoiceDetail[];
-  totalAmount: number;
+    updateProductDetails: UpdateInvoiceDetail[];
+    totalAmount: number;
 }
 
 export interface UpdateInvoiceDetail {
-  idProductDetail: string;
-  idInvoiceDetail: string;
-  quantity: number;
-  price: number;
-  giaGoc: number;
-  totalAmount: number;
+    idProductDetail: string;
+    idInvoiceDetail: string;
+    quantity: number;
+    price: number;
+    giaGoc: number;
+    totalAmount: number;
+}
+
+type ClientGetInvoicesRequest = {
+    searchQuery: string
+    searchStatus: string | null
+    loaiHoaDon: string | null
+    startDate: number | null
+    endDate: number | null
 }
 
 // API call to fetch invoice by id
@@ -80,10 +88,11 @@ export const getInvoiceById = async (code: string): Promise<any> => {
     return res.data
 }
 
-export const getInvoicesByUser = async (): Promise<any> => {
+export const getInvoicesByUser = async (params: ClientGetInvoicesRequest): Promise<any> => {
     const res = (await request({
         url: `${API_INVOICES_ORDER_ONLINE}/user`,
         method: 'GET',
+        params
     })) as AxiosResponse<DefaultResponse<Array<ClientInvoiceDetailResponse>>>
 
     return res.data
@@ -118,7 +127,7 @@ export const putInvoiceCancel = async (data: ClientInvoiceCancelRequest) => {
         data,
     })) as AxiosResponse<DefaultResponse<string>>
 
-    return res.data 
+    return res.data
 }
 
 export const putReceiver = async (id: string, data: any) => {
@@ -128,7 +137,7 @@ export const putReceiver = async (id: string, data: any) => {
         data,
     })) as AxiosResponse<DefaultResponse<string>>
 
-    return res.data 
+    return res.data
 }
 
 export const putInvoiceDetail = async (id: string, data: ClientPutInvoiceDetailRequest) => {
@@ -138,6 +147,5 @@ export const putInvoiceDetail = async (id: string, data: ClientPutInvoiceDetailR
         data,
     })) as AxiosResponse<DefaultResponse<string>>
 
-    return res.data 
+    return res.data
 }
- 

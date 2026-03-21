@@ -1,5 +1,6 @@
 package com.sd20201.datn.core.client.invoice.service;
 
+import com.sd20201.datn.core.client.invoice.model.request.ClientGetInvoicesRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientInvoiceCancelRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientPutInvoiceDetailRequest;
 import com.sd20201.datn.core.client.invoice.model.request.ClientPutReceiverRequest;
@@ -15,7 +16,7 @@ public interface ClientInvoiceService {
 
     ResponseObject<?> getInvoiceDetailsById(List<String> id);
 
-    ResponseObject<?> getInvoiceByIdCustomer();
+    ResponseObject<?> getInvoiceByIdCustomer(ClientGetInvoicesRequest request);
 
     ResponseObject<?> cancelInvoice(ClientInvoiceCancelRequest request);
 

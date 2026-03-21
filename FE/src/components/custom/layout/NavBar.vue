@@ -64,17 +64,16 @@ const totalCartQuantity = computed(() => {
 })
 
 // --- DATA MENU (Đã xóa Liên hệ) ---
-const menuOptions: MenuOption[] = [
-  { label: 'Sản phẩm', key: 'products', href: '/san-pham' },
-  { label: 'Giới thiệu', key: 'about', href: '/gioi-thieu' },
-  { label: 'Đơn hàng', key: 'tracking', href: '/tra-cuu' },
-]
+const menuOptions = computed(() => [
+  { label: 'Sản phẩm', key: 'products', name: 'Products' },
+  { label: 'Giới thiệu', key: 'about', name: 'About' },
+  { label: 'Đơn hàng', key: 'tracking', name: userInfoDatn.value?.userId ? 'Orders' : 'OrderTracking' },
+])
 
 const userOptions = computed(() => {
   if (userInfoDatn.value) {
     return [
       { label: 'Thông tin cá nhân', key: 'profile' },
-      { label: 'Đơn hàng', key: 'orders' },
       { label: 'Đăng xuất', key: 'logout' },
     ]
   }
@@ -115,8 +114,8 @@ watch(
 )
 
 function handleMenuClick(key: string, item: MenuOption) {
-  if (item.href)
-    router.push(item.href as string)
+  if (item.name)
+    router.push({ name: item.name as string})
   showDrawer.value = false
 }
 
@@ -125,11 +124,7 @@ function handlerAccountDropdown(key: string) {
     router.push({ path: '/login' })
   } else if (key === 'profile') {
     router.push({ name: 'Profile' })
-  }
-   else if (key === 'orders') {
-    router.push({ name: 'Orders' })
-  }
-  else if (key === 'logout') {
+  } else if (key === 'logout') {
     logout()
     router.push({ name: 'Home' })
     notification.success({ content: 'Bạn đã đăng xuất', duration: 3000 })
