@@ -1,5 +1,47 @@
 <template>
   <div class="flex flex-col gap-16px">
+    <!-- Filter Card -->
+    <NCard class="shadow-sm">
+      <NForm inline label-placement="top">
+        <n-grid :span="24" :x-gap="24">
+          <NFormItemGi :span="8" label="Tìm kiếm" class="lg:col-span-2">
+            <NInput v-model:value="stateSearch.searchQuery" placeholder="Nhập mã hóa đơn..." clearable
+              @keyup.enter="fetchInvoices">
+              <template #prefix>
+                <search-outline />
+              </template>
+            </NInput>
+          </NFormItemGi>
+
+          <NFormItemGi :span="7" label="Thời gian">
+            <NDatePicker v-model:value="dateRange" end-placeholder="Chọn ngày" start-placeholder="Chọn ngày" type="daterange" clearable :is-date-disabled="disableFutureDate"
+              placeholder="Chọn khoảng" @update:value="handleDateRangeChange"/>
+          </NFormItemGi>
+
+          <NFormItemGi :span="4" label="Loại HĐ">
+            <NSelect v-model:value="stateSearch.loaiHoaDon" :options="LOAI_HOA_DON_OPTIONS" placeholder="Tất cả" clearable/>
+          </NFormItemGi>
+
+          <NFormItemGi :span="4" label="Trạng thái">
+            <NSelect v-model:value="stateSearch.searchStatus" :options="STATUS_OPTIONS" placeholder="Tất cả" clearable/>
+          </NFormItemGi>
+          <NFormItemGi :span="1">
+            <NTooltip trigger="hover">
+              <template #trigger>
+                <NButton size="large" circle secondary type="primary" class="transition-all hover:scale-110"
+                  @click="resetFilters">
+                  <NIcon size="20">
+                    <refresh-outline />
+                  </NIcon>
+                </NButton>
+              </template>
+              Làm mới bộ lọc
+            </NTooltip>
+          </NFormItemGi>
+        </n-grid>
+      </NForm>
+    </NCard>
+
     <div v-for="invoice in invoices" :key="invoice.id" class="bg-white rounded-10px border border-gray-200">
 
       <!-- Header -->
@@ -84,7 +126,7 @@
       </div>
 
       <!-- Footer -->
-      <div class="px-20px py-16px flex justify-end items-center text-14px">
+      <div class="p-2 flex justify-end items-center text-14px">
         <div class="max-w-xs ml-auto text-sm space-y-3">
           <!-- <div class="flex justify-between">
             <span>Tạm tính:</span>
@@ -119,6 +161,9 @@ import {
 import { onMounted, ref } from 'vue'
 
 import _ from 'lodash'
+import dayjs from 'dayjs'
+import { SelectMixedOption } from 'naive-ui/es/select/src/interface'
+import { RefreshOutline, SearchOutline } from '@vicons/ionicons5'
 
 type ClientInvoiceDetailsResponseWithoutIdInvoice =
   Omit<ClientInvoiceDetailsResponse, 'idInvoice'>
@@ -131,14 +176,23 @@ const getDiscount = (id: string) => {
   return invoice.totalAmount - (invoice.totalAmountAfterDecrease ?? invoice.totalAmount)
 }
 
+const stateSearch = reactive({
+  searchQuery: '',
+  searchStatus: null as string | null,
+  loaiHoaDon: null as string | null,
+  startDate: null as number | null,
+  endDate: null as number | null,
+})
+
+const dateRange = ref<[number, number] | null>(null)
+
 const invoicesDetails = ref<{
   [key: string]: ClientInvoiceDetailsResponseWithoutIdInvoice[]
 } | null>(null)
 
 const fetchInvoices = async () => {
   try {
-
-    const res = await getInvoicesByUser()
+    const res = await getInvoicesByUser(stateSearch)
     invoices.value = res.data || []
 
     if (invoices.value.length > 0) {
@@ -185,22 +239,22 @@ const formatMoney = (value: number) => {
   return new Intl.NumberFormat('vi-VN').format(value)
 }
 
-function convertTextFromTrangThaiThanhToan(status: string): string {
-  switch (status) {
-    case 'CHUA_THANH_TOAN':
-      return 'Chưa thanh toán'
-    case 'CHO_THANH_TOAN_VNPAY':
-      return 'Chờ thanh toán VNPay'
-    case 'DA_THANH_TOAN':
-      return 'Đã thanh toán'
-    case 'THANH_TOAN_MOT_PHAN':
-      return 'Thanh toán một phần'
-    case 'THANH_TOAN_THAT_BAI':
-      return 'Thanh toán thất bại'
-    default:
-      return ''
-  }
-}
+// function convertTextFromTrangThaiThanhToan(status: string): string {
+//   switch (status) {
+//     case 'CHUA_THANH_TOAN':
+//       return 'Chưa thanh toán'
+//     case 'CHO_THANH_TOAN_VNPAY':
+//       return 'Chờ thanh toán VNPay'
+//     case 'DA_THANH_TOAN':
+//       return 'Đã thanh toán'
+//     case 'THANH_TOAN_MOT_PHAN':
+//       return 'Thanh toán một phần'
+//     case 'THANH_TOAN_THAT_BAI':
+//       return 'Thanh toán thất bại'
+//     default:
+//       return ''
+//   }
+// }
 
 function getInvoiceStatusText(status: number): string {
   switch (status) {
@@ -246,12 +300,66 @@ function getTypeInvoiceStatus(status: number): any {
 
 const handleClickTracking = (invoice: ClientInvoiceDetailResponse) => {
   router.push({
-  name: 'OrderTracking',
-  query: {
-    q: invoice.id
-  }
-})
+    name: 'OrderTracking',
+    query: {
+      q: invoice.id
+    }
+  })
 }
+
+function resetFilters() {
+  stateSearch.searchQuery = ''
+  stateSearch.searchStatus = null
+  stateSearch.loaiHoaDon = null
+  dateRange.value = null
+  stateSearch.startDate = null
+  stateSearch.endDate = null
+  fetchInvoices()
+}
+
+function disableFutureDate(timestamp: number) {
+  return dayjs(timestamp).isAfter(dayjs().endOf('day'))
+}
+
+function handleDateRangeChange(value: [number, number] | null) {
+  if (value?.length === 2) {
+    stateSearch.startDate = dayjs(value[0]).startOf('day').valueOf()
+    stateSearch.endDate = dayjs(value[1]).endOf('day').valueOf()
+  }
+  else {
+    stateSearch.startDate = null
+    stateSearch.endDate = null
+    dateRange.value = null
+  }
+  fetchInvoices()
+}
+
+const LOAI_HOA_DON_OPTIONS = [
+  { label: 'Tất cả', value: null },
+  { label: 'Online', value: 'ONLINE' },
+  { label: 'Online tại quầy', value: 'ONLINE_TAI_QUAY' },
+] as SelectMixedOption[]
+
+const STATUS_OPTIONS = [
+  { label: 'Tất cả', value: null },
+  { label: 'Chờ xác nhận', value: 'CHO_XAC_NHAN' },
+  { label: 'Đã xác nhận', value: 'DA_XAC_NHAN' },
+  { label: 'Chờ giao', value: 'CHO_GIAO' },
+  { label: 'Đang giao', value: 'DANG_GIAO' },
+  { label: 'Hoàn thành', value: 'HOAN_THANH' },
+  { label: 'Đã hủy', value: 'DA_HUY' },
+] as SelectMixedOption[]
+
+watch(
+  () => [
+    stateSearch.searchQuery,
+    stateSearch.searchStatus,
+    stateSearch.loaiHoaDon,
+  ],
+  () => {
+    fetchInvoices()
+  }
+)
 
 onMounted(() => {
   fetchInvoices()

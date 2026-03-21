@@ -1,29 +1,33 @@
 <script setup lang="ts">
-import { group } from "radash";
-import NoticeList from "../common/NoticeList.vue";
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { group } from 'radash'
+import NoticeList from '../common/NoticeList.vue'
+import { useNotificationStore } from '@/store/app/notification'
 
-const MassageData = ref<Entity.Message[]>([]);
-const currentTab = ref(0);
+const notificationStore = useNotificationStore()
+const currentTab = ref(0)
+
+const massageCount = computed(() => notificationStore.unreadCount)
+const groupMessage = computed(() => group(notificationStore.asMessages, (i: any) => i.type))
+
 function handleRead(id: number) {
-  const data = MassageData.value.find((i) => i.id === id);
-  if (data) data.isRead = true;
-  window.$message.success(`id: ${id}`);
+  const message = notificationStore.asMessages.find((m: any) => m.id === id)
+  if (message)
+    notificationStore.handleNotificationClick(message)
 }
-const massageCount = computed(() => {
-  return MassageData.value.filter((i) => !i.isRead).length;
-});
-const groupMessage = computed(() => {
-  return group(MassageData.value, (i) => i.type);
-});
+
+onMounted(async () => {
+  await notificationStore.fetchNotifications()
+  notificationStore.connectWebSocket()
+})
+
+onUnmounted(() => {
+  notificationStore.disconnectWebSocket()
+})
 </script>
 
 <template>
-  <n-popover
-    placement="bottom"
-    trigger="click"
-    arrow-point-to-center
-    class="!p-0"
-  >
+  <n-popover placement="bottom" trigger="click" arrow-point-to-center class="!p-0">
     <template #trigger>
       <n-tooltip placement="bottom" trigger="hover">
         <template #trigger>
@@ -36,6 +40,7 @@ const groupMessage = computed(() => {
         <span>{{ $t("app.notificationsTips") }}</span>
       </n-tooltip>
     </template>
+
     <n-tabs
       v-model:value="currentTab"
       type="line"
@@ -43,39 +48,54 @@ const groupMessage = computed(() => {
       justify-content="space-evenly"
       class="w-390px"
     >
+      <!-- Nút đọc tất cả -->
+      <template #suffix>
+        <n-button
+          v-if="massageCount > 0"
+          text
+          size="small"
+          class="mr-2 text-xs text-gray-400"
+          @click="notificationStore.markAllAsRead()"
+        >
+          Đọc tất cả
+        </n-button>
+      </template>
+
       <n-tab-pane :name="0">
         <template #tab>
           <n-space class="w-130px" justify="center">
             {{ $t("app.notifications") }}
             <n-badge
               type="info"
-              :value="groupMessage[0]?.filter((i) => !i.isRead).length"
+              :value="groupMessage[0]?.filter((i: any) => !i.isRead).length"
               :max="99"
             />
           </n-space>
         </template>
         <NoticeList :list="groupMessage[0]" @read="handleRead" />
       </n-tab-pane>
+
       <n-tab-pane :name="1">
         <template #tab>
           <n-space class="w-130px" justify="center">
             {{ $t("app.messages") }}
             <n-badge
               type="warning"
-              :value="groupMessage[1]?.filter((i) => !i.isRead).length"
+              :value="groupMessage[1]?.filter((i: any) => !i.isRead).length"
               :max="99"
             />
           </n-space>
         </template>
         <NoticeList :list="groupMessage[1]" @read="handleRead" />
       </n-tab-pane>
+
       <n-tab-pane :name="2">
         <template #tab>
           <n-space class="w-130px" justify="center">
             {{ $t("app.todos") }}
             <n-badge
               type="error"
-              :value="groupMessage[2]?.filter((i) => !i.isRead).length"
+              :value="groupMessage[2]?.filter((i: any) => !i.isRead).length"
               :max="99"
             />
           </n-space>
@@ -85,5 +105,3 @@ const groupMessage = computed(() => {
     </n-tabs>
   </n-popover>
 </template>
-
-<style scoped></style>
