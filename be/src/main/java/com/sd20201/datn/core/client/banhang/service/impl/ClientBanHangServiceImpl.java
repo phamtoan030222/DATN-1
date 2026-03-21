@@ -30,6 +30,7 @@ import com.sd20201.datn.core.client.banhang.service.ClientBanHangService;
 import com.sd20201.datn.core.client.voucher.repository.ClientVoucherRepository;
 import com.sd20201.datn.core.common.base.PageableObject;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import com.sd20201.datn.core.notification.service.NotificationService;
 import com.sd20201.datn.entity.Cart;
 import com.sd20201.datn.entity.CartItem;
 import com.sd20201.datn.entity.Customer;
@@ -116,6 +117,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
     private final ClientBanHangProductDetailDiscountRepository productDetailDiscountRepository;
 
     private final JavaMailSender mailSender;
+
+    private final NotificationService notificationService;
 
     @Override
     public List<ClientListHoaDon> getHoaDon() {
@@ -232,6 +235,8 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                 // Đơn online payment sẽ gửi email sau khi TT thành công
                 sendEmail(invoice, invoiceDetails, request.getEmail(), request);
             }
+
+            notificationService.sendNewOrderNotification(invoice);
 
             return ResponseObject.successForward(invoice, "Đặt hàng thành công");
         } catch (Exception e) {
