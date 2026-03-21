@@ -7,6 +7,7 @@ import com.sd20201.datn.core.client.invoice.model.request.ClientPutReceiverReque
 import com.sd20201.datn.core.client.invoice.repository.ClientInvoiceRepository;
 import com.sd20201.datn.core.client.invoice.service.ClientInvoiceService;
 import com.sd20201.datn.core.common.base.ResponseObject;
+import com.sd20201.datn.core.notification.service.NotificationService;
 import com.sd20201.datn.entity.Invoice;
 import com.sd20201.datn.entity.InvoiceDetail;
 import com.sd20201.datn.entity.LichSuTrangThaiHoaDon;
@@ -56,6 +57,8 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     private final VoucherRepository voucherRepository;
     private final InvoiceDetailRepository invoiceDetailRepository;
     private final ProductDetailRepository productDetailRepository;
+
+    private final NotificationService notificationService;
 
     @Override
     public ResponseObject<?> getById(String code) {
@@ -126,6 +129,8 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         history.setCustomer(customerIdOptional.flatMap(customerRepository::findById).orElse(null));
 
         lichSuTrangThaiHoaDonRepository.save(history);
+
+        notificationService.sendCancelOrderNotification(invoice);
 
         return ResponseObject.successForward(invoice.getId(), "Update invoice success");
     }
