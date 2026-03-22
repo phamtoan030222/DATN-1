@@ -31,7 +31,10 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = []
 }
 
-const refreshTokenRequest = async (): Promise<string> => {
+export const refreshTokenRequest = async (): Promise<{
+  accessToken: string,
+  refreshToken: string,
+}> => {
   const refreshToken = localStorageAction.get(REFRESH_TOKEN_STORAGE_KEY)
 
   const userInfo = localStorageAction.get(USER_INFO_STORAGE_KEY)
@@ -48,7 +51,10 @@ const refreshTokenRequest = async (): Promise<string> => {
   localStorageAction.set(REFRESH_TOKEN_STORAGE_KEY, newRefreshToken)
   localStorageAction.set(USER_INFO_STORAGE_KEY, getUserInformation(newAccessToken))
 
-  return newAccessToken
+  return {
+    accessToken: newAccessToken,
+    refreshToken: newRefreshToken,
+  }
 }
 
 
@@ -77,9 +83,9 @@ request.interceptors.response.use(
         isRefreshing = true
 
         refreshPromise = refreshTokenRequest()
-          .then(newToken => {
-            processQueue(null, newToken)
-            return newToken
+          .then(res => {
+            processQueue(null, res.accessToken)
+            return res.accessToken
           })
           .catch(err => {
             processQueue(err, null)

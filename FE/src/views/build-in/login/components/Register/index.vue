@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router'
 import { useNotification } from 'naive-ui'
 import type { FormInst } from 'naive-ui'
 import { VITE_BASE_URL_CLIENT } from '@/constants/url'
-import { postLogin, postRegister } from '@/service/api/auth/auth.api'
-import type { RegisterRequest } from '@/service/api/auth/auth.api'
+import { postLogin, postRegister, RegisterRequest } from '@/service/api/auth/auth.api'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const notification = useNotification()
@@ -35,6 +35,26 @@ const rules: any = {
     validator: (rule: any, value: string) => value === formValue.value.password ? true : new Error('Không khớp'),
   },
 }
+
+// const formValue = ref<RegisterRequest>({
+//   fullname: '',
+//   birthday: undefined,
+//   email: '',
+//   phone: '',
+//   account: '',
+//   password: '',
+//   repassword: '',
+// })
+
+const formValue = ref<RegisterRequest>({
+  fullname: '',
+  birthday: dayjs().valueOf(),
+  email: '',
+  phone: '',
+  username: '',
+  password: '',
+  repassword: '',
+})
 
 async function handleRegister() {
   try {
@@ -83,6 +103,9 @@ async function handleRegister() {
           </n-form-item-gi>
           <n-form-item-gi :span="12" path="phone">
             <n-input v-model:value="formValue.phone" placeholder="Số điện thoại" clearable :disabled="loading" class="rounded-md" />
+
+          <n-form-item-gi :span="12" path="birthday" label="Ngày sinh">
+            <n-date-picker v-model:value="formValue.birthday" type="date" placeholder="Chọn ngày sinh" />
           </n-form-item-gi>
           <n-form-item-gi :span="12" path="birthday">
             <n-date-picker v-model:value="formValue.birthday" type="date" placeholder="Ngày sinh" class="w-full rounded-md" />

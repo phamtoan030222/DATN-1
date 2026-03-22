@@ -33,6 +33,18 @@ const rules = computed(() => {
       message: t('login.passwordRuleTip') || 'Vui lòng nhập mật khẩu',
     },
   }
+    return {
+        account: {
+            required: true,
+            trigger: 'blur',
+            message: 'Vui lòng nhập tài khoản',
+        },
+        pwd: {
+            required: true,
+            trigger: 'blur',
+            message: 'Vui lòng nhập mật khẩu',
+        },
+    }
 })
 
 onMounted(() => {

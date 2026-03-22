@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import { postInformation } from '@/service/api/client/customer/customer.api'
+import { refreshTokenRequest } from '@/service/request';
+import { useAuthStore } from '@/store'
+import { getUserInformation } from '@/utils/token.helper';
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDialog, useNotification } from 'naive-ui'
@@ -9,6 +13,9 @@ import { changeCustomerPassword, postInformation } from '@/service/api/client/cu
 import { uploadAvatar } from '@/service/api/admin/users/customer/customer'
 import { useAuthStore } from '@/store'
 
+const { userInfoDatn } = storeToRefs(useAuthStore())
+const { handleLoginInfo } = useAuthStore();
+const notification = useNotification();
 const authStore = useAuthStore()
 const { userInfoDatn } = storeToRefs(authStore)
 const notification = useNotification()
@@ -179,6 +186,7 @@ async function handleCustomUpload({ file, onFinish, onError }: UploadCustomReque
   }
 
   try {
+    await postInformation({
     isUploadingAvatar.value = true
 
     const finalFile = await processAndCompressImage(actualFile, 2, 800)
@@ -292,6 +300,16 @@ async function handleClickSave() {
   }
   finally {
     isSubmittingProfile.value = false
+    notification.success({content: "Cập nhật thành công", duration: 3000})
+
+    const { accessToken, refreshToken } = await refreshTokenRequest();
+    handleLoginInfo({
+      accessToken,
+      refreshToken,
+      userInfo: getUserInformation(accessToken)
+    })
+  } catch (e) {
+    notification.error({content: "Lỗi khi thay đổi. Vui lòng kiểm tra lại", duration: 3000})
   }
 }
 </script>
