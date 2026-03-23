@@ -115,16 +115,18 @@ watch(
 
 function handleMenuClick(key: string, item: MenuOption) {
   if (item.name)
-    router.push({ name: item.name as string})
+    router.push({ name: item.name as string })
   showDrawer.value = false
 }
 
 function handlerAccountDropdown(key: string) {
   if (key === 'login') {
     router.push({ path: '/login' })
-  } else if (key === 'profile') {
+  }
+  else if (key === 'profile') {
     router.push({ name: 'Profile' })
-  } else if (key === 'logout') {
+  }
+  else if (key === 'logout') {
     logout()
     router.push({ name: 'Home' })
     notification.success({ content: 'Bạn đã đăng xuất', duration: 3000 })
@@ -305,7 +307,10 @@ function handleCartClick() {
 
 .brand-text {
   font-size: 1.6rem;
+  font-weight: 900;
+  color: #0abe1c;
   margin-left: 10px;
+  letter-spacing: -0.5px;
 }
 
 .main-menu-inline {

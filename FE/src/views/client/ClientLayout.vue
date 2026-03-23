@@ -7,8 +7,9 @@ import ChatWidget from '../../views/client/user/chat/index.vue'
 
 const themeOverrides: GlobalThemeOverrides = {
   common: {
-    primaryColor: '#d70018',
-    primaryColorHover: '#c40016',
+    primaryColor: '#16a34a', // Màu xanh lá chuẩn (giống green-600)
+    primaryColorHover: '#22c55e', // Xanh lá sáng hơn khi hover (green-500)
+    primaryColorPressed: '#15803d', // Xanh lá đậm hơn khi click (green-700)
     fontFamily: 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif',
   },
   Menu: {
@@ -24,22 +25,20 @@ const themeOverrides: GlobalThemeOverrides = {
 </script>
 
 <template>
-  <NConfigProvider :theme-overrides="themeOverrides">
-    <NGlobalStyle />
+  <NGlobalStyle />
 
-    <div class="app-wrapper">
-      <NavBar />
+  <div class="app-wrapper">
+    <NavBar />
 
-      <main class="main-content">
-        <div class="container content-card">
-          <RouterView />
-        </div>
-      </main>
+    <main class="main-content">
+      <div class="container content-card">
+        <RouterView />
+      </div>
+    </main>
 
-      <Footer />
-      <ChatWidget />
-    </div>
-  </NConfigProvider>
+    <Footer />
+    <ChatWidget />
+  </div>
 </template>
 
 <style scoped>

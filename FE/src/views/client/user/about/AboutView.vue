@@ -32,7 +32,7 @@ import {
           <p class="hero-subtitle">
             Nâng tầm trải nghiệm công nghệ - Đồng hành cùng đam mê của bạn.
           </p>
-          <NButton type="primary" size="large" round class="cta-button">
+          <NButton type="primary" size="large" round class="cta-button :hover:bg-green-600" @click="$router.push('/home')">
             Khám Phá Sản Phẩm Ngay
           </NButton>
         </NGi>

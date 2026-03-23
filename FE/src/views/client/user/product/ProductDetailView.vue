@@ -8,16 +8,11 @@ import {
   Flash,
   GiftOutline,
   HeadsetOutline,
-  Heart,
-  HeartOutline,
   LocationOutline,
   RefreshOutline,
   ReturnDownBackOutline,
   RocketOutline,
-  ShareSocialOutline,
   ShieldCheckmarkOutline,
-  Star,
-  StorefrontOutline,
   TimeOutline,
 } from '@vicons/ionicons5'
 import {
@@ -443,11 +438,6 @@ function calcDiscount(v: ADVoucherResponse, total: number) {
   return disc
 }
 
-const finalTotalPrice = computed(() => {
-  const total = currentOrderTotal.value
-  return total > 0 ? total : 0
-})
-
 function startCountdown() {
   if (timerInterval)
     clearInterval(timerInterval)
@@ -536,7 +526,6 @@ onUnmounted(() => {
 <template>
   <div class="product-detail-page">
     <div class="container">
-      <!-- Breadcrumb -->
       <div class="breadcrumb">
         <span class="breadcrumb-item" @click="router.push('/')">Trang chủ</span>
         <span class="breadcrumb-separator">/</span>
@@ -545,23 +534,16 @@ onUnmounted(() => {
         <span class="breadcrumb-item active">{{ product?.name || 'Chi tiết sản phẩm' }}</span>
       </div>
 
-      <!-- Loading State -->
       <div v-if="loading" class="loading-state">
         <NSpin size="large" />
         <p>Đang tải thông tin sản phẩm...</p>
       </div>
 
       <div v-else-if="product" class="product-wrapper">
-        <!-- Main Product Section -->
         <div class="product-main">
-          <!-- Left Column - Image -->
           <div class="product-gallery">
             <div class="main-image">
-              <img
-                :src="selectedImage"
-                :alt="product.name"
-                @error="selectedImage = 'https://via.placeholder.com/500'"
-              >
+              <img :src="selectedImage" :alt="product.name" @error="selectedImage = 'https://via.placeholder.com/500'">
               <div class="image-badges">
                 <span v-if="isOngoingSale && rawPercent > 0" class="badge discount">-{{ rawPercent }}%</span>
                 <span v-if="isUpcomingSale && rawPercent > 0" class="badge upcoming">Sắp giảm</span>
@@ -570,23 +552,20 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Center Column - Product Info -->
           <div class="product-info">
             <div class="product-header">
               <h1 class="product-title">
                 {{ product.name }}
               </h1>
               <div class="product-meta">
-                <!-- <div class="rating">
-                  <NRate :default-value="5" readonly size="small" />
-                  <span class="rating-count">(12 đánh giá)</span>
-                </div> -->
                 <span class="product-code">Mã: {{ product.code }}</span>
               </div>
             </div>
 
-            <!-- Flash Sale Timer -->
-            <div v-if="isOngoingSale || isUpcomingSale" class="sale-timer" :class="{ ongoing: isOngoingSale, upcoming: isUpcomingSale }">
+            <div
+              v-if="isOngoingSale || isUpcomingSale" class="sale-timer"
+              :class="{ ongoing: isOngoingSale, upcoming: isUpcomingSale }"
+            >
               <div class="timer-left">
                 <NIcon size="24" :class="{ 'animate-pulse': isOngoingSale, 'animate-bounce': isUpcomingSale }">
                   <Flash v-if="isOngoingSale" />
@@ -602,7 +581,6 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Price Section -->
             <div class="price-section" :class="{ 'has-sale': isOngoingSale || isUpcomingSale }">
               <div class="price-wrapper">
                 <div v-if="isOngoingSale && rawPercent > 0" class="price-old">
@@ -617,7 +595,6 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Short Specs -->
             <div class="short-specs">
               <div v-if="product.cpu" class="spec-item">
                 <span class="spec-label">CPU:</span>
@@ -641,8 +618,10 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Variants Selection -->
-            <div v-if="cpuOptions.length > 0 || gpuOptions.length > 0 || ramOptions.length > 0 || hardDriveOptions.length > 0 || colorOptions.length > 0" class="variants-section">
+            <div
+              v-if="cpuOptions.length > 0 || gpuOptions.length > 0 || ramOptions.length > 0 || hardDriveOptions.length > 0 || colorOptions.length > 0"
+              class="variants-section"
+            >
               <div class="variants-header">
                 <h3 class="variants-title">
                   Tuỳ chọn phiên bản
@@ -660,10 +639,8 @@ onUnmounted(() => {
                   <span class="variant-label">CPU:</span>
                   <div class="variant-options">
                     <button
-                      v-for="opt in cpuOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedCpu === opt.value }"
-                      @click="selectVariantOption('CPU', opt.value)"
+                      v-for="opt in cpuOptions" :key="opt.value" class="variant-chip"
+                      :class="{ active: selectedCpu === opt.value }" @click="selectVariantOption('CPU', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
@@ -674,10 +651,8 @@ onUnmounted(() => {
                   <span class="variant-label">RAM:</span>
                   <div class="variant-options">
                     <button
-                      v-for="opt in ramOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedRam === opt.value }"
-                      @click="selectVariantOption('RAM', opt.value)"
+                      v-for="opt in ramOptions" :key="opt.value" class="variant-chip"
+                      :class="{ active: selectedRam === opt.value }" @click="selectVariantOption('RAM', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
@@ -688,8 +663,7 @@ onUnmounted(() => {
                   <span class="variant-label">Ổ cứng:</span>
                   <div class="variant-options">
                     <button
-                      v-for="opt in hardDriveOptions" :key="opt.value"
-                      class="variant-chip"
+                      v-for="opt in hardDriveOptions" :key="opt.value" class="variant-chip"
                       :class="{ active: selectedHardDrive === opt.value }"
                       @click="selectVariantOption('HDD', opt.value)"
                     >
@@ -702,10 +676,8 @@ onUnmounted(() => {
                   <span class="variant-label">VGA:</span>
                   <div class="variant-options">
                     <button
-                      v-for="opt in gpuOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedGpu === opt.value }"
-                      @click="selectVariantOption('GPU', opt.value)"
+                      v-for="opt in gpuOptions" :key="opt.value" class="variant-chip"
+                      :class="{ active: selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
@@ -716,10 +688,8 @@ onUnmounted(() => {
                   <span class="variant-label">Màu sắc:</span>
                   <div class="variant-options">
                     <button
-                      v-for="opt in colorOptions" :key="opt.value"
-                      class="variant-chip"
-                      :class="{ active: selectedColor === opt.value }"
-                      @click="selectVariantOption('COLOR', opt.value)"
+                      v-for="opt in colorOptions" :key="opt.value" class="variant-chip"
+                      :class="{ active: selectedColor === opt.value }" @click="selectVariantOption('COLOR', opt.value)"
                     >
                       {{ opt.label }}
                     </button>
@@ -728,17 +698,12 @@ onUnmounted(() => {
               </div>
             </div>
 
-            <!-- Quantity & Actions -->
             <div class="actions-section">
               <div class="quantity-box">
                 <span class="quantity-label">Số lượng:</span>
                 <NInputNumber
-                  v-model:value="quantity"
-                  :min="1"
-                  :max="Math.min(5, stockQuantity)"
-                  :disabled="isOutOfStock"
-                  button-placement="both"
-                  size="large"
+                  v-model:value="quantity" :min="1" :max="Math.min(5, stockQuantity)"
+                  :disabled="isOutOfStock" button-placement="both" size="large"
                 />
                 <div v-if="stockQuantity > 0" class="stock-info">
                   <NIcon size="16" color="#16a34a">
@@ -750,38 +715,33 @@ onUnmounted(() => {
 
               <div class="action-buttons">
                 <NButton
-                  v-if="!isOutOfStock"
-                  size="large"
-                  class="btn-buy-now"
-                  :loading="loadingCart"
+                  v-if="!isOutOfStock" size="large" class="btn-buy-now" :loading="loadingCart"
                   @click="handleBuyNow"
                 >
                   <template #icon>
-                    <NIcon><RocketOutline /></NIcon>
+                    <NIcon>
+                      <RocketOutline />
+                    </NIcon>
                   </template>
                   MUA NGAY
                 </NButton>
-                <NButton
-                  v-else
-                  size="large"
-                  class="btn-disabled"
-                  disabled
-                >
+                <NButton v-else size="large" class="btn-disabled" disabled>
                   <template #icon>
-                    <NIcon><AlertCircleOutline /></NIcon>
+                    <NIcon>
+                      <AlertCircleOutline />
+                    </NIcon>
                   </template>
                   HẾT HÀNG
                 </NButton>
 
                 <NButton
-                  size="large"
-                  class="btn-add-cart"
-                  :disabled="isOutOfStock"
-                  :loading="loadingCart"
+                  size="large" class="btn-add-cart" :disabled="isOutOfStock" :loading="loadingCart"
                   @click="handleAddToCart"
                 >
                   <template #icon>
-                    <NIcon><CartOutline /></NIcon>
+                    <NIcon>
+                      <CartOutline />
+                    </NIcon>
                   </template>
                   Thêm giỏ hàng
                 </NButton>
@@ -789,49 +749,46 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- Right Column - Store Info -->
           <div class="store-sidebar">
-            <!-- Service Promise -->
             <div class="promise-card">
               <div class="promise-item">
                 <NIcon size="18" color="#18a058">
                   <ShieldCheckmarkOutline />
                 </NIcon>
-                <span>Giao hàng tiết kiệm</span>
+                <span>Sản phẩm chính hãng 100%</span>
               </div>
               <div class="promise-item">
                 <NIcon size="18" color="#18a058">
                   <ReturnDownBackOutline />
                 </NIcon>
-                <span>Đổi trả trong 30 ngày</span>
+                <span>Đổi trả miễn phí trong 30 ngày</span>
               </div>
               <div class="promise-item">
                 <NIcon size="18" color="#18a058">
                   <HeadsetOutline />
                 </NIcon>
-                <span>Hỗ trợ 24/7</span>
+                <span>Hỗ trợ kỹ thuật 24/7</span>
               </div>
               <div class="promise-item">
                 <NIcon size="18" color="#18a058">
                   <LocationOutline />
                 </NIcon>
-                <span>Giao hàng toàn quốc</span>
+                <span>Giao hàng cực nhanh toàn quốc</span>
               </div>
             </div>
 
-            <!-- Voucher Section -->
             <div class="voucher-card" @click="showVoucherModal = true">
               <div class="voucher-header">
                 <NIcon size="20" color="#18a058">
                   <GiftOutline />
                 </NIcon>
-                <span>Mã giảm giá</span>
+                <span>Mã giảm giá khả dụng</span>
               </div>
               <div class="voucher-preview">
                 <span v-if="validVouchers.length > 0" class="voucher-count">
                   {{ validVouchers.length }} mã khả dụng
                 </span>
-                <span v-else class="voucher-count">Chưa có mã</span>
+                <span v-else class="voucher-count">Hiện chưa có mã</span>
                 <NIcon size="16">
                   <ArrowBack style="transform: rotate(180deg)" />
                 </NIcon>
@@ -840,19 +797,13 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Product Details Tabs -->
         <div class="product-tabs">
           <NTabs v-model:value="activeTab" type="line" animated>
-            <NTabPane name="description" tab="Mô tả sản phẩm">
+            <NTabPane name="description" tab="Thông số kỹ thuật">
               <div class="tab-content">
-                <h3 class="tab-title">
-                  Thông số kỹ thuật
-                </h3>
                 <NDescriptions
-                  bordered
-                  :column="1"
-                  size="medium"
-                  label-style="width: 160px; font-weight: 600; background-color: #f8fafc;"
+                  bordered :column="1" size="medium"
+                  label-style="width: 180px; font-weight: 600; background-color: #f8fafc;"
                 >
                   <NDescriptionsItem label="CPU">
                     {{ product.cpuName || product.cpu || 'Đang cập nhật' }}
@@ -863,7 +814,7 @@ onUnmounted(() => {
                   <NDescriptionsItem label="Ổ cứng">
                     {{ product.hardDriveName || product.hardDrive || 'Đang cập nhật' }}
                   </NDescriptionsItem>
-                  <NDescriptionsItem label="GPU">
+                  <NDescriptionsItem label="Card đồ họa (GPU)">
                     {{ product.gpuName || product.gpu || 'Đang cập nhật' }}
                   </NDescriptionsItem>
                   <NDescriptionsItem label="Màn hình">
@@ -881,59 +832,16 @@ onUnmounted(() => {
                 </NDescriptions>
               </div>
             </NTabPane>
-            <!-- <NTabPane name="reviews" tab="Đánh giá (12)">
-              <div class="tab-content">
-                <div class="reviews-summary">
-                  <div class="average-rating">
-                    <span class="rating-number">4.5</span>
-                    <NRate :value="4.5" readonly size="small" />
-                    <span class="rating-total">12 đánh giá</span>
-                  </div>
-                  <div class="rating-bars">
-                    <div v-for="i in 5" :key="i" class="rating-bar-item">
-                      <span>{{ 6 - i }} sao</span>
-                      <div class="bar">
-                        <div class="bar-fill" :style="{ width: `${[80, 10, 5, 3, 2][i - 1]}%` }" />
-                      </div>
-                      <span>{{ [8, 1, 1, 1, 1][i - 1] }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="reviews-list">
-                  <div v-for="i in 3" :key="i" class="review-item">
-                    <div class="reviewer">
-                      <NAvatar size="small" round>
-                        U
-                      </NAvatar>
-                      <div>
-                        <div class="reviewer-name">
-                          Nguyễn Văn A
-                        </div>
-                        <NRate :value="5" readonly size="small" />
-                      </div>
-                    </div>
-                    <p class="review-content">
-                      Sản phẩm tốt, đóng gói cẩn thận, giao hàng nhanh.
-                    </p>
-                    <span class="review-date">2 ngày trước</span>
-                  </div>
-                </div>
-              </div>
-            </NTabPane> -->
           </NTabs>
         </div>
 
-        <!-- Related Products -->
         <div v-if="relatedProducts.length > 0" class="related-products">
           <h2 class="section-title">
-            Sản phẩm liên quan
+            Khám phá thêm các máy tương tự
           </h2>
           <div class="related-grid">
             <div
-              v-for="item in relatedProducts"
-              :key="item.id"
-              class="related-card"
+              v-for="item in relatedProducts" :key="item.id" class="related-card"
               @click="router.push(`/product-detail/${item.id}`)"
             >
               <div class="card-image">
@@ -957,18 +865,14 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- Voucher Modal -->
-    <NModal v-model:show="showVoucherModal" preset="card" title="Mã giảm giá khả dụng" style="width: 500px">
+    <NModal v-model:show="showVoucherModal" preset="card" title="Mã giảm giá" style="width: 500px">
       <div v-if="validVouchers.length === 0" class="empty-voucher">
-        <NEmpty description="Chưa có mã giảm giá phù hợp" />
+        <NEmpty description="Rất tiếc, chưa có mã phù hợp với đơn hàng" />
       </div>
       <div v-else class="voucher-list">
         <div
-          v-for="(v, index) in validVouchers"
-          :key="v.id"
-          class="voucher-item"
-          :class="{ selected: selectedVoucher?.id === v.id }"
-          @click="handleSelectVoucher(v)"
+          v-for="(v, index) in validVouchers" :key="v.id" class="voucher-item"
+          :class="{ selected: selectedVoucher?.id === v.id }" @click="handleSelectVoucher(v)"
         >
           <div v-if="index === 0" class="voucher-badge">
             TỐT NHẤT
@@ -977,7 +881,9 @@ onUnmounted(() => {
             <span class="voucher-code">{{ v.code }}</span>
             <span class="voucher-name">{{ v.name }}</span>
             <div class="voucher-desc">
-              <span>Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue || 0) }}</span>
+              <span>Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue
+                || 0)
+              }}</span>
               <span v-if="v.maxValue"> • Tối đa: {{ formatCurrency(v.maxValue) }}</span>
             </div>
             <span class="voucher-condition">Đơn tối thiểu: {{ formatCurrency(v.conditions || 0) }}</span>
@@ -1020,15 +926,15 @@ onUnmounted(() => {
 
 .breadcrumb-item {
   cursor: pointer;
-  transition: color 0.2s;
+  transition: color 0.2s ease;
 }
 
 .breadcrumb-item:hover {
-  color: #18a058;
+  color: #18a058; /* Chuyển hover sang Xanh lá */
 }
 
 .breadcrumb-item.active {
-  color: #18a058;
+  color: #18a058; /* Chuyển active sang Xanh lá */
   font-weight: 500;
 }
 
@@ -1065,7 +971,7 @@ onUnmounted(() => {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .main-image {
@@ -1114,42 +1020,12 @@ onUnmounted(() => {
   background: #6b7280;
 }
 
-.favorite-btn, .share-btn {
-  position: absolute;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: white;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  z-index: 2;
-  transition: all 0.2s;
-}
-
-.favorite-btn:hover, .share-btn:hover {
-  transform: scale(1.1);
-}
-
-.favorite-btn {
-  top: 12px;
-  right: 60px;
-}
-
-.share-btn {
-  top: 12px;
-  right: 12px;
-}
-
 /* Product Info */
 .product-info {
   background: white;
   border-radius: 12px;
   padding: 24px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .product-header {
@@ -1162,23 +1038,6 @@ onUnmounted(() => {
   color: #1e293b;
   margin-bottom: 8px;
   line-height: 1.3;
-}
-
-.product-meta {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.rating {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rating-count {
-  font-size: 14px;
-  color: #666;
 }
 
 .product-code {
@@ -1227,7 +1086,7 @@ onUnmounted(() => {
 }
 
 .timer-display {
-  background: rgba(0,0,0,0.2);
+  background: rgba(0, 0, 0, 0.2);
   padding: 8px 16px;
   border-radius: 40px;
   backdrop-filter: blur(4px);
@@ -1247,8 +1106,9 @@ onUnmounted(() => {
   margin-bottom: 20px;
 }
 
+/* Chuyển nền đỏ thành nền xanh lá nhạt cho khu vực Sale */
 .price-section.has-sale {
-  background: #fff1f0;
+  background: #f0fdf4;
 }
 
 .price-wrapper {
@@ -1286,8 +1146,8 @@ onUnmounted(() => {
 }
 
 .upcoming-tag {
-  background: #2563eb;
-  color: white;
+  background: #e0f2fe; /* Xanh dương nhẹ phù hợp với badge sắp sale */
+  color: #0369a1;
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
@@ -1357,9 +1217,9 @@ onUnmounted(() => {
 }
 
 .reset-filter-btn:hover {
-  background: #18a058;
-  color: white;
-  border-color: #18a058;
+  background: #f1f5f9;
+  color: #18a058;
+  border-color: #cbd5e1;
 }
 
 .variants-grid {
@@ -1403,9 +1263,10 @@ onUnmounted(() => {
   border-color: #18a058;
 }
 
+/* Chuyển cục cấu hình đang chọn từ nền hồng thành nền xanh lá nhạt */
 .variant-chip.active {
   border-color: #18a058;
-  background: #fff1f0;
+  background: #f0fdf4;
   color: #18a058;
   font-weight: 600;
 }
@@ -1441,6 +1302,7 @@ onUnmounted(() => {
   gap: 12px;
 }
 
+/* Nút Mua ngay: Giữ màu xanh lá chủ đạo */
 .btn-buy-now {
   flex: 1;
   background: #18a058;
@@ -1449,22 +1311,21 @@ onUnmounted(() => {
   font-weight: 700;
   height: 48px;
 }
-
 .btn-buy-now:hover {
-  background: #18a058;
+  background: #148046;
 }
 
+/* *** SỬA NÚT THÊM GIỎ HÀNG THÀNH XANH DƯƠNG THEO YÊU CẦU *** */
 .btn-add-cart {
   flex: 1;
-  background: white;
-  border: 1px solid #18a058;
-  color: #18a058;
+  background: #2563eb; /* Màu xanh dương (blue) */
+  border: none;
+  color: white;
   font-weight: 700;
   height: 48px;
 }
-
 .btn-add-cart:hover {
-  background: #fff1f0;
+  background: #1d4ed8;
 }
 
 .btn-disabled {
@@ -1483,69 +1344,12 @@ onUnmounted(() => {
   gap: 16px;
 }
 
-.store-card, .promise-card, .voucher-card {
+.promise-card,
+.voucher-card {
   background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
-}
-
-.store-header {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.store-info h4 {
-  font-size: 16px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.store-rating {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.store-rating span {
-  font-size: 12px;
-  color: #666;
-  margin-left: 4px;
-}
-
-.store-stats {
-  display: flex;
-  justify-content: space-around;
-  margin-bottom: 16px;
-  padding: 12px 0;
-  border-top: 1px solid #e2e8f0;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.stat {
-  text-align: center;
-}
-
-.stat-value {
-  display: block;
-  font-size: 16px;
-  font-weight: 700;
-  color: #18a058;
-}
-
-.stat-label {
-  font-size: 11px;
-  color: #666;
-}
-
-.view-shop-btn {
-  border-color: #18a058;
-  color: #18a058;
-}
-
-.view-shop-btn:hover {
-  background: #fff1f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .promise-item {
@@ -1563,12 +1367,12 @@ onUnmounted(() => {
 
 .voucher-card {
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .voucher-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .voucher-header {
@@ -1597,111 +1401,11 @@ onUnmounted(() => {
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .tab-content {
   padding: 20px 0;
-}
-
-.tab-title {
-  font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 16px;
-}
-
-/* Reviews */
-.reviews-summary {
-  display: flex;
-  gap: 40px;
-  padding: 20px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 30px;
-}
-
-.average-rating {
-  text-align: center;
-  min-width: 120px;
-}
-
-.rating-number {
-  font-size: 48px;
-  font-weight: 700;
-  color: #18a058;
-  display: block;
-  line-height: 1;
-}
-
-.rating-total {
-  display: block;
-  font-size: 14px;
-  color: #666;
-  margin-top: 4px;
-}
-
-.rating-bars {
-  flex: 1;
-}
-
-.rating-bar-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-.rating-bar-item span {
-  min-width: 45px;
-  font-size: 13px;
-}
-
-.bar {
-  flex: 1;
-  height: 8px;
-  background: #e2e8f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.bar-fill {
-  height: 100%;
-  background: #18a058;
-  border-radius: 4px;
-}
-
-.reviews-list {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.review-item {
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-}
-
-.reviewer {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.reviewer-name {
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.review-content {
-  color: #1e293b;
-  margin-bottom: 8px;
-  line-height: 1.6;
-}
-
-.review-date {
-  font-size: 12px;
-  color: #999;
 }
 
 /* Related Products */
@@ -1726,13 +1430,13 @@ onUnmounted(() => {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   border: 1px solid #e2e8f0;
 }
 
 .related-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border-color: #18a058;
 }
 
@@ -1786,23 +1490,19 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.current {
+.card-price .current {
   font-size: 14px;
   font-weight: 700;
   color: #18a058;
 }
 
-.old {
+.card-price .old {
   font-size: 12px;
   color: #999;
   text-decoration: line-through;
 }
 
 /* Voucher Modal */
-.empty-voucher {
-  padding: 40px;
-}
-
 .voucher-list {
   max-height: 400px;
   overflow-y: auto;
@@ -1822,19 +1522,20 @@ onUnmounted(() => {
 
 .voucher-item:hover {
   border-color: #18a058;
-  background: #fff1f0;
+  background: #f0fdf4;
 }
 
+/* Chuyển nền voucher được chọn từ hồng thành nền xanh lá nhạt */
 .voucher-item.selected {
   border-color: #18a058;
-  background: #fff1f0;
+  background: #f0fdf4;
 }
 
 .voucher-badge {
   position: absolute;
   top: -8px;
   right: -8px;
-  background: #fbbf24;
+  background: #f59e0b; /* Màu vàng phù hợp hơn màu đỏ cũ */
   color: white;
   font-size: 10px;
   font-weight: 700;
@@ -1861,17 +1562,6 @@ onUnmounted(() => {
   margin-bottom: 8px;
 }
 
-.voucher-desc {
-  font-size: 13px;
-  color: #666;
-  margin-bottom: 4px;
-}
-
-.voucher-condition {
-  font-size: 12px;
-  color: #999;
-}
-
 .voucher-right {
   display: flex;
   align-items: center;
@@ -1886,53 +1576,10 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
 }
 
 .voucher-check.checked {
   background: #18a058;
   border-color: #18a058;
-}
-
-/* Responsive */
-@media (max-width: 1024px) {
-  .product-main {
-    grid-template-columns: 1fr;
-  }
-
-  .related-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .related-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .reviews-summary {
-    flex-direction: column;
-    gap: 20px;
-  }
-
-  .quantity-box {
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 480px) {
-  .related-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .action-buttons {
-    flex-direction: column;
-  }
-
-  .product-meta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
 }
 </style>

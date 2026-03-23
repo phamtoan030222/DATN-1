@@ -353,3 +353,14 @@ export async function getSPCTBy(params: RequestGetProductDetails) {
 
   return res.data
 }
+
+// Thêm API gọi danh sách sản phẩm bán chạy
+export async function getBestsellerProducts(params: DiscountProductRequest) {
+  const res = (await request({
+    url: `${API_PREFIX_ORDER_ONLINE_PRODUCT_DETAIL}/a/bestseller`,
+    method: 'GET',
+    params,
+  })) as AxiosResponse<DefaultResponse<PaginationResponse<Array<DiscountProductResponse>>>>
+
+  return res.data
+}

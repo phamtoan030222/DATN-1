@@ -9,7 +9,6 @@ import {
   NGrid,
   NGridItem,
   NImage,
-  NRate,
   NScrollbar,
   NSkeleton,
   NSpin,
@@ -24,8 +23,14 @@ import hero1 from '@/assets/images/banner4.jpg'
 import hero2 from '@/assets/images/bg4.jpg'
 import hero3 from '@/assets/images/banner7.jpg'
 
-// Import API Sản phẩm thường
-import { getNearestUpcomingDiscounts, getOngoingDiscounts, getProductDetails } from '@/service/api/client/product/productDetail.api'
+// Import API Sản phẩm
+import {
+  getBestsellerProducts,
+  getNearestUpcomingDiscounts,
+  getOngoingDiscounts,
+  getProductDetails,
+} from '@/service/api/client/product/productDetail.api'
+
 import type {
   ADProductDetailRequest,
   ADProductDetailResponse,
@@ -40,7 +45,10 @@ const router = useRouter()
 // --- STATE QUẢN LÝ DỮ LIỆU CHUNG ---
 const loading = ref(false)
 const loadingDiscounts = ref(false)
+const loadingBestseller = ref(false)
+
 const productDetails = ref<ADProductDetailResponse[]>([])
+const bestSellerProducts = ref<DiscountProductResponse[]>([])
 
 const heroBanners = ref([
   { id: 1, url: hero1, title: 'Laptop gaming – Hiệu năng mạnh mẽ', subtitle: 'Chinh phục mọi tựa game với dòng laptop gaming cao cấp' },
@@ -181,9 +189,25 @@ async function fetchDiscountProducts() {
   }
 }
 
+// --- QUẢN LÝ SẢN PHẨM BÁN CHẠY ---
+async function fetchBestSellers() {
+  loadingBestseller.value = true
+  try {
+    const params: DiscountProductRequest = { page: 1, size: 10 }
+    const res = await getBestsellerProducts(params)
+    bestSellerProducts.value = extractItems<DiscountProductResponse>(res)
+  }
+  catch (error) {
+    console.error('Lỗi khi tải dữ liệu sản phẩm bán chạy:', error)
+  }
+  finally {
+    loadingBestseller.value = false
+  }
+}
+
 // --- QUẢN LÝ SẢN PHẨM MỚI NHẤT ---
 const newest = computed(() => {
-  return [...productDetails.value].slice(0, 20)
+  return [...productDetails.value].slice(0, 10)
 })
 
 async function fetchNormalProducts() {
@@ -251,6 +275,7 @@ function handleImageError(e: Event) {
 onMounted(() => {
   fetchNormalProducts()
   fetchDiscountProducts()
+  fetchBestSellers()
   fetchBrands()
 
   timer = setInterval(() => {
@@ -266,7 +291,6 @@ onUnmounted(() => {
 
 <template>
   <div class="home-page">
-    <!-- Top Banner -->
     <div class="top-banner">
       <div class="container">
         <div class="top-banner-content">
@@ -280,7 +304,6 @@ onUnmounted(() => {
     </div>
 
     <div class="container">
-      <!-- Hero Section -->
       <div class="hero-section">
         <div class="main-banner">
           <NCarousel
@@ -311,7 +334,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Benefits Strip -->
       <div class="benefits-strip">
         <div v-for="b in quickBenefits" :key="b.id" class="benefit-item">
           <div class="benefit-icon">
@@ -324,7 +346,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Brands Section -->
       <section class="brands-section">
         <div class="section-header">
           <div class="header-left">
@@ -364,7 +385,6 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <!-- Flash Sale Section -->
       <section v-if="ongoingDiscountInfo" class="flash-sale-section">
         <div class="flash-sale-header">
           <div class="flash-sale-title">
@@ -419,13 +439,12 @@ onUnmounted(() => {
                   <span v-if="item.ram" class="spec-tag">{{ item.ram }}</span>
                   <span v-if="item.hardDrive" class="spec-tag">{{ item.hardDrive }}</span>
                 </div>
+
                 <div class="product-price">
+                  <span v-if="item.originalPrice > item.salePrice" class="old-price">
+                    {{ formatCurrency(item.originalPrice) }}
+                  </span>
                   <span class="current-price">{{ formatCurrency(item.salePrice) }}</span>
-                  <span class="old-price">{{ formatCurrency(item.originalPrice) }}</span>
-                </div>
-                <div class="product-rating">
-                  <NRate :value="4.5" readonly size="small" />
-                  <span class="rating-count">(12)</span>
                 </div>
               </div>
             </div>
@@ -433,7 +452,6 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <!-- Upcoming Deals -->
       <section v-if="upcomingDiscountInfo" class="upcoming-section">
         <div class="upcoming-header">
           <div class="upcoming-title">
@@ -488,7 +506,70 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <!-- Product Suggestions -->
+      <section v-if="bestSellerProducts.length > 0" class="suggestions-section bestseller-section">
+        <div class="section-header">
+          <div class="header-left">
+            <div class="section-icon bestseller-icon">
+              <NovaIcon icon="ion:trophy-outline" :size="24" color="#f59e0b" />
+            </div>
+            <h2 class="section-title">
+              SẢN PHẨM BÁN CHẠY NHẤT
+            </h2>
+          </div>
+          <div class="header-right">
+            <NButton text class="view-all-btn" @click="goProducts()">
+              Xem tất cả <NovaIcon icon="ion:chevron-forward" :size="14" />
+            </NButton>
+          </div>
+        </div>
+
+        <div v-if="loadingBestseller" class="loading-state">
+          <div class="skeleton-grid">
+            <div v-for="i in 10" :key="i" class="skeleton-card">
+              <NSkeleton height="200px" />
+              <NSkeleton text :repeat="3" />
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="suggestions-grid">
+          <div
+            v-for="item in bestSellerProducts"
+            :key="item.productDetailId"
+            class="product-card"
+            @click="handleClickProduct(item.productDetailId, item)"
+          >
+            <div class="product-image">
+              <img :src="item.urlImage" :alt="item.name" loading="lazy" @error="handleImageError">
+              <div v-if="item.percentage" class="discount-badge">
+                -{{ item.percentage }}%
+              </div>
+              <div class="product-overlay">
+                <button class="quick-view">
+                  <NovaIcon icon="ion:eye-outline" :size="18" />
+                </button>
+              </div>
+            </div>
+            <div class="product-info">
+              <h3 class="product-name">
+                {{ item.name }}
+              </h3>
+              <div class="product-specs">
+                <span v-if="item.ram" class="spec-tag">{{ item.ram }}</span>
+                <span v-if="item.hardDrive" class="spec-tag">{{ item.hardDrive }}</span>
+              </div>
+
+              <div class="product-price">
+                <span v-if="item.originalPrice > item.salePrice" class="old-price">
+                  {{ formatCurrency(item.originalPrice) }}
+                </span>
+                <span class="current-price">{{ formatCurrency(item.salePrice) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="suggestions-section">
         <div class="section-header">
           <div class="header-left">
@@ -547,13 +628,14 @@ onUnmounted(() => {
                 <span v-if="item.ram" class="spec-tag">{{ item.ram }}</span>
                 <span v-if="item.hardDrive" class="spec-tag">{{ item.hardDrive }}</span>
               </div>
+
               <div class="product-price">
-                <span class="current-price">{{ formatCurrency(salePrice(item.price, item.percentage)) }}</span>
-                <span v-if="item.percentage" class="old-price">{{ formatCurrency(item.price) }}</span>
-              </div>
-              <div class="product-rating">
-                <NRate :value="4.5" readonly size="small" />
-                <span class="rating-count">(12)</span>
+                <span v-if="item.percentage" class="old-price">
+                  {{ formatCurrency(item.price) }}
+                </span>
+                <span class="current-price">
+                  {{ formatCurrency(salePrice(item.price, item.percentage)) }}
+                </span>
               </div>
             </div>
           </div>
@@ -1192,35 +1274,31 @@ onUnmounted(() => {
   color: #475569;
 }
 
+/* --- Chỉnh sửa Layout giá bán --- */
 .product-price {
   margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end; /* Ép giá xuống phía dưới cùng của hộp thoại */
+  min-height: 38px; /* Giữ độ cao cố định để các card có layout bằng nhau */
+  gap: 4px; /* Khoảng cách giữa giá gốc và giá sau giảm */
 }
 
 .current-price {
   font-size: 18px;
   font-weight: 700;
   color: #ef4444;
-  margin-right: 8px;
+  line-height: 1;
 }
 
 .old-price {
   font-size: 13px;
   color: #94a3b8;
   text-decoration: line-through;
+  line-height: 1;
 }
 
-.product-rating {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.rating-count {
-  font-size: 11px;
-  color: #64748b;
-}
-
-/* Suggestions Section */
+/* Suggestions & Bestseller Section */
 .suggestions-section {
   background: white;
   border-radius: 12px;
@@ -1247,6 +1325,11 @@ onUnmounted(() => {
 
 .view-all-btn:hover {
   background: #f0fdf4;
+}
+
+/* --- CSS Bestseller Mới --- */
+.bestseller-icon {
+  background: #fef3c7 !important;
 }
 
 /* Category Highlights */

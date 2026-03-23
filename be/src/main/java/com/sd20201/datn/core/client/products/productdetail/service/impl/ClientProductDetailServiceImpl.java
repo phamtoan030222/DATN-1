@@ -604,6 +604,25 @@ public class ClientProductDetailServiceImpl implements ClientProductDetailServic
     }
 
     @Override
+    public ResponseObject<?> getBestseller(SanPhamChiTietGiamGiaRepuest request) {
+        Long currentTime = System.currentTimeMillis();
+
+        // Tính thời điểm 30 ngày trước (1 tháng) = 30 ngày * 24h * 60p * 60s * 1000ms
+        Long oneMonthAgo = currentTime - (30L * 24 * 60 * 60 * 1000);
+
+        Pageable pageable = Helper.createPageable(request);
+
+        // Truyền thêm mốc 1 tháng vào query
+        Page<ClientDiscountProductProjection> pageData = clientCampaignProductRepository
+                .findTopSellingProducts(pageable, currentTime, oneMonthAgo);
+
+        return ResponseObject.successForward(
+                PageableObject.of(pageData),
+                "Lấy danh sách sản phẩm bán chạy nhất trong tháng thành công"
+        );
+    }
+
+    @Override
     public ResponseObject<?> laySanPhamTheoThuocTinh(LayThuocTinhRequest request) {
         Long time = System.currentTimeMillis();
         return ResponseObject.successForward(
