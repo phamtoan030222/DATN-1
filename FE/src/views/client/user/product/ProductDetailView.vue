@@ -7,6 +7,7 @@ import {
   CheckmarkCircleOutline,
   Flash,
   GiftOutline,
+  GitCompareOutline,
   HeadsetOutline,
   LocationOutline,
   RefreshOutline,
@@ -42,6 +43,9 @@ import {
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
+
+// TÌM ĐƯỜNG DẪN IMPORT FILE MỚI PHÙ HỢP VỚI PROJECT CỦA BẠN
+import CompareModal from './CompareModal.vue'
 
 import {
   getColorsByPD,
@@ -113,6 +117,9 @@ let timerInterval: any = null
 const isFlashSaleEnded = ref(false)
 const isUpcomingSale = ref(false)
 const isOngoingSale = ref(false)
+
+// Compare Modal State
+const showCompareModal = ref(false)
 
 // ==========================================
 // 1. LOGIC GIỎ HÀNG
@@ -189,7 +196,7 @@ async function fetchRelatedProducts(idProduct: string) {
     const res = await getProductDetails({
       page: 1,
       size: 6,
-      idProduct: [idProduct],
+      idProduct,
       minPrice: 0,
       maxPrice: 1000000000,
     })
@@ -327,7 +334,7 @@ async function loadAllVariants(idProduct: string) {
   try {
     if (!idProduct)
       return
-    const res = await getProductDetails({ page: 1, size: 100, idProduct: [idProduct], minPrice: 0, maxPrice: 1000000000 })
+    const res = await getProductDetails({ page: 1, size: 100, idProduct, minPrice: 0, maxPrice: 1000000000 })
     let list: any[] = []
     if (res?.data) {
       const svResponse = res.data
@@ -511,6 +518,33 @@ function handleSelectVoucher(v: ADVoucherResponse) {
   }
 }
 
+// ==========================================
+// 4. LOGIC SO SÁNH SẢN PHẨM
+// ==========================================
+
+// Danh sách các sản phẩm truyền sang component con
+const compareOptions = computed(() => {
+  const options: any[] = []
+
+  allVariants.value.forEach((v) => {
+    if (v.id !== product.value?.id) {
+      options.push({ label: `[Cùng loại] ${v.name}`, value: v.id, data: v })
+    }
+  })
+
+  relatedProducts.value.forEach((p) => {
+    if (p.id !== product.value?.id && !options.find(o => o.value === p.id)) {
+      options.push({ label: `[Khác] ${p.name}`, value: p.id, data: p })
+    }
+  })
+
+  return options
+})
+
+function openCompareModal() {
+  showCompareModal.value = true
+}
+
 watch(() => route.params.id, (newId) => {
   if (newId)
     fetchData(newId as string)
@@ -554,9 +588,18 @@ onUnmounted(() => {
 
           <div class="product-info">
             <div class="product-header">
-              <h1 class="product-title">
-                {{ product.name }}
-              </h1>
+              <div class="title-row">
+                <h1 class="product-title">
+                  {{ product.name }}
+                </h1>
+                <NButton secondary strong round type="primary" size="small" @click="openCompareModal">
+                  <template #icon>
+                    <NIcon><GitCompareOutline /></NIcon>
+                  </template>
+                  So sánh
+                </NButton>
+              </div>
+
               <div class="product-meta">
                 <span class="product-code">Mã: {{ product.code }}</span>
               </div>
@@ -827,7 +870,7 @@ onUnmounted(() => {
                     {{ product.batteryName || product.battery || 'Đang cập nhật' }}
                   </NDescriptionsItem>
                   <NDescriptionsItem label="Hệ điều hành">
-                    {{ product.operatingSystem || 'Đang cập nhật' }}
+                    {{ product.operatingSystemName || 'Đang cập nhật' }}
                   </NDescriptionsItem>
                 </NDescriptions>
               </div>
@@ -855,8 +898,8 @@ onUnmounted(() => {
                   {{ item.name }}
                 </h3>
                 <div class="card-price">
-                  <span class="current">{{ formatCurrency(item.price) }}</span>
                   <span v-if="item.percentage" class="old">{{ formatCurrency(item.price) }}</span>
+                  <span class="current">{{ formatCurrency(item.price - (item.price * item.percentage / 100)) }}</span>
                 </div>
               </div>
             </div>
@@ -898,6 +941,12 @@ onUnmounted(() => {
         </div>
       </div>
     </NModal>
+
+    <CompareModal
+      v-model:show="showCompareModal"
+      :current-product="product"
+      :options="compareOptions"
+    />
   </div>
 </template>
 
@@ -930,11 +979,11 @@ onUnmounted(() => {
 }
 
 .breadcrumb-item:hover {
-  color: #18a058; /* Chuyển hover sang Xanh lá */
+  color: #18a058;
 }
 
 .breadcrumb-item.active {
-  color: #18a058; /* Chuyển active sang Xanh lá */
+  color: #18a058;
   font-weight: 500;
 }
 
@@ -1032,12 +1081,20 @@ onUnmounted(() => {
   margin-bottom: 20px;
 }
 
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
 .product-title {
   font-size: 24px;
   font-weight: 700;
   color: #1e293b;
   margin-bottom: 8px;
   line-height: 1.3;
+  flex: 1;
 }
 
 .product-code {
@@ -1106,7 +1163,6 @@ onUnmounted(() => {
   margin-bottom: 20px;
 }
 
-/* Chuyển nền đỏ thành nền xanh lá nhạt cho khu vực Sale */
 .price-section.has-sale {
   background: #f0fdf4;
 }
@@ -1146,7 +1202,7 @@ onUnmounted(() => {
 }
 
 .upcoming-tag {
-  background: #e0f2fe; /* Xanh dương nhẹ phù hợp với badge sắp sale */
+  background: #e0f2fe;
   color: #0369a1;
   padding: 4px 8px;
   border-radius: 4px;
@@ -1263,7 +1319,6 @@ onUnmounted(() => {
   border-color: #18a058;
 }
 
-/* Chuyển cục cấu hình đang chọn từ nền hồng thành nền xanh lá nhạt */
 .variant-chip.active {
   border-color: #18a058;
   background: #f0fdf4;
@@ -1302,7 +1357,6 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-/* Nút Mua ngay: Giữ màu xanh lá chủ đạo */
 .btn-buy-now {
   flex: 1;
   background: #18a058;
@@ -1315,10 +1369,9 @@ onUnmounted(() => {
   background: #148046;
 }
 
-/* *** SỬA NÚT THÊM GIỎ HÀNG THÀNH XANH DƯƠNG THEO YÊU CẦU *** */
 .btn-add-cart {
   flex: 1;
-  background: #2563eb; /* Màu xanh dương (blue) */
+  background: #2563eb;
   border: none;
   color: white;
   font-weight: 700;
@@ -1525,7 +1578,6 @@ onUnmounted(() => {
   background: #f0fdf4;
 }
 
-/* Chuyển nền voucher được chọn từ hồng thành nền xanh lá nhạt */
 .voucher-item.selected {
   border-color: #18a058;
   background: #f0fdf4;
@@ -1535,7 +1587,7 @@ onUnmounted(() => {
   position: absolute;
   top: -8px;
   right: -8px;
-  background: #f59e0b; /* Màu vàng phù hợp hơn màu đỏ cũ */
+  background: #f59e0b;
   color: white;
   font-size: 10px;
   font-weight: 700;
