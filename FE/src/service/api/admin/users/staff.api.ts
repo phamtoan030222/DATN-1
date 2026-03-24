@@ -77,6 +77,7 @@ export async function createStaff(data: CreateStaffRequest) {
   })
   return res.data.data
 }
+
 export async function updateStaff(id: string, data: CreateStaffRequest) {
   const res = await request({
     url: `${API_ADMIN_STAFF}/${id}`,
@@ -123,3 +124,23 @@ export async function getStaffById(id: string) {
 
   return res.data.data
 }
+
+// --- PHẦN THÊM MỚI CHO USER CENTER ---
+
+// Khai báo interface cho request đổi mật khẩu
+export interface ChangePasswordRequest {
+  matKhauCu: string
+  matKhauMoi: string
+}
+
+// 1. API Đổi mật khẩu (Gọi vào Controller Spring Boot vừa tạo)
+export async function changePassword(data: ChangePasswordRequest) {
+  const res = await request({
+    // Bạn có thể đưa '/api/admin/user-center' vào file @/constants/url sau cho đồng bộ nhé
+    url: '/api/admin/user-center/doi-mat-khau',
+    method: 'PUT',
+    data,
+  })
+  return res.data
+}
+

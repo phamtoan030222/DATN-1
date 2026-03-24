@@ -4,20 +4,16 @@ import { useRoute, useRouter } from 'vue-router'
 import {
   NBadge,
   NButton,
-  NCard,
   NCheckbox,
   NCheckboxGroup,
+  NConfigProvider,
   NDivider,
   NEllipsis,
-  NEmpty,
   NGrid,
   NGridItem,
-  NIcon,
-  NInput,
   NPagination,
   NScrollbar,
   NSelect,
-  NSpace,
   NSpin,
   NTag,
   NTooltip,
@@ -87,48 +83,45 @@ const hardDriveOptions = ref<ADPRPropertiesComboboxResponse[]>([])
 const brandOptions = ref<ADPRPropertiesComboboxResponse[]>([])
 const screenOptions = ref<ADPRPropertiesComboboxResponse[]>([])
 
-// --- MAP HIỂN THỊ HÃNG VỚI ICON/LOGO ---
+// --- CẤU HÌNH THƯƠNG HIỆU ---
+const brandStyleMap: Record<string, { icon: string, color: string }> = {
+  apple: { icon: 'simple-icons:apple', color: '#000000' },
+  samsung: { icon: 'simple-icons:samsung', color: '#1428A0' },
+  xiaomi: { icon: 'simple-icons:xiaomi', color: '#FF6900' },
+  asus: { icon: 'simple-icons:asus', color: '#00539B' },
+  dell: { icon: 'simple-icons:dell', color: '#007DB8' },
+  hp: { icon: 'simple-icons:hp', color: '#0096D6' },
+  lenovo: { icon: 'simple-icons:lenovo', color: '#E2231A' },
+  acer: { icon: 'simple-icons:acer', color: '#83B81A' },
+  msi: { icon: 'simple-icons:msi', color: '#FF0000' },
+  vivo: { icon: 'simple-icons:vivo', color: '#411445' },
+  lg: { icon: 'simple-icons:lg', color: '#A50034' },
+}
+
 const brandDisplayMap = computed(() => {
-  const map: Record<string, { type: 'icon' | 'text', content: string, class?: string }> = {}
+  const map: Record<string, { type: 'icon' | 'text', content: string, color?: string }> = {}
 
   brandOptions.value.forEach((brand) => {
     const label = brand.label?.toString().toLowerCase() || ''
+    let matched = false
 
-    if (label.includes('apple')) {
-      map[brand.value as string] = { type: 'icon', content: 'ion:logo-apple', class: 'text-black' }
+    for (const [key, val] of Object.entries(brandStyleMap)) {
+      if (label.includes(key)) {
+        map[brand.value as string] = { type: 'icon', content: val.icon, color: val.color }
+        matched = true
+        break
+      }
     }
-    else if (label.includes('samsung')) {
-      map[brand.value as string] = { type: 'text', content: 'SAMSUNG', class: 'text-blue-600 font-black' }
-    }
-    else if (label.includes('xiaomi')) {
-      map[brand.value as string] = { type: 'text', content: 'Xiaomi', class: 'text-orange-500 font-bold' }
-    }
-    else if (label.includes('asus')) {
-      map[brand.value as string] = { type: 'text', content: 'ASUS', class: 'text-black font-black' }
-    }
-    else if (label.includes('dell')) {
-      map[brand.value as string] = { type: 'text', content: 'Dell', class: 'text-blue-800 font-black' }
-    }
-    else if (label.includes('hp')) {
-      map[brand.value as string] = { type: 'text', content: 'HP', class: 'text-blue-500 font-bold' }
-    }
-    else if (label.includes('lenovo')) {
-      map[brand.value as string] = { type: 'text', content: 'Lenovo', class: 'text-red-600 font-bold' }
-    }
-    else if (label.includes('acer')) {
-      map[brand.value as string] = { type: 'text', content: 'Acer', class: 'text-green-600 font-bold' }
-    }
-    else if (label.includes('msi')) {
-      map[brand.value as string] = { type: 'text', content: 'MSI', class: 'text-red-600 font-black' }
-    }
-    else {
-      map[brand.value as string] = { type: 'text', content: brand.label || '', class: 'text-gray-800 font-medium' }
+
+    if (!matched) {
+      map[brand.value as string] = { type: 'text', content: brand.label || '' }
     }
   })
 
   return map
 })
 
+// --- BỘ LỌC GIÁ ---
 const minMaxPriceLimit = ref<[number, number]>([0, 100000000])
 const selectedPriceDropdown = ref<string | null>(null)
 const priceOptions = [
@@ -166,8 +159,7 @@ const activeFilterCount = computed(() => {
     count++
   if (filters.value.idHardDrive.length)
     count++
-  if (filters.value.priceRange[0] !== minMaxPriceLimit.value[0]
-    || filters.value.priceRange[1] !== minMaxPriceLimit.value[1]) {
+  if (filters.value.priceRange[0] !== minMaxPriceLimit.value[0] || filters.value.priceRange[1] !== minMaxPriceLimit.value[1]) {
     count++
   }
   return count
@@ -260,22 +252,6 @@ async function fetchProducts() {
   }
 }
 
-const brandGridRef = ref<HTMLElement | null>(null)
-
-function scrollBrands(direction: number) {
-  if (brandGridRef.value) {
-    const scrollAmount = 300 * direction
-    brandGridRef.value.scrollBy({ left: scrollAmount, behavior: 'smooth' })
-  }
-}
-
-function handleWheel(e: WheelEvent) {
-  if (brandGridRef.value) {
-    e.preventDefault()
-    brandGridRef.value.scrollLeft += e.deltaY
-  }
-}
-
 function toggleBrand(brandId: string) {
   filters.value.idBrand = filters.value.idBrand === brandId ? null : brandId
 }
@@ -356,85 +332,64 @@ function isInStock(item: ADProductDetailResponse) {
 <template>
   <NConfigProvider :theme-overrides="themeOverrides">
     <div class="product-page-wrapper">
-      <!-- Breadcrumb -->
       <div class="breadcrumb">
         <span class="breadcrumb-item" @click="router.push('/')">Trang chủ</span>
         <span class="breadcrumb-separator">/</span>
         <span class="breadcrumb-item active">Sản phẩm</span>
       </div>
 
-      <div class="brand-section">
+      <div class="modern-brand-section">
         <div class="brand-header">
           <div class="brand-title">
-            <span class="brand-icon">
-              <NovaIcon icon="ion:ribbon" :size="24" color="#16a34a" />
-            </span>
-            <h2>Thương hiệu nổi bật</h2>
+            <h2 class="title-text">
+              Chọn theo thương hiệu
+            </h2>
           </div>
-
-          <div class="brand-controls">
-            <NTooltip v-if="filters.idBrand" trigger="hover">
-              <template #trigger>
-                <NButton text size="small" class="clear-brand-btn" @click="filters.idBrand = null">
-                  <NovaIcon icon="ion:close-circle" :size="18" />
-                  <span>Bỏ chọn</span>
-                </NButton>
-              </template>
-              Xóa bộ lọc thương hiệu
-            </NTooltip>
-
-            <div class="brand-nav">
-              <button class="nav-btn prev-btn" @click="scrollBrands(-1)">
-                <NovaIcon icon="ion:chevron-back" :size="20" />
-              </button>
-              <button class="nav-btn next-btn" @click="scrollBrands(1)">
-                <NovaIcon icon="ion:chevron-forward" :size="20" />
-              </button>
-            </div>
-          </div>
+          <NButton
+            v-if="filters.idBrand"
+            text
+            type="error"
+            size="small"
+            class="clear-brand-btn"
+            @click="filters.idBrand = null"
+          >
+            <template #icon>
+              <NovaIcon icon="ion:close-circle-outline" :size="18" />
+            </template>
+            Bỏ chọn
+          </NButton>
         </div>
 
         <NSpin :show="isFetchingOptions">
-          <div class="brands-container">
+          <div class="brand-grid-container">
             <div
-              ref="brandGridRef"
-              class="brands-track"
-              @wheel.prevent="handleWheel"
+              v-for="b in brandOptions"
+              :key="b.value"
+              class="brand-box"
+              :class="{ 'is-active': filters.idBrand === b.value }"
+              @click="toggleBrand(b.value as string)"
             >
-              <div
-                v-for="b in brandOptions"
-                :key="b.value"
-                class="brand-item"
-                :class="{ 'brand-item-active': filters.idBrand === b.value }"
-                @click="toggleBrand(b.value as string)"
-              >
-                <div class="brand-logo">
-                  <template v-if="brandDisplayMap[b.value as string]?.type === 'icon'">
-                    <NovaIcon
-                      :icon="brandDisplayMap[b.value as string].content"
-                      :size="32"
-                      :class="brandDisplayMap[b.value as string].class || 'text-gray-700'"
-                    />
-                  </template>
-                  <template v-else>
-                    <span :class="brandDisplayMap[b.value as string]?.class || 'text-gray-800 font-semibold'">
-                      {{ brandDisplayMap[b.value as string]?.content || b.label }}
-                    </span>
-                  </template>
-                </div>
-
-                <div v-if="filters.idBrand === b.value" class="brand-checked">
-                  <NovaIcon icon="ion:checkmark-circle" :size="20" color="#16a34a" />
-                </div>
+              <div v-if="filters.idBrand === b.value" class="active-tick">
+                <NovaIcon icon="ion:checkmark" :size="14" color="white" />
               </div>
+
+              <template v-if="brandDisplayMap[b.value as string]?.type === 'icon'">
+                <NovaIcon
+                  :icon="brandDisplayMap[b.value as string].content"
+                  :size="40"
+                  class="brand-logo-icon"
+                  :color="filters.idBrand === b.value ? '#16a34a' : brandDisplayMap[b.value as string].color"
+                />
+              </template>
+              <template v-else>
+                <span class="brand-text">{{ brandDisplayMap[b.value as string]?.content }}</span>
+              </template>
             </div>
           </div>
         </NSpin>
       </div>
 
-      <!-- Main Content với Grid 2 cột: Sidebar và Product List -->
       <div class="main-content-grid">
-        <!-- Filter Sidebar - Cột trái -->
         <aside class="filter-sidebar">
           <div class="filter-header">
             <div class="filter-title">
@@ -456,7 +411,6 @@ function isInStock(item: ADProductDetailResponse) {
 
           <NScrollbar style="max-height: calc(100vh - 200px);">
             <NSpin :show="isFetchingOptions">
-              <!-- Price Filter -->
               <div class="filter-section">
                 <div class="filter-section-header">
                   <NovaIcon icon="ion:pricetag" :size="18" color="#16a34a" />
@@ -481,7 +435,6 @@ function isInStock(item: ADProductDetailResponse) {
 
               <NDivider class="filter-divider" />
 
-              <!-- CPU Filter -->
               <div class="filter-section">
                 <div class="filter-section-header">
                   <NovaIcon icon="ion:hardware-chip" :size="18" color="#16a34a" />
@@ -503,7 +456,6 @@ function isInStock(item: ADProductDetailResponse) {
                 </div>
               </div>
 
-              <!-- GPU Filter -->
               <div class="filter-section">
                 <div class="filter-section-header">
                   <NovaIcon icon="ion:videocam" :size="18" color="#16a34a" />
@@ -525,7 +477,6 @@ function isInStock(item: ADProductDetailResponse) {
                 </div>
               </div>
 
-              <!-- RAM Filter -->
               <div class="filter-section">
                 <div class="filter-section-header">
                   <NovaIcon icon="ion:memory" :size="18" color="#16a34a" />
@@ -547,7 +498,6 @@ function isInStock(item: ADProductDetailResponse) {
                 </div>
               </div>
 
-              <!-- Storage Filter -->
               <div class="filter-section">
                 <div class="filter-section-header">
                   <NovaIcon icon="ion:save" :size="18" color="#16a34a" />
@@ -569,7 +519,6 @@ function isInStock(item: ADProductDetailResponse) {
                 </div>
               </div>
 
-              <!-- Screen Filter -->
               <div class="filter-section">
                 <div class="filter-section-header">
                   <NovaIcon icon="ion:phone-portrait" :size="18" color="#16a34a" />
@@ -594,9 +543,7 @@ function isInStock(item: ADProductDetailResponse) {
           </NScrollbar>
         </aside>
 
-        <!-- Product List - Cột phải -->
         <main class="product-list-section">
-          <!-- Search Info Bar -->
           <div class="search-info-bar">
             <div class="search-info-left">
               <h3 v-if="filters.q" class="search-query">
@@ -622,7 +569,6 @@ function isInStock(item: ADProductDetailResponse) {
             </div>
           </div>
 
-          <!-- Loading State -->
           <div v-if="loading" class="loading-container">
             <NSpin size="large">
               <div class="loading-content">
@@ -632,7 +578,6 @@ function isInStock(item: ADProductDetailResponse) {
             </NSpin>
           </div>
 
-          <!-- Empty State -->
           <div v-else-if="productDetails.length === 0" class="empty-state">
             <NovaIcon icon="ion:cube-outline" :size="80" color="#d1d5db" />
             <h3>Không tìm thấy sản phẩm</h3>
@@ -642,12 +587,10 @@ function isInStock(item: ADProductDetailResponse) {
             </NButton>
           </div>
 
-          <!-- Product Grid -->
           <div v-else>
             <NGrid x-gap="20" y-gap="24" cols="1 s:2 m:3" responsive="screen">
               <NGridItem v-for="item in productDetails" :key="item.id">
                 <div class="product-card" @click="handleClickProduct(item)">
-                  <!-- Badges -->
                   <div class="product-badges">
                     <div v-if="item.percentage" class="badge discount">
                       -{{ item.percentage }}%
@@ -657,7 +600,6 @@ function isInStock(item: ADProductDetailResponse) {
                     </div>
                   </div>
 
-                  <!-- Image -->
                   <div class="product-image-wrapper">
                     <img
                       :src="item.urlImage || 'https://via.placeholder.com/300'"
@@ -672,7 +614,6 @@ function isInStock(item: ADProductDetailResponse) {
                     </div>
                   </div>
 
-                  <!-- Info -->
                   <div class="product-info">
                     <h3 class="product-name">
                       <NEllipsis :line-clamp="2">
@@ -680,7 +621,6 @@ function isInStock(item: ADProductDetailResponse) {
                       </NEllipsis>
                     </h3>
 
-                    <!-- Specs -->
                     <div class="product-specs">
                       <div v-if="item.cpu" class="spec-chip">
                         <NovaIcon icon="ion:hardware-chip" :size="12" />
@@ -696,7 +636,6 @@ function isInStock(item: ADProductDetailResponse) {
                       </div>
                     </div>
 
-                    <!-- Price -->
                     <div class="product-prices">
                       <div v-if="item.percentage" class="old-price">
                         {{ formatCurrency(item.price) }}
@@ -706,7 +645,6 @@ function isInStock(item: ADProductDetailResponse) {
                       </div>
                     </div>
 
-                    <!-- Action -->
                     <div class="product-action">
                       <NButton
                         block
@@ -725,7 +663,6 @@ function isInStock(item: ADProductDetailResponse) {
               </NGridItem>
             </NGrid>
 
-            <!-- Pagination -->
             <div v-if="pagination.totalPages > 1" class="pagination-container">
               <NPagination
                 v-model:page="pagination.page"
@@ -760,172 +697,103 @@ function isInStock(item: ADProductDetailResponse) {
   margin-bottom: 20px;
   font-size: 14px;
 }
+.breadcrumb-item { color: #64748b; cursor: pointer; transition: color 0.2s; }
+.breadcrumb-item:hover { color: #16a34a; }
+.breadcrumb-item.active { color: #1e293b; font-weight: 500; }
+.breadcrumb-separator { color: #94a3b8; }
 
-.breadcrumb-item {
-  color: #64748b;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-
-.breadcrumb-item:hover {
-  color: #16a34a;
-}
-
-.breadcrumb-item.active {
-  color: #1e293b;
-  font-weight: 500;
-}
-
-.breadcrumb-separator {
-  color: #94a3b8;
-}
-
-/* Brand Section */
-.brand-horizontal-section {
+/* --- BRAND SECTION MỚI --- */
+.modern-brand-section {
   background: white;
-  padding: 20px 24px;
   border-radius: 16px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  padding: 24px;
   margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  border: 1px solid #f1f5f9;
 }
 
-.section-header {
+.brand-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 }
 
-.section-title {
+.title-text {
   font-size: 18px;
   font-weight: 700;
   color: #1e293b;
   margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.title-underline {
-  width: 4px;
-  height: 20px;
-  background: #16a34a;
-  border-radius: 2px;
 }
 
 .clear-brand-btn {
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.brand-grid-container {
   display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #64748b;
-  font-size: 13px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.clear-brand-btn:hover {
-  color: #ef4444;
-}
-
-.brand-scroll-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding: 0 30px;
-}
-
-.scroll-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 10;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
+.brand-box {
+  width: 130px;
+  height: 56px;
   background: white;
   border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  color: #475569;
-  transition: all 0.3s;
-}
-
-.scroll-btn:hover {
-  background: #16a34a;
-  color: white;
-  border-color: #16a34a;
-  transform: translateY(-50%) scale(1.1);
-}
-
-.left-btn {
-  left: -10px;
-}
-
-.right-btn {
-  right: -10px;
-}
-
-.brand-grid {
-  display: grid;
-  grid-template-rows: repeat(2, 1fr);
-  grid-auto-flow: column;
-  gap: 12px;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  padding: 4px 0;
-  width: 100%;
-  grid-auto-columns: calc((100% - 48px) / 6);
-  scrollbar-width: none;
-}
-
-.brand-grid::-webkit-scrollbar {
-  display: none;
-}
-
-.brand-card-wrapper {
   position: relative;
-  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
-.brand-card {
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s;
-  height: 70px;
-}
-
-.brand-card-wrapper:hover .brand-card {
+.brand-box:hover {
   border-color: #16a34a;
   transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(22, 163, 74, 0.1);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.1);
 }
 
-.brand-card-wrapper.active .brand-card {
+.brand-box.is-active {
   border-color: #16a34a;
   background: #f0fdf4;
+  box-shadow: inset 0 0 0 1px #16a34a;
 }
 
-.brand-check {
+.brand-logo-icon {
+  transition: color 0.2s ease;
+}
+
+.brand-text {
+  font-size: 14px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  transition: color 0.2s ease;
+}
+
+.brand-box.is-active .brand-text {
+  color: #16a34a;
+}
+
+.active-tick {
   position: absolute;
-  top: -6px;
-  right: -6px;
-  background: white;
-  border-radius: 50%;
-  width: 20px;
-  height: 20px;
+  top: -1px;
+  right: -1px;
+  width: 22px;
+  height: 22px;
+  background: #16a34a;
+  border-radius: 0 8px 0 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 2;
 }
 
-/* Main Content Grid - QUAN TRỌNG: Fix lỗi vỡ layout */
+/* Main Content Grid */
 .main-content-grid {
   display: grid;
   grid-template-columns: 300px 1fr;
@@ -958,732 +826,105 @@ function isInStock(item: ADProductDetailResponse) {
   flex-shrink: 0;
 }
 
-.filter-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
+.filter-title { display: flex; align-items: center; gap: 8px; }
+.filter-title h3 { font-size: 16px; font-weight: 700; margin: 0; color: #1e293b; }
 
-.filter-title h3 {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-  color: #1e293b;
-}
+.reset-btn { display: flex; align-items: center; gap: 4px; color: #64748b; font-size: 13px; flex-shrink: 0; }
+.reset-btn:hover { color: #16a34a; }
 
-.reset-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: #64748b;
-  font-size: 13px;
-  flex-shrink: 0;
-}
+.filter-section { margin-bottom: 20px; }
+.filter-section-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; font-size: 14px; color: #1e293b; }
+.filter-section-content { padding-left: 26px; }
 
-.reset-btn:hover {
-  color: #16a34a;
-}
+.checkbox-scroll { max-height: 200px; overflow-y: auto; padding-right: 8px; }
+.checkbox-scroll::-webkit-scrollbar { width: 4px; }
+.checkbox-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+.checkbox-item { font-size: 14px; }
 
-.filter-section {
-  margin-bottom: 20px;
-}
-
-.filter-section-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #1e293b;
-}
-
-.filter-section-content {
-  padding-left: 26px;
-}
-
-.checkbox-scroll {
-  max-height: 200px;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-.checkbox-scroll::-webkit-scrollbar {
-  width: 4px;
-}
-
-.checkbox-scroll::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
-}
-
-.checkbox-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.checkbox-item {
-  font-size: 14px;
-}
-
-.price-range-display {
-  margin-top: 8px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #f8fafc;
-  padding: 8px 12px;
-  border-radius: 8px;
-}
-
-.price-tag {
-  font-size: 13px;
-  font-weight: 500;
-  color: #16a34a;
-}
-
-.price-separator {
-  color: #94a3b8;
-}
-
-.filter-divider {
-  margin: 16px 0;
-}
+.price-range-display { margin-top: 8px; display: flex; align-items: center; gap: 8px; background: #f8fafc; padding: 8px 12px; border-radius: 8px; }
+.price-tag { font-size: 13px; font-weight: 500; color: #16a34a; }
+.price-separator { color: #94a3b8; }
+.filter-divider { margin: 16px 0; }
 
 /* Product List Section */
 .product-list-section {
-  min-width: 0; /* Quan trọng: tránh overflow trong grid */
+  min-width: 0;
   background: white;
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
-.search-info-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.search-query {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 15px;
-  font-weight: 500;
-  color: #1e293b;
-  margin: 0;
-}
-
-.search-query span {
-  color: #16a34a;
-}
-
-.search-info-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.result-count {
-  font-size: 14px;
-  color: #64748b;
-}
-
-.count-number {
-  font-weight: 700;
-  color: #16a34a;
-  font-size: 16px;
-}
-
-.view-options {
-  display: flex;
-  gap: 4px;
-}
-
-.view-btn {
-  padding: 4px;
-  border-radius: 8px;
-  color: #94a3b8;
-}
-
-.view-btn.active {
-  color: #16a34a;
-  background: #f0fdf4;
-}
+.search-info-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; }
+.search-query { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; color: #1e293b; margin: 0; }
+.search-query span { color: #16a34a; }
+.search-info-right { display: flex; align-items: center; gap: 12px; }
+.result-count { font-size: 14px; color: #64748b; }
+.count-number { font-weight: 700; color: #16a34a; font-size: 16px; }
+.view-options { display: flex; gap: 4px; }
+.view-btn { padding: 4px; border-radius: 8px; color: #94a3b8; }
+.view-btn.active { color: #16a34a; background: #f0fdf4; }
 
 /* Loading State */
-.loading-container {
-  padding: 60px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 400px;
-}
-
-.loading-content {
-  text-align: center;
-}
-
-.spin-icon {
-  animation: spin 2s linear infinite;
-  margin-bottom: 16px;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.loading-content p {
-  color: #64748b;
-  margin-top: 12px;
-}
+.loading-container { padding: 60px; display: flex; justify-content: center; align-items: center; min-height: 400px; }
+.loading-content { text-align: center; }
+.spin-icon { animation: spin 2s linear infinite; margin-bottom: 16px; }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.loading-content p { color: #64748b; margin-top: 12px; }
 
 /* Empty State */
-.empty-state {
-  padding: 60px 20px;
-  text-align: center;
-  min-height: 400px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-}
-
-.empty-state h3 {
-  font-size: 18px;
-  font-weight: 600;
-  color: #1e293b;
-  margin: 16px 0 8px;
-}
-
-.empty-state p {
-  color: #64748b;
-  margin-bottom: 20px;
-}
+.empty-state { padding: 60px 20px; text-align: center; min-height: 400px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.empty-state h3 { font-size: 18px; font-weight: 600; color: #1e293b; margin: 16px 0 8px; }
+.empty-state p { color: #64748b; margin-bottom: 20px; }
 
 /* Product Card */
-.product-card {
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s;
-  cursor: pointer;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  border: 1px solid #e2e8f0;
-}
+.product-card { background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); transition: all 0.3s; cursor: pointer; height: 100%; display: flex; flex-direction: column; position: relative; border: 1px solid #e2e8f0; }
+.product-card:hover { transform: translateY(-6px); box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12); border-color: #16a34a; }
 
-.product-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
-  border-color: #16a34a;
-}
+.product-badges { position: absolute; top: 12px; left: 12px; z-index: 10; display: flex; gap: 6px; }
+.badge { padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.badge.discount { background: #ef4444; color: white; }
+.badge.out-of-stock { background: #64748b; color: white; }
 
-.product-badges {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 10;
-  display: flex;
-  gap: 6px;
-}
+.product-image-wrapper { position: relative; padding-top: 75%; overflow: hidden; background: #f8fafc; }
+.product-image { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; transition: transform 0.5s; padding: 16px; }
+.product-card:hover .product-image { transform: scale(1.05); }
 
-.badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
+.image-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0, 0, 0, 0.2); display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s; }
+.product-card:hover .image-overlay { opacity: 1; }
+.quick-view-btn { background: white; color: #1e293b; transform: translateY(20px); transition: transform 0.3s; }
+.product-card:hover .quick-view-btn { transform: translateY(0); }
 
-.badge.discount {
-  background: #ef4444;
-  color: white;
-}
-
-.badge.out-of-stock {
-  background: #64748b;
-  color: white;
-}
-
-.product-image-wrapper {
-  position: relative;
-  padding-top: 75%;
-  overflow: hidden;
-  background: #f8fafc;
-}
-
-.product-image {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  transition: transform 0.5s;
-  padding: 16px;
-}
-
-.product-card:hover .product-image {
-  transform: scale(1.05);
-}
-
-.image-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.product-card:hover .image-overlay {
-  opacity: 1;
-}
-
-.quick-view-btn {
-  background: white;
-  color: #1e293b;
-  transform: translateY(20px);
-  transition: transform 0.3s;
-}
-
-.product-card:hover .quick-view-btn {
-  transform: translateY(0);
-}
-
-.product-info {
-  padding: 16px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-.product-name {
-  font-size: 15px;
-  font-weight: 600;
-  line-height: 1.4;
-  margin: 0 0 12px 0;
-  color: #1e293b;
-  min-height: 42px;
-}
-
-.product-specs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 12px;
-}
-
-.spec-chip {
-  background: #f1f5f9;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 11px;
-  color: #475569;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.product-prices {
-  margin-bottom: 12px;
-}
-
-.old-price {
-  font-size: 13px;
-  color: #94a3b8;
-  text-decoration: line-through;
-}
-
-.current-price {
-  font-size: 18px;
-  font-weight: 700;
-  color: #ef4444;
-}
-
-.current-price.no-discount {
-  color: #1e293b;
-}
-
-.product-rating {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.stars {
-  display: flex;
-  gap: 2px;
-}
-
-.rating-count {
-  font-size: 12px;
-  color: #64748b;
-}
-
-.product-action {
-  margin-top: auto;
-}
+.product-info { padding: 16px; flex: 1; display: flex; flex-direction: column; }
+.product-name { font-size: 15px; font-weight: 600; line-height: 1.4; margin: 0 0 12px 0; color: #1e293b; min-height: 42px; }
+.product-specs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.spec-chip { background: #f1f5f9; padding: 4px 8px; border-radius: 4px; font-size: 11px; color: #475569; display: flex; align-items: center; gap: 4px; }
+.product-prices { margin-bottom: 12px; }
+.old-price { font-size: 13px; color: #94a3b8; text-decoration: line-through; }
+.current-price { font-size: 18px; font-weight: 700; color: #ef4444; }
+.current-price.no-discount { color: #1e293b; }
+.product-action { margin-top: auto; }
 
 /* Pagination */
-.pagination-container {
-  display: flex;
-  justify-content: center;
-  margin-top: 40px;
-  padding: 20px 0;
-}
-
-:deep(.n-pagination .n-pagination-item--active) {
-  color: #16a34a !important;
-  border-color: #16a34a !important;
-  background: #f0fdf4 !important;
-}
-
-:deep(.n-pagination .n-pagination-item:hover) {
-  color: #ef4444 !important;
-  border-color: #ef4444 !important;
-  background: #fff1f2 !important;
-}
-
-/* Brand Section - Thiết kế mới */
-.brand-section {
-  background: white;
-  border-radius: 20px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-  border: 1px solid #f0f0f0;
-}
-
-.brand-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-}
-
-.brand-title {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.brand-icon {
-  width: 40px;
-  height: 40px;
-  background: #f0fdf4;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.brand-title h2 {
-  font-size: 20px;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0;
-}
-
-.brand-controls {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.clear-brand-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border-radius: 30px;
-  background: #f8fafc;
-  color: #64748b;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.clear-brand-btn:hover {
-  background: #fee2e2;
-  color: #ef4444;
-}
-
-.brand-nav {
-  display: flex;
-  gap: 8px;
-}
-
-.nav-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: white;
-  border: 1px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #475569;
-  transition: all 0.2s;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
-}
-
-.nav-btn:hover {
-  background: #16a34a;
-  border-color: #16a34a;
-  color: white;
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2);
-}
-
-.nav-btn:active {
-  transform: scale(0.95);
-}
-
-.brands-container {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-}
-
-.brands-track {
-  display: flex;
-  gap: 16px;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  padding: 8px 4px 16px 4px;
-  scrollbar-width: thin;
-  scrollbar-color: #16a34a #e2e8f0;
-}
-
-.brands-track::-webkit-scrollbar {
-  height: 6px;
-}
-
-.brands-track::-webkit-scrollbar-track {
-  background: #e2e8f0;
-  border-radius: 10px;
-}
-
-.brands-track::-webkit-scrollbar-thumb {
-  background: #16a34a;
-  border-radius: 10px;
-}
-
-.brands-track::-webkit-scrollbar-thumb:hover {
-  background: #15803d;
-}
-
-.brand-item {
-  flex: 0 0 140px;
-  background: white;
-  border: 2px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 16px 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-}
-
-.brand-item:hover {
-  border-color: #16a34a;
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px -8px rgba(22, 163, 74, 0.2);
-}
-
-.brand-item-active {
-  border-color: #16a34a;
-  background: #f0fdf4;
-  box-shadow: 0 8px 20px -4px rgba(22, 163, 74, 0.15);
-}
-
-.brand-logo {
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.brand-logo span {
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.brand-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: #475569;
-  text-align: center;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.brand-item-active .brand-name {
-  color: #16a34a;
-  font-weight: 600;
-}
-
-.brand-checked {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: white;
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes popIn {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  80% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
+.pagination-container { display: flex; justify-content: center; margin-top: 40px; padding: 20px 0; }
+:deep(.n-pagination .n-pagination-item--active) { color: #16a34a !important; border-color: #16a34a !important; background: #f0fdf4 !important; }
+:deep(.n-pagination .n-pagination-item:hover) { color: #ef4444 !important; border-color: #ef4444 !important; background: #fff1f2 !important; }
 
 /* Responsive */
 @media (max-width: 992px) {
-  .brand-section {
-    padding: 20px;
-  }
-
-  .brand-item {
-    flex: 0 0 120px;
-    padding: 12px 8px;
-  }
-
-  .brand-logo {
-    height: 50px;
-  }
-
-  .brand-logo span {
-    font-size: 16px;
-  }
+  .main-content-grid { grid-template-columns: 1fr; gap: 16px; }
+  .filter-sidebar { position: static; max-height: none; }
 }
 
 @media (max-width: 768px) {
-  .brand-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+  .product-page-wrapper { padding: 12px; }
+  .search-info-bar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .search-info-right { width: 100%; justify-content: space-between; }
+  .brand-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   }
-
-  .brand-controls {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .brand-item {
-    flex: 0 0 100px;
-  }
-
-  .brand-name {
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 480px) {
-  .brand-section {
-    padding: 16px;
-  }
-
-  .brand-title h2 {
-    font-size: 18px;
-  }
-
-  .brand-item {
-    flex: 0 0 90px;
-    padding: 10px 6px;
-  }
-
-  .brand-logo {
-    height: 40px;
-  }
-
-  .brand-logo span {
-    font-size: 14px;
-  }
-
-  .brand-logo :deep(svg) {
-    width: 24px;
-    height: 14px;
-  }
-}
-
-/* Responsive */
-@media (max-width: 992px) {
-  .main-content-grid {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-
-  .filter-sidebar {
-    position: static;
-    max-height: none;
-  }
-
-  .brand-grid {
-    grid-auto-columns: calc((100% - 24px) / 3);
-  }
-}
-
-@media (max-width: 768px) {
-  .product-page-wrapper {
-    padding: 12px;
-  }
-
-  .brand-grid {
-    grid-auto-columns: calc((100% - 12px) / 2);
-  }
-
-  .search-info-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-
-  .search-info-right {
-    width: 100%;
-    justify-content: space-between;
-  }
-}
-
-@media (max-width: 480px) {
-  .brand-grid {
-    grid-auto-columns: calc(100% - 24px);
-  }
+  .brand-box { width: 100%; }
 }
 </style>
