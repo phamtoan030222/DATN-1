@@ -44,7 +44,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 
-// TÌM ĐƯỜNG DẪN IMPORT FILE MỚI PHÙ HỢP VỚI PROJECT CỦA BẠN
+// Đảm bảo đường dẫn import CompareModal đúng với project của bạn
 import CompareModal from './CompareModal.vue'
 
 import {
@@ -522,7 +522,6 @@ function handleSelectVoucher(v: ADVoucherResponse) {
 // 4. LOGIC SO SÁNH SẢN PHẨM
 // ==========================================
 
-// Danh sách các sản phẩm truyền sang component con
 const compareOptions = computed(() => {
   const options: any[] = []
 
@@ -575,266 +574,223 @@ onUnmounted(() => {
 
       <div v-else-if="product" class="product-wrapper">
         <div class="product-main">
-          <div class="product-gallery">
-            <div class="main-image">
-              <img :src="selectedImage" :alt="product.name" @error="selectedImage = 'https://via.placeholder.com/500'">
-              <div class="image-badges">
-                <span v-if="isOngoingSale && rawPercent > 0" class="badge discount">-{{ rawPercent }}%</span>
-                <span v-if="isUpcomingSale && rawPercent > 0" class="badge upcoming">Sắp giảm</span>
-                <span v-if="isOutOfStock" class="badge out-of-stock">Hết hàng</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="product-info">
-            <div class="product-header">
-              <div class="title-row">
-                <h1 class="product-title">
-                  {{ product.name }}
-                </h1>
-                <NButton secondary strong round type="primary" size="small" @click="openCompareModal">
-                  <template #icon>
-                    <NIcon><GitCompareOutline /></NIcon>
-                  </template>
-                  So sánh
-                </NButton>
-              </div>
-
-              <div class="product-meta">
-                <span class="product-code">Mã: {{ product.code }}</span>
-              </div>
-            </div>
-
-            <div
-              v-if="isOngoingSale || isUpcomingSale" class="sale-timer"
-              :class="{ ongoing: isOngoingSale, upcoming: isUpcomingSale }"
-            >
-              <div class="timer-left">
-                <NIcon size="24" :class="{ 'animate-pulse': isOngoingSale, 'animate-bounce': isUpcomingSale }">
-                  <Flash v-if="isOngoingSale" />
-                  <TimeOutline v-else />
-                </NIcon>
-                <div class="timer-text">
-                  <span class="timer-label">{{ isOngoingSale ? 'FLASH SALE' : 'SẮP DIỄN RA' }}</span>
-                  <span class="timer-sub">{{ isOngoingSale ? 'Kết thúc trong' : 'Bắt đầu sau' }}</span>
-                </div>
-              </div>
-              <div class="timer-display">
-                <span class="time-value">{{ timeLeft }}</span>
-              </div>
-            </div>
-
-            <div class="price-section" :class="{ 'has-sale': isOngoingSale || isUpcomingSale }">
-              <div class="price-wrapper">
-                <div v-if="isOngoingSale && rawPercent > 0" class="price-old">
-                  <span class="label">Giá niêm yết:</span>
-                  <span class="value">{{ formatCurrency(listPrice) }}</span>
-                </div>
-                <div class="price-current">
-                  <span class="label">Giá bán:</span>
-                  <span class="value" :class="{ 'sale-price': isOngoingSale }">{{ formatCurrency(sellingPrice) }}</span>
-                  <span v-if="isUpcomingSale && rawPercent > 0" class="upcoming-tag">Dự kiến giảm {{ rawPercent }}%</span>
+          <div class="product-left-col">
+            <div class="product-gallery">
+              <div class="main-image">
+                <img :src="selectedImage" :alt="product.name" @error="selectedImage = 'https://via.placeholder.com/500'">
+                <div class="image-badges">
+                  <span v-if="isOngoingSale && rawPercent > 0" class="badge discount">-{{ rawPercent }}%</span>
+                  <span v-if="isUpcomingSale && rawPercent > 0" class="badge upcoming">Sắp giảm</span>
+                  <span v-if="isOutOfStock" class="badge out-of-stock">Hết hàng</span>
                 </div>
               </div>
             </div>
 
-            <div class="short-specs">
-              <div v-if="product.cpu" class="spec-item">
-                <span class="spec-label">CPU:</span>
-                <span class="spec-value">{{ product.cpu }}</span>
-              </div>
-              <div v-if="product.ram" class="spec-item">
-                <span class="spec-label">RAM:</span>
-                <span class="spec-value">{{ product.ram }}</span>
-              </div>
-              <div v-if="product.hardDrive" class="spec-item">
-                <span class="spec-label">Ổ cứng:</span>
-                <span class="spec-value">{{ product.hardDrive }}</span>
-              </div>
-              <div v-if="product.gpu" class="spec-item">
-                <span class="spec-label">VGA:</span>
-                <span class="spec-value">{{ product.gpu }}</span>
-              </div>
-              <div v-if="product.screen" class="spec-item">
-                <span class="spec-label">Màn hình:</span>
-                <span class="spec-value">{{ product.screen }}</span>
-              </div>
-            </div>
-
-            <div
-              v-if="cpuOptions.length > 0 || gpuOptions.length > 0 || ramOptions.length > 0 || hardDriveOptions.length > 0 || colorOptions.length > 0"
-              class="variants-section"
-            >
-              <div class="variants-header">
-                <h3 class="variants-title">
-                  Tuỳ chọn phiên bản
-                </h3>
-                <button class="reset-filter-btn" @click="handleResetFilter">
-                  <NIcon size="14">
-                    <RefreshOutline />
-                  </NIcon>
-                  Làm mới
-                </button>
-              </div>
-
-              <div class="variants-grid">
-                <div v-if="cpuOptions.length > 0" class="variant-group">
-                  <span class="variant-label">CPU:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in cpuOptions" :key="opt.value" class="variant-chip"
-                      :class="{ active: selectedCpu === opt.value }" @click="selectVariantOption('CPU', opt.value)"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="ramOptions.length > 0" class="variant-group">
-                  <span class="variant-label">RAM:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in ramOptions" :key="opt.value" class="variant-chip"
-                      :class="{ active: selectedRam === opt.value }" @click="selectVariantOption('RAM', opt.value)"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="hardDriveOptions.length > 0" class="variant-group">
-                  <span class="variant-label">Ổ cứng:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in hardDriveOptions" :key="opt.value" class="variant-chip"
-                      :class="{ active: selectedHardDrive === opt.value }"
-                      @click="selectVariantOption('HDD', opt.value)"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="gpuOptions.length > 0" class="variant-group">
-                  <span class="variant-label">VGA:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in gpuOptions" :key="opt.value" class="variant-chip"
-                      :class="{ active: selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-
-                <div v-if="colorOptions.length > 0" class="variant-group">
-                  <span class="variant-label">Màu sắc:</span>
-                  <div class="variant-options">
-                    <button
-                      v-for="opt in colorOptions" :key="opt.value" class="variant-chip"
-                      :class="{ active: selectedColor === opt.value }" @click="selectVariantOption('COLOR', opt.value)"
-                    >
-                      {{ opt.label }}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="actions-section">
-              <div class="quantity-box">
-                <span class="quantity-label">Số lượng:</span>
-                <NInputNumber
-                  v-model:value="quantity" :min="1" :max="Math.min(5, stockQuantity)"
-                  :disabled="isOutOfStock" button-placement="both" size="large"
-                />
-                <div v-if="stockQuantity > 0" class="stock-info">
-                  <NIcon size="16" color="#16a34a">
-                    <CheckmarkCircleOutline />
-                  </NIcon>
-                  <span>Còn <strong>{{ stockQuantity }}</strong> sản phẩm</span>
-                </div>
-              </div>
-
-              <div class="action-buttons">
-                <NButton
-                  v-if="!isOutOfStock" size="large" class="btn-buy-now" :loading="loadingCart"
-                  @click="handleBuyNow"
-                >
-                  <template #icon>
-                    <NIcon>
-                      <RocketOutline />
-                    </NIcon>
-                  </template>
-                  MUA NGAY
-                </NButton>
-                <NButton v-else size="large" class="btn-disabled" disabled>
-                  <template #icon>
-                    <NIcon>
-                      <AlertCircleOutline />
-                    </NIcon>
-                  </template>
-                  HẾT HÀNG
-                </NButton>
-
-                <NButton
-                  size="large" class="btn-add-cart" :disabled="isOutOfStock" :loading="loadingCart"
-                  @click="handleAddToCart"
-                >
-                  <template #icon>
-                    <NIcon>
-                      <CartOutline />
-                    </NIcon>
-                  </template>
-                  Thêm giỏ hàng
-                </NButton>
-              </div>
-            </div>
-          </div>
-
-          <div class="store-sidebar">
             <div class="promise-card">
               <div class="promise-item">
-                <NIcon size="18" color="#18a058">
+                <NIcon size="18" color="#16a34a">
                   <ShieldCheckmarkOutline />
                 </NIcon>
                 <span>Sản phẩm chính hãng 100%</span>
               </div>
               <div class="promise-item">
-                <NIcon size="18" color="#18a058">
+                <NIcon size="18" color="#16a34a">
                   <ReturnDownBackOutline />
                 </NIcon>
                 <span>Đổi trả miễn phí trong 30 ngày</span>
               </div>
               <div class="promise-item">
-                <NIcon size="18" color="#18a058">
+                <NIcon size="18" color="#16a34a">
                   <HeadsetOutline />
                 </NIcon>
                 <span>Hỗ trợ kỹ thuật 24/7</span>
               </div>
               <div class="promise-item">
-                <NIcon size="18" color="#18a058">
+                <NIcon size="18" color="#16a34a">
                   <LocationOutline />
                 </NIcon>
-                <span>Giao hàng cực nhanh toàn quốc</span>
+                <span>Giao hàng siêu tốc toàn quốc</span>
               </div>
             </div>
+          </div>
 
-            <div class="voucher-card" @click="showVoucherModal = true">
-              <div class="voucher-header">
-                <NIcon size="20" color="#18a058">
-                  <GiftOutline />
-                </NIcon>
-                <span>Mã giảm giá khả dụng</span>
+          <div class="product-right-col">
+            <div class="product-info">
+              <div class="product-header">
+                <div class="title-row">
+                  <h1 class="product-title">
+                    {{ product.name }}
+                  </h1>
+                  <NButton secondary strong round color="#16a34a" size="small" @click="openCompareModal">
+                    <template #icon>
+                      <NIcon><GitCompareOutline /></NIcon>
+                    </template>
+                    So sánh
+                  </NButton>
+                </div>
+                <div class="product-meta">
+                  <span class="product-code">Mã SP: <strong>{{ product.code }}</strong></span>
+                </div>
               </div>
-              <div class="voucher-preview">
-                <span v-if="validVouchers.length > 0" class="voucher-count">
-                  {{ validVouchers.length }} mã khả dụng
-                </span>
-                <span v-else class="voucher-count">Hiện chưa có mã</span>
-                <NIcon size="16">
-                  <ArrowBack style="transform: rotate(180deg)" />
-                </NIcon>
+
+              <div v-if="isOngoingSale || isUpcomingSale" class="sale-timer" :class="{ ongoing: isOngoingSale, upcoming: isUpcomingSale }">
+                <div class="timer-left">
+                  <NIcon size="24" :class="{ 'animate-pulse': isOngoingSale, 'animate-bounce': isUpcomingSale }">
+                    <Flash v-if="isOngoingSale" />
+                    <TimeOutline v-else />
+                  </NIcon>
+                  <div class="timer-text">
+                    <span class="timer-label">{{ isOngoingSale ? 'FLASH SALE' : 'SẮP DIỄN RA' }}</span>
+                    <span class="timer-sub">{{ isOngoingSale ? 'Kết thúc trong' : 'Bắt đầu sau' }}</span>
+                  </div>
+                </div>
+                <div class="timer-display">
+                  <span class="time-value">{{ timeLeft }}</span>
+                </div>
+              </div>
+
+              <div class="price-section" :class="{ 'has-sale': isOngoingSale || isUpcomingSale }">
+                <div class="price-wrapper">
+                  <div class="price-current">
+                    <span class="value" :class="{ 'sale-price': isOngoingSale }">{{ formatCurrency(sellingPrice) }}</span>
+                    <span v-if="isUpcomingSale && rawPercent > 0" class="upcoming-tag">Dự kiến giảm {{ rawPercent }}%</span>
+                  </div>
+                  <div v-if="isOngoingSale && rawPercent > 0" class="price-old">
+                    <span class="label">Giá gốc:</span>
+                    <span class="value">{{ formatCurrency(listPrice) }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="voucher-card highlight-voucher" @click="showVoucherModal = true">
+                <div class="voucher-header">
+                  <NIcon size="20" color="#16a34a">
+                    <GiftOutline />
+                  </NIcon>
+                  <span>Mã giảm giá khả dụng</span>
+                </div>
+                <div class="voucher-preview">
+                  <span v-if="validVouchers.length > 0" class="voucher-count">
+                    🎉 Có {{ validVouchers.length }} mã đang chờ bạn!
+                  </span>
+                  <span v-else class="voucher-count text-gray">Hiện chưa có mã cho cấu hình này</span>
+                  <NIcon size="16" color="#16a34a">
+                    <ArrowBack style="transform: rotate(180deg)" />
+                  </NIcon>
+                </div>
+              </div>
+
+              <div class="short-specs">
+                <div v-if="product.cpu" class="spec-item">
+                  <span class="spec-label">CPU:</span><span class="spec-value">{{ product.cpu }}</span>
+                </div>
+                <div v-if="product.ram" class="spec-item">
+                  <span class="spec-label">RAM:</span><span class="spec-value">{{ product.ram }}</span>
+                </div>
+                <div v-if="product.hardDrive" class="spec-item">
+                  <span class="spec-label">Ổ cứng:</span><span class="spec-value">{{ product.hardDrive }}</span>
+                </div>
+                <div v-if="product.gpu" class="spec-item">
+                  <span class="spec-label">VGA:</span><span class="spec-value">{{ product.gpu }}</span>
+                </div>
+                <div v-if="product.screen" class="spec-item">
+                  <span class="spec-label">Màn hình:</span><span class="spec-value">{{ product.screen }}</span>
+                </div>
+              </div>
+
+              <div v-if="cpuOptions.length > 0 || gpuOptions.length > 0 || ramOptions.length > 0 || hardDriveOptions.length > 0 || colorOptions.length > 0" class="variants-section">
+                <div class="variants-header">
+                  <h3 class="variants-title">
+                    Tuỳ chọn cấu hình
+                  </h3>
+                  <button class="reset-filter-btn" @click="handleResetFilter">
+                    <NIcon size="14">
+                      <RefreshOutline />
+                    </NIcon> Làm mới
+                  </button>
+                </div>
+
+                <div class="variants-grid">
+                  <div v-if="cpuOptions.length > 0" class="variant-group">
+                    <span class="variant-label">CPU:</span>
+                    <div class="variant-options">
+                      <button v-for="opt in cpuOptions" :key="opt.value" class="variant-chip" :class="{ active: selectedCpu === opt.value }" @click="selectVariantOption('CPU', opt.value)">
+                        {{ opt.label }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="ramOptions.length > 0" class="variant-group">
+                    <span class="variant-label">RAM:</span>
+                    <div class="variant-options">
+                      <button v-for="opt in ramOptions" :key="opt.value" class="variant-chip" :class="{ active: selectedRam === opt.value }" @click="selectVariantOption('RAM', opt.value)">
+                        {{ opt.label }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="hardDriveOptions.length > 0" class="variant-group">
+                    <span class="variant-label">Ổ cứng:</span>
+                    <div class="variant-options">
+                      <button v-for="opt in hardDriveOptions" :key="opt.value" class="variant-chip" :class="{ active: selectedHardDrive === opt.value }" @click="selectVariantOption('HDD', opt.value)">
+                        {{ opt.label }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="gpuOptions.length > 0" class="variant-group">
+                    <span class="variant-label">VGA:</span>
+                    <div class="variant-options">
+                      <button v-for="opt in gpuOptions" :key="opt.value" class="variant-chip" :class="{ active: selectedGpu === opt.value }" @click="selectVariantOption('GPU', opt.value)">
+                        {{ opt.label }}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div v-if="colorOptions.length > 0" class="variant-group">
+                    <span class="variant-label">Màu sắc:</span>
+                    <div class="variant-options">
+                      <button v-for="opt in colorOptions" :key="opt.value" class="variant-chip" :class="{ active: selectedColor === opt.value }" @click="selectVariantOption('COLOR', opt.value)">
+                        {{ opt.label }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="actions-section">
+                <div class="quantity-box">
+                  <span class="quantity-label">Số lượng:</span>
+                  <NInputNumber v-model:value="quantity" :min="1" :max="Math.min(5, stockQuantity)" :disabled="isOutOfStock" button-placement="both" size="large" />
+                  <div v-if="stockQuantity > 0" class="stock-info">
+                    <NIcon size="16" color="#16a34a">
+                      <CheckmarkCircleOutline />
+                    </NIcon>
+                    <span>Còn <strong>{{ stockQuantity }}</strong> máy</span>
+                  </div>
+                </div>
+
+                <div class="action-buttons">
+                  <NButton v-if="!isOutOfStock" size="large" class="btn-buy-now" :loading="loadingCart" @click="handleBuyNow">
+                    <template #icon>
+                      <NIcon><RocketOutline /></NIcon>
+                    </template>
+                    MUA NGAY
+                  </NButton>
+                  <NButton v-else size="large" class="btn-disabled" disabled>
+                    <template #icon>
+                      <NIcon><AlertCircleOutline /></NIcon>
+                    </template>
+                    HẾT HÀNG
+                  </NButton>
+
+                  <NButton size="large" class="btn-add-cart" ghost :disabled="isOutOfStock" :loading="loadingCart" @click="handleAddToCart">
+                    <template #icon>
+                      <NIcon><CartOutline /></NIcon>
+                    </template>
+                    THÊM VÀO GIỎ
+                  </NButton>
+                </div>
               </div>
             </div>
           </div>
@@ -842,12 +798,9 @@ onUnmounted(() => {
 
         <div class="product-tabs">
           <NTabs v-model:value="activeTab" type="line" animated>
-            <NTabPane name="description" tab="Thông số kỹ thuật">
+            <NTabPane name="description" tab="Thông số kỹ thuật chi tiết">
               <div class="tab-content">
-                <NDescriptions
-                  bordered :column="1" size="medium"
-                  label-style="width: 180px; font-weight: 600; background-color: #f8fafc;"
-                >
+                <NDescriptions bordered :column="1" size="medium" label-style="width: 220px; font-weight: 600; background-color: #f8fafc;">
                   <NDescriptionsItem label="CPU">
                     {{ product.cpuName || product.cpu || 'Đang cập nhật' }}
                   </NDescriptionsItem>
@@ -857,7 +810,7 @@ onUnmounted(() => {
                   <NDescriptionsItem label="Ổ cứng">
                     {{ product.hardDriveName || product.hardDrive || 'Đang cập nhật' }}
                   </NDescriptionsItem>
-                  <NDescriptionsItem label="Card đồ họa (GPU)">
+                  <NDescriptionsItem label="Card đồ họa (VGA)">
                     {{ product.gpuName || product.gpu || 'Đang cập nhật' }}
                   </NDescriptionsItem>
                   <NDescriptionsItem label="Màn hình">
@@ -880,13 +833,10 @@ onUnmounted(() => {
 
         <div v-if="relatedProducts.length > 0" class="related-products">
           <h2 class="section-title">
-            Khám phá thêm các máy tương tự
+            Khám phá thêm các mẫu máy tương tự
           </h2>
           <div class="related-grid">
-            <div
-              v-for="item in relatedProducts" :key="item.id" class="related-card"
-              @click="router.push(`/product-detail/${item.id}`)"
-            >
+            <div v-for="item in relatedProducts" :key="item.id" class="related-card" @click="router.push(`/product-detail/${item.id}`)">
               <div class="card-image">
                 <img :src="item.urlImage" :alt="item.name">
                 <div v-if="item.percentage" class="card-badge">
@@ -898,8 +848,8 @@ onUnmounted(() => {
                   {{ item.name }}
                 </h3>
                 <div class="card-price">
-                  <span v-if="item.percentage" class="old">{{ formatCurrency(item.price) }}</span>
                   <span class="current">{{ formatCurrency(item.price - (item.price * item.percentage / 100)) }}</span>
+                  <span v-if="item.percentage" class="old">{{ formatCurrency(item.price) }}</span>
                 </div>
               </div>
             </div>
@@ -908,15 +858,12 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <NModal v-model:show="showVoucherModal" preset="card" title="Mã giảm giá" style="width: 500px">
+    <NModal v-model:show="showVoucherModal" preset="card" title="Mã giảm giá khả dụng" style="width: 500px">
       <div v-if="validVouchers.length === 0" class="empty-voucher">
         <NEmpty description="Rất tiếc, chưa có mã phù hợp với đơn hàng" />
       </div>
       <div v-else class="voucher-list">
-        <div
-          v-for="(v, index) in validVouchers" :key="v.id" class="voucher-item"
-          :class="{ selected: selectedVoucher?.id === v.id }" @click="handleSelectVoucher(v)"
-        >
+        <div v-for="(v, index) in validVouchers" :key="v.id" class="voucher-item" :class="{ selected: selectedVoucher?.id === v.id }" @click="handleSelectVoucher(v)">
           <div v-if="index === 0" class="voucher-badge">
             TỐT NHẤT
           </div>
@@ -924,9 +871,7 @@ onUnmounted(() => {
             <span class="voucher-code">{{ v.code }}</span>
             <span class="voucher-name">{{ v.name }}</span>
             <div class="voucher-desc">
-              <span>Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue
-                || 0)
-              }}</span>
+              <span>Giảm: {{ v.typeVoucher === 'PERCENTAGE' ? `${v.discountValue}%` : formatCurrency(v.discountValue || 0) }}</span>
               <span v-if="v.maxValue"> • Tối đa: {{ formatCurrency(v.maxValue) }}</span>
             </div>
             <span class="voucher-condition">Đơn tối thiểu: {{ formatCurrency(v.conditions || 0) }}</span>
@@ -942,25 +887,23 @@ onUnmounted(() => {
       </div>
     </NModal>
 
-    <CompareModal
-      v-model:show="showCompareModal"
-      :current-product="product"
-      :options="compareOptions"
-    />
+    <CompareModal v-model:show="showCompareModal" :current-product="product" :options="compareOptions" />
   </div>
 </template>
 
 <style scoped>
+/* RESET & BIẾN MÀU */
 .product-detail-page {
-  background-color: #f5f5f5;
+  background-color: #f8fafc;
   min-height: 100vh;
-  padding: 20px 0 40px;
+  padding: 24px 0 60px;
+  font-family: 'Inter', system-ui, sans-serif;
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
-  padding: 0 15px;
+  padding: 0 20px;
 }
 
 /* Breadcrumb */
@@ -968,670 +911,179 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   font-size: 14px;
-  color: #666;
+  color: #64748b;
 }
-
-.breadcrumb-item {
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.breadcrumb-item:hover {
-  color: #18a058;
-}
-
-.breadcrumb-item.active {
-  color: #18a058;
-  font-weight: 500;
-}
-
-.breadcrumb-separator {
-  color: #999;
-}
+.breadcrumb-item { cursor: pointer; transition: color 0.2s; }
+.breadcrumb-item:hover { color: #16a34a; }
+.breadcrumb-item.active { color: #16a34a; font-weight: 600; }
+.breadcrumb-separator { color: #cbd5e1; }
 
 /* Loading State */
 .loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 60px;
-  background: white;
-  border-radius: 12px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 80px; background: white; border-radius: 16px;
 }
+.loading-state p { margin-top: 16px; color: #64748b; }
 
-.loading-state p {
-  margin-top: 16px;
-  color: #666;
-}
-
-/* Product Main Layout */
+/* LAYOUT 2 CỘT CHÍNH */
 .product-main {
   display: grid;
-  grid-template-columns: 400px 1fr 280px;
-  gap: 20px;
-  margin-bottom: 30px;
+  grid-template-columns: 480px 1fr;
+  gap: 32px;
+  margin-bottom: 40px;
+  align-items: start;
 }
 
-/* Gallery Section */
+/* BÊN TRÁI: ẢNH & CAM KẾT */
 .product-gallery {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: white; border-radius: 16px; padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); border: 1px solid #f1f5f9;
 }
-
 .main-image {
-  position: relative;
-  padding-top: 100%;
-  background: #fafafa;
-  border-radius: 8px;
-  overflow: hidden;
+  position: relative; padding-top: 100%; border-radius: 12px; overflow: hidden;
 }
-
 .main-image img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  object-fit: contain; transition: transform 0.3s ease;
 }
+.main-image:hover img { transform: scale(1.05); }
 
-.image-badges {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  gap: 8px;
-  z-index: 2;
+.image-badges { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; z-index: 2; }
+.badge { padding: 6px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; color: white; }
+.badge.discount { background: #ef4444; }
+.badge.upcoming { background: #2563eb; }
+.badge.out-of-stock { background: #64748b; }
+
+.promise-card {
+  background: white; border-radius: 16px; padding: 20px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); margin-top: 24px; border: 1px solid #e2e8f0;
 }
+.promise-item { display: flex; align-items: center; gap: 12px; padding: 12px 0; font-size: 14px; color: #475569; font-weight: 500;}
+.promise-item:not(:last-child) { border-bottom: 1px dashed #e2e8f0; }
 
-.badge {
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 700;
-  color: white;
-}
-
-.badge.discount {
-  background: #18a058;
-}
-
-.badge.upcoming {
-  background: #2563eb;
-}
-
-.badge.out-of-stock {
-  background: #6b7280;
-}
-
-/* Product Info */
+/* BÊN PHẢI: THÔNG TIN CHI TIẾT */
 .product-info {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  background: white; border-radius: 16px; padding: 32px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); border: 1px solid #f1f5f9;
 }
+.product-header { margin-bottom: 24px; }
+.title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+.product-title { font-size: 20px; font-weight: 800; color: #0f172a; line-height: 1.4; margin-bottom: 8px; flex: 1; }
+.product-code { font-size: 14px; color: #64748b; }
 
-.product-header {
-  margin-bottom: 20px;
-}
-
-.title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-}
-
-.product-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1e293b;
-  margin-bottom: 8px;
-  line-height: 1.3;
-  flex: 1;
-}
-
-.product-code {
-  font-size: 14px;
-  color: #666;
-}
-
-/* Sale Timer */
+/* SALE TIMER */
 .sale-timer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 16px;
-  border-radius: 8px;
-  margin-bottom: 20px;
-  color: white;
-}
-
-.sale-timer.ongoing {
-  background: linear-gradient(135deg, #18a058, #16f92d);
-}
-
-.sale-timer.upcoming {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-}
-
-.timer-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.timer-text {
-  display: flex;
-  flex-direction: column;
-}
-
-.timer-label {
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.timer-sub {
-  font-size: 12px;
-  opacity: 0.9;
-}
-
-.timer-display {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 8px 16px;
-  border-radius: 40px;
-  backdrop-filter: blur(4px);
-}
-
-.time-value {
-  font-weight: 700;
-  font-size: 18px;
-  font-family: monospace;
-}
-
-/* Price Section */
-.price-section {
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.price-section.has-sale {
-  background: #f0fdf4;
-}
-
-.price-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.price-old {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.price-old .value {
-  text-decoration: line-through;
-  color: #999;
-}
-
-.price-current {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.price-current .value {
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.price-current .value.sale-price {
-  color: #18a058;
-}
-
-.upcoming-tag {
-  background: #e0f2fe;
-  color: #0369a1;
-  padding: 4px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-/* Short Specs */
-.short-specs {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  margin-bottom: 20px;
-}
-
-.spec-item {
-  display: flex;
-  gap: 4px;
-  font-size: 13px;
-}
-
-.spec-label {
-  color: #666;
-  font-weight: 500;
-}
-
-.spec-value {
-  color: #1e293b;
-  font-weight: 600;
-}
-
-/* Variants Section */
-.variants-section {
-  margin-bottom: 20px;
-  padding: 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-}
-
-.variants-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.variants-title {
-  font-size: 16px;
-  font-weight: 700;
-  margin: 0;
-}
-
-.reset-filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  font-size: 12px;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.reset-filter-btn:hover {
-  background: #f1f5f9;
-  color: #18a058;
-  border-color: #cbd5e1;
-}
-
-.variants-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.variant-group {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.variant-label {
-  min-width: 60px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #666;
-  padding-top: 6px;
-}
-
-.variant-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  flex: 1;
-}
-
-.variant-chip {
-  padding: 6px 12px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: white;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.variant-chip:hover {
-  border-color: #18a058;
-}
-
-.variant-chip.active {
-  border-color: #18a058;
-  background: #f0fdf4;
-  color: #18a058;
-  font-weight: 600;
-}
-
-/* Actions Section */
-.actions-section {
-  border-top: 1px solid #e2e8f0;
-  padding-top: 20px;
-}
-
-.quantity-box {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.quantity-label {
-  font-weight: 600;
-  color: #1e293b;
-}
-
-.stock-info {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: #16a34a;
-}
-
-.action-buttons {
-  display: flex;
-  gap: 12px;
-}
-
-.btn-buy-now {
-  flex: 1;
-  background: #18a058;
-  border: none;
-  color: white;
-  font-weight: 700;
-  height: 48px;
-}
-.btn-buy-now:hover {
-  background: #148046;
-}
-
-.btn-add-cart {
-  flex: 1;
-  background: #2563eb;
-  border: none;
-  color: white;
-  font-weight: 700;
-  height: 48px;
-}
-.btn-add-cart:hover {
-  background: #1d4ed8;
-}
-
-.btn-disabled {
-  flex: 1;
-  background: #e2e8f0;
-  border: none;
-  color: #999;
-  font-weight: 700;
-  height: 48px;
-}
-
-/* Store Sidebar */
-.store-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.promise-card,
-.voucher-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.promise-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 0;
-  font-size: 13px;
-  color: #666;
-}
-
-.promise-item:not(:last-child) {
-  border-bottom: 1px dashed #e2e8f0;
-}
-
-.voucher-card {
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.voucher-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.voucher-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-  font-weight: 600;
-}
-
-.voucher-preview {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.voucher-count {
-  font-size: 14px;
-  color: #18a058;
-  font-weight: 500;
-}
-
-/* Product Tabs */
-.product-tabs {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  margin-bottom: 30px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.tab-content {
-  padding: 20px 0;
-}
-
-/* Related Products */
-.related-products {
-  margin-top: 30px;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 20px;
-}
-
-.related-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 12px;
-}
-
-.related-card {
-  background: white;
-  border-radius: 8px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: 1px solid #e2e8f0;
-}
-
-.related-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #18a058;
-}
-
-.card-image {
-  position: relative;
-  padding-top: 100%;
-  background: #f8fafc;
-}
-
-.card-image img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  padding: 12px;
-}
-
-.card-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: #18a058;
-  color: white;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.card-info {
-  padding: 12px;
-}
-
-.card-name {
-  font-size: 13px;
-  font-weight: 500;
-  margin-bottom: 8px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 36px;
-}
-
-.card-price {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.card-price .current {
-  font-size: 14px;
-  font-weight: 700;
-  color: #18a058;
-}
-
-.card-price .old {
-  font-size: 12px;
-  color: #999;
-  text-decoration: line-through;
-}
-
-/* Voucher Modal */
-.voucher-list {
-  max-height: 400px;
-  overflow-y: auto;
-  padding: 4px;
-}
-
-.voucher-item {
-  position: relative;
-  display: flex;
-  padding: 16px;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.voucher-item:hover {
-  border-color: #18a058;
-  background: #f0fdf4;
-}
-
-.voucher-item.selected {
-  border-color: #18a058;
-  background: #f0fdf4;
-}
-
-.voucher-badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: #f59e0b;
-  color: white;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 12px;
-  z-index: 2;
-}
-
-.voucher-left {
-  flex: 1;
-}
-
-.voucher-code {
-  display: block;
-  font-weight: 700;
-  color: #18a058;
-  margin-bottom: 4px;
-}
-
-.voucher-name {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.voucher-right {
-  display: flex;
-  align-items: center;
-  padding-left: 16px;
-}
-
-.voucher-check {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid #e2e8f0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.voucher-check.checked {
-  background: #18a058;
-  border-color: #18a058;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 16px 20px; border-radius: 12px; margin-bottom: 24px; color: white;
+}
+.sale-timer.ongoing { background: linear-gradient(135deg, rgb(244, 64, 64), #f47940); }
+.sale-timer.upcoming { background: linear-gradient(135deg, #1717c6, #1e58af); }
+.timer-left { display: flex; align-items: center; gap: 12px; }
+.timer-text { display: flex; flex-direction: column; }
+.timer-label { font-weight: 800; font-size: 16px; letter-spacing: 0.5px; }
+.timer-sub { font-size: 12px; opacity: 0.9; }
+.timer-display { background: rgba(0, 0, 0, 0.2); padding: 8px 16px; border-radius: 40px; }
+.time-value { font-weight: 700; font-size: 18px; font-family: monospace; }
+
+/* PRICE */
+.price-section { padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 24px; }
+.price-section.has-sale { background: #f0fdf4; }
+.price-wrapper { display: flex; flex-direction: column; gap: 8px; }
+.price-current { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.price-current .value { font-size: 32px; font-weight: 800; color: #1e293b; }
+.price-current .value.sale-price { color: #16a34a; }
+.price-old { display: flex; align-items: center; gap: 8px; font-size: 15px; }
+.price-old .value { text-decoration: line-through; color: #94a3b8; }
+.upcoming-tag { background: #dbeafe; color: #1d4ed8; padding: 6px 10px; border-radius: 6px; font-size: 13px; font-weight: 600; }
+
+/* VOUCHER CARD */
+.highlight-voucher { background: #f0fdf4; border: 1px dashed #16a34a; padding: 16px 20px; border-radius: 12px; margin-bottom: 24px; cursor: pointer; transition: all 0.2s; }
+.highlight-voucher:hover { background: #dcfce7; border-style: solid; }
+.voucher-header { display: flex; align-items: center; gap: 8px; color: #15803d; font-weight: 700; margin-bottom: 8px; }
+.voucher-preview { display: flex; align-items: center; justify-content: space-between; }
+.voucher-count { color: #16a34a; font-weight: 600; font-size: 14px; }
+.text-gray { color: #64748b !important; font-weight: 400 !important; }
+
+/* SHORT SPECS */
+.short-specs { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; padding: 20px; background: #f8fafc; border-radius: 12px; margin-bottom: 24px; border: 1px solid #e2e8f0; }
+.spec-item { display: flex; gap: 6px; font-size: 14px; }
+.spec-label { color: #64748b; font-weight: 500; min-width: 70px; }
+.spec-value { color: #0f172a; font-weight: 600; }
+
+/* VARIANTS */
+.variants-section { margin-bottom: 24px; }
+.variants-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.variants-title { font-size: 16px; font-weight: 700; color: #0f172a; margin: 0; }
+.reset-filter-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid #e2e8f0; border-radius: 6px; background: white; font-size: 13px; color: #64748b; cursor: pointer; transition: all 0.2s; font-weight: 500; }
+.reset-filter-btn:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+.variants-grid { display: flex; flex-direction: column; gap: 16px; }
+.variant-group { display: flex; align-items: flex-start; gap: 12px; }
+.variant-label { min-width: 70px; font-size: 14px; font-weight: 600; color: #475569; padding-top: 8px; }
+.variant-options { display: flex; flex-wrap: wrap; gap: 10px; flex: 1; }
+.variant-chip { padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; background: white; font-size: 14px; font-weight: 500; color: #334155; cursor: pointer; transition: all 0.2s; }
+.variant-chip:hover { border-color: #16a34a; color: #16a34a; }
+.variant-chip.active { border-color: #16a34a; background: #f0fdf4; color: #15803d; font-weight: 700; box-shadow: 0 0 0 1px #16a34a; }
+
+/* ACTIONS (MUA NGAY - THÊM GIỎ HÀNG) */
+.actions-section { border-top: 1px solid #e2e8f0; padding-top: 24px; margin-top: 24px; }
+.quantity-box { display: flex; align-items: center; gap: 16px; margin-bottom: 20px; }
+.quantity-label { font-weight: 600; color: #0f172a; }
+.stock-info { display: flex; align-items: center; gap: 6px; font-size: 14px; color: #16a34a; background: #f0fdf4; padding: 6px 12px; border-radius: 20px; font-weight: 500; }
+
+.action-buttons { display: flex; gap: 16px; }
+
+.btn-buy-now { flex: 2; background: #16a34a !important; color: white !important; border: none !important; font-weight: 800; font-size: 16px; height: 56px; border-radius: 12px; transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.2); }
+.btn-buy-now:hover { background: #15803d !important; transform: translateY(-2px); box-shadow: 0 6px 16px rgba(22, 163, 74, 0.3); }
+
+.btn-add-cart { flex: 1; background: transparent !important; border: 2px solid #2563eb !important; color: #2563eb !important; font-weight: 700; height: 56px; border-radius: 12px; transition: all 0.2s ease; }
+.btn-add-cart:hover { background: #eff6ff !important; border-color: #1d4ed8 !important; color: #1d4ed8 !important; }
+
+.btn-disabled { flex: 1; background: #f8fafc !important; border: 2px dashed #cbd5e1 !important; color: #94a3b8 !important; font-weight: 700; height: 56px; border-radius: 12px; cursor: not-allowed; }
+
+/* TABS */
+.product-tabs { background: white; border-radius: 16px; padding: 24px 32px; margin-bottom: 40px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); border: 1px solid #f1f5f9; }
+.tab-content { padding: 24px 0; }
+
+/* RELATED PRODUCTS */
+.section-title { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 24px; }
+.related-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; }
+.related-card { background: white; border-radius: 12px; overflow: hidden; cursor: pointer; transition: all 0.2s ease; border: 1px solid #e2e8f0; }
+.related-card:hover { transform: translateY(-4px); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05); border-color: #16a34a; }
+.card-image { position: relative; padding-top: 100%; background: #f8fafc; }
+.card-image img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: contain; padding: 16px; transition: transform 0.3s ease; }
+.related-card:hover .card-image img { transform: scale(1.05); }
+.card-badge { position: absolute; top: 8px; left: 8px; background: #ef4444; color: white; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 6px; }
+.card-info { padding: 16px; }
+.card-name { font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 8px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 42px; line-height: 1.4; }
+.card-price { display: flex; flex-direction: column; gap: 4px; }
+.card-price .current { font-size: 15px; font-weight: 800; color: #16a34a; }
+.card-price .old { font-size: 13px; color: #94a3b8; text-decoration: line-through; }
+
+/* VOUCHER MODAL LIST */
+.voucher-list { max-height: 450px; overflow-y: auto; padding: 4px; }
+.voucher-item { position: relative; display: flex; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 16px; cursor: pointer; transition: all 0.2s; background: white; }
+.voucher-item:hover { border-color: #16a34a; background: #0bb53e; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.05); }
+.voucher-item.selected { border-color: #16a34a; background: #f0fdf4; }
+.voucher-badge { position: absolute; top: -10px; right: -10px; background: #f59e0b; color: white; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 12px; z-index: 2; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
+.voucher-left { flex: 1; }
+.voucher-code { display: block; font-weight: 800; color: #16a34a; margin-bottom: 6px; font-size: 15px; }
+.voucher-name { display: block; font-size: 14px; font-weight: 600; color: #0f172a; margin-bottom: 8px; }
+.voucher-desc { font-size: 13px; color: #475569; margin-bottom: 4px; }
+.voucher-condition { font-size: 12px; color: #64748b; }
+.voucher-right { display: flex; align-items: center; padding-left: 20px; }
+.voucher-check { width: 24px; height: 24px; border-radius: 50%; border: 2px solid #cbd5e1; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+.voucher-check.checked { background: #16a34a; border-color: #16a34a; }
+
+/* RESPONSIVE */
+@media (max-width: 1024px) {
+  .product-main { grid-template-columns: 1fr; }
+  .related-grid { grid-template-columns: repeat(3, 1fr); }
+}
+@media (max-width: 768px) {
+  .related-grid { grid-template-columns: repeat(2, 1fr); }
+  .short-specs { grid-template-columns: 1fr; }
+  .action-buttons { flex-direction: column; }
 }
 </style>

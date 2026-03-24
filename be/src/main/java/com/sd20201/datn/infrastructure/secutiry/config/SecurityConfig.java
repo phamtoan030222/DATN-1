@@ -144,7 +144,7 @@ public class SecurityConfig {
                         .requestMatchers("/ws/**", "/ws/info/**", "/websocket/**").permitAll()
                         .requestMatchers("/api/v1/chat/**").permitAll()
                         .requestMatchers("/api/upload/**", "/uploads/**").permitAll()
-
+                        .requestMatchers("/api/v1/customer/customers/forgot-password").permitAll()
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/order-online/**").permitAll()
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/products/**").permitAll()
 //                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/v1/admin/discounts/voucher/**").permitAll()

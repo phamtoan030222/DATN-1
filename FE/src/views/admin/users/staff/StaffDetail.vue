@@ -24,7 +24,9 @@ import {
 import type { FormInst, FormRules, SelectOption } from 'naive-ui'
 import { Icon } from '@iconify/vue'
 import { Html5Qrcode } from 'html5-qrcode'
-
+import { USER_INFO_STORAGE_KEY } from '@/constants/storageKey'
+import { localStorageAction } from '@/utils/storage.helper'
+import { useAuthStore } from '@/store'
 // --- API IMPORTS ---
 import { createStaff, getStaffById, updateStaff } from '@/service/api/admin/users/staff.api'
 import type { CreateStaffRequest } from '@/service/api/admin/users/staff.api'
@@ -430,19 +432,49 @@ async function handleValidateAndSubmit() {
 async function processSubmit() {
   submitting.value = true
   try {
-    // 2. Chuẩn hóa dữ liệu trước khi gửi
+    // Chuẩn hóa dữ liệu trước khi gửi
     const payload = {
       ...formData,
       fullName: formData.fullName.trim(),
-      // Email: Chuyển về chữ thường
       email: formData.email.trim().toLowerCase(),
-      // District: Gửi null vì API v2 không dùng
       districtCode: null,
     }
 
     if (isEditMode.value) {
+      // 1. GỌI API CẬP NHẬT XUỐNG DATABASE
       await updateStaff(staffId.value!, payload)
       message.success('Cập nhật thành công!')
+
+      // ===================================================================
+      // 2. ĐỒNG BỘ ẢNH LÊN HEADER (NẾU NHÂN VIÊN ĐANG SỬA LÀ CHÍNH MÌNH)
+      // ===================================================================
+      const currentUserInfo = localStorageAction.get(USER_INFO_STORAGE_KEY)
+      const currentUserId = currentUserInfo?.id || currentUserInfo?.userId || currentUserInfo?.staffId
+
+      // Kiểm tra xem ID đang sửa có khớp với ID đang đăng nhập không
+      if (currentUserId === staffId.value) {
+        // A. Cập nhật Local Storage
+        currentUserInfo.avatar = payload.avatarUrl
+        currentUserInfo.pictureUrl = payload.avatarUrl
+        currentUserInfo.fullName = payload.fullName // Tiện tay cập nhật luôn tên nếu có đổi
+        localStorageAction.set(USER_INFO_STORAGE_KEY, currentUserInfo)
+
+        // B. Cập nhật Pinia Store để UI Header (Vue) nhận được sự thay đổi tức thì
+        const authStore = useAuthStore()
+
+        // Tuỳ thuộc vào biến bạn lưu trong store tên là gì (thường là userInfo hoặc userInfoDatn)
+        if (authStore.userInfo) {
+          authStore.userInfo.avatar = payload.avatarUrl
+          authStore.userInfo.pictureUrl = payload.avatarUrl
+          authStore.userInfo.fullName = payload.fullName
+        }
+        if (authStore.userInfoDatn) {
+          authStore.userInfoDatn.avatar = payload.avatarUrl
+          authStore.userInfoDatn.pictureUrl = payload.avatarUrl
+          authStore.userInfoDatn.fullName = payload.fullName
+        }
+      }
+      // ===================================================================
     }
     else {
       await createStaff(payload)

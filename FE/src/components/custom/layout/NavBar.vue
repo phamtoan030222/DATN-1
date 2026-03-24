@@ -7,7 +7,7 @@ import {
 } from '@vicons/ionicons5'
 import type { MenuOption } from 'naive-ui'
 import {
-  NAvatar, // <-- Đã import thêm NAvatar
+  NAvatar,
   NBadge,
   NButton,
   NConfigProvider,
@@ -58,12 +58,12 @@ const { logout } = useAuthStore()
 const { cartItems } = storeToRefs(useCartStore())
 const notification = useNotification()
 
-// TÍNH TỔNG SỐ LƯỢNG SẢN PHẨM TRONG GIỎ (Thay vì đếm số dòng)
+// TÍNH TỔNG SỐ LƯỢNG SẢN PHẨM TRONG GIỎ
 const totalCartQuantity = computed(() => {
   return cartItems.value.reduce((total, item) => total + (item.quantity || 0), 0)
 })
 
-// --- DATA MENU (Đã xóa Liên hệ) ---
+// --- DATA MENU ---
 const menuOptions = computed(() => [
   { label: 'Sản phẩm', key: 'products', name: 'Products' },
   { label: 'Giới thiệu', key: 'about', name: 'About' },
@@ -119,6 +119,7 @@ function handleMenuClick(key: string, item: MenuOption) {
   showDrawer.value = false
 }
 
+// --- XỬ LÝ DROPDOWN TÀI KHOẢN (THÊM XÁC NHẬN ĐĂNG XUẤT) ---
 function handlerAccountDropdown(key: string) {
   if (key === 'login') {
     router.push({ path: '/login' })
@@ -127,9 +128,21 @@ function handlerAccountDropdown(key: string) {
     router.push({ name: 'Profile' })
   }
   else if (key === 'logout') {
-    logout()
-    router.push({ name: 'Home' })
-    notification.success({ content: 'Bạn đã đăng xuất', duration: 3000 })
+    // Gọi popup xác nhận
+    window.$dialog?.success({
+      title: 'Xác nhận đăng xuất',
+      content: 'Bạn có chắc chắn muốn đăng xuất?',
+      positiveText: 'Đăng xuất',
+      negativeText: 'Hủy',
+      positiveButtonProps: {
+        type: 'success', // Ép nút Đăng xuất thành màu xanh lá
+      },
+      onPositiveClick: () => {
+        logout()
+        router.push({ name: 'Home' })
+        notification.success({ content: 'Bạn đã đăng xuất thành công', duration: 3000 })
+      },
+    })
   }
 }
 
@@ -143,7 +156,7 @@ function handleCartClick() {
     <header class="main-header-wrapper">
       <div class="header-inner container">
         <button class="mobile-toggle d-lg-none" @click="showDrawer = true">
-          <NIcon size="32" color="#049d14">
+          <NIcon size="32" color="#16a34a">
             <MenuIcon />
           </NIcon>
         </button>
@@ -163,7 +176,7 @@ function handleCartClick() {
         <div class="search-area d-none d-sm-block">
           <NInput v-model:value="keyword" placeholder="Tìm laptop..." round size="large" @keyup.enter="handleSearch">
             <template #suffix>
-              <NButton circle size="medium" color="#049d14" style="margin-right: -10px;" @click="handleSearch">
+              <NButton circle size="medium" color="#16a34a" style="margin-right: -10px;" @click="handleSearch">
                 <template #icon>
                   <NIcon size="20" color="#fff">
                     <Search />
@@ -182,7 +195,7 @@ function handleCartClick() {
                 :src="userInfoDatn?.avatar || userInfoDatn?.pictureUrl"
                 style="width: 28px; height: 28px; background-color: transparent;"
               />
-              <NIcon v-else size="28" color="#333">
+              <NIcon v-else size="28" color="inherit">
                 <Person />
               </NIcon>
 
@@ -194,7 +207,7 @@ function handleCartClick() {
 
           <div class="action-btn cart-btn" @click="handleCartClick">
             <NBadge :value="totalCartQuantity" :max="99" :show-zero="false" color="#d03050">
-              <NIcon size="28" color="#333">
+              <NIcon size="28" color="inherit">
                 <Cart />
               </NIcon>
             </NBadge>
@@ -221,10 +234,11 @@ function handleCartClick() {
 
 .main-header-wrapper {
   background: white;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.08); /* Bóng đổ ám xanh lá */
   position: sticky;
   top: 0;
   z-index: 1000;
+  border-bottom: 2px solid #f0fdf4; /* Viền dưới xanh cực nhạt */
 }
 
 .container {
@@ -234,56 +248,23 @@ function handleCartClick() {
   width: 100%;
 }
 
-.d-none {
-  display: none !important;
-}
-
-.d-lg-block {
-  display: block !important;
-}
-
-.d-lg-none {
-  display: none !important;
-}
-
-.d-lg-flex {
-  display: flex !important;
-}
-
-.d-sm-flex {
-  display: flex !important;
-}
-
-.d-sm-block {
-  display: block !important;
-}
-
-.d-xl-block {
-  display: block !important;
-}
+.d-none { display: none !important; }
+.d-lg-block { display: block !important; }
+.d-lg-none { display: none !important; }
+.d-lg-flex { display: flex !important; }
+.d-sm-flex { display: flex !important; }
+.d-sm-block { display: block !important; }
+.d-xl-block { display: block !important; }
 
 @media (max-width: 1200px) {
-  .d-xl-block {
-    display: none !important;
-  }
+  .d-xl-block { display: none !important; }
 }
 
 @media (min-width: 992px) {
-  .d-lg-block {
-    display: block !important;
-  }
-
-  .d-lg-none {
-    display: none !important;
-  }
-
-  .d-lg-flex {
-    display: flex !important;
-  }
-
-  .d-none {
-    display: none;
-  }
+  .d-lg-block { display: block !important; }
+  .d-lg-none { display: none !important; }
+  .d-lg-flex { display: flex !important; }
+  .d-none { display: none; }
 }
 
 .header-inner {
@@ -308,7 +289,7 @@ function handleCartClick() {
 .brand-text {
   font-size: 1.6rem;
   font-weight: 900;
-  color: #0abe1c;
+  color: #16a34a; /* Thống nhất mã màu xanh lá */
   margin-left: 10px;
   letter-spacing: -0.5px;
 }
@@ -348,11 +329,11 @@ function handleCartClick() {
 }
 
 :deep(.modern-menu .n-menu-item-content:hover .n-menu-item-content-header) {
-  color: #049d14 !important;
+  color: #16a34a !important; /* Đổi màu hover */
 }
 
 :deep(.modern-menu .n-menu-item-content.n-menu-item-content--selected .n-menu-item-content-header) {
-  color: #049d14 !important;
+  color: #15803d !important; /* Xanh đậm hơn khi active */
   font-weight: 700 !important;
   font-size: 14px !important;
 }
@@ -364,9 +345,10 @@ function handleCartClick() {
   left: 50%;
   width: 0;
   height: 3px;
-  background-color: #049d14;
+  background-color: #16a34a; /* Đường gạch chân xanh lá */
   transition: all 0.3s ease-out;
   transform: translateX(-50%);
+  border-radius: 3px 3px 0 0;
 }
 
 :deep(.modern-menu .n-menu-item-content.n-menu-item-content--selected)::after {
@@ -390,22 +372,22 @@ function handleCartClick() {
   flex-direction: column;
   align-items: center;
   cursor: pointer;
-  color: #333;
-  transition: 0.2s;
+  color: #4b5563; /* Màu xám đậm mặc định */
+  transition: all 0.2s ease;
   position: relative;
   max-width: 90px;
-  /* Giới hạn độ rộng vùng nút để cắt chữ */
 }
 
 .action-btn:hover {
-  color: #049d14;
+  color: #16a34a;
 }
 
 .action-btn:hover :deep(.n-icon) {
-  color: #049d14 !important;
+  color: #16a34a !important;
+  transform: scale(1.1); /* Hiệu ứng phóng to nhẹ */
+  transition: transform 0.2s;
 }
 
-/* ĐÃ CẬP NHẬT: CSS để không rớt dòng và thêm dấu ... */
 .action-label {
   font-size: 0.75rem;
   font-weight: 600;
@@ -413,11 +395,9 @@ function handleCartClick() {
   width: 100%;
   text-align: center;
   white-space: nowrap;
-  /* Không cho phép rớt dòng */
   overflow: hidden;
-  /* Cắt phần chữ thừa */
   text-overflow: ellipsis;
-  /* Hiển thị dấu ... */
+  transition: color 0.2s;
 }
 
 .mobile-toggle {

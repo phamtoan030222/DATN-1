@@ -17,4 +17,5 @@ public class ClientCustomerUpdateInformation {
 
     String email;
 
+    private String avatarUrl;
 }

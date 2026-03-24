@@ -33,13 +33,13 @@ export const routes: RouteRecordRaw[] = [
       },
 
       // 5. LIÊN HỆ (Khớp với href: '/lien-he')
-      {
-        path: 'lien-he',
-        name: 'Contact',
-        // Lưu ý: Bạn cần tạo file ContactView.vue
-        component: () => import('@/views/client/user/contact/ContactView.vue'),
-        meta: { title: 'Liên hệ' },
-      },
+      // {
+      //   path: 'lien-he',
+      //   name: 'Contact',
+      //   // Lưu ý: Bạn cần tạo file ContactView.vue
+      //   component: () => import('@/views/client/user/contact/ContactView.vue'),
+      //   meta: { title: 'Liên hệ' },
+      // },
 
       // 6. TRA CỨU ĐƠN HÀNG (Khớp với href: '/tra-cuu')
       {
@@ -91,7 +91,7 @@ export const routes: RouteRecordRaw[] = [
             component: () => import('@/views/client/user/profile/ProfileView.vue'),
             meta: { title: 'Thông tin cá nhân' },
           },
-        ]
+        ],
       },
     ],
   },
@@ -104,7 +104,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'login',
-    component: () => import('@/views/build-in/login/index.vue'),
+    component: () => import('@/views/build-in/login/components/Login/LoginCustomer.vue'),
     meta: {
       title: 'Đăng nhập',
       withoutTab: true,
@@ -115,7 +115,18 @@ export const routes: RouteRecordRaw[] = [
     name: 'register',
     component: () => import('@/views/build-in/login/components/Register/index.vue'),
     meta: {
-      title: 'Đăng nhập',
+      title: 'Đăng ký',
+      withoutTab: true,
+    },
+  },
+  // --- THÊM ROUTE QUÊN MẬT KHẨU Ở ĐÂY ---
+  {
+    path: '/reset-password',
+    name: 'reset-password',
+    // Trỏ đúng vào file index.vue trong thư mục ResetPwd của bạn
+    component: () => import('@/views/build-in/login/components/ResetPwd/index.vue'),
+    meta: {
+      title: 'Quên mật khẩu',
       withoutTab: true,
     },
   },
