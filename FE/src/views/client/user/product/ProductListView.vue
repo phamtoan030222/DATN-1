@@ -607,11 +607,6 @@ function isInStock(item: ADProductDetailResponse) {
                       class="product-image"
                       loading="lazy"
                     >
-                    <div class="image-overlay">
-                      <NButton circle size="small" class="quick-view-btn">
-                        <NovaIcon icon="ion:eye" :size="16" />
-                      </NButton>
-                    </div>
                   </div>
 
                   <div class="product-info">
@@ -669,7 +664,6 @@ function isInStock(item: ADProductDetailResponse) {
                 :page-count="pagination.totalPages"
                 :page-slot="5"
                 size="large"
-                show-quick-jumper
                 @update:page="handlePageChange"
               />
             </div>
