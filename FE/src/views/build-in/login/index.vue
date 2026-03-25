@@ -1,42 +1,62 @@
 <script setup lang="ts">
-import { Login, Register, ResetPwd } from './components'
+import { ref } from 'vue'
 
-type IformType = 'login' | 'resetPwd'
-const formType: Ref<IformType> = ref('login')
+// IMPORT ĐÚNG CẤU TRÚC THƯ MỤC CỦA BẠN
+import LoginCustomer from './components/Login/LoginCustomer.vue'
+import Register from './components/Register/index.vue'
+import ResetPwd from './components/ResetPwd/index.vue'
+
+// Khai báo các loại form
+type IformType = 'login' | 'resetPwd' | 'register'
+const formType = ref<IformType>('login')
+
+// Map component tương ứng
 const formComponets = {
-  login: Login,
+  login: LoginCustomer,
   resetPwd: ResetPwd,
+  register: Register,
 }
-
-const appName = import.meta.env.VITE_APP_NAME
 </script>
 
 <template>
-  <n-el class="wh-full flex-center" style="background-color: var(--body-color);">
-    <div class="fixed top-40px right-40px text-lg">
+  <n-el class="wh-full flex items-center justify-center bg-gray-50/50">
+    <div class="fixed top-40px right-40px text-lg z-50">
       <DarkModeSwitch />
       <LangsSwitch />
     </div>
-    <div
-      class="p-4xl h-full w-full sm:w-450px sm:h-unset"
-      style="background: var(--card-color);box-shadow: var(--box-shadow-1);"
-    >
+
+    <div class="w-full max-w-[420px] bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.08)] p-10 mx-4 relative">
       <div class="w-full flex flex-col items-center">
-        <SvgIconsLogo class="text-6em" />
-        <n-h3>{{ appName }} </n-h3>
-        <transition
-          name="fade-slide"
-          mode="out-in"
-        >
+        <div class="flex flex-col items-center mb-6">
+          <SvgIconsLogo class="text-[70px] text-[#4caf50]" />
+          <h2 class="text-xl font-bold text-gray-800 mt-3 tracking-wide">
+            My Laptop
+          </h2>
+        </div>
+
+        <transition name="fade-slide" mode="out-in">
           <component
             :is="formComponets[formType]"
             v-model="formType"
-            class="w-85%"
+            class="w-full"
           />
         </transition>
       </div>
     </div>
-
-    <div />
   </n-el>
 </template>
+
+<style scoped>
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+</style>

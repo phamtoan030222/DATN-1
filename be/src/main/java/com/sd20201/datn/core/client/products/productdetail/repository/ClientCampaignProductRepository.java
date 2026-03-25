@@ -47,7 +47,73 @@ public interface ClientCampaignProductRepository extends ProductDiscountDetailRe
             "JOIN pdd.productDetail pd " +
             "JOIN pd.product p " +
             "LEFT JOIN pd.hardDrive hd " +
-            "WHERE d.id = :discountId AND d.status = 0 AND pdd.status = 0") // <-- Bổ sung check status hoạt động
+            "WHERE d.id = :discountId AND d.status = 0 AND pdd.status = 0")
+    // <-- Bổ sung check status hoạt động
     Page<ClientDiscountProductProjection> findProductsByDiscountId(Pageable pageable, @Param("discountId") String discountId);
 
+    // 4. Lấy sản phẩm bán chạy nhất trong 1 tháng + Giảm giá tốt nhất (Đã fix lỗi ps.id)
+    @Query(value = """
+            WITH BestDiscount AS (
+                SELECT 
+                    pdd.id_product_detail,
+                    d.name AS discountName,
+                    d.start_date AS startDate,
+                    d.end_date AS endDate,
+                    d.percentage AS percentage,
+                    pdd.original_price AS originalPrice,
+                    pdd.sale_price AS salePrice,
+                    ROW_NUMBER() OVER(PARTITION BY pdd.id_product_detail ORDER BY d.percentage DESC) as rn
+                FROM product_detail_discount pdd
+                JOIN discount d ON d.id = pdd.id_discount
+                WHERE pdd.status = 0 AND d.status = 0 
+                  AND d.start_date <= :currentTime 
+                  AND d.end_date >= :currentTime
+            ),
+            ProductSales AS (
+                SELECT 
+                    idt.id_product_detail, 
+                    SUM(idt.quantity) AS tong_so_luong_ban
+                FROM invoice_detail idt
+                JOIN invoice i ON i.id = idt.id_invoice
+                WHERE i.trang_thai_hoa_don = 4
+                  AND i.created_date >= :oneMonthAgo 
+                GROUP BY idt.id_product_detail
+            )
+            SELECT 
+                bd.discountName AS discountName, 
+                bd.startDate AS startDate, 
+                bd.endDate AS endDate, 
+                bd.percentage AS percentage, 
+                pd.name AS name, 
+                pd.id AS productDetailId, 
+                pd.url_image AS urlImage, 
+                c.name AS cpu, 
+                g.name AS gpu, 
+                r.name AS ram, 
+                h.name AS hardDrive, 
+                COALESCE(bd.originalPrice, pd.price) AS originalPrice, 
+                COALESCE(bd.salePrice, pd.price) AS salePrice
+            
+            -- ĐẢO VỊ TRÍ 2 DÒNG NÀY LÊN ĐẦU TIÊN ĐỂ SPRING LẤY ĐÚNG CỘT pd.id
+            FROM product_detail pd
+            JOIN ProductSales ps ON pd.id = ps.id_product_detail
+            
+            LEFT JOIN cpu c ON c.id = pd.id_cpu
+            LEFT JOIN gpu g ON g.id = pd.id_gpu
+            LEFT JOIN ram r ON r.id = pd.id_ram
+            LEFT JOIN hard_drive h ON h.id = pd.id_hard_drive
+            LEFT JOIN BestDiscount bd ON bd.id_product_detail = pd.id AND bd.rn = 1
+            ORDER BY ps.tong_so_luong_ban DESC
+            """,
+            countQuery = """
+                    SELECT COUNT(DISTINCT idt.id_product_detail) 
+                    FROM invoice_detail idt 
+                    JOIN invoice i ON i.id = idt.id_invoice 
+                    WHERE i.trang_thai_hoa_don = 4 AND i.created_date >= :oneMonthAgo
+                    """,
+            nativeQuery = true)
+    Page<ClientDiscountProductProjection> findTopSellingProducts(
+            Pageable pageable,
+            @Param("currentTime") Long currentTime,
+            @Param("oneMonthAgo") Long oneMonthAgo);
 }

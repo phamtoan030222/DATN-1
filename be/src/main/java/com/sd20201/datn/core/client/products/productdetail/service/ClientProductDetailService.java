@@ -62,5 +62,7 @@ public interface ClientProductDetailService {
 
     ResponseObject<?> getNearestUpcomingDiscounts(SanPhamChiTietGiamGiaRepuest request);
 
+    ResponseObject<?> getBestseller(SanPhamChiTietGiamGiaRepuest request);
+
     ResponseObject<?> laySanPhamTheoThuocTinh(LayThuocTinhRequest request);
 }

@@ -115,17 +115,19 @@ public class ClientProductDetailController {
     }
 
     @GetMapping("/a/ongoing")
-    // Thêm PageableRequest vào đây để Spring Boot tự động map query parameters
     public ResponseEntity<?> getOngoingDiscounts(SanPhamChiTietGiamGiaRepuest request) {
-        // Truyền request xuống tầng Service
         return Helper.createResponseEntity(productDetailService.getOngoingDiscounts(request));
     }
 
     @GetMapping("/a/upcoming")
-    // Tương tự, hứng request từ client
     public ResponseEntity<?> getNearestUpcomingDiscounts(SanPhamChiTietGiamGiaRepuest request) {
         // Bọc kết quả và truyền request xuống
         return Helper.createResponseEntity(productDetailService.getNearestUpcomingDiscounts(request));
+    }
+
+    @GetMapping("/a/bestseller")
+    public ResponseEntity<?> getBestseller(SanPhamChiTietGiamGiaRepuest request) {
+        return Helper.createResponseEntity(productDetailService.getBestseller(request));
     }
 
     @GetMapping("/{id}/colors")

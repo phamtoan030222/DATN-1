@@ -34,7 +34,7 @@ const hidenLogoText = computed(() => {
 .brand-text {
   font-size: 1.6rem;
   font-weight: 900;
-  color: #049d14;
+  color: #0abe1c;
   margin-left: 10px;
   letter-spacing: -0.5px;
 }
