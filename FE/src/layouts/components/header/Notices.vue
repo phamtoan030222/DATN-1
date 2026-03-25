@@ -88,20 +88,6 @@ onUnmounted(() => {
         </template>
         <NoticeList :list="groupMessage[1]" @read="handleRead" />
       </n-tab-pane>
-
-      <n-tab-pane :name="2">
-        <template #tab>
-          <n-space class="w-130px" justify="center">
-            {{ $t("app.todos") }}
-            <n-badge
-              type="error"
-              :value="groupMessage[2]?.filter((i: any) => !i.isRead).length"
-              :max="99"
-            />
-          </n-space>
-        </template>
-        <NoticeList :list="groupMessage[2]" @read="handleRead" />
-      </n-tab-pane>
     </n-tabs>
   </n-popover>
 </template>

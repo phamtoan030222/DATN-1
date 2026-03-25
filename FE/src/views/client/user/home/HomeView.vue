@@ -311,19 +311,6 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Benefits Strip -->
-      <div class="benefits-strip">
-        <div v-for="b in quickBenefits" :key="b.id" class="benefit-item">
-          <div class="benefit-icon">
-            <NovaIcon :icon="b.icon" :size="22" color="#18a058" />
-          </div>
-          <div class="benefit-text">
-            <span class="benefit-title">{{ b.title }}</span>
-            <span class="benefit-desc">{{ b.desc }}</span>
-          </div>
-        </div>
-      </div>
-
       <!-- Brands Section -->
       <section class="brands-section">
         <div class="section-header">

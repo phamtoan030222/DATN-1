@@ -1,7 +1,7 @@
 {
   "common": {
-    "cancel": "Cancel",
-    "confirm": "Confirm",
+    "cancel": "Thoát",
+    "confirm": "Xác nhận",
     "close": "Closure",
     "reload": "Refresh",
     "choose": "Choose",
@@ -10,9 +10,9 @@
     "selectPlaceholder": "please choose"
   },
   "app": {
-    "loginOut": "Login out",
-    "loginOutContent": "Confirm to log out of current account?",
-    "loginOutTitle": "Sign out",
+    "loginOut": "Đăng xuất",
+    "loginOutContent": "Xác nhận đăng xuất khỏi hệ thống?",
+    "loginOutTitle": "Đăng xuất",
     "userCenter": "Personal center",
     "light": "Light",
     "dark": "Dark",
@@ -26,10 +26,10 @@
     "colorWeak": "Color Weakness Mode",
     "interfaceDisplay": "Interface display",
     "logoDisplay": "LOGO display",
-    "messages": "Messages",
+    "messages": "Tin nhắn",
     "multitab": "Display multiple tabs",
-    "notifications": "Notify",
-    "notificationsTips": "Notification",
+    "notifications": "Thông báo",
+    "notificationsTips": "Thông báo",
     "pageTransition": "Page transition",
     "reset": "Reset",
     "resetSettingContent": "Confirm to reset all settings?",
