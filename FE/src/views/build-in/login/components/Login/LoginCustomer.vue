@@ -32,7 +32,7 @@ function handleLogin() {
       const token = await postLogin(formValue.value.account, formValue.value.pwd, 'CUSTOMER')
       if (token)
         window.location.href = `${VITE_BASE_URL_CLIENT}/redirect?state=${token.state}`
-      notification.error({ content: 'Đăng nhập thành công.', duration: 3000,
+      notification.success({ content: 'Đăng nhập thành công.', duration: 3000,
       })
     }
     catch (error) {

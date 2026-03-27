@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { refreshTokenRequest } from '@/service/request';
+import { useAuthStore } from '@/store'
+import { getUserInformation } from '@/utils/token.helper';
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDialog, useNotification } from 'naive-ui'
@@ -7,9 +10,9 @@ import heic2any from 'heic2any'
 
 import { changeCustomerPassword, postInformation } from '@/service/api/client/customer/customer.api'
 import { uploadAvatar } from '@/service/api/admin/users/customer/customer'
-import { useAuthStore } from '@/store'
 
 const authStore = useAuthStore()
+const { handleLoginInfo } = authStore;
 const { userInfoDatn } = storeToRefs(authStore)
 const notification = useNotification()
 const dialog = useDialog()
@@ -33,7 +36,7 @@ const profile = ref<ProfileState>({
   name: userInfoDatn.value?.fullName ?? '',
   email: userInfoDatn.value?.email as string ?? '',
   phone: userInfoDatn.value?.phone as string ?? '',
-  avatarUrl: userInfoDatn.value?.pictureUrl || userInfoDatn.value?.avatarUrl || '',
+  avatarUrl: userInfoDatn.value?.pictureUrl || '',
 })
 
 // ==========================================
@@ -203,34 +206,12 @@ async function handleCustomUpload({ file, onFinish, onError }: UploadCustomReque
       avatarUrl: profile.value.avatarUrl,
     })
 
-    // ÉP CẬP NHẬT GIAO DIỆN (Chữa cháy lỗi Reactivity của Pinia)
-    if (userInfoDatn.value) {
-      userInfoDatn.value.pictureUrl = newImageUrl
-      userInfoDatn.value.avatarUrl = newImageUrl
-    }
-
-    // Gọi store
-    if (typeof authStore.updateUserProfile === 'function') {
-      authStore.updateUserProfile({
-        avatar: newImageUrl,
-        pictureUrl: newImageUrl,
-      })
-    }
-
-    // XỬ LÝ FIX LỖI TẠM THỜI CHO VIỆC F5 (NẾU BẠN CHƯA CẬP NHẬT TRONG STORE)
-    const storageKey = 'user-info' // LƯU Ý: Đổi tên key này thành tên key bạn đang dùng trong DevTools (ví dụ: 'user', 'userInfo', 'auth')
-    const localData = localStorage.getItem(storageKey)
-    if (localData) {
-      try {
-        const parsed = JSON.parse(localData)
-        parsed.pictureUrl = newImageUrl
-        parsed.avatarUrl = newImageUrl
-        localStorage.setItem(storageKey, JSON.stringify(parsed))
-      }
-      catch (e) {
-        // Bỏ qua lỗi parse
-      }
-    }
+    const { accessToken, refreshToken } = await refreshTokenRequest();
+    handleLoginInfo({
+      accessToken,
+      refreshToken,
+      userInfo: getUserInformation(accessToken)
+    })
 
     notification.success({ content: 'Cập nhật ảnh đại diện thành công!', duration: 3000 })
     onFinish()
@@ -272,26 +253,22 @@ async function handleClickSave() {
       avatarUrl: profile.value.avatarUrl,
     })
 
-    // ÉP CẬP NHẬT GIAO DIỆN NẾU THAY ĐỔI TÊN
-    if (userInfoDatn.value) {
-      userInfoDatn.value.fullName = profile.value.name
-    }
-
-    if (typeof authStore.updateUserProfile === 'function') {
-      authStore.updateUserProfile({
-        fullName: profile.value.name,
-        avatar: profile.value.avatarUrl,
-        pictureUrl: profile.value.avatarUrl,
-      })
-    }
-
     notification.success({ content: 'Cập nhật thông tin thành công', duration: 3000 })
+
+    const { accessToken, refreshToken } = await refreshTokenRequest();
+    handleLoginInfo({
+      accessToken,
+      refreshToken,
+      userInfo: getUserInformation(accessToken)
+    })
   }
   catch (e) {
     notification.error({ content: 'Lỗi khi thay đổi. Vui lòng kiểm tra lại', duration: 3000 })
   }
   finally {
     isSubmittingProfile.value = false
+    notification.success({content: "Cập nhật thành công", duration: 3000})
+
   }
 }
 </script>
