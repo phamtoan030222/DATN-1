@@ -197,7 +197,7 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
             totalAmount = totalAmount.add(invoice.getShippingFee());
         }
 
-        if (!Objects.isNull(invoice.getShippingFee())) {
+        if (!Objects.isNull(invoice.getVoucher())) {
             Voucher voucher = invoice.getVoucher();
             if (voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE) {
                 totalAmount = totalAmount.multiply(BigDecimal.valueOf(100).subtract(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP));
