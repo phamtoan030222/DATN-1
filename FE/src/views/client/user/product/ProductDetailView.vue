@@ -916,7 +916,7 @@ onUnmounted(() => {
   color: #64748b;
 }
 .breadcrumb-item { cursor: pointer; transition: color 0.2s; }
-.breadcrumb-item:hover { color: #16a34a; }
+.breadcrumb-item:hover { color: #8ac7a0; }
 .breadcrumb-item.active { color: #16a34a; font-weight: 600; }
 .breadcrumb-separator { color: #cbd5e1; }
 
@@ -1064,7 +1064,7 @@ onUnmounted(() => {
 /* VOUCHER MODAL LIST */
 .voucher-list { max-height: 450px; overflow-y: auto; padding: 4px; }
 .voucher-item { position: relative; display: flex; padding: 16px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 16px; cursor: pointer; transition: all 0.2s; background: white; }
-.voucher-item:hover { border-color: #16a34a; background: #0bb53e; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.05); }
+.voucher-item:hover { border-color: #16a34a; background: #c7eed3; box-shadow: 0 4px 12px rgba(22, 163, 74, 0.05); }
 .voucher-item.selected { border-color: #16a34a; background: #f0fdf4; }
 .voucher-badge { position: absolute; top: -10px; right: -10px; background: #f59e0b; color: white; font-size: 10px; font-weight: 800; padding: 4px 10px; border-radius: 12px; z-index: 2; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
 .voucher-left { flex: 1; }

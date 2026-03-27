@@ -325,7 +325,7 @@ function goToDetail(idProductDetail: string) {
 
                     <div class="quantity-control">
                       <button
-                        class="qty-btn"
+                        class="qty-btn btn-minus"
                         :disabled="item.quantity <= 1"
                         @click.stop="handleUpdateQuantity(item, item.quantity - 1)"
                       >
@@ -344,7 +344,7 @@ function goToDetail(idProductDetail: string) {
                       >
 
                       <button
-                        class="qty-btn"
+                        class="qty-btn btn-plus"
                         :disabled="item.quantity >= 5"
                         @click.stop="handleUpdateQuantity(item, item.quantity + 1)"
                       >
@@ -598,8 +598,19 @@ function goToDetail(idProductDetail: string) {
   display: flex; align-items: center; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; height: 32px; width: 100%;
 }
 .qty-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border: none; cursor: pointer; color: #475569; transition: all 0.2s; }
-.qty-btn:hover:not(:disabled) { background: #18a058; color: white; }
 .qty-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* CSS Hiệu ứng mới cho nút Trừ và Cộng */
+.qty-btn.btn-minus:hover:not(:disabled) {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.qty-btn.btn-plus:hover:not(:disabled) {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
 .qty-input { flex: 1; height: 32px; border: none; border-left: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; text-align: center; font-weight: 600; color: #1e293b; font-size: 13px; -moz-appearance: textfield; width: 100%; }
 .qty-input::-webkit-outer-spin-button, .qty-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .qty-input:focus { outline: none; border-color: #18a058; }

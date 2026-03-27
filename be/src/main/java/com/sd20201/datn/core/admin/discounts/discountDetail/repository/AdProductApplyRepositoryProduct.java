@@ -38,8 +38,8 @@ public interface AdProductApplyRepositoryProduct extends ProductDiscountDetailRe
                                       LEFT JOIN pd.gpu g
                                       LEFT JOIN pd.cpu cpu
             WHERE d.id = :discountId
-            AND c.status =0 
-            AND pd.status =0 
+            AND c.status =0
+            AND pd.status =0
             ORDER BY c.createdDate DESC
             """,
                 countQuery = """

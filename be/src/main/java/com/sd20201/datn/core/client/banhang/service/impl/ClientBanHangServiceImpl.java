@@ -508,18 +508,11 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
     @Override
     public ResponseObject<?> getListGioHang(String id) {
+        // Lấy thời gian thực tế dạng Long
         Long currentTime = System.currentTimeMillis();
-        List<String> idCurrentDiscounts = productDetailDiscountRepository.getIdByDate(currentTime);
-
-        if (!idCurrentDiscounts.isEmpty()) {
-            return ResponseObject.successForward(
-                    cartItemRepository.getCartItemsContainDiscountById(id, idCurrentDiscounts),
-                    "OKE"
-            );
-        }
 
         return ResponseObject.successForward(
-                cartItemRepository.getCartItemsById(id),
+                cartItemRepository.getCartItemsById(id, currentTime),
                 "OKE"
         );
     }
