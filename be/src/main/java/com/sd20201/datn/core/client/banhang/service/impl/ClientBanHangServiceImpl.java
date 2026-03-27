@@ -146,7 +146,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                             .flatMap(customerRepository::findById)
                             .orElse(null)
             );
-
+            invoice.setEmail(request.getEmail());
             // Set tiền (Lấy từ request hoặc tính lại nếu cần bảo mật cao)
             invoice.setTotalAmount(request.getTongTien());
             invoice.setShippingFee(request.getTienShip());
