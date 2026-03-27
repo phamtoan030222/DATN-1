@@ -25,26 +25,14 @@ const rules = computed(() => {
     account: {
       required: true,
       trigger: ['blur', 'input'],
-      message: t('login.accountRuleTip') || 'Vui lòng nhập tài khoản',
+      message: 'Vui lòng nhập tài khoản',
     },
     pwd: {
       required: true,
       trigger: ['blur', 'input'],
-      message: t('login.passwordRuleTip') || 'Vui lòng nhập mật khẩu',
+      message: 'Vui lòng nhập mật khẩu',
     },
   }
-    return {
-        account: {
-            required: true,
-            trigger: 'blur',
-            message: 'Vui lòng nhập tài khoản',
-        },
-        pwd: {
-            required: true,
-            trigger: 'blur',
-            message: 'Vui lòng nhập mật khẩu',
-        },
-    }
 })
 
 onMounted(() => {
@@ -121,7 +109,7 @@ function handleRedirectLoginADMIN() {
         <n-h3>{{ appName }}</n-h3>
 
         <transition name="fade-slide" mode="out-in">
-          <div class="w-full">
+          <div>
             <n-h2 depth="3" class="text-center mb-6">
               Đăng nhập Quản trị
             </n-h2>
