@@ -39,7 +39,7 @@
 
           <n-space>
             <NButton type="error" block ghost @click="openCancelModal"
-              v-if="+(invoice.invoiceStatus) === 0 && invoice.typePayment == 'TIEN_MAT' && isLoggedIn && invoice.trangThaiThanhToan == 'CHUA_THANH_TOAN'"
+              v-if="isCanEditInvoice"
               :style="{ maxWidth: '150px' }">
               <template #icon>
                 <n-icon>
@@ -148,7 +148,7 @@
                   Thông tin người nhận hàng
                 </h2>
               </div>
-              <div class="" v-if="invoice.invoiceStatus === 0 && isLoggedIn">
+              <div class="" v-if="isCanEditInvoice" >
                 <n-tooltip trigger="hover">
                   <template #trigger>
                     <n-button :bordered="false" circle size="large" secondary type="success"
@@ -222,7 +222,7 @@
               Sản phẩm đã đặt
             </h2>
           </div>
-          <div v-if="invoice.invoiceStatus == 0 && isLoggedIn">
+          <div v-if="isCanEditInvoice">
             <n-tooltip trigger="hover">
               <template #trigger>
                 <n-button :bordered="false" circle size="large" secondary type="success"
@@ -612,6 +612,7 @@ const discount = computed(() => {
   return invoice.value?.totalAmountAfterDecrease - (invoice.value.totalAmount ?? subtotal.value) + invoice.value.shippingFee
 })
 const shippingFee = computed(() => invoice.value?.shippingFee ?? 0)
+const isCanEditInvoice = computed(() => invoice.value && +(invoice.value.invoiceStatus) === 0 && invoice.value.typePayment == 'TIEN_MAT' && isLoggedIn && invoice.value.trangThaiThanhToan == 'CHUA_THANH_TOAN')
 
 // Computed values
 const isCancelled = computed(() => currentStatus.value === 5)
@@ -724,6 +725,7 @@ const handleSearch = (): void => {
 }
 
 const openCancelModal = (): void => {
+  if(!isCanEditInvoice.value) return;
   isOpenModalCancelInvoice.value = true
 }
 
