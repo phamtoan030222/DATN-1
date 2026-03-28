@@ -69,8 +69,10 @@ public class NotificationService {
         }
     }
 
+
+    // Service
     public List<NotificationDTO> getAll() {
-        return notificationRepository.findAllByOrderByCreatedDateDesc()
+        return notificationRepository.findAllByIsReadFalseOrderByCreatedDateDesc()
                 .stream()
                 .map(n -> NotificationDTO.builder()
                         .id(n.getId())

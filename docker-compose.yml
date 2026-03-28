@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+
+  mysql:
+    image: mysql:8
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+      MYSQL_DATABASE: mydb
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    build: ./be
+    container_name: springboot
+    ports:
+      - "2345:2345"
+    depends_on:
+      - mysql
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/mydb
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: 123456
+
+  frontend:
+    build: ./FE
+    container_name: vue
+    ports:
+    - "6788:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

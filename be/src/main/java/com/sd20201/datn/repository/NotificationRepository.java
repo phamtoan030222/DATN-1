@@ -13,6 +13,9 @@ public interface NotificationRepository extends JpaRepository<Notification, Stri
 
     List<Notification> findAllByOrderByCreatedDateDesc();
 
+    List<Notification> findAllByIsReadFalseOrderByCreatedDateDesc();
+
+
     long countByIsReadFalse();
 
     @Modifying
