@@ -868,6 +868,7 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
   font-size: 13px; font-weight: 700; color: var(--text-primary);
   background: var(--bg-soft);
   border-bottom: 1px solid var(--border);
+}
 .sale-timer.ongoing { background: linear-gradient(135deg, rgb(244, 64, 64), #f47940); }
 .sale-timer.upcoming { background: linear-gradient(135deg, #1717c6, #1e58af); }
 .timer-left { display: flex; align-items: center; gap: 12px; }

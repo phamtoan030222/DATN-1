@@ -62,9 +62,7 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
 
     @Override
     public ResponseObject<?> getById(String code) {
-        Optional<String> customerIdOptional = userContextHelper.getCurrentUserId();
-
-        return invoiceRepository.getInvoiceByCode(code, customerIdOptional.orElse(null))
+        return invoiceRepository.getInvoiceByCode(code)
                 .map(invoice -> ResponseObject.successForward(invoice, "Fetch invoice success"))
                 .orElse(ResponseObject.errorForward("Fetch invoice failure", HttpStatus.NOT_FOUND));
     }
@@ -72,7 +70,7 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     @Override
     public ResponseObject<?> getHistoryInvoiceById(String idHoaDon) {
         return ResponseObject.successForward(
-                invoiceRepository.getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(idHoaDon, userContextHelper.getCurrentUserId().orElse(null)),
+                invoiceRepository.getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(idHoaDon),
                 "OKE"
         );
     }
@@ -88,7 +86,7 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     @Override
     public ResponseObject<?> getInvoiceByIdCustomer(ClientGetInvoicesRequest request) {
         return ResponseObject.successForward(
-                invoiceRepository.getInvoicesByIdCustomer(userContextHelper.getCurrentUserId().orElse(null), request),
+                invoiceRepository.getInvoicesByIdCustomer(request),
                 "OKE"
         );
     }

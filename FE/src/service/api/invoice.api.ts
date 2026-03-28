@@ -18,6 +18,7 @@ export interface ClientInvoiceDetailResponse {
     shippingFee: number
     typePayment: string
     trangThaiThanhToan: string
+    idCustomer: string
 }
 
 // converted from Java interface ClientInvoiceDetailsResponse
