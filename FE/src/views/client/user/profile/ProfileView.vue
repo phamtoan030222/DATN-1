@@ -1,18 +1,21 @@
 <script setup lang="ts">
+import { refreshTokenRequest } from '@/service/request';
+import { useAuthStore } from '@/store'
+import { getUserInformation } from '@/utils/token.helper';
 import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useNotification } from 'naive-ui'
-import type { FormInst, FormRules, UploadFileInfo } from 'naive-ui'
+import { useDialog, useNotification } from 'naive-ui'
+import type { FormInst, FormRules, UploadCustomRequestOptions } from 'naive-ui'
 import heic2any from 'heic2any'
 
-// ⚠️ LƯU Ý: Đừng quên import API đổi mật khẩu dành cho Customer của bạn vào đây nhé
-import { changeCustomerPassword, forgotCustomerPassword, postInformation } from '@/service/api/client/customer/customer.api'
+import { changeCustomerPassword, postInformation } from '@/service/api/client/customer/customer.api'
 import { uploadAvatar } from '@/service/api/admin/users/customer/customer'
-import { useAuthStore } from '@/store'
 
 const authStore = useAuthStore()
+const { handleLoginInfo } = authStore;
 const { userInfoDatn } = storeToRefs(authStore)
 const notification = useNotification()
+const dialog = useDialog()
 
 // ==========================================
 // STATE: THÔNG TIN HỒ SƠ
@@ -33,7 +36,7 @@ const profile = ref<ProfileState>({
   name: userInfoDatn.value?.fullName ?? '',
   email: userInfoDatn.value?.email as string ?? '',
   phone: userInfoDatn.value?.phone as string ?? '',
-  avatarUrl: userInfoDatn.value?.pictureUrl || userInfoDatn.value?.avatarUrl || '',
+  avatarUrl: userInfoDatn.value?.pictureUrl || '',
 })
 
 // ==========================================
@@ -71,15 +74,12 @@ async function handleUpdatePassword() {
     await pwdFormRef.value?.validate()
     isSubmittingPwd.value = true
 
-    // GỌI API ĐỔI MẬT KHẨU
     await changeCustomerPassword({
       matKhauCu: pwdFormValue.value.oldPassword,
       matKhauMoi: pwdFormValue.value.newPassword,
     })
 
     notification.success({ content: 'Đổi mật khẩu thành công!', duration: 3000 })
-
-    // Reset form sau khi đổi xong
     pwdFormValue.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
   }
   catch (error: any) {
@@ -162,21 +162,22 @@ async function processAndCompressImage(file: File, maxSizeMB: number, maxWidth =
 }
 
 // ==========================================
-// LOGIC: ĐỔI ẢNH ĐẠI DIỆN
+// LOGIC: ĐỔI ẢNH ĐẠI DIỆN (ĐỘC LẬP & TỰ ĐỘNG LƯU)
 // ==========================================
-async function handleAvatarChange(options: { fileList: UploadFileInfo[] }) {
-  const fileInfo = options.fileList[0]
-  if (!fileInfo || !fileInfo.file)
+async function handleCustomUpload({ file, onFinish, onError }: UploadCustomRequestOptions) {
+  const actualFile = file.file as File | null | undefined
+  if (!actualFile) {
+    onError()
     return
+  }
 
-  const actualFile = fileInfo.file as File
   const type = actualFile.type || ''
   const name = actualFile.name || ''
-
   const isImage = type.includes('image/') || /\.(jpg|jpeg|png|webp|gif|heic)$/i.test(name)
+
   if (!isImage) {
     notification.error({ content: 'Chỉ hỗ trợ tải lên file ảnh!', duration: 3000 })
-    options.fileList.pop()
+    onError()
     return
   }
 
@@ -186,25 +187,38 @@ async function handleAvatarChange(options: { fileList: UploadFileInfo[] }) {
     const finalFile = await processAndCompressImage(actualFile, 2, 800)
     const uploadRes = await uploadAvatar(finalFile)
 
-    const newImageUrl = uploadRes?.url || uploadRes?.data?.url || uploadRes
+    let newImageUrl = uploadRes?.url || uploadRes?.data?.url || uploadRes
     if (!newImageUrl || typeof newImageUrl !== 'string') {
       throw new Error('Không lấy được đường dẫn ảnh từ server!')
     }
 
-    profile.value.avatarUrl = newImageUrl
-
-    // CẬP NHẬT HEADER
-    if (typeof authStore.updateUserProfile === 'function') {
-      authStore.updateUserProfile({
-        avatar: newImageUrl,
-        pictureUrl: newImageUrl,
-      })
+    if (!newImageUrl.startsWith('http')) {
+      newImageUrl = `http://localhost:2345${newImageUrl.startsWith('/') ? '' : '/'}${newImageUrl}`
     }
 
-    notification.success({ content: 'Tải ảnh lên thành công! Nhấn "Lưu" để hoàn tất.', duration: 3000 })
+    profile.value.avatarUrl = newImageUrl
+
+    // Tự động gọi API lưu thông tin
+    await postInformation({
+      fullName: profile.value.name,
+      email: profile.value.email,
+      phoneNumber: profile.value.phone,
+      avatarUrl: profile.value.avatarUrl,
+    })
+
+    const { accessToken, refreshToken } = await refreshTokenRequest();
+    handleLoginInfo({
+      accessToken,
+      refreshToken,
+      userInfo: getUserInformation(accessToken)
+    })
+
+    notification.success({ content: 'Cập nhật ảnh đại diện thành công!', duration: 3000 })
+    onFinish()
   }
   catch (error: any) {
     notification.error({ content: error.message || 'Lỗi khi lưu ảnh!', duration: 3000 })
+    onError()
   }
   finally {
     isUploadingAvatar.value = false
@@ -212,8 +226,22 @@ async function handleAvatarChange(options: { fileList: UploadFileInfo[] }) {
 }
 
 // ==========================================
-// LOGIC: LƯU THÔNG TIN HỒ SƠ
+// LOGIC: LƯU THÔNG TIN HỒ SƠ CÓ XÁC NHẬN
 // ==========================================
+function confirmSaveProfile() {
+  dialog.warning({
+    title: 'Xác nhận lưu thay đổi',
+    content: 'Bạn có chắc chắn muốn cập nhật thông tin hồ sơ này?',
+    positiveText: 'Lưu thay đổi',
+    negativeText: 'Hủy bỏ',
+    // Cấu hình đổi màu nút xác nhận thành xanh lá
+    positiveButtonProps: { color: '#16a34a', textColor: '#fff' },
+    onPositiveClick: () => {
+      handleClickSave()
+    },
+  })
+}
+
 async function handleClickSave() {
   try {
     isSubmittingProfile.value = true
@@ -222,31 +250,32 @@ async function handleClickSave() {
       fullName: profile.value.name,
       email: profile.value.email,
       phoneNumber: profile.value.phone,
-      // avatarUrl: profile.value.avatarUrl // Mở cmt nếu backend bạn có lưu avatar ở API này
+      avatarUrl: profile.value.avatarUrl,
     })
 
-    if (typeof authStore.updateUserProfile === 'function') {
-      authStore.updateUserProfile({
-        fullName: profile.value.name,
-        avatar: profile.value.avatarUrl,
-        pictureUrl: profile.value.avatarUrl,
-      })
-    }
+    notification.success({ content: 'Cập nhật thông tin thành công', duration: 3000 })
 
-    notification.success({ content: 'Cập nhật thành công', duration: 3000 })
+    const { accessToken, refreshToken } = await refreshTokenRequest();
+    handleLoginInfo({
+      accessToken,
+      refreshToken,
+      userInfo: getUserInformation(accessToken)
+    })
   }
   catch (e) {
     notification.error({ content: 'Lỗi khi thay đổi. Vui lòng kiểm tra lại', duration: 3000 })
   }
   finally {
     isSubmittingProfile.value = false
+    notification.success({content: "Cập nhật thành công", duration: 3000})
+
   }
 }
 </script>
 
 <template>
-  <div class="bg-gray-100 min-h-screen py-10">
-    <div class="bg-white p-6 md:p-10 rounded-lg shadow-sm w-full max-w-[1100px] mx-auto">
+  <div class="bg-white min-h-screen py-10">
+    <div class="bg-white p-6 md:p-10 rounded-lg shadow-md border border-gray-100 w-full max-w-[1100px] mx-auto">
       <n-tabs type="line" animated size="large" class="custom-tabs">
         <n-tab-pane name="profile" tab="Hồ sơ của tôi">
           <div class="mt-4">
@@ -277,11 +306,10 @@ async function handleClickSave() {
 
                   <div class="ml-[140px] mt-6">
                     <n-button
-                      type="primary"
-                      size="large"
-                      class="w-[120px] bg-green-600 hover:bg-green-700 font-semibold"
+                      type="primary" size="large"
+                      class="w-[120px] bg-green-600 hover:bg-green-700 font-semibold border-none"
                       :loading="isSubmittingProfile"
-                      @click="handleClickSave"
+                      @click="confirmSaveProfile"
                     >
                       Lưu
                     </n-button>
@@ -296,17 +324,16 @@ async function handleClickSave() {
                       action=""
                       :show-file-list="false"
                       accept="image/png, image/jpeg, image/webp, .heic"
-                      :custom-request="() => {}"
-                      @change="handleAvatarChange"
+                      :custom-request="handleCustomUpload"
                     >
                       <n-avatar
-                        round
-                        :size="120"
-                        :src="profile.avatarUrl"
+                        round :size="120" :src="profile.avatarUrl"
                         fallback-src="https://07akioni.oss-cn-beijing.aliyuncs.com/07akioni.jpeg"
                         class="border border-gray-200 transition-opacity group-hover:opacity-80 object-cover"
                       />
-                      <div class="absolute inset-0 flex items-center justify-center rounded-full bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div
+                        class="absolute inset-0 flex items-center justify-center rounded-full bg-black bg-opacity-40 opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
                         <span class="text-white text-sm font-medium">Sửa ảnh</span>
                       </div>
                     </n-upload>
@@ -329,53 +356,34 @@ async function handleClickSave() {
 
             <div class="w-full md:w-1/2">
               <n-form
-                ref="pwdFormRef"
-                :model="pwdFormValue"
-                :rules="pwdRules"
-                label-placement="left"
-                label-width="180"
+                ref="pwdFormRef" :model="pwdFormValue" :rules="pwdRules" label-placement="left" label-width="180"
                 require-mark-placement="right-hanging"
               >
                 <n-form-item label="Mật khẩu hiện tại" path="oldPassword">
                   <n-input
-                    v-model:value="pwdFormValue.oldPassword"
-                    type="password"
-                    show-password-on="click"
-                    placeholder="Nhập mật khẩu hiện tại"
-                    size="large"
-                    @keyup.enter="handleUpdatePassword"
+                    v-model:value="pwdFormValue.oldPassword" type="password" show-password-on="click"
+                    placeholder="Nhập mật khẩu hiện tại" size="large" @keyup.enter="handleUpdatePassword"
                   />
                 </n-form-item>
 
                 <n-form-item label="Mật khẩu mới" path="newPassword">
                   <n-input
-                    v-model:value="pwdFormValue.newPassword"
-                    type="password"
-                    show-password-on="click"
-                    placeholder="Nhập mật khẩu mới"
-                    size="large"
-                    @keyup.enter="handleUpdatePassword"
+                    v-model:value="pwdFormValue.newPassword" type="password" show-password-on="click"
+                    placeholder="Nhập mật khẩu mới" size="large" @keyup.enter="handleUpdatePassword"
                   />
                 </n-form-item>
 
                 <n-form-item label="Xác nhận mật khẩu mới" path="confirmPassword">
                   <n-input
-                    v-model:value="pwdFormValue.confirmPassword"
-                    type="password"
-                    show-password-on="click"
-                    placeholder="Nhập lại mật khẩu mới"
-                    size="large"
-                    @keyup.enter="handleUpdatePassword"
+                    v-model:value="pwdFormValue.confirmPassword" type="password" show-password-on="click"
+                    placeholder="Nhập lại mật khẩu mới" size="large" @keyup.enter="handleUpdatePassword"
                   />
                 </n-form-item>
 
                 <div class="ml-[180px] mt-6">
                   <n-button
-                    type="primary"
-                    size="large"
-                    class="w-[120px] bg-green-600 hover:bg-green-700 font-semibold"
-                    :loading="isSubmittingPwd"
-                    @click="handleUpdatePassword"
+                    type="primary" size="large" class="w-[120px] bg-green-600 hover:bg-green-700 font-semibold border-none"
+                    :loading="isSubmittingPwd" @click="handleUpdatePassword"
                   >
                     Cập nhật
                   </n-button>
@@ -390,7 +398,6 @@ async function handleClickSave() {
 </template>
 
 <style scoped>
-/* Chỉnh style một chút cho phần Tabs nhìn sang trọng hơn */
 :deep(.custom-tabs .n-tabs-tab) {
   font-size: 16px;
   font-weight: 500;

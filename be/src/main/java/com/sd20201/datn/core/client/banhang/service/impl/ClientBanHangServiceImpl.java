@@ -146,7 +146,7 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                             .flatMap(customerRepository::findById)
                             .orElse(null)
             );
-
+            invoice.setEmail(request.getEmail());
             // Set tiền (Lấy từ request hoặc tính lại nếu cần bảo mật cao)
             invoice.setTotalAmount(request.getTongTien());
             invoice.setShippingFee(request.getTienShip());
@@ -508,18 +508,11 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
     @Override
     public ResponseObject<?> getListGioHang(String id) {
+        // Lấy thời gian thực tế dạng Long
         Long currentTime = System.currentTimeMillis();
-        List<String> idCurrentDiscounts = productDetailDiscountRepository.getIdByDate(currentTime);
-
-        if (!idCurrentDiscounts.isEmpty()) {
-            return ResponseObject.successForward(
-                    cartItemRepository.getCartItemsContainDiscountById(id, idCurrentDiscounts),
-                    "OKE"
-            );
-        }
 
         return ResponseObject.successForward(
-                cartItemRepository.getCartItemsById(id),
+                cartItemRepository.getCartItemsById(id, currentTime),
                 "OKE"
         );
     }

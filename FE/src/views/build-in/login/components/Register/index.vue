@@ -4,8 +4,8 @@ import { useRouter } from 'vue-router'
 import { useNotification } from 'naive-ui'
 import type { FormInst } from 'naive-ui'
 import { VITE_BASE_URL_CLIENT } from '@/constants/url'
-import { postLogin, postRegister } from '@/service/api/auth/auth.api'
-import type { RegisterRequest } from '@/service/api/auth/auth.api'
+import { postLogin, postRegister, RegisterRequest } from '@/service/api/auth/auth.api'
+import dayjs from 'dayjs'
 
 const router = useRouter()
 const notification = useNotification()
@@ -14,9 +14,9 @@ const loading = ref(false)
 
 const formValue = ref<RegisterRequest & { repassword?: string }>({
   fullname: '',
-  birthday: undefined,
+  birthday:  dayjs().valueOf(),
   email: '',
-  phone: '',
+  phoneNumber: '',
   username: '',
   password: '',
   repassword: '',
@@ -26,7 +26,7 @@ const rules: any = {
   fullname: { required: true, trigger: 'blur', message: 'Vui lòng nhập họ tên' },
   birthday: { type: 'number', required: true, trigger: ['blur', 'change'], message: 'Chọn ngày sinh' },
   email: { required: true, trigger: 'blur', type: 'email', message: 'Email hợp lệ' },
-  phone: { required: true, trigger: 'blur', pattern: /^0\d{9}$/, message: 'SĐT hợp lệ' },
+  phoneNumber: { required: true, trigger: 'blur', pattern: /^0\d{9}$/, message: 'SĐT hợp lệ' },
   username: { required: true, trigger: 'blur', min: 4, message: 'Ít nhất 4 ký tự' },
   password: { required: true, trigger: 'blur', min: 6, message: 'Ít nhất 6 ký tự' },
   repassword: {
@@ -36,13 +36,21 @@ const rules: any = {
   },
 }
 
+// const formValue = ref<RegisterRequest>({
+//   fullname: '',
+//   birthday: undefined,
+//   email: '',
+//   phone: '',
+//   account: '',
+//   password: '',
+//   repassword: '',
+// })
+
 async function handleRegister() {
   try {
     await formRef.value?.validate()
     loading.value = true
-    const payload = { ...formValue.value }
-    delete payload.repassword
-    await postRegister(payload)
+    await postRegister(formValue.value)
     notification.success({ content: 'Đăng ký thành công', duration: 3000 })
     const token = await postLogin(formValue.value.username, formValue.value.password, 'CUSTOMER')
     if (token)
@@ -81,8 +89,8 @@ async function handleRegister() {
           <n-form-item-gi :span="24" path="fullname">
             <n-input v-model:value="formValue.fullname" placeholder="Họ và tên" clearable :disabled="loading" class="rounded-md" />
           </n-form-item-gi>
-          <n-form-item-gi :span="12" path="phone">
-            <n-input v-model:value="formValue.phone" placeholder="Số điện thoại" clearable :disabled="loading" class="rounded-md" />
+          <n-form-item-gi :span="12" path="phoneNumber">
+            <n-input v-model:value="formValue.phoneNumber" placeholder="Số điện thoại" clearable :disabled="loading" class="rounded-md" />
           </n-form-item-gi>
           <n-form-item-gi :span="12" path="birthday">
             <n-date-picker v-model:value="formValue.birthday" type="date" placeholder="Ngày sinh" class="w-full rounded-md" />

@@ -39,7 +39,7 @@
 
           <n-space>
             <NButton type="error" block ghost @click="openCancelModal"
-              v-if="+(invoice.invoiceStatus) === 0 && invoice.typePayment == 'TIEN_MAT' && isLoggedIn"
+              v-if="+(invoice.invoiceStatus) === 0 && invoice.typePayment == 'TIEN_MAT' && isLoggedIn && invoice.trangThaiThanhToan == 'CHUA_THANH_TOAN'"
               :style="{ maxWidth: '150px' }">
               <template #icon>
                 <n-icon>
