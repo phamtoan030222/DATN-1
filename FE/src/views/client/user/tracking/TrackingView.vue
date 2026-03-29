@@ -285,7 +285,9 @@
                   size="small" :bordered="isEditQuantityProduct" style="width: 100px" placeholder="Nhập số lượng"
                   :max="5"
                   :input-props="{ style: 'border:none; box-shadow:none; background:transparent; font-weight:600; font-size:15px; padding:0 4px; text-align: center;' }"
-                  :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit" />
+                  :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit"
+                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)"
+                  />
                 <button v-if="isEditQuantityProduct" class="qty-btn"
                   :disabled="updateProductDetails[index].quantity >= 5 || updateProductDetails[index].itNotEdit"
                   @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity + 1)">
