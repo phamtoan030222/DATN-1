@@ -39,7 +39,7 @@
 
           <n-space>
             <NButton type="error" block ghost @click="openCancelModal"
-              v-if="isCanEditInvoice"
+              v-if="isCanCancelInvoice"
               :style="{ maxWidth: '150px' }">
               <template #icon>
                 <n-icon>
@@ -148,7 +148,7 @@
                   Thông tin người nhận hàng
                 </h2>
               </div>
-              <div class="" v-if="isCanEditInvoice" >
+              <div class="" v-if="isCanCancelInvoice" >
                 <n-tooltip trigger="hover">
                   <template #trigger>
                     <n-button :bordered="false" circle size="large" secondary type="success"
@@ -222,7 +222,7 @@
               Sản phẩm đã đặt
             </h2>
           </div>
-          <div v-if="isCanEditInvoice">
+          <div v-if="isCanCancelInvoice">
             <n-tooltip trigger="hover">
               <template #trigger>
                 <n-button :bordered="false" circle size="large" secondary type="success"
@@ -278,11 +278,16 @@
                     <RemoveOutline />
                   </NIcon>
                 </button>
-                <n-input-number v-model:value="updateProductDetails[index].quantity" :min="1" :show-button="false"
+                <n-input-number
+                  v-model:value="updateProductDetails[index].quantity"
+                  :min="1"
+                  :show-button="false"
                   size="small" :bordered="isEditQuantityProduct" style="width: 100px" placeholder="Nhập số lượng"
                   :max="5"
                   :input-props="{ style: 'border:none; box-shadow:none; background:transparent; font-weight:600; font-size:15px; padding:0 4px; text-align: center;' }"
-                  :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit" />
+                  :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit"
+                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)"
+                  />
                 <button v-if="isEditQuantityProduct" class="qty-btn"
                   :disabled="updateProductDetails[index].quantity >= 5 || updateProductDetails[index].itNotEdit"
                   @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity + 1)">
@@ -612,7 +617,14 @@ const discount = computed(() => {
   return invoice.value?.totalAmountAfterDecrease - (invoice.value.totalAmount ?? subtotal.value) + invoice.value.shippingFee
 })
 const shippingFee = computed(() => invoice.value?.shippingFee ?? 0)
-const isCanEditInvoice = computed(() => invoice.value && +(invoice.value.invoiceStatus) === 0 && invoice.value.typePayment == 'TIEN_MAT' && isLoggedIn && invoice.value.trangThaiThanhToan == 'CHUA_THANH_TOAN')
+const isCanCancelInvoice = computed(() => 
+  invoice.value &&
+  +(invoice.value.invoiceStatus) === 0 &&
+  invoice.value.typePayment == 'TIEN_MAT' &&
+  isLoggedIn.value &&
+  invoice.value.trangThaiThanhToan == 'CHUA_THANH_TOAN' &&
+  invoice.value.idCustomer === userInfoDatn.value?.userId
+)
 
 // Computed values
 const isCancelled = computed(() => currentStatus.value === 5)
@@ -725,7 +737,7 @@ const handleSearch = (): void => {
 }
 
 const openCancelModal = (): void => {
-  if(!isCanEditInvoice.value) return;
+  if(!isCanCancelInvoice.value) return;
   isOpenModalCancelInvoice.value = true
 }
 

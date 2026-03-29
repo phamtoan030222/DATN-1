@@ -31,9 +31,10 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.shippingFee as shippingFee
                 , i.typePayment as typePayment
                 , i.trangThaiThanhToan as trangThaiThanhToan
+                , i.customer.id as idCustomer
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE ( i.code = :code OR i.id = :code ) AND i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null )) AND i.typeInvoice IN (1, 3)
+            WHERE ( i.code = :code OR i.id = :code ) AND i.status = 0 AND i.typeInvoice IN (1, 3)
             GROUP BY
                 i.id,
                 i.code,
@@ -48,9 +49,10 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 i.createdDate,
                 i.shippingFee,
                 i.typePayment,
-                i.trangThaiThanhToan
+                i.trangThaiThanhToan,
+                i.customer.id
             """)
-    Optional<ClientInvoiceDetailResponse> getInvoiceByCode(String code, String customerId);
+    Optional<ClientInvoiceDetailResponse> getInvoiceByCode(String code);
 
     @Query(value = """
             SELECT
@@ -69,9 +71,10 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.shippingFee as shippingFee
                 , i.typePayment as typePayment
                 , i.trangThaiThanhToan as trangThaiThanhToan
+                , i.customer.id as idCustomer
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE i.status = 0 AND (i.customer.id = :customerId OR (:customerId is NULL  AND i.customer.id IS null ))
+            WHERE i.status = 0
                   AND (:#{#request.searchQuery} IS NULL OR :#{#request.searchQuery} = ''
                         OR LOWER(i.code) LIKE LOWER(CONCAT('%', :#{#request.searchQuery}, '%'))
                         )
@@ -95,10 +98,11 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 i.createdDate,
                 i.shippingFee,
                 i.typePayment,
-                i.trangThaiThanhToan
+                i.trangThaiThanhToan,
+                i.customer.id
             ORDER BY i.createdDate DESC
             """)
-    List<ClientInvoiceDetailResponse> getInvoicesByIdCustomer(String customerId, ClientGetInvoicesRequest request);
+    List<ClientInvoiceDetailResponse> getInvoicesByIdCustomer(ClientGetInvoicesRequest request);
 
     @Query("""
     SELECT
@@ -110,9 +114,8 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
         , lstthd.nhanVien.name as nameStaff
     FROM LichSuTrangThaiHoaDon lstthd
     WHERE lstthd.hoaDon.id = :idHoaDon
-    AND (lstthd.hoaDon.customer.id = :customerId OR (:customerId IS NULL AND lstthd.hoaDon.customer.id IS NULL))
     """)
-    List<LichSuTrangThaiHoaDonResponse> getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(String idHoaDon, String customerId);
+    List<LichSuTrangThaiHoaDonResponse> getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(String idHoaDon);
 
     @Query("""
      SELECT
