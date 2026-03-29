@@ -50,6 +50,8 @@ export interface LichSuTrangThaiHoaDonResponse {
     thoiGian: string
     idStaff: string,
     nameStaff: string,
+    idCustomer: string,
+    nameCustomer: string,
 }
 
 export type ClientInvoiceCancelRequest = {

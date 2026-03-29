@@ -198,7 +198,13 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         if (!Objects.isNull(invoice.getVoucher())) {
             Voucher voucher = invoice.getVoucher();
             if (voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE) {
-                totalAmount = totalAmount.multiply(BigDecimal.valueOf(100).subtract(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP));
+                BigDecimal newTotalAmount = totalAmount.multiply(
+                        BigDecimal.valueOf(100)
+                                .subtract(voucher.getDiscountValue())
+                                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                ).setScale(0, RoundingMode.HALF_UP);
+
+                totalAmount = newTotalAmount.compareTo(voucher.getMaxValue()) > 0 ? totalAmount.subtract(voucher.getMaxValue()) : newTotalAmount;
             } else if (voucher.getTypeVoucher() == TypeVoucher.FIXED_AMOUNT) {
                 totalAmount = totalAmount.subtract(voucher.getDiscountValue());
             }
