@@ -1,5 +1,6 @@
 package com.sd20201.datn.entity;
 
+import com.sd20201.datn.infrastructure.constant.EntityProperties;
 import com.sd20201.datn.infrastructure.constant.EntityTrangThaiHoaDon;
 import jakarta.persistence.*;
 import lombok.*;
@@ -30,7 +31,7 @@ public class LichSuTrangThaiHoaDon implements Serializable {
     @Column(name = "thoi_gian")
     private LocalDateTime thoiGian;
 
-    @Column(name = "note")
+    @Column(name = "note", length = EntityProperties.LENGTH_DESCRIPTION)
     private String note;
 
     @ManyToOne

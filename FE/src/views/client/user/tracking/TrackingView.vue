@@ -449,7 +449,7 @@
               {{ formatTime(item.thoiGian) }}
             </div>
             <div class="col-span-3 text-[14.5px] text-gray-800 font-semibold">
-              {{ item.nameStaff || 'Hệ thống tự động' }}
+              {{ item.nameStaff && item.nameStaff + ' (Nhân viên)' || item.nameCustomer && item.nameCustomer + ' (Khách hàng)' || 'Hệ thống tự động' }}
             </div>
             <div class="col-span-3 pr-4 text-[14px] text-gray-600 leading-relaxed">
               {{ item.note || '---' }}
@@ -977,10 +977,10 @@ const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) =
     const salePrice = productDetail.percentage ? (
       productDetail.percentage < 100 ? productDetail.price * (100 - productDetail.percentage) / 100 : productDetail.price - productDetail.percentage
     ) : productDetail.price;
-    if (salePrice > invoiceDetail.price) {
+    if (salePrice !== invoiceDetail.price) {
       dialog.warning({
         title: 'Giá của sản phẩm thay đổi',
-        content: `Giá của sản phẩm đã tăng từ ${formatCurrency(invoiceDetail.price)} lên ${formatCurrency(salePrice)}`,
+        content: `Giá của sản phẩm đã thay đổi từ ${formatCurrency(invoiceDetail.price)} lên ${formatCurrency(salePrice)}`,
         positiveText: 'Xác nhận',
         negativeText: 'Hủy',
         draggable: true,

@@ -112,7 +112,10 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
         , lstthd.thoiGian as thoiGian
         , lstthd.nhanVien.id as idStaff
         , lstthd.nhanVien.name as nameStaff
+        , lstthd.customer.id as idCustomer
+        , lstthd.customer.name as nameCustomer
     FROM LichSuTrangThaiHoaDon lstthd
+    LEFT JOIN lstthd.nhanVien nv
     WHERE lstthd.hoaDon.id = :idHoaDon
     """)
     List<LichSuTrangThaiHoaDonResponse> getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(String idHoaDon);
