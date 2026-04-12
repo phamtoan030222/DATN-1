@@ -60,4 +60,9 @@ public class ClientInvoiceController {
     public ResponseEntity<?> putReceiver(@PathVariable("id") String id,@RequestBody ClientPutInvoiceDetailRequest request) {
         return Helper.createResponseEntity(invoiceService.putInvoiceDetails(id, request));
     }
+
+    @GetMapping("/serial-numbers")
+    public ResponseEntity<?> getSerialNumbers(@RequestParam String idInvoice) {
+        return Helper.createResponseEntity(invoiceService.getSerialNumbers(idInvoice));
+    }
 }
