@@ -23,4 +23,6 @@ public interface ClientInvoiceService {
     ResponseObject<?> putReceiver(String id, ClientPutReceiverRequest request);
 
     ResponseObject<?> putInvoiceDetails(String id, ClientPutInvoiceDetailRequest request);
+
+    ResponseObject<?> getSerialNumbers(String idInvoice);
 }

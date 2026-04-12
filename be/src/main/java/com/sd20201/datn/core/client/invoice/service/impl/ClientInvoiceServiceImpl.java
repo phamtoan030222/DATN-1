@@ -50,6 +50,7 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     private final UserContextHelper userContextHelper;
 
     private final LichSuTrangThaiHoaDonRepository lichSuTrangThaiHoaDonRepository;
+
     private final CustomerRepository customerRepository;
 
     private final VoucherDetailRepository voucherDetailRepository;
@@ -298,5 +299,10 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         lichSuTrangThaiHoaDonRepository.save(lstthd);
 
         return ResponseObject.successForward(invoice.getId(), "Update invoice success");
+    }
+
+    @Override
+    public ResponseObject<?> getSerialNumbers(String idInvoice) {
+        return ResponseObject.successForward(invoiceRepository.getSerialNumbers(idInvoice), "Get serial numbers success");
     }
 }

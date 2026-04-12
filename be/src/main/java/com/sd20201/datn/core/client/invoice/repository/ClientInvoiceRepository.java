@@ -144,4 +144,12 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
     WHERE idt.invoice.id in :invoiceIds
     """)
     List<ClientInvoiceDetailsResponse> getInvoiceDetailsByInvoiceId(List<String> invoiceIds);
+
+    @Query("""
+    SELECT
+        i.code
+    FROM IMEI i
+    WHERE i.invoiceDetail.invoice.id = :idInvoice
+    """)
+    List<String> getSerialNumbers(String idInvoice);
 }

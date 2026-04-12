@@ -304,6 +304,14 @@
                   lên
                   {{ formatCurrency(updateProductDetails[index].price) }}</span>
               </div>
+              <div v-if="+(invoice.invoiceStatus) !== 0 && serialNumbers.length > 0" class="text-sm mt-1 flex flex-wrap gap-1 max-w-[400px]">
+                <span>S/N:</span>
+                <template v-for="(serialNumber) in serialNumbers" :key="serialNumber">
+                  <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded mb-1">
+                    {{ serialNumber }}
+                  </span>
+                </template>
+              </div>
             </div>
             <div class="text-lg font-semibold text-red-600">
               {{ formatCurrency(updateProductDetails[index].totalAmount) }}
@@ -532,7 +540,7 @@ import {
 } from 'naive-ui'
 
 // Icons
-import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, LichSuTrangThaiHoaDonResponse, putInvoiceCancel, putInvoiceDetail, putReceiver } from '@/service/api/invoice.api'
+import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, getSerialNumbers, LichSuTrangThaiHoaDonResponse, putInvoiceCancel, putInvoiceDetail, putReceiver } from '@/service/api/invoice.api'
 import {
   AddOutline,
   ArrowBackOutline,
@@ -588,6 +596,7 @@ const historiesStatusInvoice = ref<LichSuTrangThaiHoaDonResponse[]>([])
 const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
 const updateProductDetails = ref<UpdateProductDetailType[]>([])
 const removeProductDetails = ref<UpdateProductDetailType[]>([])
+const serialNumbers = ref<string[]>([]);
 // Lấy dữ liệu tổng hợp từ danh sách sản phẩm
 const currentStatus = computed(() => {
   return invoice.value?.invoiceStatus ?? 0
@@ -762,6 +771,11 @@ const fetchInvoice = async (query?: string): Promise<void> => {
         customerForm.email = invoice.value.email;
         customerForm.sdtKH = invoice.value.phoneReceiver;
         customerForm.diaChi = invoice.value.addressReceiver;
+        if (+(invoice.value.invoiceStatus) !== 0) {
+          const serialNumbersRes = await getSerialNumbers(invoice.value.id);
+
+          serialNumbers.value = serialNumbersRes.data || [];
+        }
       } catch (e) {
         console.error('Error fetching invoice meta:', e)
         historiesStatusInvoice.value = []
