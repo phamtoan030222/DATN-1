@@ -39,4 +39,6 @@ public interface ClientInvoiceDetailsResponse {
     String getIdProductDetail();
 
     Long getCreatedDate();
+
+    String getSerialNumber();
 }

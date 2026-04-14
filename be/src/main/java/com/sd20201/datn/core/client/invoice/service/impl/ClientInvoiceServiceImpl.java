@@ -50,6 +50,7 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
     private final UserContextHelper userContextHelper;
 
     private final LichSuTrangThaiHoaDonRepository lichSuTrangThaiHoaDonRepository;
+
     private final CustomerRepository customerRepository;
 
     private final VoucherDetailRepository voucherDetailRepository;
@@ -198,7 +199,13 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         if (!Objects.isNull(invoice.getVoucher())) {
             Voucher voucher = invoice.getVoucher();
             if (voucher.getTypeVoucher() == TypeVoucher.PERCENTAGE) {
-                totalAmount = totalAmount.multiply(BigDecimal.valueOf(100).subtract(voucher.getDiscountValue()).divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP));
+                BigDecimal newTotalAmount = totalAmount.multiply(
+                        BigDecimal.valueOf(100)
+                                .subtract(voucher.getDiscountValue())
+                                .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP)
+                ).setScale(0, RoundingMode.HALF_UP);
+
+                totalAmount = newTotalAmount.compareTo(voucher.getMaxValue()) > 0 ? totalAmount.subtract(voucher.getMaxValue()) : newTotalAmount;
             } else if (voucher.getTypeVoucher() == TypeVoucher.FIXED_AMOUNT) {
                 totalAmount = totalAmount.subtract(voucher.getDiscountValue());
             }
@@ -292,5 +299,10 @@ public class ClientInvoiceServiceImpl implements ClientInvoiceService {
         lichSuTrangThaiHoaDonRepository.save(lstthd);
 
         return ResponseObject.successForward(invoice.getId(), "Update invoice success");
+    }
+
+    @Override
+    public ResponseObject<?> getSerialNumbers(String idInvoice) {
+        return ResponseObject.successForward(invoiceRepository.getSerialNumbers(idInvoice), "Get serial numbers success");
     }
 }

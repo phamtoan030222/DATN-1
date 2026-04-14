@@ -50,6 +50,8 @@ export interface LichSuTrangThaiHoaDonResponse {
     thoiGian: string
     idStaff: string,
     nameStaff: string,
+    idCustomer: string,
+    nameCustomer: string,
 }
 
 export type ClientInvoiceCancelRequest = {
@@ -147,6 +149,18 @@ export const putInvoiceDetail = async (id: string, data: ClientPutInvoiceDetailR
         method: 'PUT',
         data,
     })) as AxiosResponse<DefaultResponse<string>>
+
+    return res.data
+}
+
+export const getSerialNumbers = async (idInvoice: string) => {
+    const res = (await request({
+        url: `${API_INVOICES_ORDER_ONLINE}/serial-numbers`,
+        method: 'GET',
+        params: {
+            idInvoice
+        },
+    })) as AxiosResponse<DefaultResponse<Array<string>>>
 
     return res.data
 }

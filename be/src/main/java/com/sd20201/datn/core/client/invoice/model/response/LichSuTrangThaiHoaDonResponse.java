@@ -16,4 +16,8 @@ public interface LichSuTrangThaiHoaDonResponse {
 
     String getNameStaff();
 
+    String getIdCustomer();
+
+    String getNameCustomer();
+
 }
