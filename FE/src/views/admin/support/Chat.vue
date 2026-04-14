@@ -235,9 +235,9 @@ function scrollToBottom() {
               </div>
             </div>
           </div>
-          <div class="chat-head-meta">
+          <!-- <div class="chat-head-meta">
             <span class="msg-count">{{ currentSession.messages.length }} tin nhắn</span>
-          </div>
+          </div> -->
         </div>
 
         <!-- MESSAGES -->
@@ -263,11 +263,11 @@ function scrollToBottom() {
             <!-- CLIENT -->
             <template v-else-if="msg.senderRole === 'CLIENT'">
               <div class="msg-avatar msg-avatar--client">
-                 {{ currentSession.customerName.charAt(0).toUpperCase() }}
+                {{ currentSession.customerName.charAt(0).toUpperCase() }}
               </div>
               <div class="msg-body">
                 <div class="role-tag">
-                   {{ currentSession.customerName }}
+                  {{ currentSession.customerName }}
                 </div>
                 <div class="bubble bubble--client" v-html="msg.content.replace(/\n/g, '<br>')" />
                 <div class="msg-time">

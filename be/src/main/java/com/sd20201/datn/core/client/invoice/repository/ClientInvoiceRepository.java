@@ -84,6 +84,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                       AND (:#{#request.endDate} IS NULL OR CAST(i.createdDate AS BIGINTEGER) <= :#{#request.endDate})
                       AND i.entityTrangThaiHoaDon != 7
                       AND i.totalAmount > 0
+                      AND i.typeInvoice IN (1, 3)
             GROUP BY
                 i.id,
                 i.code,

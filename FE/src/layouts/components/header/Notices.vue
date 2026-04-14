@@ -86,7 +86,7 @@ onUnmounted(() => {
             />
           </n-space>
         </template>
-        <NoticeList :list="groupMessage[1]" @read="handleRead" />
+        <!-- <NoticeList :list="groupMessage[1]" @read="handleRead" /> -->
       </n-tab-pane>
     </n-tabs>
   </n-popover>

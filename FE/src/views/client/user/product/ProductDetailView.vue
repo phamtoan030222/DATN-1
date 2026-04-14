@@ -108,9 +108,11 @@ function formatCurrency(val: number | undefined) {
 }
 
 function calcDiscount(v: ADVoucherResponse, total: number) {
-  if (v.typeVoucher === 'FIXED_AMOUNT') return v.discountValue || 0
+  if (v.typeVoucher === 'FIXED_AMOUNT')
+    return v.discountValue || 0
   let disc = (total * (v.discountValue || 0)) / 100
-  if (v.maxValue && disc > v.maxValue) disc = v.maxValue
+  if (v.maxValue && disc > v.maxValue)
+    disc = v.maxValue
   return disc
 }
 
@@ -178,7 +180,8 @@ function validateCartAddition(): boolean {
 }
 
 async function handleAddToCart() {
-  if (!validateCartAddition()) return
+  if (!validateCartAddition())
+    return
   loadingCart.value = true
   try {
     await addToCart(product.value.id, quantity.value)
@@ -193,7 +196,8 @@ async function handleAddToCart() {
 }
 
 async function handleBuyNow() {
-  if (!validateCartAddition()) return
+  if (!validateCartAddition())
+    return
   loadingCart.value = true
   try {
     await addToCart(product.value.id, quantity.value)
@@ -233,10 +237,12 @@ function handleSelectVoucher(v: ADVoucherResponse) {
 
 // ─── Sale Timer ──────────────────────────────────────────
 function startCountdown() {
-  if (timerInterval) clearInterval(timerInterval)
+  if (timerInterval)
+    clearInterval(timerInterval)
 
   const parseSafe = (d: any): number => {
-    if (!d) return 0
+    if (!d)
+      return 0
     const t = new Date(typeof d === 'string' ? d.replace(/-/g, '/') : d).getTime()
     return Number.isNaN(t) ? 0 : t
   }
@@ -278,27 +284,35 @@ function startCountdown() {
   }
 
   tick()
-  if (!isFlashSaleEnded.value) timerInterval = setInterval(tick, 1000)
+  if (!isFlashSaleEnded.value)
+    timerInterval = setInterval(tick, 1000)
 }
 
 // ─── Data Fetching ───────────────────────────────────────
 function mapOptions(res: any) {
   let arr: any[] = []
   if (res?.data) {
-    if (Array.isArray(res.data)) arr = res.data
-    else if (res.data.data && Array.isArray(res.data.data)) arr = res.data.data
-    else if (res.data.content && Array.isArray(res.data.content)) arr = res.data.content
+    if (Array.isArray(res.data))
+      arr = res.data
+    else if (res.data.data && Array.isArray(res.data.data))
+      arr = res.data.data
+    else if (res.data.content && Array.isArray(res.data.content))
+      arr = res.data.content
   }
   else if (Array.isArray(res)) { arr = res }
   return arr.map((x: any) => ({ label: x.label || x.name || x.code, value: x.value || x.id }))
 }
 
 function extractList(res: any): any[] {
-  if (!res?.data) return Array.isArray(res) ? res : []
+  if (!res?.data)
+    return Array.isArray(res) ? res : []
   const d = res.data
-  if (Array.isArray(d)) return d
-  if (d.data && Array.isArray(d.data)) return d.data
-  if (Array.isArray(res)) return res
+  if (Array.isArray(d))
+    return d
+  if (d.data && Array.isArray(d.data))
+    return d.data
+  if (Array.isArray(res))
+    return res
   return []
 }
 
@@ -321,7 +335,8 @@ async function loadGlobalOptions() {
 }
 
 async function loadAllVariants(idProduct: string) {
-  if (!idProduct) return
+  if (!idProduct)
+    return
   try {
     const res = await getProductDetails({ page: 1, size: 100, idProduct, minPrice: 0, maxPrice: 1000000000 })
     allVariants.value = extractList(res)
@@ -348,16 +363,22 @@ async function checkStock(productDetailId: string) {
       return s === undefined || s === null || String(s) === '0' || String(s).toUpperCase() === 'ACTIVE'
     }).length
     stockQuantity.value = count
-    if (count === 0) isOutOfStock.value = true
+    if (count === 0)
+      isOutOfStock.value = true
   }
   catch (e) { isOutOfStock.value = true }
 }
 
 async function selectVariantOption(type: string, val: string) {
   const map: Record<string, any> = {
-    CPU: selectedCpu, GPU: selectedGpu, RAM: selectedRam, HDD: selectedHardDrive, COLOR: selectedColor,
+    CPU: selectedCpu,
+    GPU: selectedGpu,
+    RAM: selectedRam,
+    HDD: selectedHardDrive,
+    COLOR: selectedColor,
   }
-  if (map[type]) map[type].value = val
+  if (map[type])
+    map[type].value = val
   loading.value = true
   try {
     const res = await getSPCTBy({
@@ -373,7 +394,8 @@ async function selectVariantOption(type: string, val: string) {
     }
     else {
       loading.value = false
-      if (!res.data?.id) message.warning('Phiên bản cấu hình này hiện không khả dụng.')
+      if (!res.data?.id)
+        message.warning('Phiên bản cấu hình này hiện không khả dụng.')
     }
   }
   catch {
@@ -395,13 +417,17 @@ async function fetchData(id: string) {
   loading.value = true
   try {
     const res = await getProductDetailById(id)
-    if (!res.data) return
+    if (!res.data)
+      return
     product.value = res.data
 
     // Apply sale params from query
-    if (route.query.pct) product.value.percentage = Number(route.query.pct)
-    if (route.query.sd) product.value.startDate = Number(route.query.sd)
-    if (route.query.ed) product.value.endDate = Number(route.query.ed)
+    if (route.query.pct)
+      product.value.percentage = Number(route.query.pct)
+    if (route.query.sd)
+      product.value.startDate = Number(route.query.sd)
+    if (route.query.ed)
+      product.value.endDate = Number(route.query.ed)
 
     selectedImage.value = product.value.urlImage || 'https://via.placeholder.com/500'
     selectedGpu.value = product.value.idGPU || null
@@ -439,15 +465,20 @@ async function fetchData(id: string) {
 }
 
 // ─── Lifecycle ───────────────────────────────────────────
-watch(() => route.params.id, (id) => { if (id) fetchData(id as string) })
+watch(() => route.params.id, (id) => {
+  if (id)
+    fetchData(id as string)
+})
 onMounted(() => fetchData(route.params.id as string))
-onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
+onUnmounted(() => {
+  if (timerInterval)
+    clearInterval(timerInterval)
+})
 </script>
 
 <template>
   <div class="pdp">
     <div class="pdp__container">
-
       <!-- ── Breadcrumb ── -->
       <nav class="pdp__breadcrumb">
         <span @click="router.push('/')">Trang chủ</span>
@@ -465,13 +496,10 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
 
       <!-- ── Main Content ── -->
       <template v-else-if="product">
-
         <!-- ═══ PRODUCT MAIN GRID ═══ -->
         <div class="pdp__main">
-
           <!-- LEFT: Image + Specs -->
           <div class="pdp__left">
-
             <!-- Image Gallery -->
             <div class="pdp__gallery">
               <div class="pdp__img-wrap">
@@ -499,24 +527,41 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
                 label-style="width:110px; font-weight:600; background:#f8f8f8; font-size:12.5px; color:#555;"
                 content-style="font-size:12.5px; color:#222;"
               >
-                <NDescriptionsItem label="CPU">{{ product.cpuName || product.cpu || '—' }}</NDescriptionsItem>
-                <NDescriptionsItem label="RAM">{{ product.ramName || product.ram || '—' }}</NDescriptionsItem>
-                <NDescriptionsItem label="Ổ cứng">{{ product.hardDriveName || product.hardDrive || '—' }}</NDescriptionsItem>
-                <NDescriptionsItem label="GPU">{{ product.gpuName || product.gpu || '—' }}</NDescriptionsItem>
-                <NDescriptionsItem label="Màn hình">{{ product.screenName || product.screen || '—' }}</NDescriptionsItem>
-                <NDescriptionsItem label="Màu sắc">{{ product.colorName || product.color || '—' }}</NDescriptionsItem>
-                <NDescriptionsItem label="Pin">{{ product.batteryName || product.battery || '—' }}</NDescriptionsItem>
-                <NDescriptionsItem label="Hệ điều hành">{{ product.operatingSystem || '—' }}</NDescriptionsItem>
+                <NDescriptionsItem label="CPU">
+                  {{ product.cpuName || product.cpu || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="RAM">
+                  {{ product.ramName || product.ram || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Ổ cứng">
+                  {{ product.hardDriveName || product.hardDrive || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="GPU">
+                  {{ product.gpuName || product.gpu || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Màn hình">
+                  {{ product.screenName || product.screen || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Màu sắc">
+                  {{ product.colorName || product.color || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Pin">
+                  {{ product.batteryName || product.battery || '—' }}
+                </NDescriptionsItem>
+                <NDescriptionsItem label="Hệ điều hành">
+                  {{ product.operatingSystem || '—' }}
+                </NDescriptionsItem>
               </NDescriptions>
             </div>
           </div>
 
           <!-- RIGHT: Info + Purchase -->
           <div class="pdp__right">
-
             <!-- Product Name & Code -->
             <div class="pdp__header">
-              <h1 class="pdp__title">{{ product.name }}</h1>
+              <h1 class="pdp__title">
+                {{ product.name }}
+              </h1>
               <span class="pdp__code">Mã SP: <strong>{{ product.code }}</strong></span>
             </div>
 
@@ -527,13 +572,21 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
               :class="isOngoingSale ? 'pdp__timer--sale' : 'pdp__timer--upcoming'"
             >
               <div class="pdp__timer-left">
-                <NIcon size="16"><Flash v-if="isOngoingSale" /><TimeOutline v-else /></NIcon>
+                <NIcon size="16">
+                  <Flash v-if="isOngoingSale" /><TimeOutline v-else />
+                </NIcon>
                 <div>
-                  <div class="pdp__timer-label">{{ isOngoingSale ? 'FLASH SALE' : 'SẮP DIỄN RA' }}</div>
-                  <div class="pdp__timer-sub">{{ isOngoingSale ? 'Kết thúc trong' : 'Bắt đầu sau' }}</div>
+                  <div class="pdp__timer-label">
+                    {{ isOngoingSale ? 'FLASH SALE' : 'SẮP DIỄN RA' }}
+                  </div>
+                  <div class="pdp__timer-sub">
+                    {{ isOngoingSale ? 'Kết thúc trong' : 'Bắt đầu sau' }}
+                  </div>
                 </div>
               </div>
-              <div class="pdp__timer-value">{{ timeLeft }}</div>
+              <div class="pdp__timer-value">
+                {{ timeLeft }}
+              </div>
             </div>
 
             <!-- Price Block -->
@@ -557,7 +610,9 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
               <div class="pdp__variants-header">
                 <span class="pdp__variants-title">Tuỳ chọn phiên bản</span>
                 <button class="pdp__reset-btn" @click="handleResetFilter">
-                  <NIcon size="12"><RefreshOutline /></NIcon> Làm mới
+                  <NIcon size="12">
+                    <RefreshOutline />
+                  </NIcon> Làm mới
                 </button>
               </div>
               <div class="pdp__variants-body">
@@ -568,7 +623,9 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
                       v-for="opt in cpuOptions" :key="opt.value"
                       class="pdp__chip" :class="{ 'pdp__chip--active': selectedCpu === opt.value }"
                       @click="selectVariantOption('CPU', opt.value)"
-                    >{{ opt.label }}</button>
+                    >
+                      {{ opt.label }}
+                    </button>
                   </div>
                 </div>
                 <div v-if="ramOptions.length" class="pdp__vgroup">
@@ -578,7 +635,9 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
                       v-for="opt in ramOptions" :key="opt.value"
                       class="pdp__chip" :class="{ 'pdp__chip--active': selectedRam === opt.value }"
                       @click="selectVariantOption('RAM', opt.value)"
-                    >{{ opt.label }}</button>
+                    >
+                      {{ opt.label }}
+                    </button>
                   </div>
                 </div>
                 <div v-if="hardDriveOptions.length" class="pdp__vgroup">
@@ -588,7 +647,9 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
                       v-for="opt in hardDriveOptions" :key="opt.value"
                       class="pdp__chip" :class="{ 'pdp__chip--active': selectedHardDrive === opt.value }"
                       @click="selectVariantOption('HDD', opt.value)"
-                    >{{ opt.label }}</button>
+                    >
+                      {{ opt.label }}
+                    </button>
                   </div>
                 </div>
                 <div v-if="gpuOptions.length" class="pdp__vgroup">
@@ -598,7 +659,9 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
                       v-for="opt in gpuOptions" :key="opt.value"
                       class="pdp__chip" :class="{ 'pdp__chip--active': selectedGpu === opt.value }"
                       @click="selectVariantOption('GPU', opt.value)"
-                    >{{ opt.label }}</button>
+                    >
+                      {{ opt.label }}
+                    </button>
                   </div>
                 </div>
                 <div v-if="colorOptions.length" class="pdp__vgroup">
@@ -608,7 +671,9 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
                       v-for="opt in colorOptions" :key="opt.value"
                       class="pdp__chip" :class="{ 'pdp__chip--active': selectedColor === opt.value }"
                       @click="selectVariantOption('COLOR', opt.value)"
-                    >{{ opt.label }}</button>
+                    >
+                      {{ opt.label }}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -636,18 +701,24 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
                 v-if="!isOutOfStock" size="large" class="pdp__btn pdp__btn--buy"
                 :loading="loadingCart" @click="handleBuyNow"
               >
-                <template #icon><NIcon><RocketOutline /></NIcon></template>
+                <template #icon>
+                  <NIcon><RocketOutline /></NIcon>
+                </template>
                 Mua ngay
               </NButton>
               <NButton v-else size="large" class="pdp__btn pdp__btn--oos" disabled>
-                <template #icon><NIcon><AlertCircleOutline /></NIcon></template>
+                <template #icon>
+                  <NIcon><AlertCircleOutline /></NIcon>
+                </template>
                 Hết hàng
               </NButton>
               <NButton
                 size="large" class="pdp__btn pdp__btn--cart"
                 :disabled="isOutOfStock" :loading="loadingCart" @click="handleAddToCart"
               >
-                <template #icon><NIcon><CartOutline /></NIcon></template>
+                <template #icon>
+                  <NIcon><CartOutline /></NIcon>
+                </template>
                 Thêm vào giỏ
               </NButton>
             </div>
@@ -655,41 +726,54 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
             <!-- Voucher Banner -->
             <div class="pdp__voucher" @click="showVoucherModal = true">
               <div class="pdp__voucher-left">
-                <NIcon size="15" color="#16a34a"><GiftOutline /></NIcon>
+                <NIcon size="15" color="#16a34a">
+                  <GiftOutline />
+                </NIcon>
                 <span>Mã giảm giá</span>
               </div>
               <strong class="pdp__voucher-count">
                 {{ validVouchers.length > 0 ? `${validVouchers.length} mã khả dụng` : 'Chưa có mã' }}
               </strong>
-              <NIcon size="13" class="pdp__voucher-arrow"><ArrowBack style="transform: rotate(180deg)" /></NIcon>
+              <NIcon size="13" class="pdp__voucher-arrow">
+                <ArrowBack style="transform: rotate(180deg)" />
+              </NIcon>
             </div>
 
             <!-- Promises -->
             <div class="pdp__promises">
               <div class="pdp__promise">
-                <NIcon size="15" color="#16a34a"><ShieldCheckmarkOutline /></NIcon>
+                <NIcon size="15" color="#16a34a">
+                  <ShieldCheckmarkOutline />
+                </NIcon>
                 <span>Giao hàng toàn quốc</span>
               </div>
               <div class="pdp__promise">
-                <NIcon size="15" color="#16a34a"><ReturnDownBackOutline /></NIcon>
+                <NIcon size="15" color="#16a34a">
+                  <ReturnDownBackOutline />
+                </NIcon>
                 <span>Đổi trả 30 ngày</span>
               </div>
               <div class="pdp__promise">
-                <NIcon size="15" color="#16a34a"><HeadsetOutline /></NIcon>
+                <NIcon size="15" color="#16a34a">
+                  <HeadsetOutline />
+                </NIcon>
                 <span>Hỗ trợ 24/7</span>
               </div>
               <div class="pdp__promise">
-                <NIcon size="15" color="#16a34a"><RocketOutline /></NIcon>
+                <NIcon size="15" color="#16a34a">
+                  <RocketOutline />
+                </NIcon>
                 <span>Giao nhanh 2H</span>
               </div>
             </div>
-
           </div>
         </div>
 
         <!-- ═══ RELATED PRODUCTS ═══ -->
         <div v-if="relatedProducts.length > 0" class="pdp__related">
-          <h2 class="pdp__related-title">Sản phẩm liên quan</h2>
+          <h2 class="pdp__related-title">
+            Sản phẩm liên quan
+          </h2>
           <div class="pdp__related-grid">
             <div
               v-for="item in relatedProducts" :key="item.id"
@@ -698,16 +782,19 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
             >
               <div class="pdp__rcard-img">
                 <img :src="item.urlImage" :alt="item.name">
-                <div v-if="item.percentage" class="pdp__rcard-badge">-{{ item.percentage }}%</div>
+                <div v-if="item.percentage" class="pdp__rcard-badge">
+                  -{{ item.percentage }}%
+                </div>
               </div>
               <div class="pdp__rcard-body">
-                <p class="pdp__rcard-name">{{ item.name }}</p>
+                <p class="pdp__rcard-name">
+                  {{ item.name }}
+                </p>
                 <span class="pdp__rcard-price">{{ formatCurrency(item.price) }}</span>
               </div>
             </div>
           </div>
         </div>
-
       </template>
     </div>
 
@@ -733,7 +820,9 @@ onUnmounted(() => { if (timerInterval) clearInterval(timerInterval) })
             <span class="pdp__vmodal-cond">Đơn tối thiểu: {{ formatCurrency(v.conditions || 0) }}</span>
           </div>
           <div class="pdp__vmodal-check" :class="{ 'pdp__vmodal-check--on': selectedVoucher?.id === v.id }">
-            <NIcon v-if="selectedVoucher?.id === v.id" color="white" size="13"><CheckmarkCircle /></NIcon>
+            <NIcon v-if="selectedVoucher?.id === v.id" color="white" size="13">
+              <CheckmarkCircle />
+            </NIcon>
           </div>
         </div>
       </div>
