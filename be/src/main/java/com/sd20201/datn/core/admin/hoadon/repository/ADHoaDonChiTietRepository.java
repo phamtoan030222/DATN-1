@@ -55,7 +55,7 @@ SELECT
     s.name                                   AS tenNhanVien,
 
     -- ===== SẢN PHẨM =====
-    sp.name                                  AS tenSanPham,
+    CONCAT(sp.name, ' - ', sp.code)                                 AS tenSanPham,
     spct.id                                  AS productDetailId,
     spct.url_image                           AS anhSanPham,
     brand.name                               AS thuongHieu,
