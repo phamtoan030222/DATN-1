@@ -28,38 +28,43 @@ public class ADProductScreenServiceImpl implements ADProductScreenService {
 
     @Override
     public ResponseObject<?> getScreens(ADProductScreenRequest request) {
-        return ResponseObject.successForward(
-                PageableObject.of(screenRepository.getScreens(Helper.createPageable(request), request)),
-                "OKE"
-        );
+        return ResponseObject.successForward(PageableObject.of(screenRepository.getScreens(Helper.createPageable(request), request)), "OKE");
     }
 
     @Override
     public ResponseObject<?> getDetail(String id) {
-        return screenRepository.getScreenById(id).map(gpu -> ResponseObject.successForward(gpu, "Get detail screen successfully"))
-                .orElse(ResponseObject.errorForward("Get detail fail!!!", HttpStatus.NOT_FOUND));
+        return screenRepository.getScreenById(id).map(gpu -> ResponseObject.successForward(gpu, "Get detail screen successfully")).orElse(ResponseObject.errorForward("Get detail fail!!!", HttpStatus.NOT_FOUND));
     }
 
     @Override
     public ResponseObject<?> changeStatus(String id) {
-        return screenRepository.findById(id)
-                .map(screen -> {
-                    screen.setStatus(screen.getStatus() == EntityStatus.ACTIVE ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
-                    screenRepository.save(screen);
-                    return ResponseObject.successForward(null, "Update status screen successfully");
-                })
-                .orElse(ResponseObject.errorForward("Update status screen failure!!! Screen not found", HttpStatus.NOT_FOUND));
+        return screenRepository.findById(id).map(screen -> {
+            screen.setStatus(screen.getStatus() == EntityStatus.ACTIVE ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
+            screenRepository.save(screen);
+            return ResponseObject.successForward(null, "Update status screen successfully");
+        }).orElse(ResponseObject.errorForward("Update status screen failure!!! Screen not found", HttpStatus.NOT_FOUND));
     }
 
     @Override
     public ResponseObject<?> modify(ADProductScreenCreateUpdateRequest request) {
-        return request.getId() == null || request.getId().isEmpty()  ? create(request) : update(request);
+        return request.getId() == null || request.getId().isEmpty() ? create(request) : update(request);
     }
 
     private ResponseObject<?> update(ADProductScreenCreateUpdateRequest request) {
         Optional<Screen> optionalScreen = screenRepository.findById(request.getId());
 
-        if(optionalScreen.isEmpty()) return ResponseObject.errorForward("Update fail!!! Screen not found", HttpStatus.NOT_FOUND);
+        if (optionalScreen.isEmpty())
+            return ResponseObject.errorForward("Update fail!!! Screen not found", HttpStatus.NOT_FOUND);
+
+        Optional<Screen> existingCode = screenRepository.findByCode(request.getCode());
+        if (existingCode.isPresent() && !existingCode.get().getId().equals(request.getId())) {
+            return ResponseObject.errorForward("Mã màn hình bị trùng", HttpStatus.CONFLICT);
+        }
+
+        Optional<Screen> existingName = screenRepository.findByName(request.getName());
+        if (existingName.isPresent() && !existingName.get().getId().equals(request.getId())) {
+            return ResponseObject.errorForward("Tên màn hình bị trùng", HttpStatus.CONFLICT);
+        }
 
         Screen screen = optionalScreen.get();
 
@@ -74,10 +79,17 @@ public class ADProductScreenServiceImpl implements ADProductScreenService {
     }
 
     private ResponseObject<?> create(ADProductScreenCreateUpdateRequest request) {
-        Screen screen = new Screen();
+        Optional<Screen> screenByCode = screenRepository.findByCode(request.getCode());
+        if(screenByCode.isPresent()) {
+            return ResponseObject.errorForward("Mã màn hình bị trùng", HttpStatus.CONFLICT);
+        }
 
-        Optional<Screen> screenOptional = screenRepository.findByCode(request.getCode());
-        if(screenOptional.isPresent()) return ResponseObject.errorForward("Update fail!!! Duplicate code", HttpStatus.CONFLICT);
+        Optional<Screen> screenByName = screenRepository.findByName(request.getName());
+        if(screenByName.isPresent()) {
+            return ResponseObject.errorForward("Tên màn hình bị trùng", HttpStatus.CONFLICT);
+        }
+
+        Screen screen = new Screen();
 
         screen.setCode(request.getCode());
         screen.setName(request.getName());

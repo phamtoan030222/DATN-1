@@ -144,7 +144,6 @@ function openModal(mode: 'add' | 'edit', row?: AdColorResponse) {
   showModal.value = true
 }
 
-// 3. Hàm lưu sử dụng Validate và Dialog
 function handleSave() {
   formRef.value?.validate((errors) => {
     if (errors) {
@@ -174,8 +173,10 @@ function handleSave() {
           showModal.value = false
           fetchData()
         }
-        catch (e) {
-          message.error('Có lỗi xảy ra')
+        catch (e: any) {
+          // QUAN TRỌNG: Lấy câu thông báo lỗi chi tiết từ Backend
+          const errorMessage = e.response?.data?.message || e.message || 'Có lỗi xảy ra khi lưu dữ liệu'
+          message.error(errorMessage, { duration: 3000 })
         }
       },
     })

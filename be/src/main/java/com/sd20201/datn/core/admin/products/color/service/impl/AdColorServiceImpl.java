@@ -38,35 +38,25 @@ public class AdColorServiceImpl implements AdColorService {
 
     @Override
     public ResponseObject<?> createColor(ColorCreateUpdateRequest request) {
+        String newName = request.getName() == null ? "" : request.getName().trim();
+        String newCode = request.getCode() == null ? "" : request.getCode().trim();
 
         // Kiểm tra trùng tên
-        List<Color> colorsByName = adColorRepository.findAllByName(request.getName());
+        List<Color> colorsByName = adColorRepository.findAllByName(newName);
         if (!colorsByName.isEmpty()) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Tên màu sắc đã tồn tại",
-                    false,
-                    "COLOR_NAME_EXISTS"
-            );
+            return ResponseObject.errorForward("Thêm thất bại! Tên màu sắc đã tồn tại.", HttpStatus.CONFLICT);
         }
 
         // Kiểm tra trùng code
-        List<Color> colorsByCode = adColorRepository.findAllByCode(request.getCode());
+        List<Color> colorsByCode = adColorRepository.findAllByCode(newCode);
         if (!colorsByCode.isEmpty()) {
-            return new ResponseObject<>(
-                    null,
-                    HttpStatus.BAD_REQUEST,
-                    "Mã màu đã tồn tại",
-                    false,
-                    "COLOR_CODE_EXISTS"
-            );
+            return ResponseObject.errorForward("Thêm thất bại! Mã màu đã tồn tại.", HttpStatus.CONFLICT);
         }
 
         // Tạo mới màu
         Color color = new Color();
-        color.setName(request.getName());
-        color.setCode(request.getCode());
+        color.setName(newName);
+        color.setCode(newCode);
         color.setCreatedDate(System.currentTimeMillis());
         color.setStatus(EntityStatus.ACTIVE);
         adColorRepository.save(color);
@@ -80,23 +70,37 @@ public class AdColorServiceImpl implements AdColorService {
         );
     }
 
-
-
     @Override
     public ResponseObject<?> updateColor(String id, ColorCreateUpdateRequest request) {
         Optional<Color> optionalColor = adColorRepository.findById(id);
         if (optionalColor.isEmpty()) {
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "Màu sắc không tồn tại", false, null);
+            return ResponseObject.errorForward("Cập nhật thất bại! Màu sắc không tồn tại.", HttpStatus.NOT_FOUND);
+        }
+
+        String newName = request.getName() == null ? "" : request.getName().trim();
+        String newCode = request.getCode() == null ? "" : request.getCode().trim();
+
+        // Kiểm tra trùng tên (nhưng BỎ QUA chính cái màu đang được sửa)
+        List<Color> colorsByName = adColorRepository.findAllByName(newName);
+        boolean isNameDuplicate = colorsByName.stream().anyMatch(c -> !c.getId().equals(id));
+        if (isNameDuplicate) {
+            return ResponseObject.errorForward("Cập nhật thất bại! Tên màu sắc đã tồn tại ở một bản ghi khác.", HttpStatus.CONFLICT);
+        }
+
+        // Kiểm tra trùng code (nhưng BỎ QUA chính cái màu đang được sửa)
+        List<Color> colorsByCode = adColorRepository.findAllByCode(newCode);
+        boolean isCodeDuplicate = colorsByCode.stream().anyMatch(c -> !c.getId().equals(id));
+        if (isCodeDuplicate) {
+            return ResponseObject.errorForward("Cập nhật thất bại! Mã màu đã tồn tại ở một bản ghi khác.", HttpStatus.CONFLICT);
         }
 
         Color color = optionalColor.get();
-        color.setCode(request.getCode());
-        color.setName(request.getName());
+        color.setCode(newCode);
+        color.setName(newName);
 
         adColorRepository.save(color);
 
         return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật màu sắc thành công", true, null);
-
     }
 
     @Override
