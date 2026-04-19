@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.ram.repository;
 
 import com.sd20201.datn.core.admin.products.ram.model.response.AdRamResponse;
+import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.repository.RAMRepository;
 import org.springframework.data.domain.Page;
@@ -9,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import org.springframework.data.domain.Pageable;
+
+import java.util.Optional;
 
 @Repository
 public interface ADRamRepository extends RAMRepository {
@@ -51,4 +54,15 @@ public interface ADRamRepository extends RAMRepository {
                                   @Param("key") String key,
                                   @Param("status")EntityStatus status);
 
+    @Query("SELECT r FROM RAM r WHERE " +
+            "LOWER(TRIM(r.brand)) = LOWER(TRIM(:brand)) AND " +
+            "r.capacity = :capacity AND " +
+            "LOWER(TRIM(r.type)) = LOWER(TRIM(:type)) AND " +
+            "r.busSpeed = :busSpeed")
+    Optional<RAM> checkDuplicate(
+            @Param("brand") String brand,
+            @Param("capacity") Integer capacity,
+            @Param("type") String type,
+            @Param("busSpeed") Integer busSpeed
+    );
 }

@@ -5,16 +5,13 @@ import com.sd20201.datn.core.admin.products.ram.model.request.ADRamRequest;
 import com.sd20201.datn.core.admin.products.ram.repository.ADRamRepository;
 import com.sd20201.datn.core.admin.products.ram.service.ADRamService;
 import com.sd20201.datn.core.common.base.PageableObject;
-import com.sd20201.datn.core.common.base.PageableRequest;
 import com.sd20201.datn.core.common.base.ResponseObject;
-import com.sd20201.datn.entity.Product;
 import com.sd20201.datn.entity.RAM;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.utils.Helper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-
 import org.springframework.data.domain.Pageable;
 
 import java.util.Optional;
@@ -29,68 +26,87 @@ public class ADRamServiceImpl implements ADRamService {
     public ResponseObject<?> getAllRam(ADRamRequest request) {
         Pageable pageable = Helper.createPageable(request, "createdDate");
         return new ResponseObject<>(
-                PageableObject.of(adRamRepository.getAllRam(pageable,request.getKey(), request.getStatus())),
-                        HttpStatus.OK,
-                        "Lấy thành công danhh sách ram"
+                PageableObject.of(adRamRepository.getAllRam(pageable, request.getKey(), request.getStatus())),
+                HttpStatus.OK,
+                "Lấy thành công danh sách RAM"
         );
     }
 
     @Override
     public ResponseObject<?> createRam(ADCreateRam request) {
-        RAM  ram = new RAM();
-        ram.setName(request.getName());
-        ram.setCreatedDate(System.currentTimeMillis());
-        ram.setBrand(request.getBrand());
-        ram.setDescription(request.getDescription());
-        ram.setStatus(EntityStatus.ACTIVE);
-        ram.setType(request.getType());
-        ram.setCapacity(request.getCapacity());
-        ram.setSlotConFig(request.getSlotConFig());
-        ram.setMaxSupported(request.getMaxSupported());
-        ram.setBusSpeed(request.getBusSpeed());
+        // 1. Chuẩn hóa các trường String
+        String brand = request.getBrand() == null ? "" : request.getBrand().trim();
+        String type = request.getType() == null ? "" : request.getType().trim();
 
-        adRamRepository.save(ram);
+        // 2. Lấy các trường Integer (Dữ liệu mặc định của bạn)
+        Integer capacity = request.getCapacity();
+        Integer busSpeed = request.getBusSpeed();
 
-        return new  ResponseObject<>(
-                null, HttpStatus.OK,
-                "Thêm thành công ram",
-                true, null
-        );
-    }
-
-    @Override
-    public ResponseObject<?> updateRamStatus(String id) {
-        Optional<RAM> optionalRam = adRamRepository.findById(id);
-        if (optionalRam.isEmpty()) {
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "RAM không tồn tại", false, null);
+        // 3. Check trùng dựa trên tổ hợp cấu hình
+        Optional<RAM> existingRam = adRamRepository.checkDuplicate(brand, capacity, type, busSpeed);
+        if (existingRam.isPresent()) {
+            return ResponseObject.errorForward("Thêm thất bại! Cấu hình RAM này đã tồn tại.", HttpStatus.CONFLICT);
         }
 
-        RAM ram = optionalRam.get();
-        ram.setStatus(ram.getStatus().equals(EntityStatus.ACTIVE) ? EntityStatus.INACTIVE : EntityStatus.ACTIVE); // toggle 0/1
-        adRamRepository.save(ram);
+        RAM ram = new RAM();
+        ram.setName(request.getName());
+        ram.setBrand(brand);
+        ram.setType(type);
+        ram.setCapacity(capacity);
+        ram.setBusSpeed(busSpeed);
+        ram.setSlotConFig(request.getSlotConFig());
+        ram.setMaxSupported(request.getMaxSupported());
+        ram.setDescription(request.getDescription());
 
-        return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật trạng thái RAM thành công", true, null);
+        ram.setStatus(EntityStatus.ACTIVE);
+        ram.setCreatedDate(System.currentTimeMillis());
+
+        adRamRepository.save(ram);
+        return new ResponseObject<>(null, HttpStatus.OK, "Thêm thành công RAM", true, null);
     }
 
     @Override
     public ResponseObject<?> updateRam(String id, ADCreateRam request) {
         Optional<RAM> optionalRam = adRamRepository.findById(id);
         if (optionalRam.isEmpty()) {
-            return new ResponseObject<>(null, HttpStatus.BAD_REQUEST, "RAM không tồn tại", false, null);
+            return ResponseObject.errorForward("RAM không tồn tại", HttpStatus.NOT_FOUND);
+        }
+
+        String brand = request.getBrand() == null ? "" : request.getBrand().trim();
+        String type = request.getType() == null ? "" : request.getType().trim();
+        Integer capacity = request.getCapacity();
+        Integer busSpeed = request.getBusSpeed();
+
+        // Check trùng nhưng loại trừ ID hiện tại
+        Optional<RAM> existingRam = adRamRepository.checkDuplicate(brand, capacity, type, busSpeed);
+        if (existingRam.isPresent() && !existingRam.get().getId().equals(id)) {
+            return ResponseObject.errorForward("Cập nhật thất bại! Cấu hình RAM này đã tồn tại.", HttpStatus.CONFLICT);
         }
 
         RAM ram = optionalRam.get();
         ram.setName(request.getName());
-        ram.setBrand(request.getBrand());
-        ram.setType(request.getType());
-        ram.setCapacity(request.getCapacity());
-        ram.setBusSpeed(request.getBusSpeed());
+        ram.setBrand(brand);
+        ram.setType(type);
+        ram.setCapacity(capacity);
+        ram.setBusSpeed(busSpeed);
         ram.setSlotConFig(request.getSlotConFig());
         ram.setMaxSupported(request.getMaxSupported());
         ram.setDescription(request.getDescription());
 
         adRamRepository.save(ram);
-
         return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật RAM thành công", true, null);
+    }
+    @Override
+    public ResponseObject<?> updateRamStatus(String id) {
+        Optional<RAM> optionalRam = adRamRepository.findById(id);
+        if (optionalRam.isEmpty()) {
+            return ResponseObject.errorForward("RAM không tồn tại", HttpStatus.NOT_FOUND);
+        }
+
+        RAM ram = optionalRam.get();
+        ram.setStatus(ram.getStatus().equals(EntityStatus.ACTIVE) ? EntityStatus.INACTIVE : EntityStatus.ACTIVE);
+        adRamRepository.save(ram);
+
+        return new ResponseObject<>(null, HttpStatus.OK, "Cập nhật trạng thái RAM thành công", true, null);
     }
 }

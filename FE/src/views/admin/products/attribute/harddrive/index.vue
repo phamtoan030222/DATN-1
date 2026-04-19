@@ -33,18 +33,17 @@ import type { CreateHardDriveRequest, HardDriveResponse } from '@/service/api/ad
 
 // ================= STATE =================
 const message = useMessage()
-const dialog = useDialog() // Init Dialog
-const formRef = ref<FormInst | null>(null) // Ref Form
+const dialog = useDialog()
+const formRef = ref<FormInst | null>(null)
 const tableData = ref<HardDriveResponse[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const loading = ref(false)
 
-// State tìm kiếm & bộ lọc
 const searchState = reactive({
   keyword: '',
-  status: null as string | null, // null: Tất cả, 'ACTIVE', 'INACTIVE'
+  status: null as string | null,
 })
 
 // ================= MODAL STATE =================
@@ -55,8 +54,8 @@ const formData = reactive<CreateHardDriveRequest>({
   name: '',
   code: '',
   brand: '',
-  type: '', // HDD, SSD
-  typeConnect: '', // SATA, NVMe...
+  type: '',
+  typeConnect: '',
   capacity: 0,
   readSpeed: 0,
   writeSpeed: 0,
@@ -65,18 +64,16 @@ const formData = reactive<CreateHardDriveRequest>({
   description: '',
 })
 
-// 2. Định nghĩa Rules Validate (TẤT CẢ ĐỀU BẮT BUỘC TRỪ MÔ TẢ)
+// ================= VALIDATE RULES =================
 const rules: FormRules = {
   name: [{ required: true, message: 'Vui lòng nhập tên Ổ cứng', trigger: ['blur', 'input'] }],
   brand: [{ required: true, message: 'Vui lòng nhập hãng sản xuất', trigger: ['blur', 'input'] }],
   type: [{ required: true, message: 'Vui lòng nhập loại ổ cứng', trigger: ['blur', 'input'] }],
   typeConnect: [{ required: true, message: 'Vui lòng nhập chuẩn kết nối', trigger: ['blur', 'input'] }],
-
-  // Các trường số: Bắt buộc nhập và phải > 0
   capacity: [
     {
       trigger: ['blur', 'input'],
-      validator: (rule, value) => {
+      validator: (_rule, value) => {
         if (value === null || value === undefined || value === '')
           return new Error('Vui lòng nhập dung lượng')
         if (Number(value) <= 0)
@@ -88,7 +85,7 @@ const rules: FormRules = {
   physicalSize: [
     {
       trigger: ['blur', 'input'],
-      validator: (rule, value) => {
+      validator: (_rule, value) => {
         if (value === null || value === undefined || value === '')
           return new Error('Vui lòng nhập kích thước')
         if (Number(value) <= 0)
@@ -100,7 +97,7 @@ const rules: FormRules = {
   readSpeed: [
     {
       trigger: ['blur', 'input'],
-      validator: (rule, value) => {
+      validator: (_rule, value) => {
         if (value === null || value === undefined || value === '')
           return new Error('Vui lòng nhập tốc độ đọc')
         if (Number(value) <= 0)
@@ -112,7 +109,7 @@ const rules: FormRules = {
   writeSpeed: [
     {
       trigger: ['blur', 'input'],
-      validator: (rule, value) => {
+      validator: (_rule, value) => {
         if (value === null || value === undefined || value === '')
           return new Error('Vui lòng nhập tốc độ ghi')
         if (Number(value) <= 0)
@@ -124,7 +121,7 @@ const rules: FormRules = {
   cacheMemory: [
     {
       trigger: ['blur', 'input'],
-      validator: (rule, value) => {
+      validator: (_rule, value) => {
         if (value === null || value === undefined || value === '')
           return new Error('Vui lòng nhập bộ nhớ đệm')
         if (Number(value) <= 0)
@@ -148,7 +145,7 @@ async function fetchHardDrives() {
     tableData.value = res.items || []
     total.value = res.totalItems || 0
   }
-  catch (e) {
+  catch {
     message.error('Không thể tải dữ liệu Ổ cứng')
   }
   finally {
@@ -178,7 +175,6 @@ function openModal(mode: 'add' | 'edit', row?: HardDriveResponse) {
     })
   }
   else {
-    // Reset form
     Object.assign(formData, {
       id: undefined,
       name: '',
@@ -201,11 +197,25 @@ function closeModal() {
   showModal.value = false
 }
 
-// 3. Hàm lưu sử dụng Validate và Dialog
+// ✅ Hàm lấy message lỗi từ response backend (hỗ trợ CONFLICT / lỗi thường)
+function getErrorMessage(e: unknown, fallback: string): string {
+  if (e && typeof e === 'object') {
+    // Axios error: e.response.data.message
+    const axiosMsg = (e as any)?.response?.data?.message
+    if (axiosMsg)
+      return axiosMsg
+    // Lỗi JS thường
+    const errMsg = (e as any)?.message
+    if (errMsg)
+      return errMsg
+  }
+  return fallback
+}
+
 function saveHardDrive() {
   formRef.value?.validate((errors) => {
     if (errors)
-      return // Dừng nếu có lỗi validate
+      return
 
     dialog.success({
       title: 'Xác nhận',
@@ -235,18 +245,25 @@ function saveHardDrive() {
             await updateHardDrive(formData.id, payload)
             message.success('Cập nhật Ổ cứng thành công')
           }
+
           closeModal()
           fetchHardDrives()
         }
         catch (e) {
-          message.error('Có lỗi xảy ra khi lưu Ổ cứng')
+          // ✅ Hiển thị đúng message từ backend (VD: "Tên đã tồn tại trong hãng Samsung")
+          const errMsg = getErrorMessage(
+            e,
+            modalMode.value === 'add'
+              ? 'Có lỗi xảy ra khi thêm Ổ cứng'
+              : 'Có lỗi xảy ra khi cập nhật Ổ cứng',
+          )
+          message.error(errMsg, { duration: 4000 })
         }
       },
     })
   })
 }
 
-// Hàm đổi trạng thái (từ Popconfirm)
 async function handleStatusChange(row: HardDriveResponse) {
   if (!row.id)
     return
@@ -307,7 +324,10 @@ const columns: DataTableColumns<HardDriveResponse> = [
     key: 'name',
     minWidth: 150,
     ellipsis: { tooltip: true },
-    render: row => h('span', { class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors', onClick: () => openModal('edit', row) }, row.name),
+    render: row => h('span', {
+      class: 'text-gray-700 cursor-pointer hover:text-primary transition-colors',
+      onClick: () => openModal('edit', row),
+    }, row.name),
   },
   { title: 'Hãng', key: 'brand', width: 100 },
   { title: 'Loại', key: 'type', width: 80, align: 'center' },
@@ -339,15 +359,11 @@ const columns: DataTableColumns<HardDriveResponse> = [
           negativeText: 'Hủy',
         },
         {
-          trigger: () => h(
-            NSwitch,
-            {
-              value: row.status === 'ACTIVE',
-              size: 'small',
-              disabled: loading.value,
-              // Đã xóa phần checked-children/unchecked-children để bỏ chữ Hiện/Ẩn
-            },
-          ),
+          trigger: () => h(NSwitch, {
+            value: row.status === 'ACTIVE',
+            size: 'small',
+            disabled: loading.value,
+          }),
           default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} ổ cứng này?`,
         },
       )
@@ -540,6 +556,7 @@ const columns: DataTableColumns<HardDriveResponse> = [
           <NFormItem label="Tên Ổ cứng" path="name" required>
             <NInput v-model:value="formData.name" placeholder="VD: Samsung 980 Pro" />
           </NFormItem>
+
           <NGrid cols="2" x-gap="24" y-gap="12">
             <NGridItem>
               <NFormItem label="Hãng sản xuất" path="brand" required>

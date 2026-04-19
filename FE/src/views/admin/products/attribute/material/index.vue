@@ -1,5 +1,5 @@
 <script setup lang="tsx">
-import { h, onMounted, reactive, ref, watch } from 'vue'
+import { h, onMounted, reactive, ref } from 'vue'
 import {
   NButton,
   NCard,
@@ -15,7 +15,6 @@ import {
   NPopconfirm,
   NRadio,
   NRadioGroup,
-  NSelect,
   NSpace,
   NSwitch,
   NTooltip,
@@ -38,8 +37,8 @@ import type {
 
 // ================= STATE =================
 const message = useMessage()
-const dialog = useDialog() // Init Dialog
-const formRef = ref<FormInst | null>(null) // Ref Form
+const dialog = useDialog()
+const formRef = ref<FormInst | null>(null)
 
 const tableData = ref<MaterialResponse[]>([])
 const total = ref(0)
@@ -63,7 +62,7 @@ const formData = reactive<CreateMaterialRequest>({
   keyboardMaterial: '',
 })
 
-// 2. Định nghĩa Rules Validate
+// Validation Rules
 const rules: FormRules = {
   topCaseMaterial: [
     { required: true, message: 'Vui lòng nhập chất liệu mặt trên', trigger: ['blur', 'input'] },
@@ -104,6 +103,13 @@ async function fetchMaterials() {
 
 onMounted(fetchMaterials)
 
+// ================= TỐI ƯU TÌM KIẾM =================
+// Sử dụng debounce để tránh gọi API liên tục khi gõ phím
+const handleSearch = debounce(() => {
+  currentPage.value = 1
+  fetchMaterials()
+}, 500)
+
 // ================= CRUD LOGIC =================
 function openModal(mode: 'add' | 'edit', row?: MaterialResponse) {
   modalMode.value = mode
@@ -131,16 +137,12 @@ function closeModal() {
   showModal.value = false
 }
 
-// 3. Hàm lưu sử dụng Validate và Dialog
-function saveMaterial() {
-  // Gọi validate
+// Hàm lưu có bắt lỗi từ Backend
+async function saveMaterial() {
   formRef.value?.validate((errors) => {
-    if (errors) {
-      // Nếu lỗi -> Dừng lại, form tự hiện đỏ
+    if (errors)
       return
-    }
 
-    // Nếu ok -> Hiện Dialog xác nhận
     dialog.success({
       title: 'Xác nhận',
       content: modalMode.value === 'add'
@@ -152,27 +154,33 @@ function saveMaterial() {
         try {
           if (modalMode.value === 'add') {
             await createMaterial(formData)
-            message.success('Thêm mới chất liệu thành công')
           }
           else {
+            // Check ID cho TypeScript đỡ báo lỗi
             if (!formData.id)
               return
             await updateMaterial(formData.id, formData)
-            message.success('Cập nhật chất liệu thành công')
           }
+
+          message.success(
+            modalMode.value === 'add' ? 'Thêm mới chất liệu thành công' : 'Cập nhật chất liệu thành công',
+            { duration: 3000 },
+          )
 
           closeModal()
           fetchMaterials()
         }
-        catch (e) {
-          message.error('Có lỗi xảy ra khi lưu dữ liệu')
+        catch (e: any) {
+          // Lấy thông báo lỗi chính xác từ BE trả về (Duplicate dữ liệu)
+          const errorMessage = e.response?.data?.message || e.message || 'Có lỗi xảy ra khi lưu dữ liệu'
+          message.error(errorMessage, { duration: 3000 })
         }
       },
     })
   })
 }
 
-// Hàm đổi trạng thái (từ Popconfirm)
+// Đổi trạng thái trực tiếp trên bảng
 async function handleStatusChange(row: MaterialResponse) {
   if (!row.id)
     return
@@ -180,9 +188,6 @@ async function handleStatusChange(row: MaterialResponse) {
     loading.value = true
     await updateMaterialStatus(row.id)
     message.success(`Đã cập nhật trạng thái: ${row.code}`)
-
-    // Cập nhật lại UI (nếu API không trả về object mới thì cần reload hoặc sửa trực tiếp row)
-    // Ở đây tôi gọi fetch lại để đảm bảo đồng bộ
     fetchMaterials()
   }
   catch {
@@ -194,11 +199,6 @@ async function handleStatusChange(row: MaterialResponse) {
 function refreshTable() {
   searchState.keyword = ''
   searchState.status = null
-  currentPage.value = 1
-  fetchMaterials()
-}
-
-function handleSearch() {
   currentPage.value = 1
   fetchMaterials()
 }
@@ -219,43 +219,42 @@ const columns: DataTableColumns<MaterialResponse> = [
   {
     title: 'STT',
     key: 'index',
-    width: 60, // Cố định chiều rộng
+    width: 60,
     align: 'center',
-    fixed: 'left', // Ghim bên trái
+    fixed: 'left',
     render: (_, index) => (currentPage.value - 1) * pageSize.value + index + 1,
   },
   {
     title: 'Mã',
     key: 'code',
-    width: 150, // Cố định chiều rộng
-    fixed: 'left', // Ghim bên trái
+    width: 150,
+    fixed: 'left',
     render: row => h('strong', { class: 'text-primary' }, row.code || '---'),
   },
   {
     title: 'Mặt trên (Top)',
     key: 'topCaseMaterial',
-    minWidth: 150, // Co giãn
+    minWidth: 150,
     ellipsis: { tooltip: true },
   },
   {
     title: 'Mặt dưới (Bottom)',
     key: 'bottomCaseMaterial',
-    minWidth: 150, // Co giãn
+    minWidth: 150,
     ellipsis: { tooltip: true },
   },
   {
     title: 'Bàn phím (Keyboard)',
     key: 'keyboardMaterial',
-    minWidth: 150, // Co giãn
+    minWidth: 150,
     ellipsis: { tooltip: true },
   },
   {
     title: 'Trạng thái',
     key: 'status',
-    width: 120, // Cố định
+    width: 120,
     align: 'center',
     render(row) {
-      // Bọc NSwitch bằng NPopconfirm
       return h(
         NPopconfirm,
         {
@@ -270,7 +269,6 @@ const columns: DataTableColumns<MaterialResponse> = [
               value: row.status === 'ACTIVE',
               size: 'small',
               disabled: loading.value,
-              // Không bind onUpdateValue trực tiếp
             },
           ),
           default: () => `Bạn có chắc muốn ${row.status === 'ACTIVE' ? 'ngưng hoạt động' : 'kích hoạt'} chất liệu này?`,
@@ -281,8 +279,8 @@ const columns: DataTableColumns<MaterialResponse> = [
   {
     title: 'Thao tác',
     key: 'actions',
-    width: 100, // Cố định
-    fixed: 'right', // Ghim bên phải
+    width: 100,
+    fixed: 'right',
     align: 'center',
     render(row) {
       return h('div', { class: 'flex justify-center' }, [
@@ -343,8 +341,10 @@ const columns: DataTableColumns<MaterialResponse> = [
           <NGridItem span="1 600:1 1200:2">
             <NFormItem label="Tìm kiếm chung">
               <NInput
-                v-model:value="searchState.keyword" placeholder="Nhập tên, mã chất liệu..." clearable
-                @input="handleSearch" @keydown.enter="handleSearch"
+                v-model:value="searchState.keyword"
+                placeholder="Nhập tên, mã chất liệu..."
+                clearable
+                @update:value="handleSearch"
               >
                 <template #prefix>
                   <Icon icon="carbon:search" class="text-gray-400" />
@@ -388,9 +388,7 @@ const columns: DataTableColumns<MaterialResponse> = [
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
-              <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
-              >
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
                 Thêm mới
               </span>
             </NButton>
@@ -405,9 +403,7 @@ const columns: DataTableColumns<MaterialResponse> = [
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
-              <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
-              >
+              <span class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
                 Tải lại
               </span>
             </NButton>
