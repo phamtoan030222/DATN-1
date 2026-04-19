@@ -24,6 +24,7 @@ import {
 } from 'naive-ui'
 import type { DataTableColumns, FormInst, FormRules } from 'naive-ui'
 import { Icon } from '@iconify/vue'
+import { debounce } from 'lodash' // Thêm import debounce
 import {
   createRam,
   getAllRams,
@@ -51,9 +52,9 @@ const searchState = reactive({
 const showModal = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
 
-const formData = reactive<CreateRamRequest>({
+const formData = reactive<CreateRamRequest & { id?: string }>({
+  id: undefined,
   name: '',
-  code: '',
   brand: '',
   type: '',
   capacity: 0,
@@ -63,22 +64,19 @@ const formData = reactive<CreateRamRequest>({
   description: '',
 })
 
-// 2. Định nghĩa Rules Validate (ĐÃ SỬA LỖI VALIDATE SỐ)
+// 2. Định nghĩa Rules Validate (GIỮ NGUYÊN CỦA BẠN)
 const rules: FormRules = {
   name: [{ required: true, message: 'Vui lòng nhập tên RAM', trigger: ['blur', 'input'] }],
   brand: [{ required: true, message: 'Vui lòng nhập thương hiệu', trigger: ['blur', 'input'] }],
   type: [{ required: true, message: 'Vui lòng nhập loại RAM', trigger: ['blur', 'input'] }],
 
-  // Sửa lỗi ở đây: Gộp kiểm tra trống và kiểm tra số vào một hàm validator
   capacity: [
     {
       trigger: ['blur', 'input'],
       validator: (rule, value) => {
-        // 1. Kiểm tra trống (chấp nhận cả số 0 nếu logic cho phép, nhưng ở đây ta cần > 0)
         if (value === null || value === undefined || value === '') {
           return new Error('Vui lòng nhập dung lượng')
         }
-        // 2. Kiểm tra giá trị số
         const numVal = Number(value)
         if (Number.isNaN(numVal)) {
           return new Error('Dung lượng phải là số')
@@ -108,7 +106,6 @@ const rules: FormRules = {
       },
     },
   ],
-  // Các trường không bắt buộc (chỉ validate nếu có nhập)
   slotConFig: [
     {
       trigger: ['blur', 'input'],
@@ -170,7 +167,6 @@ function openModal(mode: 'add' | 'edit', row?: RamResponse) {
     Object.assign(formData, {
       id: row.id,
       name: row.name,
-      code: row.code,
       brand: row.brand,
       type: row.type,
       capacity: row.capacity,
@@ -181,14 +177,12 @@ function openModal(mode: 'add' | 'edit', row?: RamResponse) {
     })
   }
   else {
-    // Reset form
     Object.assign(formData, {
       id: undefined,
       name: '',
-      code: '',
       brand: '',
       type: '',
-      capacity: null, // Để null để placeholder hiện ra
+      capacity: null,
       busSpeed: null,
       slotConFig: null,
       maxSupported: null,
@@ -202,11 +196,11 @@ function closeModal() {
   showModal.value = false
 }
 
-// 3. Hàm lưu sử dụng Validate và Dialog
+// 3. Hàm lưu - CHỈ THAY ĐỔI LOGIC CATCH ĐỂ BẮT LỖI TRÙNG TỪ BE
 function saveRam() {
   formRef.value?.validate((errors) => {
     if (errors)
-      return // Dừng nếu có lỗi validate
+      return
 
     dialog.success({
       title: 'Xác nhận',
@@ -217,7 +211,6 @@ function saveRam() {
       negativeText: 'Hủy',
       onPositiveClick: async () => {
         try {
-          // Ép kiểu dữ liệu về số trước khi gửi API (đề phòng NInput trả về string)
           const payload = {
             ...formData,
             capacity: Number(formData.capacity),
@@ -239,15 +232,16 @@ function saveRam() {
           closeModal()
           fetchRams()
         }
-        catch (e) {
-          message.error('Có lỗi xảy ra khi lưu RAM')
+        catch (e: any) {
+          // THAY ĐỔI: Lấy message từ Backend trả về thay vì fix cứng câu thông báo
+          const errorMsg = e.response?.data?.message || e.message || 'Có lỗi xảy ra khi lưu RAM'
+          message.error(errorMsg, { duration: 3000 })
         }
       },
     })
   })
 }
 
-// Hàm đổi trạng thái (từ Popconfirm)
 async function handleStatusChange(row: RamResponse) {
   if (!row.id)
     return
@@ -270,10 +264,11 @@ function refreshTable() {
   fetchRams()
 }
 
-function handleSearch() {
+// THAY ĐỔI: Thêm debounce để không gọi API liên tục khi gõ
+const handleSearch = debounce(() => {
   currentPage.value = 1
   fetchRams()
-}
+}, 500)
 
 function handlePageChange(page: number) {
   currentPage.value = page
@@ -286,7 +281,7 @@ function handlePageSizeChange(size: number) {
   fetchRams()
 }
 
-// ================= TABLE COLUMNS =================
+// ================= TABLE COLUMNS (GIỮ NGUYÊN) =================
 const columns: DataTableColumns<RamResponse> = [
   {
     title: 'STT',
@@ -554,7 +549,7 @@ const columns: DataTableColumns<RamResponse> = [
             <NGridItem>
               <NFormItem label="Loại RAM" path="type" required>
                 <NInput v-model:value="formData.type" placeholder="VD: DDR4, DDR5" />
-              </NFormItem>
+              </nformitem>
             </NGridItem>
             <NGridItem>
               <NFormItem label="Dung lượng (GB)" path="capacity" required>

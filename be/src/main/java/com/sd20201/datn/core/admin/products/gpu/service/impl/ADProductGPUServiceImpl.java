@@ -58,6 +58,9 @@ public class ADProductGPUServiceImpl implements ADProductGPUService {
         if(optionalGPU.isEmpty()) return ResponseObject.errorForward("Update fail!!! GPU not found", HttpStatus.NOT_FOUND);
 
         GPU gpu = optionalGPU.get();
+        if (!gpu.getName().equals(request.getName()) && gpuRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("GPU is already exist", HttpStatus.CONFLICT);
+
 
         gpu.setName(request.getName());
         gpu.setCode(request.getCode());
@@ -71,6 +74,9 @@ public class ADProductGPUServiceImpl implements ADProductGPUService {
     }
 
     private ResponseObject<?> create(ADProductGPUCreateUpdateRequest request) {
+        if (gpuRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("GPU is already exist", HttpStatus.CONFLICT);
+
         GPU gpu = new GPU();
 
         gpu.setName(request.getName());

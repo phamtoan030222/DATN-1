@@ -37,6 +37,9 @@ public class ADBatteryServiceImpl implements ADBatteryService {
 
     @Override
     public ResponseObject<?> createBattery(ADCreateBatteryRequest request) {
+        if (adBatteryRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("battery is already exist", HttpStatus.CONFLICT);
+
         Battery battery = new Battery();
         battery.setCode(request.getCode());
         battery.setName(request.getName());
@@ -75,6 +78,10 @@ public class ADBatteryServiceImpl implements ADBatteryService {
         }
 
         Battery battery = optionalBattery.get();
+
+        if (!battery.getName().equals(request.getName()) && adBatteryRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("battery is already exist", HttpStatus.CONFLICT);
+
         battery.setName(request.getName());
         battery.setBrand(request.getBrand());
         battery.setTechnolyCharging(request.getTechnolyCharging());

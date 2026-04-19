@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.operating.repository;
 
 import com.sd20201.datn.core.admin.products.operating.model.response.ADOperatingResponse;
+import com.sd20201.datn.entity.OperatingSystem;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.repository.OperatingSystemRepository;
 import org.springframework.data.domain.Page;
@@ -8,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
 
 @Repository
 public interface ADOperatingRepository extends OperatingSystemRepository {
@@ -49,4 +52,6 @@ public interface ADOperatingRepository extends OperatingSystemRepository {
             @Param("key") String key,
             @Param("status") EntityStatus status
     );
+
+    Optional<OperatingSystem> findByName(String name);
 }

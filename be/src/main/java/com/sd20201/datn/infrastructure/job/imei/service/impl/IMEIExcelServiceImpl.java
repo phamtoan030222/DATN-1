@@ -79,7 +79,7 @@ public class IMEIExcelServiceImpl implements IMEIExcelService {
                 String imeiValue = null;
                 switch (cell.getCellType()) {
                     case NUMERIC -> {
-                        imeiValue = String.valueOf((int) cell.getNumericCellValue());
+                        imeiValue = String.valueOf((long) cell.getNumericCellValue());
                     }
                     case STRING -> {
                         imeiValue = cell.getStringCellValue();

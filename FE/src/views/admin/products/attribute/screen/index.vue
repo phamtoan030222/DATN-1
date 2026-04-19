@@ -200,8 +200,10 @@ async function saveScreen() {
           closeModal()
           fetchScreens()
         }
-        catch (e) {
-          message.error('Có lỗi xảy ra', { duration: 3000 })
+        catch (e: any) {
+          const errorMessage = e.response?.data?.message || e.message || 'Có lỗi xảy ra khi lưu dữ liệu'
+
+          message.error(errorMessage, { duration: 3000 })
         }
       },
     })
