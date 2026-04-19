@@ -100,6 +100,41 @@ function formatDateTime(dateStr: string) {
   return d.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
+// Hàm tiện ích so sánh giờ: tính số phút đi muộn hoặc về sớm
+function calculateTimeDiff(actualTimeIso: string, standardTimeStr: string, isStart: boolean) {
+  if (!actualTimeIso || !standardTimeStr)
+    return null
+
+  const actualDate = new Date(actualTimeIso)
+  const actualMins = actualDate.getHours() * 60 + actualDate.getMinutes()
+
+  const stdParts = standardTimeStr.split(':')
+  const stdMins = Number.parseInt(stdParts[0]) * 60 + Number.parseInt(stdParts[1])
+
+  const diff = actualMins - stdMins
+
+  if (isStart) {
+    // Vào ca: dương là muộn, âm là sớm
+    if (diff > 0)
+      return { type: 'error', text: `Đi muộn ${diff} phút` }
+  }
+  else {
+    // Ra ca: âm là ra sớm, dương là ra trễ
+    if (diff < 0)
+      return { type: 'warning', text: `Ra sớm ${Math.abs(diff)} phút` }
+    if (diff > 0)
+      return { type: 'info', text: `Ra trễ ${diff} phút` }
+  }
+  return { type: 'success', text: 'Đúng giờ' }
+}
+
+// Hàm format tiền tệ
+function formatCurrency(val: number) {
+  if (!val)
+    return '0 ₫'
+  return `${val.toLocaleString('vi-VN')} ₫`
+}
+
 const columns = [
   {
     title: 'STT',
@@ -111,40 +146,73 @@ const columns = [
   {
     title: 'Nhân viên / Ca làm việc',
     key: 'info',
-    minWidth: 220,
+    minWidth: 260, // Dùng minWidth để bảng tự dàn đều
     render(row: any) {
+      const stdStart = row.standardStartTime ? row.standardStartTime.substring(0, 5) : '--:--'
+      const stdEnd = row.standardEndTime ? row.standardEndTime.substring(0, 5) : '--:--'
+      const shiftName = row.name ? row.name.split(' - ')[0] : 'Ca Tự Do'
+      const staffCodeStr = row.staffCode ? ` (${row.staffCode})` : ''
+
       return h(NSpace, { align: 'center', size: 12 }, {
         default: () => [
           h(NAvatar, { round: true, size: 'medium', style: 'border: 1px solid #e5e7eb; background-color: #ecfdf5; color: #059669; font-weight: bold;' }, { default: () => row.staffName?.charAt(0) || 'NV' }),
           h('div', { class: 'flex flex-col' }, [
-            h('span', { class: 'font-bold text-gray-800' }, row.staffName || row.accountName || 'Nhân viên'),
-            h('span', { class: 'text-xs text-gray-500 font-medium mt-0.5' }, row.name || 'Ca Tự Do'),
+            h('span', { class: 'font-bold text-gray-800' }, `${row.staffName || 'Nhân viên'}${staffCodeStr}`),
+            h('span', { class: 'text-xs text-gray-500 font-medium mt-0.5' }, `${shiftName} (${stdStart} - ${stdEnd})`),
           ]),
         ],
       })
     },
   },
   {
-    title: 'Vào ca (Thực tế)',
+    title: 'Vào ca',
     key: 'startTime',
-    width: 180,
+    minWidth: 170,
     render(row: any) {
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h(Icon, { icon: 'carbon:login', class: 'text-emerald-500 text-lg' }),
-        h('span', { class: 'text-sm font-mono text-gray-700' }, formatDateTime(row.startTime)),
+      const timeDiff = calculateTimeDiff(row.startTime, row.standardStartTime, true)
+
+      return h('div', { class: 'flex flex-col gap-1' }, [
+        h('div', { class: 'flex items-center gap-2' }, [
+          h(Icon, { icon: 'carbon:login', class: 'text-emerald-500 text-lg' }),
+          h('span', { class: 'text-sm font-mono text-gray-700' }, formatDateTime(row.startTime)),
+        ]),
+        timeDiff ? h(NTag, { type: timeDiff.type, size: 'small', bordered: false, class: 'w-max text-[11px]' }, { default: () => timeDiff.text }) : null,
       ])
     },
   },
   {
-    title: 'Ra ca (Thực tế)',
+    title: 'Ra ca',
     key: 'endTime',
-    width: 180,
+    minWidth: 170,
     render(row: any) {
       if (!row.endTime)
         return h('span', { class: 'text-gray-400 italic text-sm' }, '--:--')
-      return h('div', { class: 'flex items-center gap-2' }, [
-        h(Icon, { icon: 'carbon:logout', class: 'text-orange-500 text-lg' }),
-        h('span', { class: 'text-sm font-mono text-gray-700' }, formatDateTime(row.endTime)),
+
+      const timeDiff = calculateTimeDiff(row.endTime, row.standardEndTime, false)
+
+      return h('div', { class: 'flex flex-col gap-1' }, [
+        h('div', { class: 'flex items-center gap-2' }, [
+          h(Icon, { icon: 'carbon:logout', class: 'text-orange-500 text-lg' }),
+          h('span', { class: 'text-sm font-mono text-gray-700' }, formatDateTime(row.endTime)),
+        ]),
+        timeDiff ? h(NTag, { type: timeDiff.type, size: 'small', bordered: false, class: 'w-max text-[11px]' }, { default: () => timeDiff.text }) : null,
+      ])
+    },
+  },
+  {
+    title: 'Doanh thu ca',
+    key: 'totalRevenue',
+    align: 'right',
+    minWidth: 160,
+    render(row: any) {
+      const cash = (row.totalCashAmount || 0) - (row.initialCash || 0)
+      const transfer = row.totalTransferAmount || 0
+
+      // Hiển thị Tổng tiền to ở trên, và bóc tách TM / CK nhỏ ở dưới
+      return h('div', { class: 'flex flex-col items-end gap-0.5' }, [
+        h('span', { class: 'font-bold text-gray-800 text-[14px]' }, formatCurrency(row.totalRevenue)),
+        h('span', { class: 'text-[11px] text-emerald-600 font-medium' }, `Tiền mặt: ${formatCurrency(cash)}`),
+        h('span', { class: 'text-[11px] text-blue-600 font-medium' }, `Chuyển khoản: ${formatCurrency(transfer)}`),
       ])
     },
   },
@@ -152,7 +220,7 @@ const columns = [
     title: 'Trạng thái',
     key: 'status',
     align: 'center',
-    width: 140,
+    width: 120,
     render(row: any) {
       const isWorking = !row.endTime
       const type = isWorking ? 'info' : 'success'
@@ -172,14 +240,14 @@ const columns = [
   {
     title: 'Ghi chú',
     key: 'note',
-    minWidth: 250,
+    minWidth: 200,
     render(row: any) {
       if (!row.note)
-        return h('span', { class: 'text-gray-400 italic text-xs' }, 'Không có ghi chú')
+        return h('span', { class: 'text-gray-400 italic text-xs' }, 'Không có')
 
-      return h(NTooltip, { trigger: 'hover', placement: 'top', style: 'max-width: 400px;' }, {
-        trigger: () => h('div', { class: 'text-xs text-gray-600 truncate max-w-[250px] cursor-pointer flex items-center gap-1' }, [
-          h(Icon, { icon: 'carbon:warning', class: row.note.includes('LỆCH TIỀN') || row.note.includes('trễ') ? 'text-amber-500' : 'text-gray-400' }),
+      return h(NTooltip, { trigger: 'hover', placement: 'top-end', style: 'max-width: 400px;' }, {
+        trigger: () => h('div', { class: 'text-xs text-gray-600 truncate max-w-[200px] cursor-pointer flex items-center gap-1' }, [
+          h(Icon, { icon: 'carbon:warning', class: row.note.includes('LỆCH TIỀN') || row.note.includes('Lệch') ? 'text-amber-500' : 'text-gray-400' }),
           row.note,
         ]),
         default: () => row.note,
