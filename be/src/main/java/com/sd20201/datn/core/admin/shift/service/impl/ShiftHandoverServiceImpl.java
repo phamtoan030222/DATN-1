@@ -217,7 +217,23 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
         }
 
         Page<ShiftHandover> pageData = shiftRepo.searchHistory(keyword, startDateTime, endDateTime, pageable);
-        Page<ShiftHandoverResponse> responsePage = pageData.map(ShiftHandoverResponse::new);
+
+        Page<ShiftHandoverResponse> responsePage = pageData.map(handover -> {
+            ShiftHandoverResponse res = new ShiftHandoverResponse(handover);
+
+            // Cắt chuỗi để lấy tên Mẫu ca (VD: "ca sáng - dungchoctao" -> "ca sáng")
+            String fullName = handover.getName();
+            String templateName = fullName != null && fullName.contains(" - ") ? fullName.split(" - ")[0].trim() : fullName;
+
+            if (templateName != null) {
+                Shift shiftTemplate = shiftTemplateRepo.findByName(templateName);
+                if (shiftTemplate != null) {
+                    res.setStandardStartTime(shiftTemplate.getStartTime()); // "08:00:00"
+                    res.setStandardEndTime(shiftTemplate.getEndTime());     // "12:00:00"
+                }
+            }
+            return res;
+        });
 
         return new ResponseObject<>(responsePage, HttpStatus.OK, "Lấy lịch sử thành công");
     }

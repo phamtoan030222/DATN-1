@@ -138,6 +138,19 @@ public class VnPayService {
             if (request.getIdPGG() != null && !request.getIdPGG().isBlank()) {
                 adVoucherRepository.findById(request.getIdPGG()).ifPresent(voucher -> {
                     invoice.setVoucher(voucher);
+
+                    BigDecimal tienHangGoc = request.getTienHang() != null ? request.getTienHang() : BigDecimal.ZERO;
+                    // Khách phải trả (requestAmount) chính là tổng tiền sau khi trừ voucher và cộng phí ship
+                    BigDecimal khachPhaiTra = requestAmount != null ? requestAmount : BigDecimal.ZERO;
+                    BigDecimal phiVanChuyen = request.getTienShip() != null ? request.getTienShip() : BigDecimal.ZERO;
+
+                    // Công thức: Tiền giảm = (Tiền hàng gốc + Phí vận chuyển) - Khách phải trả
+                    BigDecimal soTienGiam = (tienHangGoc.add(phiVanChuyen)).subtract(khachPhaiTra);
+
+                    // Chỉ lưu nếu có giảm giá (tránh lưu số âm do sai sót)
+                    if(soTienGiam.compareTo(BigDecimal.ZERO) > 0) {
+                        invoice.setGiamGia(soTienGiam);
+                    }
                     logger.info("Đã gán voucher {} vào hóa đơn VNPAY", voucher.getCode());
                 });
             }
@@ -251,36 +264,46 @@ public class VnPayService {
                     return response;
                 }
 
-                // Cập nhật invoice LUU_TAM → CHO_XAC_NHAN
-                invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
-                invoice.setTypePayment(TypePayment.VNPAY);
-                invoice.setTransactionId(transactionNo);
-                invoice.setBankCode(bankCode);
-                invoice.setPaymentDate(System.currentTimeMillis());
-                Invoice saved = invoiceRepository.save(invoice);
+//                // Cập nhật invoice LUU_TAM → CHO_XAC_NHAN
+//                invoice.setEntityTrangThaiHoaDon(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+//                invoice.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+//                invoice.setTypePayment(TypePayment.VNPAY);
+//                invoice.setTransactionId(transactionNo);
+//                invoice.setBankCode(bankCode);
+//                invoice.setPaymentDate(System.currentTimeMillis());
+//                Invoice saved = invoiceRepository.save(invoice);
+//
+//                // Lịch sử trạng thái
+//                LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
+//                history.setHoaDon(saved);
+//                history.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
+//                history.setNote("Thanh toán VNPAY thành công - chờ xác nhận");
+//                history.setThoiGian(LocalDateTime.now());
+//                lichSuTrangThaiHoaDonRepository.save(history);
+//
+//                // Lịch sử thanh toán
+//                LichSuThanhToan lichSu = new LichSuThanhToan();
+//                lichSu.setHoaDon(saved);
+//                lichSu.setSoTien(vnpayAmount);
+//                lichSu.setLoaiGiaoDich("VNPAY");
+//                lichSu.setMaGiaoDich(transactionNo);
+//                lichSu.setThoiGian(LocalDateTime.now());
+//                lichSu.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
+//                lichSu.setGhiChu("VNPAY return - BankCode: " + bankCode);
+//                lichSuThanhToanRepository.save(lichSu);
+//
+//                response.setCode("00");
+//                response.setMessage("Thanh toán thành công");
+                try {
+                    xuLyThanhToanThanhCongVNPay(invoice, transactionNo, bankCode, vnpayAmount);
 
-                // Lịch sử trạng thái
-                LichSuTrangThaiHoaDon history = new LichSuTrangThaiHoaDon();
-                history.setHoaDon(saved);
-                history.setTrangThai(EntityTrangThaiHoaDon.CHO_XAC_NHAN);
-                history.setNote("Thanh toán VNPAY thành công - chờ xác nhận");
-                history.setThoiGian(LocalDateTime.now());
-                lichSuTrangThaiHoaDonRepository.save(history);
-
-                // Lịch sử thanh toán
-                LichSuThanhToan lichSu = new LichSuThanhToan();
-                lichSu.setHoaDon(saved);
-                lichSu.setSoTien(vnpayAmount);
-                lichSu.setLoaiGiaoDich("VNPAY");
-                lichSu.setMaGiaoDich(transactionNo);
-                lichSu.setThoiGian(LocalDateTime.now());
-                lichSu.setTrangThaiThanhToan(TrangThaiThanhToan.DA_THANH_TOAN);
-                lichSu.setGhiChu("VNPAY return - BankCode: " + bankCode);
-                lichSuThanhToanRepository.save(lichSu);
-
-                response.setCode("00");
-                response.setMessage("Thanh toán thành công");
+                    response.setCode("00");
+                    response.setMessage("Thanh toán thành công");
+                } catch (Exception e) {
+                    logger.error("Lỗi khi xử lý Return URL VNPAY: ", e);
+                    response.setCode("99");
+                    response.setMessage("Lỗi xử lý nghiệp vụ: " + e.getMessage());
+                }
             } else {
                 // Thất bại / hủy → giữ LUU_TAM để user thử lại
                 response.setCode(responseCode);

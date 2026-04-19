@@ -306,7 +306,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     title: 'Thêm khách hàng',
     requiresAuth: true,
     hide: true, // Ẩn khỏi menu
-    roles: ['QUAN_LY'],
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
     icon: 'icon-park-outline:user-plus',
     menuType: 'page',
     componentPath: '/admin/users/customer/CustomerForm.vue',
@@ -319,7 +319,7 @@ export const staticRoutes: AppRoute.RowRoute[] = [
     title: 'Sửa khách hàng',
     requiresAuth: true,
     hide: true, // Ẩn khỏi menu
-    roles: ['QUAN_LY'],
+    roles: ['QUAN_LY', 'NHAN_VIEN'],
     icon: 'icon-park-outline:user-edit',
     menuType: 'page',
     componentPath: '/admin/users/customer/CustomerForm.vue',

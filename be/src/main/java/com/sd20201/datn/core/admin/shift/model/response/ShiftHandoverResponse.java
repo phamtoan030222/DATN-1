@@ -36,6 +36,10 @@ public class ShiftHandoverResponse {
     private Integer status;
     private Integer totalBills;
 
+    private String standardStartTime; // Giờ bắt đầu chuẩn (VD: "08:00:00")
+    private String standardEndTime;   // Giờ kết thúc chuẩn (VD: "12:00:00")
+    private BigDecimal totalRevenue;
+
     public ShiftHandoverResponse(ShiftHandover entity) {
         this.id = entity.getId();
         this.name = entity.getName();
@@ -63,6 +67,8 @@ public class ShiftHandoverResponse {
         // 👇 ĐÃ MỞ KHÓA: Map dữ liệu tiền chuyển khoản từ Entity sang Response 👇
         this.totalTransferAmount = entity.getTotalTransferAmount() != null ? entity.getTotalTransferAmount() : BigDecimal.ZERO;
 
+        // Doanh thu = (Tổng tiền hệ thống đang có - Tiền mồi đầu ca) + Tiền chuyển khoản
+        this.totalRevenue = (this.totalCashAmount.subtract(this.initialCash)).add(this.totalTransferAmount);
         this.note = entity.getNote();
 
         if (entity.getStatus() != null) {
