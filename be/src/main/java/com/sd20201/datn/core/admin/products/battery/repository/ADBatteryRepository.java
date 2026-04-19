@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface ADBatteryRepository extends BatteryRepository {
     @Query(
@@ -39,4 +41,6 @@ public interface ADBatteryRepository extends BatteryRepository {
             Pageable pageable,
             @Param("key") String key
     );
+
+    Optional<Object> findByName(String name);
 }

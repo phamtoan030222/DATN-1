@@ -338,6 +338,10 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
                                              <td><b><<VOUCHER_VALUE>> vnd</b></td>
                                          </tr>
                                          <tr>
+                                             <td colspan="4" style="text-align:left;"><b>Phí ship</b></td>
+                                             <td><b><<SHIPPING_FEE>> vnd</b></td>
+                                         </tr>
+                                         <tr>
                                              <td colspan="4" style="text-align:left;"><b>Tổng thành tiền sau giảm</b></td>
                                              <td><b><<TONG_TIEN_SAU_GIAM>> vnd</b></td>
                                          </tr>
@@ -431,29 +435,16 @@ public class ClientBanHangServiceImpl implements ClientBanHangService {
 
         String invoiceCreateDateFormat = dateTime.format(formatterTime);
 
-        String giaTriVoucher = "0";
-
-        if (request.getIdPGG() != null) {
-            giaTriVoucher = voucherRepository.findById(request.getIdPGG())
-                    .map(v -> v.getTypeVoucher() == TypeVoucher.FIXED_AMOUNT ?
-                            formatterMoney.format(v.getDiscountValue()) :
-                            formatterMoney.format(
-                                    v.getDiscountValue()
-                                            .divide(BigDecimal.valueOf(100), 0, RoundingMode.HALF_UP)
-                                            .multiply(invoice.getTotalAmount())
-                            ))
-                    .orElse("0");
-        }
-
         String htmlReplace = html
                 .replace("<<CUSTOMER_NAME>>", Optional.ofNullable(invoice.getCustomer()).map(Customer::getName).orElse(request.getTen()))
                 .replace("<<MA_HOA_DON>>", invoice.getCode())
                 .replace("<<NGAY_TAO>>", invoiceCreateDateFormat)
                 .replace("<<HINH_THUC_CHUYEN_KHOAN>>", "Thanh toán khi nhận hàng")
-                .replace("<<TONG_TIEN>>", formatterMoney.format(invoice.getTotalAmount()))
-                .replace("<<VOUCHER_VALUE>>", giaTriVoucher)
-                .replace("<<TONG_TIEN_SAU_GIAM>>", formatterMoney.format(invoice.getTotalAmountAfterDecrease()))
+                .replace("<<TONG_TIEN>>", formatterMoney.format(invoice.getTotalAmountAfterDecrease()))
+                .replace("<<VOUCHER_VALUE>>", formatterMoney.format(invoice.getGiamGia()))
+                .replace("<<TONG_TIEN_SAU_GIAM>>", formatterMoney.format(invoice.getTotalAmount()))
                 .replace("<<DANH_SACH_SAN_PHAM>>", htmlProductDetailReplace.stream().reduce("", (a, b) -> a + b))
+                .replace("<<SHIPPING_FEE>>", formatterMoney.format(invoice.getShippingFee()))
                 .replace("<<ID_INVOICE>>", invoice.getId());
 
         MimeMessage message = mailSender.createMimeMessage();

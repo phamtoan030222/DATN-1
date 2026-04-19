@@ -49,4 +49,6 @@ public interface ADProductCPURepository extends CPURepository {
     Optional<ADProductCPUResponse> getCPUById(String id);
 
     Optional<CPU> getCPUByCode(String code);
+
+    Optional<CPU> findByName(String name);
 }

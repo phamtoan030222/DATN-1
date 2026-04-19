@@ -38,8 +38,7 @@
           </div>
 
           <n-space>
-            <NButton type="error" block ghost @click="openCancelModal"
-              v-if="isCanCancelInvoice"
+            <NButton type="error" block ghost @click="openCancelModal" v-if="isCanCancelInvoice"
               :style="{ maxWidth: '150px' }">
               <template #icon>
                 <n-icon>
@@ -148,7 +147,7 @@
                   Thông tin người nhận hàng
                 </h2>
               </div>
-              <div class="" v-if="isCanCancelInvoice" >
+              <div class="" v-if="isCanCancelInvoice">
                 <n-tooltip trigger="hover">
                   <template #trigger>
                     <n-button :bordered="false" circle size="large" secondary type="success"
@@ -278,16 +277,12 @@
                     <RemoveOutline />
                   </NIcon>
                 </button>
-                <n-input-number
-                  v-model:value="updateProductDetails[index].quantity"
-                  :min="1"
-                  :show-button="false"
+                <n-input-number v-model:value="updateProductDetails[index].quantity" :min="1" :show-button="false"
                   size="small" :bordered="isEditQuantityProduct" style="width: 100px" placeholder="Nhập số lượng"
                   :max="5"
                   :input-props="{ style: 'border:none; box-shadow:none; background:transparent; font-weight:600; font-size:15px; padding:0 4px; text-align: center;' }"
                   :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit"
-                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)"
-                  />
+                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)" />
                 <button v-if="isEditQuantityProduct" class="qty-btn"
                   :disabled="updateProductDetails[index].quantity >= 5 || updateProductDetails[index].itNotEdit"
                   @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity + 1)">
@@ -304,14 +299,6 @@
                   lên
                   {{ formatCurrency(updateProductDetails[index].price) }}</span>
               </div>
-              <div v-if="+(invoice.invoiceStatus) !== 0 && serialNumbers.length > 0" class="text-sm mt-1 flex flex-wrap gap-1 max-w-[400px]">
-                <span>S/N:</span>
-                <template v-for="(serialNumber) in serialNumbers" :key="serialNumber">
-                  <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded mb-1">
-                    {{ serialNumber }}
-                  </span>
-                </template>
-              </div>
             </div>
             <div class="text-lg font-semibold text-red-600">
               {{ formatCurrency(updateProductDetails[index].totalAmount) }}
@@ -324,6 +311,19 @@
                   <TrashOutline />
                 </n-icon>
               </n-button>
+            </div>
+            <div v-show="!isEditQuantityProduct" class="ml-5">
+              <n-tooltip>
+                <template #trigger>
+                  <n-button :bordered="false" type="success" circle secondary @click="openSerialInfoModal(detail.id)"
+                    >
+                    <n-icon>
+                      <EyeOutline />
+                    </n-icon>
+                  </n-button>
+                </template>
+                Xem thông tin serial sản phẩm
+              </n-tooltip>
             </div>
           </div>
         </div>
@@ -457,7 +457,8 @@
               {{ formatTime(item.thoiGian) }}
             </div>
             <div class="col-span-3 text-[14.5px] text-gray-800 font-semibold">
-              {{ item.nameStaff && item.nameStaff + ' (Nhân viên)' || item.nameCustomer && item.nameCustomer + ' (Khách hàng)' || 'Hệ thống tự động' }}
+              {{ item.nameStaff && item.nameStaff + ' (Nhân viên)' || item.nameCustomer && item.nameCustomer +
+                ' (Khách hàng) ' || 'Hệ thống tự động' }}
             </div>
             <div class="col-span-3 pr-4 text-[14px] text-gray-600 leading-relaxed">
               {{ item.note || '---' }}
@@ -522,6 +523,51 @@
         </div>
       </template>
     </NModal>
+
+    <!-- ==================== MODAL: XEM SERIAL ĐÃ GÁN ==================== -->
+    <NModal v-model:show="isOpenSerialInfoModal" preset="card" title="Thông tin Serial"
+      style="width: 500px; border-radius: 12px" :bordered="false" class="no-print shadow-xl">
+      <div v-if="selectedSerialInfoProduct" class="space-y-4">
+        <div class="flex items-center gap-4 p-4 bg-green-50/50 border border-green-100 rounded-xl">
+          <NAvatar :src="selectedSerialInfoProduct.urlImage" size="large" round
+            fallback-src="https://via.placeholder.com/40" class="border border-green-200 bg-white" />
+          <div>
+            <div class="text-gray-900 text-base mb-1">
+              {{ selectedSerialInfoProduct.nameProductDetail }}
+            </div>
+            <!-- <div class="text-sm text-gray-500">
+              Đã gán <span class="font-bold text-green-600">{{ currentProductSerialInfo.length }}/{{ selectedSerialInfoProduct.soLuongOriginal || selectedSerialInfoProduct.soLuong }}</span> máy
+            </div> -->
+          </div>
+        </div>
+        <div v-if="serialNumberBySelectedSerialInfoProduct.length === 0"
+          class="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+          <NIcon size="48" class="mb-2 opacity-50">
+            <CubeOutline />
+          </NIcon>
+          <p>Sản phẩm chưa có serial nào</p>
+        </div>
+        <div v-else class="space-y-2 max-h-96 overflow-y-auto pr-2">
+          <div v-for="(imei, index) in serialNumberBySelectedSerialInfoProduct" :key="imei || index"
+            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-400 w-4 text-center">{{ index + 1 }}</span>
+              <span class="font-mono text-base tracking-wider">{{ imei }}</span>
+            </div>
+            <NIcon size="18" class="text-green-500">
+              <CheckmarkCircleOutline />
+            </NIcon>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end pt-2">
+          <NButton type="default" round @click="closeSerialInfoModal">
+            Đóng lại
+          </NButton>
+        </div>
+      </template>
+    </NModal>
   </div>
 </template>
 
@@ -529,6 +575,7 @@
 import { computed, onMounted, ref } from 'vue'
 // import { useRouter, useRoute } from 'vue-router'
 import {
+  c,
   FormInst,
   FormRules,
   NButton,
@@ -549,6 +596,7 @@ import {
   CheckmarkDoneOutline,
   CloseCircleOutline,
   CloseOutline,
+  EyeOutline,
   ListOutline,
   PencilOutline,
   RemoveOutline,
@@ -596,7 +644,10 @@ const historiesStatusInvoice = ref<LichSuTrangThaiHoaDonResponse[]>([])
 const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
 const updateProductDetails = ref<UpdateProductDetailType[]>([])
 const removeProductDetails = ref<UpdateProductDetailType[]>([])
-const serialNumbers = ref<string[]>([]);
+const serialNumbers = reactive<Map<string, Array<number>>>(new Map());
+
+const isOpenSerialInfoModal = ref(false)
+const selectedSerialInfoProduct = ref<ClientInvoiceDetailsResponse | null>(null)
 // Lấy dữ liệu tổng hợp từ danh sách sản phẩm
 const currentStatus = computed(() => {
   return invoice.value?.invoiceStatus ?? 0
@@ -626,7 +677,7 @@ const discount = computed(() => {
   return invoice.value?.totalAmountAfterDecrease - (invoice.value.totalAmount ?? subtotal.value) + invoice.value.shippingFee
 })
 const shippingFee = computed(() => invoice.value?.shippingFee ?? 0)
-const isCanCancelInvoice = computed(() => 
+const isCanCancelInvoice = computed(() =>
   invoice.value &&
   +(invoice.value.invoiceStatus) === 0 &&
   invoice.value.typePayment == 'TIEN_MAT' &&
@@ -667,6 +718,8 @@ const STATUS_MAP: Record<number, { label: string, type: string, icon: any }> = {
   3: { label: 'Đang giao hàng', type: 'info', icon: CheckmarkCircleOutline },
   4: { label: 'Hoàn thành', type: 'success', icon: CheckmarkDoneOutline },
   5: { label: 'Đã hủy', type: 'error', icon: CloseCircleOutline },
+  6: { label: 'Sẵn sàng nhận hàng', type: 'warning', icon: CheckmarkCircleOutline },
+  7: { label: 'Lưu tạm', type: 'info', icon: TimeOutline },
 }
 
 // Helper functions
@@ -746,7 +799,7 @@ const handleSearch = (): void => {
 }
 
 const openCancelModal = (): void => {
-  if(!isCanCancelInvoice.value) return;
+  if (!isCanCancelInvoice.value) return;
   isOpenModalCancelInvoice.value = true
 }
 
@@ -774,7 +827,10 @@ const fetchInvoice = async (query?: string): Promise<void> => {
         if (+(invoice.value.invoiceStatus) !== 0) {
           const serialNumbersRes = await getSerialNumbers(invoice.value.id);
 
-          serialNumbers.value = serialNumbersRes.data || [];
+          for (const detail of invoiceDetails.value) {
+            const serialsForDetail = serialNumbersRes.data.filter((sn: any) => sn.idInvoiceDetail === detail.id).map((sn: any) => sn.serialNumber);
+            serialNumbers.set(detail.id, serialsForDetail);
+          }
         }
       } catch (e) {
         console.error('Error fetching invoice meta:', e)
@@ -1032,6 +1088,23 @@ const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) =
   item.totalAmount = item.price * item.quantity
 }
 
+const serialNumberBySelectedSerialInfoProduct = computed(() => {
+  if (!selectedSerialInfoProduct.value) return []
+  return serialNumbers.get(selectedSerialInfoProduct.value.id) || []
+})
+
+const openSerialInfoModal = (idInvoiceDetail: string) => {
+  const invoiceDetail = invoiceDetails.value.find(it => it.id === idInvoiceDetail)
+  if (!invoiceDetail) return;
+
+  selectedSerialInfoProduct.value = invoiceDetail
+  isOpenSerialInfoModal.value = true
+}
+
+const closeSerialInfoModal = () => {
+  selectedSerialInfoProduct.value = null
+  isOpenSerialInfoModal.value = false
+}
 // Lifecycle
 onMounted(() => {
   fetchInvoice()

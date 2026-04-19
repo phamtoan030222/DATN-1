@@ -166,9 +166,12 @@ function getOrderStatus(status: number) {
   const statusMap: Record<number, { text: string, type: 'success' | 'info' | 'warning' | 'error' }> = {
     0: { text: 'Chờ xác nhận', type: 'warning' },
     1: { text: 'Đã xác nhận', type: 'success' },
-    2: { text: 'Đang giao', type: 'info' },
-    3: { text: 'Hoàn thành', type: 'success' },
-    4: { text: 'Đã hủy', type: 'error' },
+    2: { text: 'Chờ giao hàng', type: 'success' },
+    3: { text: 'Đang giao', type: 'info' },
+    4: { text: 'Hoàn thành', type: 'success' },
+    5: { text: 'Đã hủy', type: 'error' },
+    6: { text: 'Sẵn sàng nhận hàng', type: 'warning' },
+    7: { text: 'Lưu tạm', type: 'info' },
   }
   return statusMap[status] || { text: 'Không xác định', type: 'info' }
 }
