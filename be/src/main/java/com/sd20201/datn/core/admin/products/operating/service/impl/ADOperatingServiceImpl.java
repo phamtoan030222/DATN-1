@@ -39,6 +39,9 @@ public class ADOperatingServiceImpl implements ADOperatingService
 
     @Override
     public ResponseObject<?> createOperatingSystem(ADCreateOperatingRequest request) {
+        if (adOperatingRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("OperatingSystem is already exist", HttpStatus.CONFLICT);
+
         OperatingSystem os = new OperatingSystem();
         os.setName(request.getName());
         os.setVersion(request.getVersion());
@@ -79,6 +82,9 @@ public class ADOperatingServiceImpl implements ADOperatingService
         }
 
         OperatingSystem os = optionalOS.get();
+        if (!os.getName().equals(request.getName()) && adOperatingRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("OperatingSystem is already exist", HttpStatus.CONFLICT);
+
         os.setName(request.getName());
         os.setVersion(request.getVersion());
         os.setDescription(request.getDescription());

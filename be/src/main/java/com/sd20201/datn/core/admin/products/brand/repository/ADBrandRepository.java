@@ -1,6 +1,7 @@
 package com.sd20201.datn.core.admin.products.brand.repository;
 
 import com.sd20201.datn.core.admin.products.brand.model.response.ADBrandResponse;
+import com.sd20201.datn.entity.Brand;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.repository.BrandRepository;
 import org.springframework.data.domain.Page;
@@ -8,6 +9,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+
+import java.util.Optional;
 
 @Repository
 public interface ADBrandRepository extends BrandRepository {
@@ -42,4 +45,6 @@ public interface ADBrandRepository extends BrandRepository {
                         @Param("key") String key,
                         @Param("status") EntityStatus status // <--- Đổi String thành EntityStatus
                 );
+
+     Optional<Brand> findByName(String name);
 }

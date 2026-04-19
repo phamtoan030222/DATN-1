@@ -81,6 +81,11 @@ type ClientGetInvoicesRequest = {
     endDate: number | null
 }
 
+export type ClientInvoiceSerialNumberResponse = {
+    readonly idInvoiceDetail: string;
+    readonly serialNumber: string;
+}
+
 // API call to fetch invoice by id
 export const getInvoiceById = async (code: string): Promise<any> => {
     const res = (await request({
@@ -160,7 +165,7 @@ export const getSerialNumbers = async (idInvoice: string) => {
         params: {
             idInvoice
         },
-    })) as AxiosResponse<DefaultResponse<Array<string>>>
+    })) as AxiosResponse<DefaultResponse<Array<ClientInvoiceSerialNumberResponse>>>
 
     return res.data
 }

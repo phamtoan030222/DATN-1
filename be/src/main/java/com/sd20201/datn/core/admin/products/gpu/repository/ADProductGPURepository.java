@@ -2,6 +2,7 @@ package com.sd20201.datn.core.admin.products.gpu.repository;
 
 import com.sd20201.datn.core.admin.products.gpu.model.request.ADProductGPURequest;
 import com.sd20201.datn.core.admin.products.gpu.model.response.ADProductGPUResponse;
+import com.sd20201.datn.entity.GPU;
 import com.sd20201.datn.repository.GPURepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -42,4 +43,5 @@ public interface ADProductGPURepository extends GPURepository {
 
     Optional<ADProductGPUResponse> getGPUById(String id);
 
+    Optional<GPU> findByName(String name);
 }

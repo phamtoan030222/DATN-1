@@ -3,6 +3,7 @@ package com.sd20201.datn.core.client.invoice.repository;
 import com.sd20201.datn.core.client.invoice.model.request.ClientGetInvoicesRequest;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailResponse;
 import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceDetailsResponse;
+import com.sd20201.datn.core.client.invoice.model.response.ClientInvoiceSerialNumberResponse;
 import com.sd20201.datn.core.client.invoice.model.response.LichSuTrangThaiHoaDonResponse;
 import com.sd20201.datn.entity.Customer;
 import com.sd20201.datn.entity.Invoice;
@@ -147,9 +148,10 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
 
     @Query("""
     SELECT
-        i.code
+        i.invoiceDetail.id as idInvoiceDetail
+        , i.code as serialNumber
     FROM IMEI i
     WHERE i.invoiceDetail.invoice.id = :idInvoice
     """)
-    List<String> getSerialNumbers(String idInvoice);
+    List<ClientInvoiceSerialNumberResponse> getSerialNumbers(String idInvoice);
 }

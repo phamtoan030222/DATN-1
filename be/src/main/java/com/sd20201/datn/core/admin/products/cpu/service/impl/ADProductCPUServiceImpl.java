@@ -32,15 +32,18 @@ public class ADProductCPUServiceImpl implements ADProductCPUService {
 
     @Override
     public ResponseObject<?> modify(ADProductCPUCreateUpdateRequest request) {
-        return new ResponseObject(request.getId() == null || request.getId().isEmpty() ? createCPU(request) : updateCPU(request), HttpStatus.OK, "OKE");
+        return request.getId() == null || request.getId().isEmpty() ? createCPU(request) : updateCPU(request);
     }
 
-    private Object updateCPU(ADProductCPUCreateUpdateRequest request) {
+    private ResponseObject<?> updateCPU(ADProductCPUCreateUpdateRequest request) {
         Optional<CPU> optionalCPU = cpuRepository.findById(request.getId());
 
         if(optionalCPU.isEmpty()) return ResponseObject.errorForward("Update fail!!! CPU not found", HttpStatus.NOT_FOUND);
 
         CPU cpu = optionalCPU.get();
+        if (!cpu.getName().equals(request.getName()) && cpuRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("CPU is already exist", HttpStatus.CONFLICT);
+
 
         cpu.setName(request.getName());
         cpu.setCode(request.getCode());
@@ -53,11 +56,14 @@ public class ADProductCPUServiceImpl implements ADProductCPUService {
         return ResponseObject.successForward(cpuRepository.save(cpu), "CPU updated successfully");
     }
 
-    private Object createCPU(ADProductCPUCreateUpdateRequest request) {
+    private ResponseObject<?> createCPU(ADProductCPUCreateUpdateRequest request) {
 
         Optional<CPU> optionalCPU = cpuRepository.getCPUByCode(request.getCode());
 
         if(optionalCPU.isPresent()) return ResponseObject.errorForward("Create fail!!! CPU code is existed", HttpStatus.NOT_FOUND);
+
+        if (cpuRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("CPU is already exist", HttpStatus.CONFLICT);
 
         CPU cpu = new CPU();
 

@@ -29,9 +29,9 @@ const themeOverrides: GlobalThemeOverrides = {
   <NGlobalStyle />
 
   <div class="app-wrapper">
-    <NavBar />
+    <NavBar class="fixed top-0 left-0 right-0 z-50"/>
 
-    <main class="main-content">
+    <main class="main-content mt-[90px]">
       <div class="container content-card">
         <RouterView />
       </div>

@@ -53,6 +53,9 @@ public class ADBrandServiceImpl implements ADBrandService {
     }
     @Override
     public ResponseObject<?> createBrand(ADCreateBrandRequest request) {
+        if (adBrandRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("Brand is already exist", HttpStatus.CONFLICT);
+
         Brand brand = new Brand();
 
         brand.setName(request.getName());
@@ -93,6 +96,10 @@ public class ADBrandServiceImpl implements ADBrandService {
         }
 
         Brand brand = optionalBrand.get();
+
+        if (!brand.getName().equals(request.getName()) && adBrandRepository.findByName(request.getName()).isPresent())
+            return ResponseObject.errorForward("Brand is already exist", HttpStatus.CONFLICT);
+
         brand.setCode(request.getCode());
         brand.setName(request.getName());
 
