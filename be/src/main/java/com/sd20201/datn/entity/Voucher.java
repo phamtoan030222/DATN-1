@@ -1,5 +1,6 @@
 package com.sd20201.datn.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.sd20201.datn.entity.base.PrimaryEntity;
 import com.sd20201.datn.infrastructure.constant.EntityStatus;
 import com.sd20201.datn.infrastructure.constant.TargetType;
@@ -53,6 +54,7 @@ public class Voucher extends PrimaryEntity implements Serializable {
     private BigDecimal giaTriGiamThucTe;
 
     @OneToMany(mappedBy = "voucher", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JsonIgnore
     private Set<VoucherDetail> voucherCustomers = new HashSet<>(); // Mối quan hệ many-to-many qua bảng trung gian
 
     /**

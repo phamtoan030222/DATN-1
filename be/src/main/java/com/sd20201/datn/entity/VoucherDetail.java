@@ -31,6 +31,7 @@ public class VoucherDetail extends PrimaryEntity implements Serializable {
 
     @ManyToOne
     @JoinColumn(name = "id_customer", referencedColumnName = "id")
+    @JsonIgnore
     private Customer customer;
 
     private Long usedDate;

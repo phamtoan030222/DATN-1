@@ -3,6 +3,7 @@ package com.sd20201.datn.core.client.chatMessage.chat.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -34,21 +35,40 @@ public class GeminiService {
 
         HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-        try {
-            Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
+        // ✅ Retry tối đa 3 lần khi gặp lỗi 503
+        int maxRetries = 3;
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                Map<String, Object> response = restTemplate.postForObject(url, entity, Map.class);
 
-            if (response != null && response.containsKey("candidates")) {
-                List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
-                if (!candidates.isEmpty()) {
-                    Map<String, Object> contentRes = (Map<String, Object>) candidates.get(0).get("content");
-                    List<Map<String, Object>> parts = (List<Map<String, Object>>) contentRes.get("parts");
-                    return (String) parts.get(0).get("text");
+                if (response != null && response.containsKey("candidates")) {
+                    List<Map<String, Object>> candidates = (List<Map<String, Object>>) response.get("candidates");
+                    if (!candidates.isEmpty()) {
+                        Map<String, Object> contentRes = (Map<String, Object>) candidates.get(0).get("content");
+                        List<Map<String, Object>> parts = (List<Map<String, Object>>) contentRes.get("parts");
+                        return (String) parts.get(0).get("text");
+                    }
                 }
+                return "AI không phản hồi (Empty response).";
+
+            } catch (HttpServerErrorException.ServiceUnavailable e) {
+                // ✅ Chỉ retry khi lỗi 503 (Gemini quá tải)
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(2000L * attempt); // lần 1: 2s, lần 2: 4s, lần 3: dừng
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                } else {
+                    return "AI đang quá tải, vui lòng thử lại sau ít phút.";
+                }
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                return "Lỗi kết nối Gemini: " + e.getMessage();
             }
-            return "AI không phản hồi (Empty response).";
-        } catch (Exception e) {
-            e.printStackTrace();
-            return "Lỗi kết nối Gemini: " + e.getMessage();
         }
+
+        return "AI đang quá tải, vui lòng thử lại sau ít phút.";
     }
 }

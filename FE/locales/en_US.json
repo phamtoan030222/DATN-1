@@ -90,7 +90,7 @@
     "resetPasswordTitle": "Reset"
   },
   "route": {
-    "appRoot": "Home",
+    "appRoot": "Trang chủ",
     "cardList": "Card list",
     "draggableList": "Draggable list",
     "commonList": "Common list",

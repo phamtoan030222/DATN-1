@@ -1,5 +1,6 @@
 package com.sd20201.datn.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.sd20201.datn.entity.base.PrimaryEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -31,8 +32,8 @@ public class ChatMessage extends PrimaryEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_customer")
+    @JsonIgnore
     private Customer customer;
-
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_staff")

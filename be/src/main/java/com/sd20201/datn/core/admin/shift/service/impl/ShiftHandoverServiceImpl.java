@@ -167,7 +167,7 @@ public class ShiftHandoverServiceImpl implements ShiftHandoverService {
             String templateName = fullName != null && fullName.contains(" - ") ? fullName.split(" - ")[0].trim() : fullName;
             Shift shiftTemplate = templateName != null ? shiftTemplateRepo.findByName(templateName) : null;
 
-            shiftReportService.sendReport("dungchoctao2001@gmail.com", saved, shiftTemplate);
+            shiftReportService.sendReport("phamductoan030222@gmail.com", saved, shiftTemplate);
         } catch (Exception e) {
             System.err.println("⚠️ Đã lưu DB nhưng lỗi gửi mail: " + e.getMessage());
         }

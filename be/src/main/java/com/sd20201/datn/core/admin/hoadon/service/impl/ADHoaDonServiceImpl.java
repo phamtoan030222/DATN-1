@@ -537,7 +537,7 @@ public class ADHoaDonServiceImpl implements ADHoaDonService {
     }
 
     private String buildEmailContent(Invoice invoice, EntityTrangThaiHoaDon newStatus) {
-        String trackingUrl = "http://localhost:6788/hoa-don/" + invoice.getCode();
+        String trackingUrl = "http://localhost:6788/tra-cuu?q=" + invoice.getId();
         String statusText = getStatusText(newStatus);
         String customerName = invoice.getCustomer() != null ?
                 invoice.getCustomer().getName() :

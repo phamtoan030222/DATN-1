@@ -1,593 +1,23 @@
-<template>
-  <div class="container mx-auto px-5">
-    <!-- Search Card -->
-    <div class="flex gap-2 flex-1 items-end" v-if="!route.query.q">
-      <n-form-item path="searchInvoiceCode" class="flex-1 mb-0">
-        <n-input v-model:value="searchInvoiceCode" placeholder="Nhập mã hóa đơn để tìm kiếm" clearable />
-      </n-form-item>
-      <n-form-item>
-        <n-button type="success" @click="handleSearch">
-          <template #icon>
-            <n-icon>
-              <SearchOutline />
-            </n-icon>
-          </template>
-          Tìm kiếm
-        </n-button>
-      </n-form-item>
-    </div>
-
-    <!-- Progress Timeline -->
-    <NCard v-if="invoice" class="" :bordered="false">
-      <template #header>
-        <n-space justify="space-between" class="m-y-2">
-          <!-- Header with invoice code -->
-          <div v-if="invoice" class="mb-4 p-2 flex">
-            <n-button v-if="route.query.q" type="success" secondary @click="() => router.push({ name: 'Orders' })">
-              <n-icon :size="20">
-                <ArrowBackOutline />
-              </n-icon>
-            </n-button>
-            <div class="mx-2 w-1 bg-[#049d14] rounded m-r-2"></div>
-            <h2 class="text-2xl font-bold">
-              Tiến độ đơn hàng -
-              <div class="inline-block rounded">
-                {{ invoice.code }}
-              </div>
-            </h2>
-          </div>
-
-          <n-space>
-            <NButton type="error" block ghost @click="openCancelModal" v-if="isCanCancelInvoice"
-              :style="{ maxWidth: '150px' }">
-              <template #icon>
-                <n-icon>
-                  <CloseCircleOutline />
-                </n-icon>
-              </template>
-              Hủy đơn hàng
-            </NButton>
-            <NButton type="info" secondary @click="isOpenHistoryModel = true">
-              <template #icon>
-                <NIcon>
-                  <ListOutline />
-                </NIcon>
-              </template> Chi tiết
-            </NButton>
-          </n-space>
-        </n-space>
-      </template>
-
-      <div class="relative">
-        <div v-if="!isCancelled">
-          <div class="pt-2 pb-0 w-full">
-            <div class="relative mx-auto flex justify-between items-start transition-all duration-500"
-              :class="getTimelineContainerWidth(currentVisibleSteps.length)">
-              <template v-for="(step, index) in currentVisibleSteps" :key="`TrackingView-Step-${index}`">
-                <div class="relative flex flex-col items-center flex-1">
-
-                  <!-- LINE -->
-                  <div v-if="index < currentVisibleSteps.length - 1" class="absolute h-[6px] z-0 left-[50%] w-full"
-                    style="top:45px" :class="isStepCompleted(step.key) ? 'bg-blue-500' : 'bg-gray-200'" />
-
-                  <!-- ICON -->
-                  <div class="h-24 flex items-center justify-center relative z-10 w-full">
-
-                    <div
-                      class="rounded-full flex items-center justify-center transition-all duration-300 relative hover:scale-110"
-                      :class="getDynamicIconSizeClass(step.key)">
-                      <n-icon :size="getDynamicIconSize(step.key)">
-                        <component :is="step.icon" />
-                      </n-icon>
-
-                      <!-- completed check -->
-                      <div v-if="isStepCompleted(step.key)"
-                        class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
-                        <n-icon size="14" color="white">
-                          <CheckmarkCircleOutline />
-                        </n-icon>
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                  <!-- TEXT -->
-                  <div class="text-center mt-2 px-2">
-
-                    <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
-                      {{ step.title }}
-                    </p>
-
-                    <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-gray-500">
-                      {{
-                        isStepCompleted(step.key)
-                          ? formatTime(
-                            historiesStatusInvoice.find(h => h.trangThai === +(step.key))?.thoiGian
-                          )
-                          : ''
-                      }}
-                    </p>
-
-                  </div>
-
-                </div>
-              </template>
-            </div>
-          </div>
-        </div>
-        <div v-else>
-          <div class="flex flex-col items-center">
-            <div
-              class="w-15 h-15 rounded-full border-6 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110 text-red-500">
-              <n-icon size="30" class="text-red-500 ">
-                <CloseOutline />
-              </n-icon>
-            </div>
-
-            <!-- Step label -->
-            <div class="text-center">
-              <p class="text-sm font-semibold mb-1 text-red-500">
-                Đã hủy
-              </p>
-              <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-red-500">
-                {{formatTime(historiesStatusInvoice.find(h => h.trangThai == 5)?.thoiGian ?? '0')}}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- customer info panel -->
-        <div class="flex gap-5">
-          <div class="flex-1">
-            <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px] justify-between">
-              <div class="flex">
-                <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
-                <h2 class="text-2xl font-bold">
-                  Thông tin người nhận hàng
-                </h2>
-              </div>
-              <div class="" v-if="isCanCancelInvoice">
-                <n-tooltip trigger="hover">
-                  <template #trigger>
-                    <n-button :bordered="false" circle size="large" secondary type="success"
-                      @click="isOpenCustomerForm = true">
-                      <n-icon size="20">
-                        <PencilOutline />
-                      </n-icon>
-                    </n-button>
-                  </template>
-                  Cập nhật thông tin người nhận
-                </n-tooltip>
-              </div>
-            </div>
-            <div class="p-4 rounded-lg flex flex-col gap-3">
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">Khách hàng:</span>
-                <span>{{ invoice.nameReceiver }}</span>
-              </div>
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">SĐT:</span>
-                <span>{{ invoice.phoneReceiver }}</span>
-              </div>
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">Email:</span>
-                <span>{{ invoice.email }}</span>
-              </div>
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">Ngày đặt:</span>
-                <span>{{ convertTimeMillis(invoice.createDate) }}</span>
-              </div>
-              <div v-if="invoice.description" class="text-sm pb-2">
-                <div class="border-b border-gray-300/30 p-2 flex-1">
-                  <span class="font-medium mr-2">Ghi chú:</span>
-                  <span>{{ invoice.description }}</span>
-                </div>
-              </div>
-              <div class="text-sm">
-                <div class="border-b border-gray-300/30 p-2 flex-1">
-                  <span class="font-medium mr-2">Địa chỉ:</span>
-                  <span class="">{{ invoice.addressReceiver }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex-1">
-            <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px]">
-              <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
-              <h2 class="text-2xl font-bold">
-                Trạng thái thanh toán
-              </h2>
-            </div>
-            <div class="p-4 rounded-lg flex flex-col gap-3">
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">Phương thức thanh toán:</span>
-                <span>{{ convertTextFromTypePayment(invoice.typePayment) }}</span>
-              </div>
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">Trạng thái thanh toán:</span>
-                <n-tag :type="statusPayment">
-                  {{ convertTextFromTrangThaiThanhToan(invoice.trangThaiThanhToan) }}
-                </n-tag>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px] justify-between">
-          <div class="flex">
-            <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
-            <h2 class="text-2xl font-bold">
-              Sản phẩm đã đặt
-            </h2>
-          </div>
-          <div v-if="isCanCancelInvoice">
-            <n-tooltip trigger="hover">
-              <template #trigger>
-                <n-button :bordered="false" circle size="large" secondary type="success"
-                  @click="isEditQuantityProduct = true">
-                  <n-icon size="20">
-                    <PencilOutline />
-                  </n-icon>
-                </n-button>
-              </template>
-              Cập nhật số lượng sản phẩm
-            </n-tooltip>
-          </div>
-        </div>
-
-        <div v-if="isEditQuantityProduct" class="ml-5">
-          <span class="italic font-semibold">
-            <span class="text-red-500">* Chú ý: </span>
-            Mỗi sản phẩm chỉ được thêm tối đa 5 sản phẩm
-          </span>
-        </div>
-
-        <!-- product list -->
-        <div v-if="invoiceDetails.length > 0" class="space-y-4">
-          <div v-for="(detail, index) in invoiceDetails" :key="detail.id"
-            class="flex items-center border-b border-gray-300 p-4">
-            <img :src="detail.urlImage" alt="product" class="w-30 h-30 object-contain rounded" />
-            <div class="flex-1 ml-4">
-              <div class="text-base font-medium">
-                <span>{{ detail.nameProductDetail }} </span>
-              </div>
-              <div class="flex flex-wrap text-xs text-gray-500 mt-1 gap-2">
-                <span v-if="detail.color" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
-                  detail.color }}</span>
-                <span v-if="detail.ram" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
-                  detail.ram }}</span>
-                <span v-if="detail.hardDrive" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
-                  detail.hardDrive }}</span>
-                <span v-if="detail.cpu" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
-                  detail.cpu }}</span>
-                <span v-if="detail.gpu" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
-                  detail.gpu }}</span>
-                <span v-if="detail.material" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
-                  detail.material }}</span>
-              </div>
-            </div>
-            <div class="mr-3 flex-2">
-              <div class="flex gap-2 items-center w-400px">
-                <span class="mr-3">Số lượng:</span>
-                <button class="qty-btn" v-if="isEditQuantityProduct"
-                  :disabled="updateProductDetails[index].quantity <= 1 || updateProductDetails[index].itNotEdit"
-                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity - 1)">
-                  <NIcon size="14">
-                    <RemoveOutline />
-                  </NIcon>
-                </button>
-                <n-input-number v-model:value="updateProductDetails[index].quantity" :min="1" :show-button="false"
-                  size="small" :bordered="isEditQuantityProduct" style="width: 100px" placeholder="Nhập số lượng"
-                  :max="5"
-                  :input-props="{ style: 'border:none; box-shadow:none; background:transparent; font-weight:600; font-size:15px; padding:0 4px; text-align: center;' }"
-                  :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit"
-                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)" />
-                <button v-if="isEditQuantityProduct" class="qty-btn"
-                  :disabled="updateProductDetails[index].quantity >= 5 || updateProductDetails[index].itNotEdit"
-                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity + 1)">
-                  <NIcon size="14">
-                    <AddOutline />
-                  </NIcon>
-                </button>
-              </div>
-              <div v-if="updateProductDetails[index].isAddByChange || updateProductDetails[index].isChangedByCustomer"
-                class="text-yellow-500 text-12px italic">
-                <span class="">Giá sản phẩm tằng từ {{index > 0 && formatCurrency(
-                  _.slice(invoiceDetails, 0, index)
-                    .findLast(it => it.idProductDetail === updateProductDetails[index].idProductDetail)?.price ?? 0)}}
-                  lên
-                  {{ formatCurrency(updateProductDetails[index].price) }}</span>
-              </div>
-            </div>
-            <div class="text-lg font-semibold text-red-600">
-              {{ formatCurrency(updateProductDetails[index].totalAmount) }}
-            </div>
-            <div v-if="isEditQuantityProduct" class="ml-5">
-              <n-button :bordered="false" type="success" circle secondary
-                @click="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, 0)"
-                :disabled="updateProductDetails.length === 1">
-                <n-icon>
-                  <TrashOutline />
-                </n-icon>
-              </n-button>
-            </div>
-            <div v-show="!isEditQuantityProduct" class="ml-5">
-              <n-tooltip>
-                <template #trigger>
-                  <n-button :bordered="false" type="success" circle secondary @click="openSerialInfoModal(detail.id)"
-                    >
-                    <n-icon>
-                      <EyeOutline />
-                    </n-icon>
-                  </n-button>
-                </template>
-                Xem thông tin serial sản phẩm
-              </n-tooltip>
-            </div>
-          </div>
-        </div>
-
-        <!-- totals summary -->
-        <div v-if="invoice && !isEditQuantityProduct" class="mt-6 p-4 ">
-          <div class="max-w-xs ml-auto text-sm space-y-3">
-            <div class="flex justify-between">
-              <span>Tạm tính:</span>
-              <span>{{ formatCurrency(invoice.totalAmountAfterDecrease) }}</span>
-            </div>
-            <div v-if="discount != 0" class="flex justify-between text-red-600">
-              <span>Giảm giá:</span>
-              <span>-{{ formatCurrency(discount) }}</span>
-            </div>
-            <div v-if="shippingFee != 0" class="flex justify-between">
-              <span>Phí vận chuyển:</span>
-              <span>{{ formatCurrency(shippingFee) }}</span>
-            </div>
-            <div class="flex justify-between font-bold text-lg border-t border-gray-300 p-2">
-              <span class="">Tổng cộng:</span>
-              <span class="text-red-600">{{ formatCurrency(invoice.totalAmount) }}</span>
-            </div>
-          </div>
-        </div>
-
-        <n-space class="mt-20px" v-if="isEditQuantityProduct" justify="end">
-          <n-button @click="handleClickCancelSaveEditQuantity">Hủy</n-button>
-          <n-popconfirm :positive-button-props="{
-            type: 'success'
-          }" :positive-text="'Xác nhận'" :negative-text="'Hủy'" @positive-click="handleClickSaveEditQuantity"
-            @negative-click="handleClickCancelSaveEditQuantity">
-            <template #trigger>
-              <n-button type="success">Xác nhận</n-button>
-            </template>
-            Bạn chắc chắn muốn thao tác ?
-          </n-popconfirm>
-        </n-space>
-      </div>
-    </NCard>
-
-    <NCard v-if="!invoice" class="shadow-sm border-0 rounded-xl no-print bg-red-50" content-class="p-6">
-      <p class="text-red-600 font-semibold">Không có thông tin chi tiết về đơn hàng. Vui lòng liên hệ bộ phận chăm sóc
-        khách
-        hàng để biết thêm chi tiết.</p>
-    </NCard>
-
-    <NModal v-model:show="isOpenModalCancelInvoice" preset="card" class="w-30%" :bordered="false" size="huge"
-      content-style="padding-top: 0;">
-      <template #header>
-        <div class="flex items-center gap-3 pt-2">
-          <div>
-            <h3 class="text-lg font-bold text-gray-900 leading-tight">
-              Hủy đơn hàng
-            </h3>
-            <p class="text-xs text-gray-500 font-normal mt-0.5">
-              Mã đơn: <span class="font-mono text-gray-700 font-semibold">{{ invoice?.code }}</span>
-            </p>
-          </div>
-        </div>
-      </template>
-
-      <div class="py-4">
-        <div class="space-y-2">
-          <label class="text-sm font-semibold text-gray-700 flex items-center gap-1">
-            Lý do hủy đơn
-            <span class="text-red-500 font-bold">*</span>
-          </label>
-          <NInput v-model:value="statusNote" type="textarea" placeholder="Bắt buộc nhập lý do hủy đơn hàng..." :rows="3"
-            status="error" class="rounded-lg" />
-          <p v-if="statusNote.trim() === ''" class="text-xs text-red-500 mt-1">
-            Vui lòng nhập lí do
-          </p>
-        </div>
-      </div>
-
-      <template #footer>
-        <div class="flex gap-3 justify-end pt-2">
-          <NButton size="large" class="rounded-lg font-medium" @click="isOpenModalCancelInvoice = false">
-            Hủy bỏ
-          </NButton>
-          <n-popconfirm :positive-button-props="{
-            type: 'success'
-          }" :positive-text="'Xác nhận'" :negative-text="'Hủy'" @positive-click="handleClickCancelInvoice">
-            <template #trigger>
-              <NButton type="success" size="large"
-                class="rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
-                :disabled="statusNote.length == 0">
-                Xác hủy đơn hàng
-              </NButton>
-            </template>
-            Bạn chắc chắn muốn thao tác ?
-          </n-popconfirm>
-        </div>
-      </template>
-    </NModal>
-
-    <!-- ==================== MODAL: LỊCH SỬ ĐƠN HÀNG ==================== -->
-    <NModal v-model:show="isOpenHistoryModel" preset="card" title="Lịch sử đơn hàng"
-      style="width: 1000px; max-width: 95vw; border-radius: 12px;" class="no-print shadow-2xl" :bordered="false"
-      size="huge">
-      <div class="w-full mt-2">
-        <div
-          class="grid grid-cols-12 gap-4 pb-4 border-b-2 border-gray-100 text-[13px] font-bold text-gray-500 uppercase tracking-wider">
-          <div class="col-span-3 pl-4">
-            Trạng thái
-          </div>
-          <div class="col-span-3">
-            Thời gian
-          </div>
-          <div class="col-span-3">
-            Người xác nhận
-          </div>
-          <div class="col-span-3 pr-4">
-            Ghi chú
-          </div>
-        </div>
-        <div class="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto pr-2 mt-2">
-          <div v-for="(item, index) in historiesStatusInvoice" :key="`HISTORY-INVOICE-${index}`"
-            class="grid grid-cols-12 gap-4 py-4 items-center hover:bg-gray-50/70 transition-colors rounded-lg">
-            <div class="col-span-3 pl-4 flex items-center gap-3">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center"
-                :class="getStepCircleBg(item.trangThai)">
-                <NIcon size="18" :class="getStepIconClass(item.trangThai.toString())">
-                  <component :is="getStatusIcon(item.trangThai)" />
-                </NIcon>
-              </div>
-              <span class="font-bold text-gray-800 text-[15px]">{{ getStatusText(item.trangThai) }}</span>
-            </div>
-            <div class="col-span-3 text-[14px] text-gray-600 font-medium tracking-wide">
-              {{ formatTime(item.thoiGian) }}
-            </div>
-            <div class="col-span-3 text-[14.5px] text-gray-800 font-semibold">
-              {{ item.nameStaff && item.nameStaff + ' (Nhân viên)' || item.nameCustomer && item.nameCustomer +
-                ' (Khách hàng) ' || 'Hệ thống tự động' }}
-            </div>
-            <div class="col-span-3 pr-4 text-[14px] text-gray-600 leading-relaxed">
-              {{ item.note || '---' }}
-            </div>
-          </div>
-          <div v-if="historiesStatusInvoice.length === 0"
-            class="py-16 text-center text-gray-400 flex flex-col items-center">
-            <NIcon size="48" class="mb-3 opacity-30">
-              <TimeOutline />
-            </NIcon>
-            <p class="text-lg">
-              Chưa có dữ liệu lịch sử cập nhật.
-            </p>
-          </div>
-        </div>
-      </div>
-    </NModal>
-
-    <!-- ==================== MODAL: CHỈNH SỬA KHÁCH HÀNG ==================== -->
-    <NModal v-model:show="isOpenCustomerForm" preset="card" title="Chỉnh sửa thông tin khách hàng"
-      style="width: 500px; max-width: 95vw; border-radius: 12px" :bordered="false" class="no-print shadow-xl">
-      <NForm ref="customerFormRef" :model="customerForm" :rules="customerFormRules" label-placement="top">
-        <NFormItem label="Họ và tên" path="tenKhachHang">
-          <NInput v-model:value="customerForm.tenKhachHang" placeholder="Nhập họ và tên khách hàng" size="large" />
-        </NFormItem>
-
-        <NFormItem label="Số điện thoại" path="sdtKH">
-          <NInput v-model:value="customerForm.sdtKH" placeholder="Nhập số điện thoại" size="large" />
-        </NFormItem>
-
-        <NFormItem label="Email" path="email">
-          <NInput v-model:value="customerForm.email" placeholder="Nhập email (không bắt buộc)" size="large" />
-        </NFormItem>
-
-        <NFormItem label="Địa chỉ" path="diaChi">
-          <NInput v-model:value="customerForm.diaChi" placeholder="Nhập địa chỉ giao hàng" size="large" type="textarea"
-            :rows="3" />
-        </NFormItem>
-      </NForm>
-
-      <template #footer>
-        <div class="flex justify-end gap-3">
-          <NButton size="large" @click="isOpenCustomerForm = false">
-            Hủy bỏ
-          </NButton>
-          <NPopconfirm positive-text="Xác nhận" :positive-button-props="{ type: 'success' }" negative-text="Hủy bỏ"
-            @positive-click="handleClickSaveCustomerForm">
-            <template #trigger>
-              <NButton type="success" size="large" :loading="isSavingCustomer">
-                Lưu thông tin
-              </NButton>
-            </template>
-
-            <template #icon>
-              <NIcon color="#18a058">
-                <CheckmarkCircleOutline />
-              </NIcon>
-            </template>
-
-            Bạn có chắc muốn cập nhật thông tin khách hàng?
-          </NPopconfirm>
-        </div>
-      </template>
-    </NModal>
-
-    <!-- ==================== MODAL: XEM SERIAL ĐÃ GÁN ==================== -->
-    <NModal v-model:show="isOpenSerialInfoModal" preset="card" title="Thông tin Serial"
-      style="width: 500px; border-radius: 12px" :bordered="false" class="no-print shadow-xl">
-      <div v-if="selectedSerialInfoProduct" class="space-y-4">
-        <div class="flex items-center gap-4 p-4 bg-green-50/50 border border-green-100 rounded-xl">
-          <NAvatar :src="selectedSerialInfoProduct.urlImage" size="large" round
-            fallback-src="https://via.placeholder.com/40" class="border border-green-200 bg-white" />
-          <div>
-            <div class="text-gray-900 text-base mb-1">
-              {{ selectedSerialInfoProduct.nameProductDetail }}
-            </div>
-            <!-- <div class="text-sm text-gray-500">
-              Đã gán <span class="font-bold text-green-600">{{ currentProductSerialInfo.length }}/{{ selectedSerialInfoProduct.soLuongOriginal || selectedSerialInfoProduct.soLuong }}</span> máy
-            </div> -->
-          </div>
-        </div>
-        <div v-if="serialNumberBySelectedSerialInfoProduct.length === 0"
-          class="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
-          <NIcon size="48" class="mb-2 opacity-50">
-            <CubeOutline />
-          </NIcon>
-          <p>Sản phẩm chưa có serial nào</p>
-        </div>
-        <div v-else class="space-y-2 max-h-96 overflow-y-auto pr-2">
-          <div v-for="(imei, index) in serialNumberBySelectedSerialInfoProduct" :key="imei || index"
-            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
-            <div class="flex items-center gap-3">
-              <span class="text-xs text-gray-400 w-4 text-center">{{ index + 1 }}</span>
-              <span class="font-mono text-base tracking-wider">{{ imei }}</span>
-            </div>
-            <NIcon size="18" class="text-green-500">
-              <CheckmarkCircleOutline />
-            </NIcon>
-          </div>
-        </div>
-      </div>
-      <template #footer>
-        <div class="flex justify-end pt-2">
-          <NButton type="default" round @click="closeSerialInfoModal">
-            Đóng lại
-          </NButton>
-        </div>
-      </template>
-    </NModal>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 // import { useRouter, useRoute } from 'vue-router'
-import {
-  c,
+import type {
   FormInst,
   FormRules,
+} from 'naive-ui'
+import {
+  c,
   NButton,
   NCard,
   NFormItem,
   NIcon,
   NInput,
-  NSpace
+  NSpace,
 } from 'naive-ui'
 
 // Icons
-import { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, getSerialNumbers, LichSuTrangThaiHoaDonResponse, putInvoiceCancel, putInvoiceDetail, putReceiver } from '@/service/api/invoice.api'
+import type { ClientInvoiceDetailResponse, ClientInvoiceDetailsResponse, LichSuTrangThaiHoaDonResponse } from '@/service/api/invoice.api'
+import { getHistoryStatusInvoice, getInvoiceById, getInvoiceDetails, getSerialNumbers, putInvoiceCancel, putInvoiceDetail, putReceiver } from '@/service/api/invoice.api'
 import {
   AddOutline,
   ArrowBackOutline,
@@ -602,7 +32,7 @@ import {
   RemoveOutline,
   SearchOutline,
   TimeOutline,
-  TrashOutline
+  TrashOutline,
 } from '@vicons/ionicons5'
 import { getProductDetailById } from '@/service/api/client/product/productDetail.api'
 import _ from 'lodash'
@@ -616,13 +46,13 @@ interface CustomerForm {
   diaChi: string
 }
 
-type UpdateProductDetailType = {
+interface UpdateProductDetailType {
   idProductDetail: string
   idInvoiceDetail: string
   quantity: number
   price: number
   giaGoc: number
-  totalAmount: number,
+  totalAmount: number
   itNotEdit: boolean
   isAddByChange?: boolean
   isChangedByCustomer?: boolean
@@ -632,7 +62,6 @@ type UpdateProductDetailType = {
 const route = useRoute()
 const notification = useNotification()
 const dialog = useDialog()
-
 
 // State
 const invoice = ref<ClientInvoiceDetailResponse | null>(null)
@@ -644,7 +73,7 @@ const historiesStatusInvoice = ref<LichSuTrangThaiHoaDonResponse[]>([])
 const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
 const updateProductDetails = ref<UpdateProductDetailType[]>([])
 const removeProductDetails = ref<UpdateProductDetailType[]>([])
-const serialNumbers = reactive<Map<string, Array<number>>>(new Map());
+const serialNumbers = reactive<Map<string, Array<number>>>(new Map())
 
 const isOpenSerialInfoModal = ref(false)
 const selectedSerialInfoProduct = ref<ClientInvoiceDetailsResponse | null>(null)
@@ -673,17 +102,18 @@ const isLoggedIn = computed(() => userInfoDatn.value?.userId)
 // pricing computations
 const subtotal = computed(() => invoice.value?.totalAmount ?? 0)
 const discount = computed(() => {
-  if (!invoice.value) return 0
+  if (!invoice.value)
+    return 0
   return invoice.value?.totalAmountAfterDecrease - (invoice.value.totalAmount ?? subtotal.value) + invoice.value.shippingFee
 })
 const shippingFee = computed(() => invoice.value?.shippingFee ?? 0)
 const isCanCancelInvoice = computed(() =>
-  invoice.value &&
-  +(invoice.value.invoiceStatus) === 0 &&
-  invoice.value.typePayment == 'TIEN_MAT' &&
-  isLoggedIn.value &&
-  invoice.value.trangThaiThanhToan == 'CHUA_THANH_TOAN' &&
-  invoice.value.idCustomer === userInfoDatn.value?.userId
+  invoice.value
+  && +(invoice.value.invoiceStatus) === 0
+  && invoice.value.typePayment == 'TIEN_MAT'
+  && isLoggedIn.value
+  && invoice.value.trangThaiThanhToan == 'CHUA_THANH_TOAN'
+  && invoice.value.idCustomer === userInfoDatn.value?.userId,
 )
 
 // Computed values
@@ -723,13 +153,14 @@ const STATUS_MAP: Record<number, { label: string, type: string, icon: any }> = {
 }
 
 // Helper functions
-const formatCurrency = (value: number | undefined | null): string => {
-  if (value === undefined || value === null) return "0 ₫"
+function formatCurrency(value: number | undefined | null): string {
+  if (value === undefined || value === null)
+    return '0 ₫'
   return new Intl.NumberFormat('vi-VN', {
     style: 'currency',
     currency: 'VND',
     minimumFractionDigits: 0,
-    maximumFractionDigits: 0
+    maximumFractionDigits: 0,
   }).format(value)
 }
 
@@ -744,52 +175,57 @@ function getStatusText(status: string | number | undefined): string { return STA
 
 // convert Java LocalDateTime string to "HH:mm:ss dd/mm/yyyy"
 function formatTime(datetime: string | undefined | null): string {
-  if (!datetime) return ''
+  if (!datetime)
+    return ''
   const d = new Date(datetime)
-  if (isNaN(d.getTime())) return ''
+  if (isNaN(d.getTime()))
+    return ''
   const pad = (n: number) => n.toString().padStart(2, '0')
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(
-    d.getMonth() + 1
+    d.getMonth() + 1,
   )}/${d.getFullYear()}`
 }
 
 // convert milliseconds since epoch to "HH:mm:ss dd/mm/yyyy"
 function convertTimeMillis(ms: number | undefined | null): string {
-  if (ms == null) return ''
+  if (ms == null)
+    return ''
   const d = new Date(ms)
-  if (isNaN(d.getTime())) return ''
+  if (isNaN(d.getTime()))
+    return ''
   const pad = (n: number) => n.toString().padStart(2, '0')
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())} ${pad(d.getDate())}/${pad(
-    d.getMonth() + 1
+    d.getMonth() + 1,
   )}/${d.getFullYear()}`
 }
 
 // Timeline functions
-const isStepCompleted = (stepKey: string): boolean => {
-  const stepIndex = parseInt(stepKey)
+function isStepCompleted(stepKey: string): boolean {
+  const stepIndex = Number.parseInt(stepKey)
   return stepIndex <= currentStatus.value && stepKey !== '5'
 }
 
-const getStepIconClass = (stepKey: string): string => {
+function getStepIconClass(stepKey: string): string {
   if (isStepCompleted(stepKey)) {
     return 'text-green-500'
-  } else {
+  }
+  else {
     return 'text-gray-400'
   }
 }
 
-const getStepTextClass = (stepKey: string): string => {
+function getStepTextClass(stepKey: string): string {
   if (isStepCompleted(stepKey)) {
     return 'text-blue-600'
-  } else {
+  }
+  else {
     return 'text-gray-500'
   }
 }
 
-
 // Actions
 
-const handleSearch = (): void => {
+function handleSearch(): void {
   if (!searchInvoiceCode.value.trim()) {
     notification.warning({ content: 'Vui lòng nhập mã hóa đơn', duration: 3000 })
     return
@@ -798,12 +234,13 @@ const handleSearch = (): void => {
   fetchInvoice()
 }
 
-const openCancelModal = (): void => {
-  if (!isCanCancelInvoice.value) return;
+function openCancelModal(): void {
+  if (!isCanCancelInvoice.value)
+    return
   isOpenModalCancelInvoice.value = true
 }
 
-const fetchInvoice = async (query?: string): Promise<void> => {
+async function fetchInvoice(query?: string): Promise<void> {
   try {
     const response = await getInvoiceById(query ?? searchInvoiceCode.value)
 
@@ -813,41 +250,44 @@ const fetchInvoice = async (query?: string): Promise<void> => {
       try {
         const [histRes, detailRes] = await Promise.all([
           getHistoryStatusInvoice(invoice.value.id),
-          getInvoiceDetails([invoice.value.id])
+          getInvoiceDetails([invoice.value.id]),
         ])
         historiesStatusInvoice.value = histRes.data || []
         invoiceDetails.value = _.sortBy(detailRes.data.filter(it => it.idInvoice === invoice.value?.id), 'createdDate') || []
 
         updateProductDetails.value = convertInvoiceDetailToUpdateProductDetail(invoiceDetails.value)
 
-        customerForm.tenKhachHang = invoice.value.nameReceiver;
-        customerForm.email = invoice.value.email;
-        customerForm.sdtKH = invoice.value.phoneReceiver;
-        customerForm.diaChi = invoice.value.addressReceiver;
+        customerForm.tenKhachHang = invoice.value.nameReceiver
+        customerForm.email = invoice.value.email
+        customerForm.sdtKH = invoice.value.phoneReceiver
+        customerForm.diaChi = invoice.value.addressReceiver
         if (+(invoice.value.invoiceStatus) !== 0) {
-          const serialNumbersRes = await getSerialNumbers(invoice.value.id);
+          const serialNumbersRes = await getSerialNumbers(invoice.value.id)
 
           for (const detail of invoiceDetails.value) {
-            const serialsForDetail = serialNumbersRes.data.filter((sn: any) => sn.idInvoiceDetail === detail.id).map((sn: any) => sn.serialNumber);
-            serialNumbers.set(detail.id, serialsForDetail);
+            const serialsForDetail = serialNumbersRes.data.filter((sn: any) => sn.idInvoiceDetail === detail.id).map((sn: any) => sn.serialNumber)
+            serialNumbers.set(detail.id, serialsForDetail)
           }
         }
-      } catch (e) {
+      }
+      catch (e) {
         console.error('Error fetching invoice meta:', e)
         historiesStatusInvoice.value = []
         invoiceDetails.value = []
       }
     }
-  } catch (error: any) {
+  }
+  catch (error: any) {
     invoice.value = null
     historiesStatusInvoice.value = []
   }
 }
 
-const convertInvoiceDetailToUpdateProductDetail = (invoiceDetails: ClientInvoiceDetailsResponse[]): UpdateProductDetailType[] => {
+function convertInvoiceDetailToUpdateProductDetail(invoiceDetails: ClientInvoiceDetailsResponse[]): UpdateProductDetailType[] {
   return invoiceDetails.map((it, index) => {
     const isChangedByCustomer = _.slice(invoiceDetails, 0, index)
-      .filter(invoiceDetail => invoiceDetail.idProductDetail === it.idProductDetail).length > 0
+      .filter(invoiceDetail => invoiceDetail.idProductDetail === it.idProductDetail)
+      .length > 0
 
     const isLastInvoiceDetail = _.findLast(invoiceDetails, invoiceDetail => invoiceDetail.idProductDetail === it.idProductDetail)?.id === it.id
 
@@ -859,7 +299,7 @@ const convertInvoiceDetailToUpdateProductDetail = (invoiceDetails: ClientInvoice
       quantity: it.quantity,
       itNotEdit: !isLastInvoiceDetail,
       totalAmount: it.totalAmount,
-      isChangedByCustomer
+      isChangedByCustomer,
     }
   })
 }
@@ -917,33 +357,38 @@ const statusPayment = computed(() => {
   }
 })
 
-const handleClickCancelInvoice = async () => {
+async function handleClickCancelInvoice() {
   try {
-    if (statusNote.value.length === 0) return;
+    if (statusNote.value.length === 0)
+      return
 
     const res = await putInvoiceCancel({
       id: invoice.value?.id as string,
-      note: statusNote.value
+      note: statusNote.value,
     })
 
     notification.success({ content: 'Hủy hóa đơn thành công', duration: 3000 })
     isOpenModalCancelInvoice.value = false
     fetchInvoice()
-  } catch (e) {
+  }
+  catch (e) {
     notification.error({ content: 'Hủy hóa đơn thất bại. Vui lòng thử lại', duration: 3000 })
   }
 }
 
 function getTimelineContainerWidth(total: number) {
-  if (total === 1) return 'max-w-sm'
-  if (total === 2) return 'max-w-2xl'
-  if (total === 3) return 'max-w-4xl'
-  if (total === 4) return 'max-w-6xl'
+  if (total === 1)
+    return 'max-w-sm'
+  if (total === 2)
+    return 'max-w-2xl'
+  if (total === 3)
+    return 'max-w-4xl'
+  if (total === 4)
+    return 'max-w-6xl'
   return 'w-full'
 }
 
 function getDynamicIconSizeClass(stepKey: string) {
-
   if (currentStatus.value.toString() === stepKey)
     return 'w-24 h-24 border-[6px] border-blue-500 bg-blue-50 text-blue-600 shadow-lg'
 
@@ -967,13 +412,14 @@ const customerFormRules: FormRules = {
 }
 
 const isSavingCustomer = ref(false)
-const handleClickSaveCustomerForm = async () => {
-  try { await customerFormRef.value?.validate(); } catch (e) { return; }
+async function handleClickSaveCustomerForm() {
+  try { await customerFormRef.value?.validate() }
+  catch (e) { return }
   try {
-    isSavingCustomer.value = true;
+    isSavingCustomer.value = true
 
-
-    if (!invoice.value?.id) return;
+    if (!invoice.value?.id)
+      return
 
     await putReceiver(invoice.value.id, customerForm)
 
@@ -982,7 +428,8 @@ const handleClickSaveCustomerForm = async () => {
     fetchInvoice()
 
     isOpenCustomerForm.value = false
-  } catch {
+  }
+  catch {
     notification.error({ content: 'Cập nhật thông tin người nhật thất bại', duration: 3000 })
   }
   finally {
@@ -990,63 +437,70 @@ const handleClickSaveCustomerForm = async () => {
   }
 }
 
-const handleClickSaveEditQuantity = async () => {
-  if (!invoice.value) return;
+async function handleClickSaveEditQuantity() {
+  if (!invoice.value)
+    return
   try {
-    const totalAmount = updateProductDetails.value.reduce((total, it) => total + it.totalAmount, 0);
+    const totalAmount = updateProductDetails.value.reduce((total, it) => total + it.totalAmount, 0)
     await putInvoiceDetail(invoice.value?.id, {
       totalAmount,
       updateProductDetails: _.concat(updateProductDetails.value, removeProductDetails.value)
         .filter((it, index) => (index < invoiceDetails.value.length && it.quantity !== invoiceDetails.value[index].quantity) || it.isAddByChange || it.quantity === 0)
         .map(it => ({
-          ..._.pick(it, ['giaGoc', 'idProductDetail', 'idInvoiceDetail', 'quantity', 'price', 'totalAmount'])
-        }))
+          ..._.pick(it, ['giaGoc', 'idProductDetail', 'idInvoiceDetail', 'quantity', 'price', 'totalAmount']),
+        })),
     })
-  } catch (e) {
+  }
+  catch (e) {
     notification.error({ content: 'Thay đổi số lượng sản phẩm thất bại', duration: 3000 })
-  } finally {
+  }
+  finally {
     isEditQuantityProduct.value = false
     fetchInvoice()
   }
 }
 
-const handleClickCancelSaveEditQuantity = async () => {
+async function handleClickCancelSaveEditQuantity() {
   isEditQuantityProduct.value = false
   fetchInvoice()
 }
 
-const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) => {
+async function handleUpdateQuantity(idInvoiceDetail: string, quantity: number) {
   const item = updateProductDetails.value.find(it => it.idInvoiceDetail === idInvoiceDetail)
   const invoiceDetail = invoiceDetails.value.find(it => it.id === idInvoiceDetail)
-  if (!item || !invoiceDetail) return;
+  if (!item || !invoiceDetail)
+    return
 
   if (quantity === 0) {
-    const indexInvoiceDetail = invoiceDetails.value.findIndex(it => it.id === idInvoiceDetail);
+    const indexInvoiceDetail = invoiceDetails.value.findIndex(it => it.id === idInvoiceDetail)
 
     if (indexInvoiceDetail !== -1) {
-      invoiceDetails.value.splice(indexInvoiceDetail, 1);
-      updateProductDetails.value.splice(indexInvoiceDetail, 1);
+      invoiceDetails.value.splice(indexInvoiceDetail, 1)
+      updateProductDetails.value.splice(indexInvoiceDetail, 1)
 
-      item.quantity = 0;
-      removeProductDetails.value.push(item);
+      item.quantity = 0
+      removeProductDetails.value.push(item)
 
       const lastProduct = _.findLast(updateProductDetails.value, it => it.idProductDetail === item.idProductDetail)
 
       if (lastProduct) {
-        lastProduct.itNotEdit = false;
+        lastProduct.itNotEdit = false
       }
     }
-    return;
+    return
   }
 
-  if (item.quantity > quantity) item.quantity = quantity;
+  if (item.quantity > quantity)
+    item.quantity = quantity
   if (item.quantity < quantity) {
-    const productDetailRes = await getProductDetailById(item.idProductDetail);
+    const productDetailRes = await getProductDetailById(item.idProductDetail)
 
     const productDetail = productDetailRes.data
-    const salePrice = productDetail.percentage ? (
-      productDetail.percentage < 100 ? productDetail.price * (100 - productDetail.percentage) / 100 : productDetail.price - productDetail.percentage
-    ) : productDetail.price;
+    const salePrice = productDetail.percentage
+      ? (
+          productDetail.percentage < 100 ? productDetail.price * (100 - productDetail.percentage) / 100 : productDetail.price - productDetail.percentage
+        )
+      : productDetail.price
     if (salePrice !== invoiceDetail.price) {
       dialog.warning({
         title: 'Giá của sản phẩm thay đổi',
@@ -1055,7 +509,7 @@ const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) =
         negativeText: 'Hủy',
         draggable: true,
         onPositiveClick: () => {
-          const quantityNewInvoiceDetaiy = quantity - invoiceDetail.quantity;
+          const quantityNewInvoiceDetaiy = quantity - invoiceDetail.quantity
           updateProductDetails.value.push({
             idInvoiceDetail: '',
             idProductDetail: productDetail.id ?? item.idProductDetail,
@@ -1067,9 +521,9 @@ const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) =
             itNotEdit: false,
           })
 
-          item.itNotEdit = true;
+          item.itNotEdit = true
 
-          const indexInvoiceDetail = invoiceDetails.value.findIndex(it => it.id === idInvoiceDetail);
+          const indexInvoiceDetail = invoiceDetails.value.findIndex(it => it.id === idInvoiceDetail)
           invoiceDetails.value.splice(indexInvoiceDetail + 1, 0, {
             ...invoiceDetails.value[indexInvoiceDetail],
             id: '',
@@ -1080,7 +534,8 @@ const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) =
           })
         },
       })
-    } else {
+    }
+    else {
       item.quantity = quantity
     }
   }
@@ -1089,19 +544,21 @@ const handleUpdateQuantity = async (idInvoiceDetail: string, quantity: number) =
 }
 
 const serialNumberBySelectedSerialInfoProduct = computed(() => {
-  if (!selectedSerialInfoProduct.value) return []
+  if (!selectedSerialInfoProduct.value)
+    return []
   return serialNumbers.get(selectedSerialInfoProduct.value.id) || []
 })
 
-const openSerialInfoModal = (idInvoiceDetail: string) => {
+function openSerialInfoModal(idInvoiceDetail: string) {
   const invoiceDetail = invoiceDetails.value.find(it => it.id === idInvoiceDetail)
-  if (!invoiceDetail) return;
+  if (!invoiceDetail)
+    return
 
   selectedSerialInfoProduct.value = invoiceDetail
   isOpenSerialInfoModal.value = true
 }
 
-const closeSerialInfoModal = () => {
+function closeSerialInfoModal() {
   selectedSerialInfoProduct.value = null
   isOpenSerialInfoModal.value = false
 }
@@ -1110,6 +567,636 @@ onMounted(() => {
   fetchInvoice()
 })
 </script>
+
+<template>
+  <div class="container mx-auto px-5">
+    <!-- Search Card -->
+    <div v-if="!route.query.q" class="flex gap-2 flex-1 items-end">
+      <NFormItem path="searchInvoiceCode" class="flex-1 mb-0">
+        <NInput v-model:value="searchInvoiceCode" placeholder="Nhập mã hóa đơn để tìm kiếm" clearable />
+      </NFormItem>
+      <NFormItem>
+        <NButton type="success" @click="handleSearch">
+          <template #icon>
+            <NIcon>
+              <SearchOutline />
+            </NIcon>
+          </template>
+          Tìm kiếm
+        </NButton>
+      </NFormItem>
+    </div>
+
+    <!-- Progress Timeline -->
+    <NCard v-if="invoice" class="" :bordered="false">
+      <template #header>
+        <NSpace justify="space-between" class="m-y-2">
+          <!-- Header with invoice code -->
+          <div v-if="invoice" class="mb-4 p-2 flex">
+            <NButton v-if="route.query.q" type="success" secondary @click="() => router.push({ name: 'Orders' })">
+              <NIcon :size="20">
+                <ArrowBackOutline />
+              </NIcon>
+            </NButton>
+            <div class="mx-2 w-1 bg-[#049d14] rounded m-r-2" />
+            <h2 class="text-2xl font-bold">
+              Tiến độ đơn hàng -
+              <div class="inline-block rounded">
+                {{ invoice.code }}
+              </div>
+            </h2>
+          </div>
+
+          <NSpace>
+            <NButton
+              v-if="isCanCancelInvoice" type="error" block ghost :style="{ maxWidth: '150px' }"
+              @click="openCancelModal"
+            >
+              <template #icon>
+                <NIcon>
+                  <CloseCircleOutline />
+                </NIcon>
+              </template>
+              Hủy đơn hàng
+            </NButton>
+            <NButton type="info" secondary @click="isOpenHistoryModel = true">
+              <template #icon>
+                <NIcon>
+                  <ListOutline />
+                </NIcon>
+              </template> Chi tiết
+            </NButton>
+          </NSpace>
+        </NSpace>
+      </template>
+
+      <div class="relative">
+        <div v-if="!isCancelled">
+          <div class="pt-2 pb-0 w-full">
+            <div
+              class="relative mx-auto flex justify-between items-start transition-all duration-500"
+              :class="getTimelineContainerWidth(currentVisibleSteps.length)"
+            >
+              <template v-for="(step, index) in currentVisibleSteps" :key="`TrackingView-Step-${index}`">
+                <div class="relative flex flex-col items-center flex-1">
+                  <!-- LINE -->
+                  <div
+                    v-if="index < currentVisibleSteps.length - 1" class="absolute h-[6px] z-0 left-[50%] w-full"
+                    style="top:45px" :class="isStepCompleted(step.key) ? 'bg-blue-500' : 'bg-gray-200'"
+                  />
+
+                  <!-- ICON -->
+                  <div class="h-24 flex items-center justify-center relative z-10 w-full">
+                    <div
+                      class="rounded-full flex items-center justify-center transition-all duration-300 relative hover:scale-110"
+                      :class="getDynamicIconSizeClass(step.key)"
+                    >
+                      <NIcon :size="getDynamicIconSize(step.key)">
+                        <component :is="step.icon" />
+                      </NIcon>
+
+                      <!-- completed check -->
+                      <div
+                        v-if="isStepCompleted(step.key)"
+                        class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow"
+                      >
+                        <NIcon size="14" color="white">
+                          <CheckmarkCircleOutline />
+                        </NIcon>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- TEXT -->
+                  <div class="text-center mt-2 px-2">
+                    <p class="text-sm font-semibold mb-1" :class="getStepTextClass(step.key)">
+                      {{ step.title }}
+                    </p>
+
+                    <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-gray-500">
+                      {{
+                        isStepCompleted(step.key)
+                          ? formatTime(
+                            historiesStatusInvoice.find(h => h.trangThai === +(step.key))?.thoiGian,
+                          )
+                          : ''
+                      }}
+                    </p>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+        <div v-else>
+          <div class="flex flex-col items-center">
+            <div
+              class="w-15 h-15 rounded-full border-6 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110 text-red-500"
+            >
+              <NIcon size="30" class="text-red-500 ">
+                <CloseOutline />
+              </NIcon>
+            </div>
+
+            <!-- Step label -->
+            <div class="text-center">
+              <p class="text-sm font-semibold mb-1 text-red-500">
+                Đã hủy
+              </p>
+              <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-red-500">
+                {{ formatTime(historiesStatusInvoice.find(h => h.trangThai == 5)?.thoiGian ?? '0') }}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- customer info panel -->
+        <div class="flex gap-5">
+          <div class="flex-1">
+            <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px] justify-between">
+              <div class="flex">
+                <div class="w-1 bg-[#049d14] rounded m-r-2" />
+                <h2 class="text-2xl font-bold">
+                  Thông tin người nhận hàng
+                </h2>
+              </div>
+              <div v-if="isCanCancelInvoice" class="">
+                <n-tooltip trigger="hover">
+                  <template #trigger>
+                    <NButton
+                      :bordered="false" circle size="large" secondary type="success"
+                      @click="isOpenCustomerForm = true"
+                    >
+                      <NIcon size="20">
+                        <PencilOutline />
+                      </NIcon>
+                    </NButton>
+                  </template>
+                  Cập nhật thông tin người nhận
+                </n-tooltip>
+              </div>
+            </div>
+            <div class="p-4 rounded-lg flex flex-col gap-3">
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Khách hàng:</span>
+                <span>{{ invoice.nameReceiver }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">SĐT:</span>
+                <span>{{ invoice.phoneReceiver }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Email:</span>
+                <span>{{ invoice.email }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Ngày đặt:</span>
+                <span>{{ convertTimeMillis(invoice.createDate) }}</span>
+              </div>
+              <div v-if="invoice.description" class="text-sm pb-2">
+                <div class="border-b border-gray-300/30 p-2 flex-1">
+                  <span class="font-medium mr-2">Ghi chú:</span>
+                  <span>{{ invoice.description }}</span>
+                </div>
+              </div>
+              <div class="text-sm">
+                <div class="border-b border-gray-300/30 p-2 flex-1">
+                  <span class="font-medium mr-2">Địa chỉ:</span>
+                  <span class="">{{ invoice.addressReceiver }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="flex-1">
+            <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px]">
+              <div class="w-1 bg-[#049d14] rounded m-r-2" />
+              <h2 class="text-2xl font-bold">
+                Trạng thái thanh toán
+              </h2>
+            </div>
+            <div class="p-4 rounded-lg flex flex-col gap-3">
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Phương thức thanh toán:</span>
+                <span>{{ convertTextFromTypePayment(invoice.typePayment) }}</span>
+              </div>
+              <div class="border-b border-gray-300/30 p-2 flex-1">
+                <span class="font-medium mr-2">Trạng thái thanh toán:</span>
+                <n-tag :type="statusPayment">
+                  {{ convertTextFromTrangThaiThanhToan(invoice.trangThaiThanhToan) }}
+                </n-tag>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px] justify-between">
+          <div class="flex">
+            <div class="w-1 bg-[#049d14] rounded m-r-2" />
+            <h2 class="text-2xl font-bold">
+              Sản phẩm đã đặt
+            </h2>
+          </div>
+          <div v-if="isCanCancelInvoice">
+            <n-tooltip trigger="hover">
+              <template #trigger>
+                <NButton
+                  :bordered="false" circle size="large" secondary type="success"
+                  @click="isEditQuantityProduct = true"
+                >
+                  <NIcon size="20">
+                    <PencilOutline />
+                  </NIcon>
+                </NButton>
+              </template>
+              Cập nhật số lượng sản phẩm
+            </n-tooltip>
+          </div>
+        </div>
+
+        <div v-if="isEditQuantityProduct" class="ml-5">
+          <span class="italic font-semibold">
+            <span class="text-red-500">* Chú ý: </span>
+            Mỗi sản phẩm chỉ được thêm tối đa 5 sản phẩm
+          </span>
+        </div>
+
+        <!-- product list -->
+        <div v-if="invoiceDetails.length > 0" class="space-y-4">
+          <div
+            v-for="(detail, index) in invoiceDetails" :key="detail.id"
+            class="flex items-center border-b border-gray-300 p-4"
+          >
+            <img :src="detail.urlImage" alt="product" class="w-30 h-30 object-contain rounded">
+            <div class="flex-1 ml-4">
+              <div class="text-base font-medium">
+                <span>{{ detail.nameProductDetail }} </span>
+              </div>
+              <div class="flex flex-wrap text-xs text-gray-500 mt-1 gap-2">
+                <span v-if="detail.color" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.color }}</span>
+                <span v-if="detail.ram" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.ram }}</span>
+                <span v-if="detail.hardDrive" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.hardDrive }}</span>
+                <span v-if="detail.cpu" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.cpu }}</span>
+                <span v-if="detail.gpu" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.gpu }}</span>
+                <span v-if="detail.material" class="border bg-gray/10 py-1 px-2.5 border-none font-semibold rounded">{{
+                  detail.material }}</span>
+              </div>
+            </div>
+            <div class="mr-3 flex-2">
+              <div class="flex gap-2 items-center w-400px">
+                <span class="mr-3">Số lượng:</span>
+                <button
+                  v-if="isEditQuantityProduct" class="qty-btn"
+                  :disabled="updateProductDetails[index].quantity <= 1 || updateProductDetails[index].itNotEdit"
+                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity - 1)"
+                >
+                  <NIcon size="14">
+                    <RemoveOutline />
+                  </NIcon>
+                </button>
+                <n-input-number
+                  v-model:value="updateProductDetails[index].quantity" :min="1" :show-button="false"
+                  size="small" :bordered="isEditQuantityProduct" style="width: 100px" placeholder="Nhập số lượng"
+                  :max="5"
+                  :input-props="{ style: 'border:none; box-shadow:none; background:transparent; font-weight:600; font-size:15px; padding:0 4px; text-align: center;' }"
+                  :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit"
+                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)"
+                />
+                <button
+                  v-if="isEditQuantityProduct" class="qty-btn"
+                  :disabled="updateProductDetails[index].quantity >= 5 || updateProductDetails[index].itNotEdit"
+                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity + 1)"
+                >
+                  <NIcon size="14">
+                    <AddOutline />
+                  </NIcon>
+                </button>
+              </div>
+              <div
+                v-if="updateProductDetails[index].isAddByChange || updateProductDetails[index].isChangedByCustomer"
+                class="text-yellow-500 text-12px italic"
+              >
+                <span class="">Giá sản phẩm tằng từ {{ index > 0 && formatCurrency(
+                  _.slice(invoiceDetails, 0, index)
+                    .findLast(it => it.idProductDetail === updateProductDetails[index].idProductDetail)?.price ?? 0) }}
+                  lên
+                  {{ formatCurrency(updateProductDetails[index].price) }}</span>
+              </div>
+            </div>
+            <div class="text-lg font-semibold text-red-600">
+              {{ formatCurrency(updateProductDetails[index].totalAmount) }}
+            </div>
+            <div v-if="isEditQuantityProduct" class="ml-5">
+              <NButton
+                :bordered="false" type="success" circle secondary
+                :disabled="updateProductDetails.length === 1"
+                @click="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, 0)"
+              >
+                <NIcon>
+                  <TrashOutline />
+                </NIcon>
+              </NButton>
+            </div>
+            <div v-show="!isEditQuantityProduct" class="ml-5">
+              <n-tooltip>
+                <template #trigger>
+                  <NButton :bordered="false" type="success" circle secondary @click="openSerialInfoModal(detail.id)">
+                    <NIcon>
+                      <EyeOutline />
+                    </NIcon>
+                  </NButton>
+                </template>
+                Xem thông tin serial sản phẩm
+              </n-tooltip>
+            </div>
+          </div>
+        </div>
+
+        <!-- totals summary -->
+        <div v-if="invoice && !isEditQuantityProduct" class="mt-6 p-4 ">
+          <div class="max-w-xs ml-auto text-sm space-y-3">
+            <div class="flex justify-between">
+              <span>Tạm tính:</span>
+              <span>{{ formatCurrency(invoice.totalAmountAfterDecrease) }}</span>
+            </div>
+            <div v-if="discount != 0" class="flex justify-between text-red-600">
+              <span>Giảm giá:</span>
+              <span>-{{ formatCurrency(discount) }}</span>
+            </div>
+            <div v-if="shippingFee != 0" class="flex justify-between">
+              <span>Phí vận chuyển:</span>
+              <span>{{ formatCurrency(shippingFee) }}</span>
+            </div>
+            <div class="flex justify-between font-bold text-lg border-t border-gray-300 p-2">
+              <span class="">Tổng cộng:</span>
+              <span class="text-red-600">{{ formatCurrency(invoice.totalAmount) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <NSpace v-if="isEditQuantityProduct" class="mt-20px" justify="end">
+          <NButton @click="handleClickCancelSaveEditQuantity">
+            Hủy
+          </NButton>
+          <n-popconfirm
+            :positive-button-props="{
+              type: 'success',
+            }" positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleClickSaveEditQuantity"
+            @negative-click="handleClickCancelSaveEditQuantity"
+          >
+            <template #trigger>
+              <NButton type="success">
+                Xác nhận
+              </NButton>
+            </template>
+            Bạn chắc chắn muốn thao tác ?
+          </n-popconfirm>
+        </NSpace>
+      </div>
+    </NCard>
+
+    <NCard v-if="!invoice" class="shadow-sm border-0 rounded-xl no-print bg-red-50" content-class="p-6">
+      <p class="text-red-600 font-semibold">
+        Không có thông tin chi tiết về đơn hàng. Vui lòng liên hệ bộ phận chăm sóc
+        khách
+        hàng để biết thêm chi tiết.
+      </p>
+    </NCard>
+
+    <NModal
+      v-model:show="isOpenModalCancelInvoice" preset="card" class="w-30%" :bordered="false" size="huge"
+      content-style="padding-top: 0;"
+    >
+      <template #header>
+        <div class="flex items-center gap-3 pt-2">
+          <div>
+            <h3 class="text-lg font-bold text-gray-900 leading-tight">
+              Hủy đơn hàng
+            </h3>
+            <p class="text-xs text-gray-500 font-normal mt-0.5">
+              Mã đơn: <span class="font-mono text-gray-700 font-semibold">{{ invoice?.code }}</span>
+            </p>
+          </div>
+        </div>
+      </template>
+
+      <div class="py-4">
+        <div class="space-y-2">
+          <label class="text-sm font-semibold text-gray-700 flex items-center gap-1">
+            Lý do hủy đơn
+            <span class="text-red-500 font-bold">*</span>
+          </label>
+          <NInput
+            v-model:value="statusNote" type="textarea" placeholder="Bắt buộc nhập lý do hủy đơn hàng..." :rows="3"
+            status="error" class="rounded-lg"
+          />
+          <p v-if="statusNote.trim() === ''" class="text-xs text-red-500 mt-1">
+            Vui lòng nhập lí do
+          </p>
+        </div>
+      </div>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end pt-2">
+          <NButton size="large" class="rounded-lg font-medium" @click="isOpenModalCancelInvoice = false">
+            Hủy bỏ
+          </NButton>
+          <n-popconfirm
+            :positive-button-props="{
+              type: 'success',
+            }" positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleClickCancelInvoice"
+          >
+            <template #trigger>
+              <NButton
+                type="success" size="large"
+                class="rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
+                :disabled="statusNote.length == 0"
+              >
+                Xác hủy đơn hàng
+              </NButton>
+            </template>
+            Bạn chắc chắn muốn thao tác ?
+          </n-popconfirm>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- ==================== MODAL: LỊCH SỬ ĐƠN HÀNG ==================== -->
+    <NModal
+      v-model:show="isOpenHistoryModel" preset="card" title="Lịch sử đơn hàng"
+      style="width: 1000px; max-width: 95vw; border-radius: 12px;" class="no-print shadow-2xl" :bordered="false"
+      size="huge"
+    >
+      <div class="w-full mt-2">
+        <div
+          class="grid grid-cols-12 gap-4 pb-4 border-b-2 border-gray-100 text-[13px] font-bold text-gray-500 uppercase tracking-wider"
+        >
+          <div class="col-span-3 pl-4">
+            Trạng thái
+          </div>
+          <div class="col-span-3">
+            Thời gian
+          </div>
+          <div class="col-span-3">
+            Người xác nhận
+          </div>
+          <div class="col-span-3 pr-4">
+            Ghi chú
+          </div>
+        </div>
+        <div class="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto pr-2 mt-2">
+          <div
+            v-for="(item, index) in historiesStatusInvoice" :key="`HISTORY-INVOICE-${index}`"
+            class="grid grid-cols-12 gap-4 py-4 items-center hover:bg-gray-50/70 transition-colors rounded-lg"
+          >
+            <div class="col-span-3 pl-4 flex items-center gap-3">
+              <div
+                class="w-8 h-8 rounded-full flex items-center justify-center"
+                :class="getStepCircleBg(item.trangThai)"
+              >
+                <NIcon size="18" :class="getStepIconClass(item.trangThai.toString())">
+                  <component :is="getStatusIcon(item.trangThai)" />
+                </NIcon>
+              </div>
+              <span class="font-bold text-gray-800 text-[15px]">{{ getStatusText(item.trangThai) }}</span>
+            </div>
+            <div class="col-span-3 text-[14px] text-gray-600 font-medium tracking-wide">
+              {{ formatTime(item.thoiGian) }}
+            </div>
+            <div class="col-span-3 text-[14.5px] text-gray-800 font-semibold">
+              {{ item.nameStaff && `${item.nameStaff} (Nhân viên)` || item.nameCustomer && `${item.nameCustomer
+              } (Khách hàng) ` || 'Hệ thống tự động' }}
+            </div>
+            <div class="col-span-3 pr-4 text-[14px] text-gray-600 leading-relaxed">
+              {{ item.note || '---' }}
+            </div>
+          </div>
+          <div
+            v-if="historiesStatusInvoice.length === 0"
+            class="py-16 text-center text-gray-400 flex flex-col items-center"
+          >
+            <NIcon size="48" class="mb-3 opacity-30">
+              <TimeOutline />
+            </NIcon>
+            <p class="text-lg">
+              Chưa có dữ liệu lịch sử cập nhật.
+            </p>
+          </div>
+        </div>
+      </div>
+    </NModal>
+
+    <!-- ==================== MODAL: CHỈNH SỬA KHÁCH HÀNG ==================== -->
+    <NModal
+      v-model:show="isOpenCustomerForm" preset="card" title="Chỉnh sửa thông tin khách hàng"
+      style="width: 500px; max-width: 95vw; border-radius: 12px" :bordered="false" class="no-print shadow-xl"
+    >
+      <NForm ref="customerFormRef" :model="customerForm" :rules="customerFormRules" label-placement="top">
+        <NFormItem label="Họ và tên" path="tenKhachHang">
+          <NInput v-model:value="customerForm.tenKhachHang" placeholder="Nhập họ và tên khách hàng" size="large" />
+        </NFormItem>
+
+        <NFormItem label="Số điện thoại" path="sdtKH">
+          <NInput v-model:value="customerForm.sdtKH" placeholder="Nhập số điện thoại" size="large" />
+        </NFormItem>
+
+        <NFormItem label="Email" path="email">
+          <NInput v-model:value="customerForm.email" placeholder="Nhập email (không bắt buộc)" size="large" />
+        </NFormItem>
+
+        <NFormItem label="Địa chỉ" path="diaChi">
+          <NInput
+            v-model:value="customerForm.diaChi" placeholder="Nhập địa chỉ giao hàng" size="large" type="textarea"
+            :rows="3"
+          />
+        </NFormItem>
+      </NForm>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <NButton size="large" @click="isOpenCustomerForm = false">
+            Hủy bỏ
+          </NButton>
+          <NPopconfirm
+            positive-text="Xác nhận" :positive-button-props="{ type: 'success' }" negative-text="Hủy bỏ"
+            @positive-click="handleClickSaveCustomerForm"
+          >
+            <template #trigger>
+              <NButton type="success" size="large" :loading="isSavingCustomer">
+                Lưu thông tin
+              </NButton>
+            </template>
+
+            <template #icon>
+              <NIcon color="#18a058">
+                <CheckmarkCircleOutline />
+              </NIcon>
+            </template>
+
+            Bạn có chắc muốn cập nhật thông tin khách hàng?
+          </NPopconfirm>
+        </div>
+      </template>
+    </NModal>
+
+    <!-- ==================== MODAL: XEM SERIAL ĐÃ GÁN ==================== -->
+    <NModal
+      v-model:show="isOpenSerialInfoModal" preset="card" title="Thông tin Serial"
+      style="width: 500px; border-radius: 12px" :bordered="false" class="no-print shadow-xl"
+    >
+      <div v-if="selectedSerialInfoProduct" class="space-y-4">
+        <div class="flex items-center gap-4 p-4 bg-green-50/50 border border-green-100 rounded-xl">
+          <NAvatar
+            :src="selectedSerialInfoProduct.urlImage" size="large" round
+            fallback-src="https://via.placeholder.com/40" class="border border-green-200 bg-white"
+          />
+          <div>
+            <div class="text-gray-900 text-base mb-1">
+              {{ selectedSerialInfoProduct.nameProductDetail }}
+            </div>
+            <!-- <div class="text-sm text-gray-500">
+              Đã gán <span class="font-bold text-green-600">{{ currentProductSerialInfo.length }}/{{ selectedSerialInfoProduct.soLuongOriginal || selectedSerialInfoProduct.soLuong }}</span> máy
+            </div> -->
+          </div>
+        </div>
+        <div
+          v-if="serialNumberBySelectedSerialInfoProduct.length === 0"
+          class="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200"
+        >
+          <NIcon size="48" class="mb-2 opacity-50">
+            <CubeOutline />
+          </NIcon>
+          <p>Sản phẩm chưa có serial nào</p>
+        </div>
+        <div v-else class="space-y-2 max-h-96 overflow-y-auto pr-2">
+          <div
+            v-for="(imei, index) in serialNumberBySelectedSerialInfoProduct" :key="imei || index"
+            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm"
+          >
+            <div class="flex items-center gap-3">
+              <span class="text-xs text-gray-400 w-4 text-center">{{ index + 1 }}</span>
+              <span class="font-mono text-base tracking-wider">{{ imei }}</span>
+            </div>
+            <NIcon size="18" class="text-green-500">
+              <CheckmarkCircleOutline />
+            </NIcon>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end pt-2">
+          <NButton type="default" round @click="closeSerialInfoModal">
+            Đóng lại
+          </NButton>
+        </div>
+      </template>
+    </NModal>
+  </div>
+</template>
 
 <style scoped>
 /* Custom scrollbar */
