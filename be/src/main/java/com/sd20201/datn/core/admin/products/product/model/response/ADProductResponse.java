@@ -17,9 +17,9 @@ public interface ADProductResponse extends IsIdentify, IsEntityStatus {
 
     String getScreen();
 
-    Integer getMinPrice();
+    Long getMinPrice();
 
-    Integer getMaxPrice();
+    Long getMaxPrice();
 
     Integer getQuantity();
 

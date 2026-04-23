@@ -33,9 +33,10 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.typePayment as typePayment
                 , i.trangThaiThanhToan as trangThaiThanhToan
                 , i.customer.id as idCustomer
+                , i.voucher.id as idVoucher
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
-            WHERE ( i.code = :code OR i.id = :code ) AND i.status = 0 AND i.typeInvoice IN (1, 3)
+            WHERE ( i.code = :code OR i.id = :code ) AND i.status = 0 AND i.typeInvoice IN (1, 2, 3)
             GROUP BY
                 i.id,
                 i.code,
@@ -52,6 +53,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 i.typePayment,
                 i.trangThaiThanhToan,
                 i.customer.id
+                , i.voucher.id
             """)
     Optional<ClientInvoiceDetailResponse> getInvoiceByCode(String code);
 
@@ -73,6 +75,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 , i.typePayment as typePayment
                 , i.trangThaiThanhToan as trangThaiThanhToan
                 , i.customer.id as idCustomer
+                , i.voucher.id as idVoucher
             FROM Invoice i
             LEFT JOIN InvoiceDetail ivd on ivd.invoice.id = i.id
             WHERE i.status = 0
@@ -101,7 +104,8 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
                 i.shippingFee,
                 i.typePayment,
                 i.trangThaiThanhToan,
-                i.customer.id
+                i.customer.id,
+                i.voucher.id
             ORDER BY i.createdDate DESC
             """)
     List<ClientInvoiceDetailResponse> getInvoicesByIdCustomer(ClientGetInvoicesRequest request);
@@ -118,6 +122,7 @@ public interface ClientInvoiceRepository extends InvoiceRepository {
         , lstthd.customer.name as nameCustomer
     FROM LichSuTrangThaiHoaDon lstthd
     LEFT JOIN lstthd.nhanVien nv
+    LEFT JOIN lstthd.customer kh
     WHERE lstthd.hoaDon.id = :idHoaDon
     """)
     List<LichSuTrangThaiHoaDonResponse> getInvoiceLichSuTrangThaiHoaDonByIdHoaDon(String idHoaDon);

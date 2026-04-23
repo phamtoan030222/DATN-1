@@ -29,6 +29,7 @@ import {
   EyeOutline,
   ListOutline,
   PencilOutline,
+  PricetagOutline,
   RemoveOutline,
   SearchOutline,
   TimeOutline,
@@ -38,6 +39,7 @@ import { getProductDetailById } from '@/service/api/client/product/productDetail
 import _ from 'lodash'
 import { useAuthStore } from '@/store'
 import { router } from '@/router'
+import { ADVoucherResponse, getVoucherById } from '@/service/api/client/discount/api.voucher'
 
 interface CustomerForm {
   tenKhachHang: string
@@ -74,6 +76,7 @@ const invoiceDetails = ref<ClientInvoiceDetailsResponse[]>([])
 const updateProductDetails = ref<UpdateProductDetailType[]>([])
 const removeProductDetails = ref<UpdateProductDetailType[]>([])
 const serialNumbers = reactive<Map<string, Array<number>>>(new Map())
+const voucher = ref<ADVoucherResponse | null>(null)
 
 const isOpenSerialInfoModal = ref(false)
 const selectedSerialInfoProduct = ref<ClientInvoiceDetailsResponse | null>(null)
@@ -248,12 +251,14 @@ async function fetchInvoice(query?: string): Promise<void> {
     // load history statuses and details concurrently
     if (invoice.value?.id) {
       try {
-        const [histRes, detailRes] = await Promise.all([
+        const [histRes, detailRes, voucherRes] = await Promise.all([
           getHistoryStatusInvoice(invoice.value.id),
           getInvoiceDetails([invoice.value.id]),
+          getVoucherById(invoice.value.idVoucher),
         ])
         historiesStatusInvoice.value = histRes.data || []
         invoiceDetails.value = _.sortBy(detailRes.data.filter(it => it.idInvoice === invoice.value?.id), 'createdDate') || []
+        voucher.value = voucherRes.data ?? null
 
         updateProductDetails.value = convertInvoiceDetailToUpdateProductDetail(invoiceDetails.value)
 
@@ -498,8 +503,8 @@ async function handleUpdateQuantity(idInvoiceDetail: string, quantity: number) {
     const productDetail = productDetailRes.data
     const salePrice = productDetail.percentage
       ? (
-          productDetail.percentage < 100 ? productDetail.price * (100 - productDetail.percentage) / 100 : productDetail.price - productDetail.percentage
-        )
+        productDetail.percentage < 100 ? productDetail.price * (100 - productDetail.percentage) / 100 : productDetail.price - productDetail.percentage
+      )
       : productDetail.price
     if (salePrice !== invoiceDetail.price) {
       dialog.warning({
@@ -608,10 +613,8 @@ onMounted(() => {
           </div>
 
           <NSpace>
-            <NButton
-              v-if="isCanCancelInvoice" type="error" block ghost :style="{ maxWidth: '150px' }"
-              @click="openCancelModal"
-            >
+            <NButton v-if="isCanCancelInvoice" type="error" block ghost :style="{ maxWidth: '150px' }"
+              @click="openCancelModal">
               <template #icon>
                 <NIcon>
                   <CloseCircleOutline />
@@ -633,33 +636,26 @@ onMounted(() => {
       <div class="relative">
         <div v-if="!isCancelled">
           <div class="pt-2 pb-0 w-full">
-            <div
-              class="relative mx-auto flex justify-between items-start transition-all duration-500"
-              :class="getTimelineContainerWidth(currentVisibleSteps.length)"
-            >
+            <div class="relative mx-auto flex justify-between items-start transition-all duration-500"
+              :class="getTimelineContainerWidth(currentVisibleSteps.length)">
               <template v-for="(step, index) in currentVisibleSteps" :key="`TrackingView-Step-${index}`">
                 <div class="relative flex flex-col items-center flex-1">
                   <!-- LINE -->
-                  <div
-                    v-if="index < currentVisibleSteps.length - 1" class="absolute h-[6px] z-0 left-[50%] w-full"
-                    style="top:45px" :class="isStepCompleted(step.key) ? 'bg-blue-500' : 'bg-gray-200'"
-                  />
+                  <div v-if="index < currentVisibleSteps.length - 1" class="absolute h-[6px] z-0 left-[50%] w-full"
+                    style="top:45px" :class="isStepCompleted(step.key) ? 'bg-blue-500' : 'bg-gray-200'" />
 
                   <!-- ICON -->
                   <div class="h-24 flex items-center justify-center relative z-10 w-full">
                     <div
                       class="rounded-full flex items-center justify-center transition-all duration-300 relative hover:scale-110"
-                      :class="getDynamicIconSizeClass(step.key)"
-                    >
+                      :class="getDynamicIconSizeClass(step.key)">
                       <NIcon :size="getDynamicIconSize(step.key)">
                         <component :is="step.icon" />
                       </NIcon>
 
                       <!-- completed check -->
-                      <div
-                        v-if="isStepCompleted(step.key)"
-                        class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow"
-                      >
+                      <div v-if="isStepCompleted(step.key)"
+                        class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow">
                         <NIcon size="14" color="white">
                           <CheckmarkCircleOutline />
                         </NIcon>
@@ -691,8 +687,7 @@ onMounted(() => {
         <div v-else>
           <div class="flex flex-col items-center">
             <div
-              class="w-15 h-15 rounded-full border-6 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110 text-red-500"
-            >
+              class="w-15 h-15 rounded-full border-6 bg-white flex items-center justify-center mb-3 relative transition-all duration-300 hover:scale-110 text-red-500">
               <NIcon size="30" class="text-red-500 ">
                 <CloseOutline />
               </NIcon>
@@ -704,7 +699,7 @@ onMounted(() => {
                 Đã hủy
               </p>
               <p v-if="historiesStatusInvoice.length > 0" class="text-xs text-red-500">
-                {{ formatTime(historiesStatusInvoice.find(h => h.trangThai == 5)?.thoiGian ?? '0') }}
+                {{formatTime(historiesStatusInvoice.find(h => h.trangThai == 5)?.thoiGian ?? '0')}}
               </p>
             </div>
           </div>
@@ -723,10 +718,8 @@ onMounted(() => {
               <div v-if="isCanCancelInvoice" class="">
                 <n-tooltip trigger="hover">
                   <template #trigger>
-                    <NButton
-                      :bordered="false" circle size="large" secondary type="success"
-                      @click="isOpenCustomerForm = true"
-                    >
+                    <NButton :bordered="false" circle size="large" secondary type="success"
+                      @click="isOpenCustomerForm = true">
                       <NIcon size="20">
                         <PencilOutline />
                       </NIcon>
@@ -768,22 +761,46 @@ onMounted(() => {
             </div>
           </div>
           <div class="flex-1">
-            <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px]">
-              <div class="w-1 bg-[#049d14] rounded m-r-2" />
-              <h2 class="text-2xl font-bold">
-                Trạng thái thanh toán
-              </h2>
-            </div>
-            <div class="p-4 rounded-lg flex flex-col gap-3">
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">Phương thức thanh toán:</span>
-                <span>{{ convertTextFromTypePayment(invoice.typePayment) }}</span>
+            <div>
+              <div v-if="invoice" class="mb-4 p-2 flex m-t-[50px]">
+                <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
+                <h2 class="text-2xl font-bold">
+                  Trạng thái thanh toán
+                </h2>
               </div>
-              <div class="border-b border-gray-300/30 p-2 flex-1">
-                <span class="font-medium mr-2">Trạng thái thanh toán:</span>
-                <n-tag :type="statusPayment">
-                  {{ convertTextFromTrangThaiThanhToan(invoice.trangThaiThanhToan) }}
-                </n-tag>
+              <div class="p-4 rounded-lg flex flex-col gap-3">
+                <div class="border-b border-gray-300/30 p-2 flex-1">
+                  <span class="font-medium mr-2">Phương thức thanh toán:</span>
+                  <span>{{ convertTextFromTypePayment(invoice.typePayment) }}</span>
+                </div>
+                <div class="border-b border-gray-300/30 p-2 flex-1">
+                  <span class="font-medium mr-2">Trạng thái thanh toán:</span>
+                  <n-tag :type="statusPayment">
+                    {{ convertTextFromTrangThaiThanhToan(invoice.trangThaiThanhToan) }}
+                  </n-tag>
+                </div>
+              </div>
+            </div>
+            <div v-if="voucher">
+              <div class="mb-4 p-2 flex m-t-[20px]">
+                <div class="w-1 bg-[#049d14] rounded m-r-2"></div>
+                <h2 class="text-2xl font-bold">
+                  Thông tin hóa đơn
+                </h2>
+              </div>
+              <div class="mt-4 p-3 bg-green-50 rounded-lg border border-green-100">
+                <div class="flex items-center gap-2 mb-1">
+                  <NIcon size="16" color="#10b981">
+                    <PricetagOutline />
+                  </NIcon>
+                  <span class="text-sm font-medium text-green-800">Voucher áp dụng</span>
+                </div>
+                <p class="text-green-700 font-medium">
+                  {{ voucher.code }} - {{ voucher.name }}
+                </p>
+                <p class="text-xs text-green-600 mt-1">
+                  Giảm: {{ formatCurrency(discount) }}
+                </p>
               </div>
             </div>
           </div>
@@ -799,10 +816,8 @@ onMounted(() => {
           <div v-if="isCanCancelInvoice">
             <n-tooltip trigger="hover">
               <template #trigger>
-                <NButton
-                  :bordered="false" circle size="large" secondary type="success"
-                  @click="isEditQuantityProduct = true"
-                >
+                <NButton :bordered="false" circle size="large" secondary type="success"
+                  @click="isEditQuantityProduct = true">
                   <NIcon size="20">
                     <PencilOutline />
                   </NIcon>
@@ -822,10 +837,8 @@ onMounted(() => {
 
         <!-- product list -->
         <div v-if="invoiceDetails.length > 0" class="space-y-4">
-          <div
-            v-for="(detail, index) in invoiceDetails" :key="detail.id"
-            class="flex items-center border-b border-gray-300 p-4"
-          >
+          <div v-for="(detail, index) in invoiceDetails" :key="detail.id"
+            class="flex items-center border-b border-gray-300 p-4">
             <img :src="detail.urlImage" alt="product" class="w-30 h-30 object-contain rounded">
             <div class="flex-1 ml-4">
               <div class="text-base font-medium">
@@ -849,40 +862,32 @@ onMounted(() => {
             <div class="mr-3 flex-2">
               <div class="flex gap-2 items-center w-400px">
                 <span class="mr-3">Số lượng:</span>
-                <button
-                  v-if="isEditQuantityProduct" class="qty-btn"
+                <button v-if="isEditQuantityProduct" class="qty-btn"
                   :disabled="updateProductDetails[index].quantity <= 1 || updateProductDetails[index].itNotEdit"
-                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity - 1)"
-                >
+                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity - 1)">
                   <NIcon size="14">
                     <RemoveOutline />
                   </NIcon>
                 </button>
-                <n-input-number
-                  v-model:value="updateProductDetails[index].quantity" :min="1" :show-button="false"
+                <n-input-number v-model:value="updateProductDetails[index].quantity" :min="1" :show-button="false"
                   size="small" :bordered="isEditQuantityProduct" style="width: 100px" placeholder="Nhập số lượng"
                   :max="5"
                   :input-props="{ style: 'border:none; box-shadow:none; background:transparent; font-weight:600; font-size:15px; padding:0 4px; text-align: center;' }"
                   :readonly="!isEditQuantityProduct || updateProductDetails[index].itNotEdit"
-                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)"
-                />
-                <button
-                  v-if="isEditQuantityProduct" class="qty-btn"
+                  :on-update:value="(value) => value && value > 0 && handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, value)" />
+                <button v-if="isEditQuantityProduct" class="qty-btn"
                   :disabled="updateProductDetails[index].quantity >= 5 || updateProductDetails[index].itNotEdit"
-                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity + 1)"
-                >
+                  @click.stop="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, updateProductDetails[index].quantity + 1)">
                   <NIcon size="14">
                     <AddOutline />
                   </NIcon>
                 </button>
               </div>
-              <div
-                v-if="updateProductDetails[index].isAddByChange || updateProductDetails[index].isChangedByCustomer"
-                class="text-yellow-500 text-12px italic"
-              >
-                <span class="">Giá sản phẩm tằng từ {{ index > 0 && formatCurrency(
+              <div v-if="updateProductDetails[index].isAddByChange || updateProductDetails[index].isChangedByCustomer"
+                class="text-yellow-500 text-12px italic">
+                <span class="">Giá sản phẩm tằng từ {{index > 0 && formatCurrency(
                   _.slice(invoiceDetails, 0, index)
-                    .findLast(it => it.idProductDetail === updateProductDetails[index].idProductDetail)?.price ?? 0) }}
+                    .findLast(it => it.idProductDetail === updateProductDetails[index].idProductDetail)?.price ?? 0)}}
                   lên
                   {{ formatCurrency(updateProductDetails[index].price) }}</span>
               </div>
@@ -891,11 +896,8 @@ onMounted(() => {
               {{ formatCurrency(updateProductDetails[index].totalAmount) }}
             </div>
             <div v-if="isEditQuantityProduct" class="ml-5">
-              <NButton
-                :bordered="false" type="success" circle secondary
-                :disabled="updateProductDetails.length === 1"
-                @click="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, 0)"
-              >
+              <NButton :bordered="false" type="success" circle secondary :disabled="updateProductDetails.length === 1"
+                @click="handleUpdateQuantity(updateProductDetails[index].idInvoiceDetail, 0)">
                 <NIcon>
                   <TrashOutline />
                 </NIcon>
@@ -942,12 +944,10 @@ onMounted(() => {
           <NButton @click="handleClickCancelSaveEditQuantity">
             Hủy
           </NButton>
-          <n-popconfirm
-            :positive-button-props="{
-              type: 'success',
-            }" positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleClickSaveEditQuantity"
-            @negative-click="handleClickCancelSaveEditQuantity"
-          >
+          <n-popconfirm :positive-button-props="{
+            type: 'success',
+          }" positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleClickSaveEditQuantity"
+            @negative-click="handleClickCancelSaveEditQuantity">
             <template #trigger>
               <NButton type="success">
                 Xác nhận
@@ -967,10 +967,8 @@ onMounted(() => {
       </p>
     </NCard>
 
-    <NModal
-      v-model:show="isOpenModalCancelInvoice" preset="card" class="w-30%" :bordered="false" size="huge"
-      content-style="padding-top: 0;"
-    >
+    <NModal v-model:show="isOpenModalCancelInvoice" preset="card" class="w-30%" :bordered="false" size="huge"
+      content-style="padding-top: 0;">
       <template #header>
         <div class="flex items-center gap-3 pt-2">
           <div>
@@ -990,10 +988,8 @@ onMounted(() => {
             Lý do hủy đơn
             <span class="text-red-500 font-bold">*</span>
           </label>
-          <NInput
-            v-model:value="statusNote" type="textarea" placeholder="Bắt buộc nhập lý do hủy đơn hàng..." :rows="3"
-            status="error" class="rounded-lg"
-          />
+          <NInput v-model:value="statusNote" type="textarea" placeholder="Bắt buộc nhập lý do hủy đơn hàng..." :rows="3"
+            status="error" class="rounded-lg" />
           <p v-if="statusNote.trim() === ''" class="text-xs text-red-500 mt-1">
             Vui lòng nhập lí do
           </p>
@@ -1005,17 +1001,13 @@ onMounted(() => {
           <NButton size="large" class="rounded-lg font-medium" @click="isOpenModalCancelInvoice = false">
             Hủy bỏ
           </NButton>
-          <n-popconfirm
-            :positive-button-props="{
-              type: 'success',
-            }" positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleClickCancelInvoice"
-          >
+          <n-popconfirm :positive-button-props="{
+            type: 'success',
+          }" positive-text="Xác nhận" negative-text="Hủy" @positive-click="handleClickCancelInvoice">
             <template #trigger>
-              <NButton
-                type="success" size="large"
+              <NButton type="success" size="large"
                 class="rounded-lg font-bold shadow-md hover:-translate-y-0.5 transition-transform"
-                :disabled="statusNote.length == 0"
-              >
+                :disabled="statusNote.length == 0">
                 Xác hủy đơn hàng
               </NButton>
             </template>
@@ -1026,15 +1018,12 @@ onMounted(() => {
     </NModal>
 
     <!-- ==================== MODAL: LỊCH SỬ ĐƠN HÀNG ==================== -->
-    <NModal
-      v-model:show="isOpenHistoryModel" preset="card" title="Lịch sử đơn hàng"
+    <NModal v-model:show="isOpenHistoryModel" preset="card" title="Lịch sử đơn hàng"
       style="width: 1000px; max-width: 95vw; border-radius: 12px;" class="no-print shadow-2xl" :bordered="false"
-      size="huge"
-    >
+      size="huge">
       <div class="w-full mt-2">
         <div
-          class="grid grid-cols-12 gap-4 pb-4 border-b-2 border-gray-100 text-[13px] font-bold text-gray-500 uppercase tracking-wider"
-        >
+          class="grid grid-cols-12 gap-4 pb-4 border-b-2 border-gray-100 text-[13px] font-bold text-gray-500 uppercase tracking-wider">
           <div class="col-span-3 pl-4">
             Trạng thái
           </div>
@@ -1049,15 +1038,11 @@ onMounted(() => {
           </div>
         </div>
         <div class="divide-y divide-gray-100 max-h-[60vh] overflow-y-auto pr-2 mt-2">
-          <div
-            v-for="(item, index) in historiesStatusInvoice" :key="`HISTORY-INVOICE-${index}`"
-            class="grid grid-cols-12 gap-4 py-4 items-center hover:bg-gray-50/70 transition-colors rounded-lg"
-          >
+          <div v-for="(item, index) in historiesStatusInvoice" :key="`HISTORY-INVOICE-${index}`"
+            class="grid grid-cols-12 gap-4 py-4 items-center hover:bg-gray-50/70 transition-colors rounded-lg">
             <div class="col-span-3 pl-4 flex items-center gap-3">
-              <div
-                class="w-8 h-8 rounded-full flex items-center justify-center"
-                :class="getStepCircleBg(item.trangThai)"
-              >
+              <div class="w-8 h-8 rounded-full flex items-center justify-center"
+                :class="getStepCircleBg(item.trangThai)">
                 <NIcon size="18" :class="getStepIconClass(item.trangThai.toString())">
                   <component :is="getStatusIcon(item.trangThai)" />
                 </NIcon>
@@ -1069,16 +1054,14 @@ onMounted(() => {
             </div>
             <div class="col-span-3 text-[14.5px] text-gray-800 font-semibold">
               {{ item.nameStaff && `${item.nameStaff} (Nhân viên)` || item.nameCustomer && `${item.nameCustomer
-              } (Khách hàng) ` || 'Hệ thống tự động' }}
+                } (Khách hàng) ` || 'Hệ thống tự động' }}
             </div>
             <div class="col-span-3 pr-4 text-[14px] text-gray-600 leading-relaxed">
               {{ item.note || '---' }}
             </div>
           </div>
-          <div
-            v-if="historiesStatusInvoice.length === 0"
-            class="py-16 text-center text-gray-400 flex flex-col items-center"
-          >
+          <div v-if="historiesStatusInvoice.length === 0"
+            class="py-16 text-center text-gray-400 flex flex-col items-center">
             <NIcon size="48" class="mb-3 opacity-30">
               <TimeOutline />
             </NIcon>
@@ -1091,10 +1074,8 @@ onMounted(() => {
     </NModal>
 
     <!-- ==================== MODAL: CHỈNH SỬA KHÁCH HÀNG ==================== -->
-    <NModal
-      v-model:show="isOpenCustomerForm" preset="card" title="Chỉnh sửa thông tin khách hàng"
-      style="width: 500px; max-width: 95vw; border-radius: 12px" :bordered="false" class="no-print shadow-xl"
-    >
+    <NModal v-model:show="isOpenCustomerForm" preset="card" title="Chỉnh sửa thông tin khách hàng"
+      style="width: 500px; max-width: 95vw; border-radius: 12px" :bordered="false" class="no-print shadow-xl">
       <NForm ref="customerFormRef" :model="customerForm" :rules="customerFormRules" label-placement="top">
         <NFormItem label="Họ và tên" path="tenKhachHang">
           <NInput v-model:value="customerForm.tenKhachHang" placeholder="Nhập họ và tên khách hàng" size="large" />
@@ -1109,10 +1090,8 @@ onMounted(() => {
         </NFormItem>
 
         <NFormItem label="Địa chỉ" path="diaChi">
-          <NInput
-            v-model:value="customerForm.diaChi" placeholder="Nhập địa chỉ giao hàng" size="large" type="textarea"
-            :rows="3"
-          />
+          <NInput v-model:value="customerForm.diaChi" placeholder="Nhập địa chỉ giao hàng" size="large" type="textarea"
+            :rows="3" />
         </NFormItem>
       </NForm>
 
@@ -1121,10 +1100,8 @@ onMounted(() => {
           <NButton size="large" @click="isOpenCustomerForm = false">
             Hủy bỏ
           </NButton>
-          <NPopconfirm
-            positive-text="Xác nhận" :positive-button-props="{ type: 'success' }" negative-text="Hủy bỏ"
-            @positive-click="handleClickSaveCustomerForm"
-          >
+          <NPopconfirm positive-text="Xác nhận" :positive-button-props="{ type: 'success' }" negative-text="Hủy bỏ"
+            @positive-click="handleClickSaveCustomerForm">
             <template #trigger>
               <NButton type="success" size="large" :loading="isSavingCustomer">
                 Lưu thông tin
@@ -1144,16 +1121,12 @@ onMounted(() => {
     </NModal>
 
     <!-- ==================== MODAL: XEM SERIAL ĐÃ GÁN ==================== -->
-    <NModal
-      v-model:show="isOpenSerialInfoModal" preset="card" title="Thông tin Serial"
-      style="width: 500px; border-radius: 12px" :bordered="false" class="no-print shadow-xl"
-    >
+    <NModal v-model:show="isOpenSerialInfoModal" preset="card" title="Thông tin Serial"
+      style="width: 500px; border-radius: 12px" :bordered="false" class="no-print shadow-xl">
       <div v-if="selectedSerialInfoProduct" class="space-y-4">
         <div class="flex items-center gap-4 p-4 bg-green-50/50 border border-green-100 rounded-xl">
-          <NAvatar
-            :src="selectedSerialInfoProduct.urlImage" size="large" round
-            fallback-src="https://via.placeholder.com/40" class="border border-green-200 bg-white"
-          />
+          <NAvatar :src="selectedSerialInfoProduct.urlImage" size="large" round
+            fallback-src="https://via.placeholder.com/40" class="border border-green-200 bg-white" />
           <div>
             <div class="text-gray-900 text-base mb-1">
               {{ selectedSerialInfoProduct.nameProductDetail }}
@@ -1163,20 +1136,16 @@ onMounted(() => {
             </div> -->
           </div>
         </div>
-        <div
-          v-if="serialNumberBySelectedSerialInfoProduct.length === 0"
-          class="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200"
-        >
+        <div v-if="serialNumberBySelectedSerialInfoProduct.length === 0"
+          class="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200">
           <NIcon size="48" class="mb-2 opacity-50">
             <CubeOutline />
           </NIcon>
           <p>Sản phẩm chưa có serial nào</p>
         </div>
         <div v-else class="space-y-2 max-h-96 overflow-y-auto pr-2">
-          <div
-            v-for="(imei, index) in serialNumberBySelectedSerialInfoProduct" :key="imei || index"
-            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm"
-          >
+          <div v-for="(imei, index) in serialNumberBySelectedSerialInfoProduct" :key="imei || index"
+            class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 shadow-sm">
             <div class="flex items-center gap-3">
               <span class="text-xs text-gray-400 w-4 text-center">{{ index + 1 }}</span>
               <span class="font-mono text-base tracking-wider">{{ imei }}</span>

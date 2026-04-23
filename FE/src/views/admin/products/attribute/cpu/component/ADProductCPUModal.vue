@@ -71,8 +71,17 @@ async function fetchDetailCPU() {
       }
     }
   }
-  catch (error) {
-    message.error('Lỗi tải thông tin CPU')
+  catch (e: any) {
+    switch (e?.response?.status) {
+      case 400:
+        message.error('Dữ liệu không hợp lệ')
+        break
+      case 409:
+        message.error('Tên CPU đã tồn tại')
+        break
+      default:
+        message.error('Có lỗi xảy ra, vui lòng thử lại')
+    }
   }
   finally {
     loading.value = false
@@ -159,23 +168,10 @@ function handleClickOK() {
 </script>
 
 <template>
-  <NModal
-    :show="isOpen"
-    preset="card"
-    :style="{ width: '600px' }"
-    :title="id ? 'Cập nhật thông tin CPU' : 'Thêm mới CPU'"
-    :bordered="false"
-    size="huge"
-    :mask-closable="false"
-    @close="handleClickCancel"
-  >
-    <NForm
-      ref="formRef"
-      :model="detailCPU"
-      :rules="rules"
-      label-placement="top"
-      size="medium"
-    >
+  <NModal :show="isOpen" preset="card" :style="{ width: '600px' }"
+    :title="id ? 'Cập nhật thông tin CPU' : 'Thêm mới CPU'" :bordered="false" size="huge" :mask-closable="false"
+    @close="handleClickCancel">
+    <NForm ref="formRef" :model="detailCPU" :rules="rules" label-placement="top" size="medium">
       <NGrid :x-gap="12" :cols="2">
         <NGridItem :span="2">
           <NFormItem label="Tên CPU" path="name">
@@ -185,23 +181,14 @@ function handleClickOK() {
 
         <NGridItem>
           <NFormItem label="Hãng sản xuất" path="brand">
-            <NSelect
-              v-model:value="detailCPU.brand"
-              :options="brandOptionsSelect"
-              placeholder="Chọn hãng"
-            />
+            <NSelect v-model:value="detailCPU.brand" :options="brandOptionsSelect" placeholder="Chọn hãng" />
           </NFormItem>
         </NGridItem>
 
         <NGridItem>
           <NFormItem label="Năm phát hành" path="releaseYear">
-            <NDatePicker
-              v-model:value="detailCPU.releaseYear"
-              type="year"
-              clearable
-              placeholder="Chọn năm"
-              style="width: 100%"
-            />
+            <NDatePicker v-model:value="detailCPU.releaseYear" type="year" clearable placeholder="Chọn năm"
+              style="width: 100%" />
           </NFormItem>
         </NGridItem>
         <NGridItem>
@@ -218,12 +205,8 @@ function handleClickOK() {
 
         <NGridItem :span="2">
           <NFormItem label="Mô tả thêm">
-            <NInput
-              v-model:value="detailCPU.description"
-              type="textarea"
-              placeholder="Ghi chú thêm về sản phẩm..."
-              :autosize="{ minRows: 2, maxRows: 4 }"
-            />
+            <NInput v-model:value="detailCPU.description" type="textarea" placeholder="Ghi chú thêm về sản phẩm..."
+              :autosize="{ minRows: 2, maxRows: 4 }" />
           </NFormItem>
         </NGridItem>
       </NGrid>

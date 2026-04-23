@@ -16,8 +16,8 @@ public class ADProductRequest extends PageableRequest {
 
     private String idOperatingSystem;
 
-    private Integer minPrice;
+    private Long minPrice;
 
-    private Integer maxPrice;
+    private Long maxPrice;
 
 }

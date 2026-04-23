@@ -84,7 +84,7 @@ const modalMode = ref<'add' | 'edit'>('add')
 const formData = reactive<CreateBatteryRequest & { id?: string }>({
   name: '',
   brand: '',
-  type: '', 
+  type: '',
   technolyCharging: '',
   capacity: 0,
   removeBattery: false,
@@ -181,7 +181,7 @@ function saveBattery() {
           const payload: CreateBatteryRequest = {
             name: formData.name,
             brand: formData.brand,
-            type: formData.type, 
+            type: formData.type,
             technolyCharging: formData.technolyCharging,
             capacity: Number(formData.capacity),
             removeBattery: Boolean(formData.removeBattery),
@@ -200,8 +200,17 @@ function saveBattery() {
           closeModal()
           fetchBatteries()
         }
-        catch {
-          message.error('Có lỗi xảy ra khi lưu Pin')
+        catch (e: any) {
+          switch (e?.response?.status) {
+            case 400:
+              message.error('Dữ liệu không hợp lệ')
+              break
+            case 409:
+              message.error('Tên pin đã tồn tại')
+              break
+            default:
+              message.error('Có lỗi xảy ra, vui lòng thử lại')
+          }
         }
       },
     })
@@ -376,10 +385,8 @@ const columns: DataTableColumns<BatteryResponse> = [
         <div class="mr-5">
           <NTooltip trigger="hover" placement="top">
             <template #trigger>
-              <NButton
-                size="large" circle secondary type="primary"
-                class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="refreshTable"
-              >
+              <NButton size="large" circle secondary type="primary"
+                class="transition-all duration-200 hover:scale-110 hover:shadow-md" @click="refreshTable">
                 <NIcon size="24">
                   <Icon icon="carbon:filter-reset" />
                 </NIcon>
@@ -394,10 +401,8 @@ const columns: DataTableColumns<BatteryResponse> = [
         <NGrid :x-gap="24" :y-gap="12" cols="1 600:2 800:4">
           <NGridItem span="2">
             <NFormItem label="Tìm kiếm">
-              <NInput
-                v-model:value="searchState.keyword" placeholder="Tìm theo Tên, Hãng, Loại pin..." clearable
-                @input="handleSearch" @keydown.enter="handleSearch"
-              >
+              <NInput v-model:value="searchState.keyword" placeholder="Tìm theo Tên, Hãng, Loại pin..." clearable
+                @input="handleSearch" @keydown.enter="handleSearch">
                 <template #prefix>
                   <Icon icon="carbon:search" class="text-gray-400" />
                 </template>
@@ -431,36 +436,30 @@ const columns: DataTableColumns<BatteryResponse> = [
       <template #header-extra>
         <div class="mr-5">
           <NSpace>
-            <NButton
-              type="primary" secondary
+            <NButton type="primary" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
-              @click="openModal('add')"
-            >
+              @click="openModal('add')">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="carbon:add" />
                 </NIcon>
               </template>
               <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
-              >
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
                 Thêm mới
               </span>
             </NButton>
 
-            <NButton
-              type="info" secondary
+            <NButton type="info" secondary
               class="group rounded-full px-4 transition-all duration-300 ease-in-out hover:shadow-lg"
-              @click="refreshTable"
-            >
+              @click="refreshTable">
               <template #icon>
                 <NIcon size="20">
                   <Icon icon="carbon:rotate" />
                 </NIcon>
               </template>
               <span
-                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2"
-              >
+                class="max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-all duration-300 ease-in-out group-hover:max-w-[150px] group-hover:opacity-100 group-hover:ml-2">
                 Tải lại
               </span>
             </NButton>
@@ -468,26 +467,20 @@ const columns: DataTableColumns<BatteryResponse> = [
         </div>
       </template>
 
-      <NDataTable
-        :columns="columns" :data="tableData" :loading="loading" :row-key="(row) => row.id" :pagination="false"
-        :scroll-x="1000" striped :bordered="false" class="rounded-lg overflow-hidden"
-      />
+      <NDataTable :columns="columns" :data="tableData" :loading="loading" :row-key="(row) => row.id" :pagination="false"
+        :scroll-x="1000" striped :bordered="false" class="rounded-lg overflow-hidden" />
 
       <div class="flex justify-end mt-4">
-        <NPagination
-          v-model:page="currentPage" v-model:page-size="pageSize" :item-count="total"
+        <NPagination v-model:page="currentPage" v-model:page-size="pageSize" :item-count="total"
           :page-sizes="[5, 10, 20, 50]" show-size-picker @update:page="handlePageChange"
-          @update:page-size="handlePageSizeChange"
-        />
+          @update:page-size="handlePageSizeChange" />
       </div>
     </NCard>
 
     <!-- Modal Thêm / Sửa -->
-    <NModal
-      v-model:show="showModal" preset="card" style="width: 640px"
+    <NModal v-model:show="showModal" preset="card" style="width: 640px"
       :title="modalMode === 'add' ? 'Thêm mới Pin' : 'Cập nhật Pin'" :bordered="false" size="huge"
-      class="shadow-2xl rounded-2xl" :closable="false"
-    >
+      class="shadow-2xl rounded-2xl" :closable="false">
       <div class="max-h-[560px] overflow-y-auto pr-4 custom-scrollbar">
         <NForm ref="formRef" label-placement="top" :model="formData" :rules="rules">
           <NFormItem label="Tên Pin" path="name" required>
@@ -511,10 +504,8 @@ const columns: DataTableColumns<BatteryResponse> = [
             <!-- Công nghệ sạc dùng NSelect vì backend là Enum TechnolyCharging -->
             <NGridItem>
               <NFormItem label="Công nghệ sạc" path="technolyCharging" required>
-                <NSelect
-                  v-model:value="formData.technolyCharging" :options="technolyChargingOptions"
-                  placeholder="Chọn công nghệ sạc"
-                />
+                <NSelect v-model:value="formData.technolyCharging" :options="technolyChargingOptions"
+                  placeholder="Chọn công nghệ sạc" />
               </NFormItem>
             </NGridItem>
 
