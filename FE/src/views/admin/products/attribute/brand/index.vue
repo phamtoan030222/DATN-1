@@ -165,8 +165,17 @@ function handleSaveBrand() {
           closeModal()
           fetchBrands()
         }
-        catch (e) {
-          message.error('Có lỗi xảy ra khi lưu thương hiệu')
+        catch (e: any) {
+          switch (e?.response?.status) {
+            case 400:
+              message.error('Dữ liệu không hợp lệ')
+              break
+            case 409:
+              message.error('Tên thương hiệu đã tồn tại')
+              break
+            default:
+              message.error('Có lỗi xảy ra, vui lòng thử lại')
+          }
         }
       },
     })

@@ -77,8 +77,17 @@ async function fetchDetailGPU() {
       }
     }
   }
-  catch (error) {
-    message.error('Lỗi tải thông tin GPU')
+  catch (e: any) {
+    switch (e?.response?.status) {
+      case 400:
+        message.error('Dữ liệu không hợp lệ')
+        break
+      case 409:
+        message.error('Tên GPU đã tồn tại')
+        break
+      default:
+        message.error('Có lỗi xảy ra, vui lòng thử lại')
+    }
   }
   finally {
     loading.value = false
@@ -172,23 +181,10 @@ function handleClickOK() {
 </script>
 
 <template>
-  <NModal
-    :show="isOpen"
-    preset="card"
-    :style="{ width: '600px' }"
-    :title="id ? 'Cập nhật thông tin GPU' : 'Thêm mới GPU'"
-    :bordered="false"
-    size="huge"
-    :mask-closable="false"
-    @close="handleClickCancel"
-  >
-    <NForm
-      ref="formRef"
-      :model="detailGPU"
-      :rules="rules"
-      label-placement="top"
-      size="medium"
-    >
+  <NModal :show="isOpen" preset="card" :style="{ width: '600px' }"
+    :title="id ? 'Cập nhật thông tin GPU' : 'Thêm mới GPU'" :bordered="false" size="huge" :mask-closable="false"
+    @close="handleClickCancel">
+    <NForm ref="formRef" :model="detailGPU" :rules="rules" label-placement="top" size="medium">
       <NGrid :x-gap="12" :cols="2">
         <NGridItem :span="2">
           <NFormItem label="Tên GPU" path="name">
@@ -198,23 +194,14 @@ function handleClickOK() {
 
         <NGridItem>
           <NFormItem label="Hãng sản xuất" path="brand">
-            <NSelect
-              v-model:value="detailGPU.brand"
-              :options="brandOptionsSelect"
-              placeholder="Chọn hãng"
-            />
+            <NSelect v-model:value="detailGPU.brand" :options="brandOptionsSelect" placeholder="Chọn hãng" />
           </NFormItem>
         </NGridItem>
 
         <NGridItem>
           <NFormItem label="Năm phát hành" path="releaseYear">
-            <NDatePicker
-              v-model:value="detailGPU.releaseYear"
-              type="year"
-              clearable
-              placeholder="Chọn năm"
-              style="width: 100%"
-            />
+            <NDatePicker v-model:value="detailGPU.releaseYear" type="year" clearable placeholder="Chọn năm"
+              style="width: 100%" />
           </NFormItem>
         </NGridItem>
 
@@ -232,12 +219,8 @@ function handleClickOK() {
 
         <NGridItem :span="2">
           <NFormItem label="Mô tả thêm">
-            <NInput
-              v-model:value="detailGPU.description"
-              type="textarea"
-              placeholder="Ghi chú thêm về sản phẩm..."
-              :autosize="{ minRows: 2, maxRows: 4 }"
-            />
+            <NInput v-model:value="detailGPU.description" type="textarea" placeholder="Ghi chú thêm về sản phẩm..."
+              :autosize="{ minRows: 2, maxRows: 4 }" />
           </NFormItem>
         </NGridItem>
       </NGrid>
@@ -249,12 +232,7 @@ function handleClickOK() {
           Hủy
         </NButton>
 
-        <NButton
-          type="primary"
-          :loading="loading"
-          icon-placement="right"
-          @click="handleClickOK"
-        >
+        <NButton type="primary" :loading="loading" icon-placement="right" @click="handleClickOK">
           {{ id ? 'Lưu thay đổi' : 'Thêm mới' }}
           <template #icon>
             <Icon icon="carbon:save" />

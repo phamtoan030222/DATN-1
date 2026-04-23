@@ -166,8 +166,17 @@ function handleSaveOperatingSystem() {
           closeModal()
           fetchOperatingSystems()
         }
-        catch (e) {
-          message.error('Có lỗi xảy ra khi lưu dữ liệu')
+        catch (e: any) {
+          switch (e?.response?.status) {
+            case 400:
+              message.error('Dữ liệu không hợp lệ')
+              break
+            case 409:
+              message.error('Tên hệ điều hành đã tồn tại')
+              break
+            default:
+              message.error('Có lỗi xảy ra, vui lòng thử lại')
+          }
         }
       },
     })

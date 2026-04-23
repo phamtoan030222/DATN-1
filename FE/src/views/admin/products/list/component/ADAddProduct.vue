@@ -186,36 +186,25 @@ const columns: DataTableColumns<ADPRTableProductDetail> = [
     width: 200,
     align: 'center',
     render: (data: ADPRTableProductDetail, index: number) => {
-      return !data.isExist
-        ? (!(isEditPriceInputTable.value.idColor === data.idColor && isEditPriceInputTable.value.index === index)
-            ? h('span', {
-                innerText: data.price
-                  ? `${(`${data.price}`).split('').reduce((prev, curr, index, arr) => {
-                    if ((arr.length - index) % 3 == 0)
-                      return `${prev} ${curr}`
-                    return prev + curr
-                  }, '')} vnđ`
-                  : 'Chưa có giá cho biến thể này',
-                onClick: () => { handleClickPriceTable(data.idColor, index) },
-              })
-            : h(NInputNumber, {
+        return !data.isExist ?
+            h(NInputNumber, {
                 style: { width: '100%' },
                 placeholder: 'Nhập giá',
-                value: priceTableValue.value.find(item => item.idColor === data.idColor)?.value,
+                value: data.price,
                 onUpdateValue: (val) => {
-                  const existingItem = priceTableValue.value.find(item => item.idColor === data.idColor)
-                  if (existingItem) {
-                    priceTableValue.value = priceTableValue.value.map(item => item.idColor === data.idColor ? { ...item, value: val as number } : item)
-                    return
-                  }
+                    const existingItem = priceTableValue.value.find(item => item.idColor === data.idColor)
+                    if (existingItem) {
+                        priceTableValue.value = priceTableValue.value.map(item => item.idColor === data.idColor ? { ...item, value: val as number } : item)
+                        handleEnterPrice(data.idColor, index)
+                        return
+                    }
 
-                  priceTableValue.value.push({ idColor: data.idColor, value: val as number })
+                    priceTableValue.value.push({ idColor: data.idColor, value: val as number })
+                    handleEnterPrice(data.idColor, index)
                 },
-                onBlur: () => {
-                  handleEnterPrice(data.idColor, index)
-                },
-              }))
-        : h('span', { style: { color: 'red' }, innerText: 'Biến thể đã tồn tại trong hệ thống' })
+                showButton: false,
+            },
+        ) : h('span', { style: { color: 'red' }, innerText: 'Biến thể đã tồn tại trong hệ thống' })
     },
   },
   {
@@ -791,6 +780,8 @@ function parseCurrency(input: string): number | null {
         </n-form>
       </NSpace>
     </n-card>
+    {{ productDetails.map((it, index) => ({ index, price: it.price })) }}
+
     <!-- title="Danh sách biến thể" -->
     <n-card
       v-for="productDetailList in partitionProductDetailsByColor"

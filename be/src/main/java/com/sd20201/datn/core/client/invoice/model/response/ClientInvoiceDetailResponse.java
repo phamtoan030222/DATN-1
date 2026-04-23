@@ -36,4 +36,6 @@ public interface ClientInvoiceDetailResponse {
     String getTrangThaiThanhToan();
 
     String getIdCustomer();
+
+    String getIdVoucher();
 }
